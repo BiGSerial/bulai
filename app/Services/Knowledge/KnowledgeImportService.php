@@ -4,30 +4,19 @@ namespace App\Services\Knowledge;
 
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\KnowledgeDocument;
-use App\Models\Knowledge\KnowledgeSource;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class KnowledgeImportService
 {
+    public function __construct(private readonly KnowledgeSourceService $sourceService) {}
+
     public function import(array $payload): KnowledgeDocument
     {
         return DB::transaction(function () use ($payload): KnowledgeDocument {
             $sourcePayload = $payload['source'];
 
-            $source = KnowledgeSource::query()->firstOrCreate(
-                [
-                    'name' => $sourcePayload['name'],
-                    'organization' => $sourcePayload['organization'] ?? null,
-                ],
-                [
-                    'type' => $sourcePayload['type'] ?? 'document',
-                    'url' => $sourcePayload['url'] ?? null,
-                    'description' => $sourcePayload['description'] ?? null,
-                    'priority' => $sourcePayload['priority'] ?? null,
-                    'active' => true,
-                ],
-            );
+            $source = $this->sourceService->findOrCreateImported($sourcePayload);
 
             $batch = null;
             if (isset($payload['batch'])) {

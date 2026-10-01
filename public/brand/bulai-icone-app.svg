@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024.0 1024.0" width="1024" height="1024" role="img"><title>Ícone do app BULAI</title>
+<rect width="1024" height="1024" rx="232" fill="#12344D"/>
+<g transform="translate(137.0 234.22222222222223) scale(6.944444444444445) translate(-6 -24)">
+<path d="M22 72 L14 100 L46 78 Z" fill="#F7F4EE"/>
+<path d="M58.5 30 H36 A26 26 0 0 0 36 82 H58.5 Z" fill="#F7F4EE"/>
+<path d="M61.5 30 H84 A26 26 0 0 1 84 82 H61.5 Z" fill="#F0913F"/>
+<circle cx="38" cy="56" r="6" fill="#12344D"/><circle cx="60" cy="56" r="6" fill="#12344D"/><circle cx="82" cy="56" r="6" fill="#12344D"/>
+</g>
+</svg>

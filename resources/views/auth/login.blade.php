@@ -8,6 +8,7 @@
         body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f4f7f9; color: #172026; }
         main { width: min(420px, calc(100% - 32px)); }
         form { display: grid; gap: 16px; padding: 28px; background: #ffffff; border: 1px solid #d8e0e6; border-radius: 8px; box-shadow: 0 12px 32px rgb(23 32 38 / 8%); }
+        .brand { display: block; width: min(300px, 100%); height: auto; margin: 0 auto 4px; }
         h1 { margin: 0 0 4px; font-size: 24px; line-height: 1.2; }
         label { display: grid; gap: 6px; font-size: 14px; font-weight: 600; }
         input[type="email"], input[type="password"] { box-sizing: border-box; width: 100%; border: 1px solid #bac7d1; border-radius: 6px; padding: 11px 12px; font: inherit; }
@@ -21,7 +22,8 @@
         <form method="POST" action="{{ route('login.store') }}">
             @csrf
 
-            <h1>BULA-IA Admin</h1>
+            <img class="brand" src="/brand/bulai-logo-horizontal-transparente.svg" alt="BULAI — Bulas Inteligentes">
+            <h1>Área administrativa</h1>
 
             @error('email')
                 <p class="error">{{ $message }}</p>

@@ -9,7 +9,7 @@
     "theme_color": "#0f766e",
     "icons": [
         {
-            "src": "/icon.svg",
+            "src": "/brand/bulai-icone-app.svg",
             "sizes": "any",
             "type": "image/svg+xml",
             "purpose": "any maskable"

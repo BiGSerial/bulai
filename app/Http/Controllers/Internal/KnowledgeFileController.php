@@ -22,7 +22,6 @@ class KnowledgeFileController extends Controller
             'document_id' => $document->id,
             'file_status' => $document->file_status,
             'sha256' => $document->sha256,
-            'storage_path' => $document->storage_path,
         ]);
     }
 }

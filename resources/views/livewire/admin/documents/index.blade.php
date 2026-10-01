@@ -2,7 +2,7 @@
     <header class="border-b border-slate-200 bg-white">
         <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <div>
-                <p class="text-sm font-semibold text-teal-700">BULA-IA Admin</p>
+                <a class="inline-flex" href="{{ route('admin.knowledge.dashboard') }}" wire:navigate aria-label="BULAI — início do Knowledge Admin"><img class="h-12 w-auto sm:h-14" src="/brand/bulai-logo-horizontal-transparente.svg" alt="BULAI — Bulas Inteligentes"></a>
                 <h1 class="mt-1 text-2xl font-semibold tracking-normal text-slate-950">Documentos</h1>
             </div>
 
@@ -14,6 +14,12 @@
                 </button>
             </form>
         </div>
+        <nav aria-label="Knowledge Admin" class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-3 sm:px-6 lg:px-8">
+            <a class="whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold text-slate-600" href="{{ route('admin.knowledge.dashboard') }}" wire:navigate>Visão geral</a>
+            <a class="whitespace-nowrap rounded-md bg-teal-50 px-3 py-2 text-sm font-semibold text-teal-800" href="{{ route('admin.knowledge.documents.index') }}" wire:navigate>Documentos</a>
+            <a class="whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold text-slate-600" href="{{ route('admin.knowledge.batches.index') }}" wire:navigate>Importações</a>
+            <a class="whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold text-slate-600" href="{{ route('admin.knowledge.pending.index') }}" wire:navigate>Pendências</a>
+        </nav>
     </header>
 
     <main class="mx-auto grid max-w-7xl gap-5 px-4 py-6 sm:px-6 lg:px-8">
@@ -30,6 +36,7 @@
                 </label>
 
                 <div class="flex items-center gap-2">
+                    <a class="rounded-md border border-teal-700 bg-white px-3 py-2 text-sm font-semibold text-teal-800" href="{{ route('admin.knowledge.documents.create') }}" wire:navigate>Novo documento</a>
                     <button
                         class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
                         type="button"
@@ -85,7 +92,7 @@
                         @forelse ($documents as $document)
                             <tr class="hover:bg-slate-50">
                                 <td class="px-4 py-4 align-top">
-                                    <a class="font-semibold text-teal-700 hover:text-teal-900" href="{{ route('admin.documents.show', $document) }}" wire:navigate>
+                                    <a class="font-semibold text-teal-700 hover:text-teal-900" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate>
                                         {{ $document->title }}
                                     </a>
                                     <div class="mt-1 text-sm text-slate-500">{{ $document->external_key }}</div>

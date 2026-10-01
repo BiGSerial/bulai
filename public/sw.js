@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    if (url.pathname.startsWith('/build/') || url.pathname === '/icon.svg' || url.pathname === '/manifest.webmanifest') {
+    if (url.pathname.startsWith('/build/') || url.pathname.startsWith('/brand/') || url.pathname === '/manifest.webmanifest') {
         event.respondWith(
             caches.match(request).then((cached) => cached || fetch(request).then((response) => {
                 const copy = response.clone();

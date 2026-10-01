@@ -8,7 +8,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="BULA-IA">
     <link rel="manifest" href="/manifest.webmanifest">
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="/brand/bulai-icone-app.svg" type="image/svg+xml">
 
     <title>{{ $title ?? config('app.name') }}</title>
 

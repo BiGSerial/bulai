@@ -15,7 +15,8 @@ class AuthenticationTest extends TestCase
         $this
             ->get('/login')
             ->assertOk()
-            ->assertSee('BULA-IA Admin');
+            ->assertSee('Área administrativa')
+            ->assertSee('/brand/bulai-logo-horizontal-transparente.svg', false);
     }
 
     public function test_valid_credentials_authenticate_user_and_redirect_to_admin_documents(): void

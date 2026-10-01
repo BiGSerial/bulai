@@ -47,6 +47,8 @@ class Index extends Component
                     $query
                         ->whereLike('title', $search)
                         ->orWhereLike('external_key', $search)
+                        ->orWhereLike('source_document_id', $search)
+                        ->orWhereLike('normalized_filename', $search)
                         ->orWhereLike('document_type', $search);
                 });
             })
