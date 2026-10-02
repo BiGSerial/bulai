@@ -40,6 +40,25 @@ class KnowledgeDocument extends Model
 
     public const STATUS_FAILED = 'FAILED';
 
+    /**
+     * @return array<string, string>
+     */
+    public static function documentTypeOptions(): array
+    {
+        return [
+            'bula' => 'Bula',
+            'bula_paciente' => 'Bula do paciente',
+            'bula_profissional' => 'Bula do profissional',
+            'documento_regulatorio' => 'Documento regulatório',
+            'outro' => 'Outro',
+        ];
+    }
+
+    public function documentTypeLabel(): string
+    {
+        return self::documentTypeOptions()[$this->document_type] ?? (string) $this->document_type;
+    }
+
     protected function casts(): array
     {
         return [

@@ -24,7 +24,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
             'holder' => null, 'audience' => null, 'document_type' => null, 'title' => null];
         $evidence = [];
         $ambiguous = [];
-        $this->identifyProductAndIngredient($pages, $fields, $evidence);
+        $productIdentityIsReliable = $this->identifyProductAndIngredient($pages, $fields, $evidence, $ambiguous);
         $this->identifyRegistration($pages, $fields, $evidence, $ambiguous);
         $this->identifyAudience($pages, $fields, $evidence, $ambiguous);
         $this->identifyHolder($pages, $fields, $evidence);
@@ -36,7 +36,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
 
         $score = ($fields['registration_number_normalized'] !== null ? 40 : 0) + ($fields['product_name'] !== null ? 25 : 0)
             + ($fields['document_type'] !== null ? 20 : 0) + ($fields['active_ingredient'] !== null ? 10 : 0) + ($fields['holder'] !== null ? 5 : 0);
-        $eligible = $score >= 80 && $ambiguous === [] && $fields['title'] !== null && $fields['document_type'] !== null && $fields['registration_number_normalized'] !== null;
+        $eligible = $score >= 80 && $productIdentityIsReliable && $ambiguous === [] && $fields['title'] !== null && $fields['document_type'] !== null && $fields['registration_number_normalized'] !== null;
 
         return new DocumentIdentification(self::class, $fields, $evidence, $ambiguous, $score, $eligible, count($pages));
     }
@@ -53,30 +53,62 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
         return array_values($pages);
     }
 
-    /** @param list<ExtractedPage> $pages @param array<string, string|null> $fields @param array<string, array{value: string, page: int, pattern: string}> $evidence */
-    private function identifyProductAndIngredient(array $pages, array &$fields, array &$evidence): void
+    /**
+     * @param  list<ExtractedPage>  $pages
+     * @param  array<string, string|null>  $fields
+     * @param  array<string, array{value: string, page: int, pattern: string}>  $evidence
+     * @param  list<string>  $ambiguous
+     */
+    private function identifyProductAndIngredient(array $pages, array &$fields, array &$evidence, array &$ambiguous): bool
     {
+        $productCandidates = [];
+        $ingredientCandidates = [];
+
         foreach ($pages as $page) {
+            if (preg_match('/IDENTIFICA[CÇ][AÃ]O\s+DO\s+MEDICAMENTO\s*\R+(?:\s*\R)*([^\r\n]{2,120})/iu', $page->text, $match) === 1) {
+                $this->addCandidate($productCandidates, $match[1], $page->number, 'identification_section_heading', 40);
+            }
+
             if (preg_match('/^\s*([^\n]{2,100})\R\s*([^\n]{3,120})\R\s*(?:APRESENTAÇÕES|APRESENTACAO)/imu', $page->text, $match) === 1) {
-                $fields['product_name'] = $this->clean($match[1]);
-                $fields['active_ingredient'] = $this->clean($match[2]);
-                $evidence['product_name'] = ['value' => $fields['product_name'], 'page' => $page->number, 'pattern' => 'heading_near_active_ingredient'];
-                $evidence['active_ingredient'] = ['value' => $fields['active_ingredient'], 'page' => $page->number, 'pattern' => 'ingredient_near_heading'];
-
-                return;
+                $subtitle = $this->clean($match[2]);
+                $isGenericMarker = preg_match('/\bmedicamento\s+gen[eé]rico\b.*\blei\s+n?[º°o]?\.?\s*9\.?787\b/iu', $subtitle) === 1;
+                $this->addCandidate($productCandidates, $match[1], $page->number, 'heading_before_presentations', 40);
+                if ($isGenericMarker) {
+                    $evidence['generic_marker'] = ['value' => $subtitle, 'page' => $page->number, 'pattern' => 'generic_medicine_legal_marker'];
+                    $this->addCandidate($ingredientCandidates, $match[1], $page->number, 'generic_product_name_is_active_ingredient', 50);
+                } else {
+                    $this->addCandidate($ingredientCandidates, $subtitle, $page->number, 'ingredient_near_heading', 25);
+                }
             }
-        }
 
-        foreach ($pages as $page) {
             if (preg_match('/^\s*([^\n]{2,100})\R\s*\(([^\n)]{3,120})\)/mu', $page->text, $match) === 1) {
-                $fields['product_name'] = $this->clean($match[1]);
-                $fields['active_ingredient'] = $this->clean($match[2]);
-                $evidence['product_name'] = ['value' => $fields['product_name'], 'page' => $page->number, 'pattern' => 'title_followed_by_parenthesized_ingredient'];
-                $evidence['active_ingredient'] = ['value' => $fields['active_ingredient'], 'page' => $page->number, 'pattern' => 'parenthesized_ingredient'];
+                $this->addCandidate($productCandidates, $match[1], $page->number, 'title_followed_by_parenthesized_ingredient', 35);
+                $this->addCandidate($ingredientCandidates, $match[2], $page->number, 'parenthesized_ingredient', 50);
+            }
 
-                return;
+            foreach ($this->compositionCandidates($page) as $candidate) {
+                $this->addCandidate($ingredientCandidates, $candidate, $page->number, 'composition_statement', 40);
             }
         }
+
+        $product = $this->selectCandidate($productCandidates, 'product_name', $ambiguous);
+        $ingredient = $this->selectCandidate($ingredientCandidates, 'active_ingredient', $ambiguous);
+
+        if ($product !== null) {
+            $fields['product_name'] = $product['value'];
+            $evidence['product_name'] = ['value' => $product['value'], 'page' => $product['page'], 'pattern' => $product['pattern']];
+        }
+        if ($ingredient !== null) {
+            $fields['active_ingredient'] = $ingredient['value'];
+            $evidence['active_ingredient'] = ['value' => $ingredient['value'], 'page' => $ingredient['page'], 'pattern' => $ingredient['pattern']];
+        }
+
+        $converges = $product !== null && $ingredient !== null && $this->normalizedIdentity($product['value']) === $this->normalizedIdentity($ingredient['value']);
+        if ($converges) {
+            $evidence['identity_convergence'] = ['value' => $product['value'], 'page' => $ingredient['page'], 'pattern' => 'product_confirmed_by_active_ingredient'];
+        }
+
+        return $product !== null && ($product['weight'] >= 35 || $converges);
     }
 
     /** @param list<ExtractedPage> $pages @param array<string, string|null> $fields @param array<string, array{value: string, page: int, pattern: string}> $evidence @param list<string> $ambiguous */
@@ -84,7 +116,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
     {
         $candidates = [];
         foreach ($pages as $page) {
-            preg_match_all('/(?:Registro|Reg\.)\h*[:.]?\h*([0-9][0-9.\t -]{7,20})/iu', $page->text, $matches);
+            preg_match_all('/(?:Registro(?:\h+MS)?|Reg\.?|M\.?S\.?)\h*(?:n[º°o]\.?)?\h*[:.-]?\h*([0-9][0-9.\t \/-]{7,20})/iu', $page->text, $matches);
             foreach ($matches[1] as $candidate) {
                 $normalized = preg_replace('/\D/', '', $candidate) ?? '';
                 if (in_array(strlen($normalized), [9, 13], true)) {
@@ -146,5 +178,82 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
     private function clean(string $value): string
     {
         return trim(preg_replace('/\s+/u', ' ', $value) ?? $value, " \t\n\r\0\x0B-");
+    }
+
+    /** @param array<string, array{value: string, page: int, pattern: string, weight: int}> $candidates */
+    private function addCandidate(array &$candidates, string $value, int $page, string $pattern, int $weight): void
+    {
+        $value = $this->clean($value);
+        $value = preg_replace('/^Nome\h+gen[eé]rico\h*:\h*/iu', '', $value) ?? $value;
+        $value = preg_replace('/\h*\(DCB\h*:\h*\d+\)\h*$/iu', '', $value) ?? $value;
+        $value = $this->clean($value);
+        if ($this->isRejectedIdentityCandidate($value)) {
+            return;
+        }
+
+        $key = $this->normalizedIdentity($value);
+        if ($key === '') {
+            return;
+        }
+
+        if (! isset($candidates[$key]) || $weight > $candidates[$key]['weight']) {
+            $candidates[$key] = compact('value', 'page', 'pattern', 'weight');
+        }
+    }
+
+    /**
+     * @param  array<string, array{value: string, page: int, pattern: string, weight: int}>  $candidates
+     * @param  list<string>  $ambiguous
+     * @return array{value: string, page: int, pattern: string, weight: int}|null
+     */
+    private function selectCandidate(array $candidates, string $field, array &$ambiguous): ?array
+    {
+        if ($candidates === []) {
+            return null;
+        }
+
+        uasort($candidates, fn (array $left, array $right): int => $right['weight'] <=> $left['weight']);
+        $ranked = array_values($candidates);
+        if (isset($ranked[1]) && $ranked[0]['weight'] === $ranked[1]['weight']) {
+            $ambiguous[] = $field;
+
+            return null;
+        }
+
+        return $ranked[0];
+    }
+
+    /** @return list<string> */
+    private function compositionCandidates(ExtractedPage $page): array
+    {
+        $candidates = [];
+        if (preg_match('/\bCOMPOSI[CÇ][AÃ]O\b(.{0,1600})/isu', $page->text, $section) !== 1) {
+            return [];
+        }
+
+        preg_match_all('/cada\h+[^\r\n:]{1,100}\h+cont[eé]m\h*:?\h*([^\r\n.;]{2,160})/iu', $section[1], $matches);
+        foreach ($matches[1] as $candidate) {
+            $candidate = preg_split('/\h+(?:[.·•…]{2,}|\d+(?:[,.]\d+)?\h*(?:mg|mcg|g|ml|%))/iu', $candidate, 2)[0] ?? $candidate;
+            $candidates[] = $candidate;
+        }
+
+        return $candidates;
+    }
+
+    private function isRejectedIdentityCandidate(string $value): bool
+    {
+        if (mb_strlen($value) < 2 || preg_match('/^\d+[\d\s.\/-]*$/u', $value) === 1) {
+            return true;
+        }
+
+        return preg_match('/^(?:I+\h*[-–.]?\h*)?(?:IDENTIFICA[CÇ][AÃ]O\h+DO\h+MEDICAMENTO|MODELO\h+DE\h+BULA|TEXTO\h+DE\h+BULA|RDC\b|APRESENTA[CÇ][OÕ]ES?|COMPOSI[CÇ][AÃ]O|MEDICAMENTO\h+GEN[EÉ]RICO|INFORMA[CÇ][OÕ]ES?\b|EXPEDIENTE\b)/iu', $value) === 1
+            || preg_match('/\bLei\h+n?[º°o]?\.?\h*9\.?787\b/iu', $value) === 1
+            || preg_match('/^(?:VP\h*\/\h*VPS|VPS?)(?:\h|$)/iu', $value) === 1
+            || preg_match('/\bX\h*\d+(?:[,.]\d+)?\h*(?:ML|MG|G|COMPRIMIDOS?|C[ÁA]PSULAS?|FRASCOS?)\b/iu', $value) === 1;
+    }
+
+    private function normalizedIdentity(string $value): string
+    {
+        return preg_replace('/[^a-z0-9]+/', '', Str::ascii(Str::lower($value))) ?? '';
     }
 }

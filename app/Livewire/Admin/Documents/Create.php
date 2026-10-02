@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Documents;
 
+use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeSource;
 use App\Services\Knowledge\KnowledgeDocumentLifecycleService;
 use Illuminate\Contracts\View\View;
@@ -25,7 +26,7 @@ class Create extends Component
         $validated = $this->validate([
             'sourceId' => ['required', 'integer', Rule::exists('knowledge_sources', 'id')->where('active', true)],
             'title' => ['required', 'string', 'max:255'],
-            'documentType' => ['required', Rule::in(['bula', 'bula_paciente', 'bula_profissional', 'documento_regulatorio', 'outro'])],
+            'documentType' => ['required', Rule::in(array_keys(KnowledgeDocument::documentTypeOptions()))],
             'externalKey' => ['nullable', 'string', 'max:255'],
             'sourceDocumentId' => ['nullable', 'string', 'max:255'],
         ]);
@@ -39,6 +40,6 @@ class Create extends Component
     public function render(): View
     {
         return view('livewire.admin.documents.create', ['sources' => KnowledgeSource::query()->active()->orderBy('name')->orderBy('collection')->get()])
-            ->title('Criar documento - BULA-IA');
+            ->title('Criar documento · BULAI');
     }
 }

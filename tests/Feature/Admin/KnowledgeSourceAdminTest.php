@@ -22,7 +22,7 @@ class KnowledgeSourceAdminTest extends TestCase
     {
         $this->get('/admin/knowledge/sources')->assertRedirect('/login');
         $this->actingAs(User::factory()->create())->get('/admin/knowledge/sources')->assertForbidden();
-        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/sources')->assertOk()->assertSee('Origens dos documentos');
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/sources')->assertOk()->assertSee('Origens');
     }
 
     public function test_admin_creates_and_edits_a_document_origin(): void

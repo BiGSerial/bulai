@@ -74,7 +74,7 @@ class KnowledgePreliminaryIdentificationTest extends TestCase
         $this->assertDatabaseCount('knowledge_documents', 0);
 
         Livewire::actingAs(User::factory()->admin()->create())->test(Review::class, ['batch' => $batch, 'item' => $item])
-            ->assertSee('Informações candidatas identificadas')->assertSee('NOVALGINA')
+            ->assertSee('Dados identificados no PDF')->assertSee('NOVALGINA')
             ->assertSet('newDocumentTitle', 'NOVALGINA — Bula do paciente')->assertSet('newDocumentType', 'bula_paciente');
     }
 

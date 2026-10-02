@@ -37,9 +37,9 @@ class KnowledgeDocumentProcessingAdminTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.knowledge.documents.show', $document));
 
         $response->assertOk()
-            ->assertSee('Chunks (1)')
+            ->assertSee('Trechos (1)')
             ->assertSee('CONTRAINDICAÇÕES')
-            ->assertSee('paginas 4-5')
+            ->assertSee('páginas 4-5')
             ->assertSee('Não utilizar em caso de hipersensibilidade.')
             ->assertDontSee('knowledge/originals/1/private-file.pdf');
     }

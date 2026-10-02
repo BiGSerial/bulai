@@ -60,6 +60,25 @@ class KnowledgeBatchApiTest extends TestCase
         Storage::disk('public')->assertDirectoryEmpty('/');
     }
 
+    public function test_batch_api_rejects_files_when_their_aggregate_size_exceeds_the_configured_limit(): void
+    {
+        [, $plainToken] = $this->token();
+        config()->set('knowledge.ingestion.max_batch_kilobytes', 1);
+
+        $response = $this->withToken($plainToken)->postJson('/api/internal/knowledge/batches', [
+            'batch' => ['name' => 'Lote acima do limite'],
+            'items' => [
+                ['file' => $this->pdf('a.pdf', str_repeat('a', 700))],
+                ['file' => $this->pdf('b.pdf', str_repeat('b', 700))],
+            ],
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['items'])
+            ->assertJsonPath('errors.items.0', 'O tamanho total dos PDFs não pode ultrapassar o limite de 100 MB por importação.');
+        $this->assertDatabaseCount('ingestion_batches', 0);
+    }
+
     public function test_known_sha256_is_detected_as_duplicate_without_reattaching(): void
     {
         Storage::fake('local');

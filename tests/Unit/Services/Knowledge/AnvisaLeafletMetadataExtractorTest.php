@@ -35,6 +35,80 @@ class AnvisaLeafletMetadataExtractorTest extends TestCase
         $this->assertFalse($result->automaticCreationEligible);
     }
 
+    public function test_generic_leaflet_uses_product_name_as_active_ingredient_instead_of_legal_marker(): void
+    {
+        $pdf = new ExtractedPdf([new ExtractedPage(2, "I - IDENTIFICAÇÃO DO MEDICAMENTO\nlosartana potássica + hidroclorotiazida\n“Medicamento Genérico, Lei n°. 9.787, de 1999”.\n\nAPRESENTAÇÕES\nCOMPOSIÇÃO\nII - INFORMAÇÕES AO PACIENTE")]);
+
+        $result = app(AnvisaLeafletMetadataExtractor::class)->identify($pdf);
+
+        $this->assertSame('losartana potássica + hidroclorotiazida', $result->fields['product_name']);
+        $this->assertSame('losartana potássica + hidroclorotiazida', $result->fields['active_ingredient']);
+        $this->assertSame('generic_product_name_is_active_ingredient', $result->evidence['active_ingredient']['pattern']);
+        $this->assertSame('“Medicamento Genérico, Lei n°. 9.787, de 1999”.', $result->evidence['generic_marker']['value']);
+        $this->assertSame('bula_paciente', $result->fields['document_type']);
+        $this->assertSame(55, $result->score);
+    }
+
+    public function test_rejects_regulatory_headings_and_confirms_generic_identity_from_composition(): void
+    {
+        $pdf = new ExtractedPdf([
+            new ExtractedPage(1, "RDC Texto de Bula\nMODELO DE BULA PARA O PROFISSIONAL DE SAÚDE"),
+            new ExtractedPage(2, "I - IDENTIFICAÇÃO DO MEDICAMENTO\nlosartana potássica\nMedicamento Genérico, Lei nº 9.787, de 1999\nAPRESENTAÇÕES\nCOMPOSIÇÃO\nCada comprimido revestido contém: losartana potássica ................ 50 mg. Excipientes: lactose."),
+        ]);
+
+        $result = app(AnvisaLeafletMetadataExtractor::class)->identify($pdf);
+
+        $this->assertSame('losartana potássica', $result->fields['product_name']);
+        $this->assertSame('losartana potássica', $result->fields['active_ingredient']);
+        $this->assertSame('product_confirmed_by_active_ingredient', $result->evidence['identity_convergence']['pattern']);
+        $this->assertSame('losartana potássica — Bula do profissional de saúde', $result->fields['title']);
+        $this->assertNotContains('product_name', $result->ambiguousFields);
+    }
+
+    public function test_extracts_registration_from_ms_label(): void
+    {
+        $pdf = new ExtractedPdf([
+            new ExtractedPage(1, "I - IDENTIFICAÇÃO DO MEDICAMENTO\nlosartana potássica\nMedicamento Genérico, Lei nº 9.787, de 1999\nAPRESENTAÇÕES\nBula para o paciente"),
+            new ExtractedPage(2, 'MS nº 1.0043.0993'),
+        ]);
+
+        $result = app(AnvisaLeafletMetadataExtractor::class)->identify($pdf);
+
+        $this->assertSame('1.0043.0993', $result->fields['registration_number']);
+        $this->assertSame('100430993', $result->fields['registration_number_normalized']);
+        $this->assertSame('anvisa_registration_after_label', $result->evidence['registration_number']['pattern']);
+        $this->assertTrue($result->automaticCreationEligible);
+    }
+
+    public function test_equally_strong_conflicting_product_candidates_are_ambiguous(): void
+    {
+        $pdf = new ExtractedPdf([
+            new ExtractedPage(1, "IDENTIFICAÇÃO DO MEDICAMENTO\nPRODUTO A\nBula para o paciente"),
+            new ExtractedPage(2, "IDENTIFICAÇÃO DO MEDICAMENTO\nPRODUTO B\nRegistro: 1.2345.6789"),
+        ]);
+
+        $result = app(AnvisaLeafletMetadataExtractor::class)->identify($pdf);
+
+        $this->assertNull($result->fields['product_name']);
+        $this->assertContains('product_name', $result->ambiguousFields);
+        $this->assertFalse($result->automaticCreationEligible);
+    }
+
+    public function test_normalizes_generic_name_and_rejects_packaging_and_regulatory_codes(): void
+    {
+        $pdf = new ExtractedPdf([
+            new ExtractedPage(1, "IDENTIFICAÇÃO DO MEDICAMENTO\nNome genérico: azitromicina di-hidratada (DCB: 00998)\nBula para o profissional"),
+            new ExtractedPage(2, "GOT X 20 ML\nVP/VPS\nAPRESENTAÇÕES\nMS 1.1560.0169"),
+        ]);
+
+        $result = app(AnvisaLeafletMetadataExtractor::class)->identify($pdf);
+
+        $this->assertSame('azitromicina di-hidratada', $result->fields['product_name']);
+        $this->assertNull($result->fields['active_ingredient']);
+        $this->assertSame('115600169', $result->fields['registration_number_normalized']);
+        $this->assertNotContains('product_name', $result->ambiguousFields);
+    }
+
     public function test_multiple_registration_numbers_are_reported_as_ambiguous(): void
     {
         $pdf = new ExtractedPdf([new ExtractedPage(1, "PRODUTO\nsubstância ativa\nAPRESENTAÇÕES\nBula para o profissional"), new ExtractedPage(2, "Registro: 1.2345.6789\nRegistro: 1.9876.5432")]);

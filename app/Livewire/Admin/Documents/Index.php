@@ -62,6 +62,6 @@ class Index extends Component
         return view('livewire.admin.documents.index', [
             'documents' => $documents,
             'fileStatuses' => ['PENDING', 'PROCESSING', 'READY', 'FAILED'],
-        ])->title('Documentos - BULA-IA');
+        ])->title('Documentos · BULAI');
     }
 }

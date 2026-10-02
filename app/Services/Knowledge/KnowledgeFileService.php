@@ -189,6 +189,17 @@ class KnowledgeFileService
         return ['disk' => $item->storage_disk ?? $this->diskName(), 'key' => $key];
     }
 
+    /** @return array{disk: string, key: string}|null */
+    public function evidenceStorage(IngestionBatchItem $item): ?array
+    {
+        $pending = $this->itemStorage($item);
+        if ($pending !== null) {
+            return $pending;
+        }
+
+        return $item->knowledgeDocument === null ? null : $this->documentStorage($item->knowledgeDocument);
+    }
+
     public function hashUploadedFile(UploadedFile $file): string
     {
         $stream = fopen($file->getRealPath(), 'rb');

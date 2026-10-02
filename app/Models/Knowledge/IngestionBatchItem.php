@@ -34,6 +34,8 @@ class IngestionBatchItem extends Model
 
     public const STATUS_ERROR = 'ERROR';
 
+    public const STATUS_IGNORED = 'IGNORED';
+
     public const METHOD_EXTERNAL_KEY = 'external_key';
 
     public const METHOD_SHA256 = 'sha256_known';
@@ -45,6 +47,8 @@ class IngestionBatchItem extends Model
     public const METHOD_MANUAL = 'manual';
 
     public const METHOD_AUTOMATIC_CREATION = 'automatic_creation';
+
+    public const METHOD_REANALYSIS = 'reanalysis';
 
     protected function casts(): array
     {

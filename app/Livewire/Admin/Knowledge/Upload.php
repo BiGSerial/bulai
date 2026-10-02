@@ -115,17 +115,25 @@ class Upload extends Component
 
     public function ingest(KnowledgeBatchIngestionService $service): void
     {
-        $maxFiles = (int) config('knowledge.ingestion.max_files');
+        $maxBatchKilobytes = (int) config('knowledge.ingestion.max_batch_kilobytes');
         $maxFileKilobytes = (int) config('knowledge.ingestion.max_file_kilobytes');
 
         $validated = $this->validate([
             'sourceId' => ['required', 'integer', Rule::exists('knowledge_sources', 'id')->where('active', true)],
-            'files' => ['required', 'array', 'min:1', "max:{$maxFiles}"],
+            'files' => ['required', 'array', 'min:1'],
             'files.*' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf,application/x-pdf', "max:{$maxFileKilobytes}"],
         ], [
             'sourceId.required' => 'Selecione a origem dos documentos.',
             'sourceId.exists' => 'Selecione uma origem ativa válida.',
+            'files.*.max' => 'Um dos PDFs ultrapassa o limite permitido para a importação.',
         ]);
+
+        $totalKilobytes = (int) ceil(collect($validated['files'])->sum(fn (TemporaryUploadedFile $file): int => $file->getSize()) / 1024);
+        if ($totalKilobytes > $maxBatchKilobytes) {
+            throw ValidationException::withMessages([
+                'files' => 'O tamanho total dos PDFs não pode ultrapassar o limite de 100 MB por importação.',
+            ]);
+        }
 
         $source = KnowledgeSource::query()->whereKey($validated['sourceId'])->where('active', true)->firstOrFail();
         $this->feedback = null;
@@ -133,7 +141,7 @@ class Upload extends Component
 
         try {
             $batch = $service->ingest([
-                'name' => 'Upload administrativo '.now()->format('d/m/Y H:i:s'),
+                'name' => 'Importação administrativa '.now()->format('d/m/Y H:i:s'),
                 'source_id' => $source->id,
             ], array_map(fn (TemporaryUploadedFile $file): array => [
                 'file' => $file,
@@ -148,11 +156,11 @@ class Upload extends Component
                 'DUPLICATE' => $batch->duplicate_items,
                 'ERROR' => $batch->error_items,
             ];
-            $this->feedback = 'Ingestão concluída. O processamento dos documentos associados continuará em segundo plano.';
+            $this->feedback = 'Importação concluída. O processamento dos documentos associados continuará em segundo plano.';
             $this->reset('files');
         } catch (Throwable $exception) {
             $this->errorId = Str::uuid()->toString();
-            $this->feedback = 'Não foi possível concluir a ingestão.';
+            $this->feedback = 'Não foi possível concluir a importação.';
             Log::error('knowledge_upload_failed', [
                 'error_id' => $this->errorId,
                 'source_id' => $this->sourceId,
@@ -167,8 +175,7 @@ class Upload extends Component
         return view('livewire.admin.knowledge.upload', [
             'sources' => KnowledgeSource::query()->active()->orderBy('name')->orderBy('collection')->get(['id', 'name', 'collection', 'organization']),
             'sourceTypeOptions' => KnowledgeSource::typeOptions(),
-            'maxFiles' => (int) config('knowledge.ingestion.max_files'),
-            'maxFileMegabytes' => round((int) config('knowledge.ingestion.max_file_kilobytes') / 1024),
-        ])->title('Adicionar documentos - BULA-IA');
+            'maxBatchMegabytes' => round((int) config('knowledge.ingestion.max_batch_kilobytes') / 1024),
+        ])->title('Adicionar documentos · BULAI');
     }
 }

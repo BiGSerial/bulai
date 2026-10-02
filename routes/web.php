@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\KnowledgeBatchItemFileController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Livewire\Admin\Documents\Create as AdminDocumentCreate;
 use App\Livewire\Admin\Documents\Index as AdminDocumentIndex;
@@ -47,6 +48,8 @@ Route::prefix('admin')
         Route::get('/knowledge/batches/{batch}/items/{item}/review', KnowledgePendingReview::class)
             ->scopeBindings()
             ->name('knowledge.pending.review');
+        Route::get('/knowledge/batches/{batch}/items/{item}/file', [KnowledgeBatchItemFileController::class, 'inline'])->name('knowledge.items.file');
+        Route::get('/knowledge/batches/{batch}/items/{item}/download', [KnowledgeBatchItemFileController::class, 'download'])->name('knowledge.items.download');
 
         // Compatibility aliases for existing bookmarks and tests.
         Route::get('/documents', AdminDocumentIndex::class)->name('documents.index');

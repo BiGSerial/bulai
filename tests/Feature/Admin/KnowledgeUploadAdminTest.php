@@ -38,9 +38,9 @@ class KnowledgeUploadAdminTest extends TestCase
             ->set('files', [$this->pdf('dipirona.pdf', 'associado'), $this->pdf('sem-cadastro.pdf', 'pendente')])
             ->call('ingest')
             ->assertHasNoErrors()
-            ->assertSee('Ingestão concluída')
-            ->assertSee('Ver batch')
-            ->assertSee('Revisar pendentes')
+            ->assertSee('Importação concluída')
+            ->assertSee('Ver importação')
+            ->assertSee('Revisar pendências')
             ->assertSet('summary.ASSOCIATED', 1)
             ->assertSet('summary.PENDING', 1);
 
@@ -66,6 +66,31 @@ class KnowledgeUploadAdminTest extends TestCase
             ->assertDontSee('storage_path');
 
         $this->assertDatabaseCount('ingestion_batches', 0);
+    }
+
+    public function test_admin_upload_has_no_item_count_limit_and_enforces_aggregate_size(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        $admin = User::factory()->admin()->create();
+        $source = $this->source();
+        $files = collect(range(1, 16))->map(fn (int $number): UploadedFile => $this->pdf("documento-{$number}.pdf", "conteudo-{$number}"))->all();
+
+        Livewire::actingAs($admin)->test(Upload::class)
+            ->set('sourceId', $source->id)
+            ->set('files', $files)
+            ->call('ingest')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('ingestion_batches', ['total_items' => 16]);
+
+        config()->set('knowledge.ingestion.max_batch_kilobytes', 1);
+        Livewire::actingAs($admin)->test(Upload::class)
+            ->set('sourceId', $source->id)
+            ->set('files', [$this->pdf('grande-a.pdf', str_repeat('a', 700)), $this->pdf('grande-b.pdf', str_repeat('b', 700))])
+            ->call('ingest')
+            ->assertHasErrors(['files'])
+            ->assertSee('O tamanho total dos PDFs não pode ultrapassar o limite de 100 MB por importação.');
     }
 
     private function source(): KnowledgeSource

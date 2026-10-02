@@ -32,6 +32,6 @@ class Show extends Component
             'source' => $source,
             'recentDocuments' => $source->documents()->latest()->limit(10)->get(['id', 'source_id', 'title', 'external_key', 'created_at']),
             'typeLabel' => KnowledgeSource::typeOptions()[$source->type] ?? 'Legada',
-        ])->title($source->displayName().' - BULAI');
+        ])->title($source->displayName().' · BULAI');
     }
 }

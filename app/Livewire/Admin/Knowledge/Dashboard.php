@@ -21,6 +21,6 @@ class Dashboard extends Component
                 'pending' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->count(),
                 'errors' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_ERROR)->count(),
             ],
-        ])->title('Knowledge Admin - BULA-IA');
+        ])->title('Visão geral · BULAI');
     }
 }

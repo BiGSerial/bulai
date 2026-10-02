@@ -1,8 +1,28 @@
-<x-knowledge-admin.shell :title="$source->displayName()">
-    @if (session('sourceFeedback'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800" role="status">{{ session('sourceFeedback') }}</div>@endif
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><span class="rounded-full px-2.5 py-1 text-xs font-semibold {{ $source->active ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-600' }}">{{ $source->active ? 'Ativa' : 'Inativa' }}</span><dl class="mt-5 grid gap-4 text-sm sm:grid-cols-2"><div><dt class="font-semibold text-slate-500">Tipo</dt><dd class="mt-1 text-slate-950">{{ $typeLabel }}</dd></div><div><dt class="font-semibold text-slate-500">País</dt><dd class="mt-1 text-slate-950">{{ $source->country ?: 'Não informado' }}</dd></div><div class="sm:col-span-2"><dt class="font-semibold text-slate-500">URL oficial</dt><dd class="mt-1 break-all text-slate-950">@if($source->url)<a class="text-teal-700 underline" href="{{ $source->url }}" target="_blank" rel="noopener noreferrer">{{ $source->url }}</a>@else Não informada @endif</dd></div><div class="sm:col-span-2"><dt class="font-semibold text-slate-500">Descrição</dt><dd class="mt-1 whitespace-pre-line text-slate-950">{{ $source->description ?: 'Sem descrição.' }}</dd></div></dl></div><div class="flex flex-wrap gap-2"><a class="rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-800" href="{{ route('admin.knowledge.sources.edit', $source) }}" wire:navigate>Editar</a><button class="rounded-md bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700" type="button" wire:click="toggleActive">{{ $source->active ? 'Desativar' : 'Ativar' }}</button></div></div>
-        <p class="mt-6 text-sm text-slate-600">{{ $source->documents_count }} documento(s) · {{ $source->batches_count }} importação(ões)</p>
-    </section>
-    <section class="grid gap-3"><h2 class="text-lg font-semibold text-slate-950">Documentos recentes</h2>@forelse($recentDocuments as $document)<a class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-400" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate><span class="font-semibold text-slate-950">{{ $document->title }}</span><span class="mt-1 block text-sm text-slate-500">{{ $document->external_key }} · {{ $document->created_at->format('d/m/Y H:i') }}</span></a>@empty<div class="rounded-xl border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600">Nenhum documento associado.</div>@endforelse</section>
+<x-knowledge-admin.shell :title="$source->displayName()" :subtitle="$source->documents_count.' '.($source->documents_count === 1 ? 'documento' : 'documentos').' · '.$source->batches_count.' '.($source->batches_count === 1 ? 'importação' : 'importações')" :back="route('admin.knowledge.sources.index')" back-label="Origens">
+    <x-slot:actions>
+        <x-knowledge-admin.badge :tone="$source->active ? 'success' : 'neutral'">{{ $source->active ? 'Ativa' : 'Inativa' }}</x-knowledge-admin.badge>
+        <x-knowledge-admin.button variant="secondary" wire:click="toggleActive" loading-target="toggleActive">{{ $source->active ? 'Desativar' : 'Ativar' }}</x-knowledge-admin.button>
+        <x-knowledge-admin.button :href="route('admin.knowledge.sources.edit', $source)">Editar</x-knowledge-admin.button>
+    </x-slot:actions>
+
+    @if (session('sourceFeedback'))<x-knowledge-admin.alert tone="success">{{ session('sourceFeedback') }}</x-knowledge-admin.alert>@endif
+
+    <x-knowledge-admin.section title="Detalhes">
+        <x-knowledge-admin.facts>
+            <x-knowledge-admin.fact label="Tipo">{{ $typeLabel }}</x-knowledge-admin.fact>
+            <x-knowledge-admin.fact label="País">{{ $source->country ?: 'Não informado' }}</x-knowledge-admin.fact>
+            <x-knowledge-admin.fact class="sm:col-span-2" label="URL oficial">@if ($source->url)<a class="text-brand-700 underline" href="{{ $source->url }}" target="_blank" rel="noopener noreferrer">{{ $source->url }}</a>@else Não informada @endif</x-knowledge-admin.fact>
+            <x-knowledge-admin.fact class="sm:col-span-2" label="Descrição"><span class="whitespace-pre-line">{{ $source->description ?: 'Sem descrição.' }}</span></x-knowledge-admin.fact>
+        </x-knowledge-admin.facts>
+    </x-knowledge-admin.section>
+
+    <x-knowledge-admin.section title="Documentos recentes">
+        <div class="grid gap-2">
+            @forelse ($recentDocuments as $document)
+                <a class="rounded-lg border border-slate-200 px-4 py-3 transition hover:border-brand-600" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate><span class="block text-sm font-semibold text-slate-900">{{ $document->title }}</span><span class="block text-sm text-slate-500">{{ $document->external_key }} · {{ $document->created_at->format('d/m/Y H:i') }}</span></a>
+            @empty
+                <x-knowledge-admin.empty-state>Nenhum documento associado.</x-knowledge-admin.empty-state>
+            @endforelse
+        </div>
+    </x-knowledge-admin.section>
 </x-knowledge-admin.shell>

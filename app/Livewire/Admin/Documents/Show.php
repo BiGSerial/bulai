@@ -35,6 +35,6 @@ class Show extends Component
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),
             'processing' => $this->document->metadata['processing'] ?? [],
-        ])->title($this->document->title.' - BULA-IA');
+        ])->title($this->document->title.' · BULAI');
     }
 }

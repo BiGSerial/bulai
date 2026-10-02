@@ -7,25 +7,35 @@ use App\Services\Knowledge\KnowledgeBatchIngestionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class KnowledgeBatchController extends Controller
 {
     public function __invoke(Request $request, KnowledgeBatchIngestionService $service): JsonResponse
     {
-        $maxFiles = (int) config('knowledge.ingestion.max_files');
+        $maxBatchKilobytes = (int) config('knowledge.ingestion.max_batch_kilobytes');
         $maxFileKilobytes = (int) config('knowledge.ingestion.max_file_kilobytes');
         $payload = $request->validate([
             'batch' => ['required', 'array'],
             'batch.name' => ['required', 'string', 'max:255'],
             'batch.description' => ['nullable', 'string', 'max:2000'],
             'batch.source_id' => ['nullable', 'integer', Rule::exists('knowledge_sources', 'id')->where('active', true)],
-            'items' => ['required', 'array', 'min:1', "max:{$maxFiles}"],
+            'items' => ['required', 'array', 'min:1'],
             'items.*.file' => ['required', 'file', "max:{$maxFileKilobytes}"],
             'items.*.external_key' => ['nullable', 'string', 'max:255'],
             'items.*.source_document_id' => ['nullable', 'string', 'max:255'],
             'items.*.original_filename' => ['nullable', 'string', 'max:255'],
             'items.*.metadata' => ['nullable', 'array'],
+        ], [
+            'items.*.file.max' => 'Um dos PDFs ultrapassa o limite permitido para a importação.',
         ]);
+
+        $totalKilobytes = (int) ceil(collect($payload['items'])->sum(fn (array $item): int => $item['file']->getSize()) / 1024);
+        if ($totalKilobytes > $maxBatchKilobytes) {
+            throw ValidationException::withMessages([
+                'items' => 'O tamanho total dos PDFs não pode ultrapassar o limite de 100 MB por importação.',
+            ]);
+        }
 
         $batch = $service->ingest($payload['batch'], $payload['items']);
 

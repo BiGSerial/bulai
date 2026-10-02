@@ -69,7 +69,7 @@ Os aliases `/admin/documents` e `/admin/documents/{document}` continuam disponí
 
 ## 5. Upload e ingestão em lote
 
-O upload administrativo em `/admin/knowledge/upload` aceita múltiplos PDFs e exige a seleção de uma origem ativa. O limite padrão é de 15 arquivos e 20 MiB por arquivo, configurável por `KNOWLEDGE_INGESTION_MAX_FILES` e `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES`.
+O upload administrativo em `/admin/knowledge/upload` aceita múltiplos PDFs e exige a seleção de uma origem ativa. Não há limite de quantidade na aplicação; o lote pode somar no máximo 100 MB, configurável por `KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES`. O teto temporário por arquivo usa `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES`, também em 100 MB por padrão.
 
 Cada arquivo é tratado isoladamente. Uma falha não invalida os demais itens do lote. A resolução procura, nesta ordem:
 
@@ -197,3 +197,10 @@ Para mudanças futuras, deve-se executar primeiro o arquivo de teste mais direta
 - Testes funcionais: `tests/Feature`
 - Testes unitários do pipeline: `tests/Unit/Services/Knowledge`
 - Detalhes de arquitetura: `docs/technical-foundation.md`
+
+## Padronização de UI/UX administrativa
+
+- Design system com componentes Blade, tokens em `resources/css/app.css` e regras em `docs/admin-design-system.md`.
+- Todas as telas admin migradas para `<x-knowledge-admin.shell>`; documentos agora têm o mesmo menu completo.
+- Interface 100% em português (locale `pt_BR`, status traduzidos, paginação e validação em português).
+- Fiscal automático: `tests/Feature/Admin/AdminDesignSystemTest.php`.

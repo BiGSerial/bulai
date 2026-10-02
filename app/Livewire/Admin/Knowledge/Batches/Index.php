@@ -36,6 +36,6 @@ class Index extends Component
             ->orderByDesc('created_at')->orderByDesc('id')->paginate(20);
 
         return view('livewire.admin.knowledge.batches.index', ['batches' => $batches])
-            ->title('Importações - BULA-IA');
+            ->title('Importações · BULAI');
     }
 }

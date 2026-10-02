@@ -86,7 +86,7 @@ class KnowledgeDocumentLifecycleTest extends TestCase
         Livewire::actingAs(User::factory()->admin()->create())->test(Review::class, ['batch' => $batch, 'item' => $item])
             ->set('creatingDocument', true)->set('newDocumentTitle', 'Dipirona Monoidratada')
             ->set('newDocumentType', 'bula_paciente')->set('newDocumentSourceId', 'REG-789')
-            ->call('createDocument')->assertSee('Documento associado com sucesso.')->assertSee('ASSOCIATED');
+            ->call('createDocument')->assertSee('Documento associado com sucesso.')->assertSee('Associado');
 
         $document = KnowledgeDocument::query()->sole();
         $this->assertSame($source->id, $document->source_id);

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'duplicate_items',
     'pending_items',
     'error_items',
+    'ignored_items',
     'metadata',
 ])]
 class IngestionBatch extends Model

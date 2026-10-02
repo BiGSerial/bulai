@@ -27,7 +27,7 @@ class KnowledgeAdminTest extends TestCase
         $this->get('/admin/knowledge')->assertRedirect('/login');
         $this->withToken('api-token')->get('/admin/knowledge')->assertRedirect('/login');
         $this->actingAs(User::factory()->create())->get('/admin/knowledge')->assertForbidden();
-        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge')->assertOk()->assertSee('Knowledge Admin');
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge')->assertOk()->assertSee('Navegação principal');
     }
 
     public function test_dashboard_displays_counts_from_the_database(): void
@@ -40,8 +40,8 @@ class KnowledgeAdminTest extends TestCase
         $this->item($batch, ['status' => 'ERROR', 'original_filename' => 'failed.pdf']);
 
         $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge')
-            ->assertOk()->assertSee('Documentos com PDF')->assertSee('Documentos sem PDF')
-            ->assertSee('Itens pendentes')->assertSee('Itens com erro');
+            ->assertOk()->assertSee('1 com PDF · 1 sem PDF')
+            ->assertSee('Pendências')->assertSee('Arquivos com erro')->assertSee('Revisar pendências');
     }
 
     public function test_document_search_supports_title_and_external_key_and_uses_pagination(): void
@@ -86,7 +86,7 @@ class KnowledgeAdminTest extends TestCase
             ->call('selectDocument', $document->id)->assertSee('Confirme a associação');
         $this->assertSame('PENDING', $item->refresh()->status);
 
-        $component->call('associate')->assertSee('Documento associado com sucesso.')->assertSee('ASSOCIATED')->assertDontSee('Associar documento');
+        $component->call('associate')->assertSee('Documento associado com sucesso.')->assertSee('Associado')->assertDontSee('Associar documento');
         $this->assertSame('ASSOCIATED', $item->refresh()->status);
         $this->assertNotNull($document->refresh()->storage_path);
         $this->assertSame(0, $batch->refresh()->pending_items);

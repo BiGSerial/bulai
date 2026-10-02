@@ -14,7 +14,7 @@ class KnowledgeDocumentAdminTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_document_index_lists_document_statuses_chunks_and_hash(): void
+    public function test_admin_document_index_lists_document_statuses_and_chunks(): void
     {
         $admin = User::factory()->admin()->create();
         $document = $this->document([
@@ -33,9 +33,13 @@ class KnowledgeDocumentAdminTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('Bula Profissional - Ibuprofeno')
-            ->assertSee('READY')
-            ->assertSee('PENDING')
-            ->assertSee('aaaaaaaaaaaaaaaa');
+            ->assertSee('Arquivo PDF')
+            ->assertSee('Aguardando')
+            ->assertSee('Texto e trechos')
+            ->assertSee('Processado')
+            ->assertSee('Índice de busca')
+            ->assertDontSee('Embeddings')
+            ->assertDontSee('chunks');
     }
 
     public function test_admin_document_index_filters_documents_reactively(): void

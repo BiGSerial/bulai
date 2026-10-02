@@ -51,6 +51,6 @@ class Index extends Component
                 ->orderBy('collection')
                 ->orderBy('id')
                 ->paginate(15),
-        ])->title('Origens dos documentos - BULAI');
+        ])->title('Origens · BULAI');
     }
 }

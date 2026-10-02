@@ -223,7 +223,9 @@ The parser currently materializes the uploaded PDF locally through Livewire/PHP 
 
 Extracted candidates are stored under `ingestion_batch_items.metadata.preliminary_identification`, including fields, concise evidence with page and pattern, ambiguous fields, score, extractor and analyzed-page count. No schema change is required. The review UI labels these as unconfirmed candidates and pre-fills manual document creation without preventing correction.
 
-The score is deterministic: registration `40`, product `25`, leaflet audience/type `20`, active ingredient `10`, holder `5`. Automatic creation requires at least `80`, no ambiguity, a recognized 9- or 13-digit ANVISA registration, title and controlled document type. The lifecycle independently enforces source, official identifier, title and type. Missing text, parser failure, conflicting registrations or audience, and insufficient evidence remain `PENDING`. Known SHA-256 files skip preliminary parsing and retain the existing duplicate path.
+The score is deterministic: registration `40`, product `25`, leaflet audience/type `20`, active ingredient `10`, holder `5`. Product identification is evidence-based: candidates are collected from the `IDENTIFICAÇÃO DO MEDICAMENTO` block, the heading immediately preceding `APRESENTAÇÕES`, parenthesized active-ingredient notation and composition statements. Generic regulatory headings such as `RDC`, `Texto de Bula`, `Modelo de Bula`, section names, expediente codes and the Lei 9.787 marker are rejected as identities. Agreement between the selected product and composition/generic active ingredient is recorded as `identity_convergence`; equally strong conflicting candidates become ambiguous instead of being guessed. ANVISA registration accepts the explicit labels `Registro`, `Registro MS`, `Reg.` and `MS`, while retaining the 9/13-digit validation.
+
+Automatic creation requires at least `80`, a structurally reliable or convergently confirmed product, no ambiguity, a recognized ANVISA registration, title and controlled document type. The lifecycle independently enforces source, official identifier, title and type. Missing text, parser failure, conflicting registrations/audience/product candidates, and insufficient evidence remain `PENDING`. Known SHA-256 files skip preliminary parsing and retain the existing duplicate path.
 
 The verified `bula_1790735935676.pdf` sample produced ATROVENT/ATROVENT N, brometo de ipratrópio, registration `1.0367.0004` normalized to `103670004`, professional leaflet, and Boehringer Ingelheim as holder, with score `100`. The numeric filename was not used as evidence.
 
@@ -596,7 +598,7 @@ Covered behavior:
 - Token generation is command-line only.
 - Batch upload is `multipart/form-data` with inline per-item fields; there is no ZIP or a separate JSON-manifest-plus-files upload format.
 - `PENDING` batch items retain the uploaded PDF privately under `knowledge/pending/{batch_id}/{uuid}.pdf`; `DUPLICATE` and `ERROR` items retain only computed metadata (filename, SHA-256, MIME, size), never the bytes. There is no expiry or reconciliation command for abandoned quarantine or staging files yet.
-- The batch endpoint's per-file size cap (20MB) and item count cap (15) are enforced by Laravel validation only; this environment has no committed `php.ini`/php-fpm/nginx configuration to confirm `upload_max_filesize`, `post_max_size`, and `max_file_uploads` are large enough in production for ~10 PDFs per request — this must be verified against the actual deployment target.
+- Knowledge ingestion has no application-level item count limit. Each Admin/API batch is limited to 100 MB in aggregate by `KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES`; the temporary-upload per-file ceiling defaults to the same 100 MB. PHP/web-server settings such as `upload_max_filesize`, `post_max_size`, and especially `max_file_uploads` can still impose infrastructure limits and must be configured consistently in production.
 - Batch processing is synchronous within the request (one item per `DB::transaction()`, not queued); a very large or slow batch will hold the HTTP request open for its full duration.
 - Embedding generation is not implemented.
 - RAG retrieval and assistant response generation are not implemented.
@@ -608,7 +610,7 @@ Covered behavior:
 
 ## Administrative Upload and Portable Knowledge Storage
 
-`GET /admin/knowledge/upload` is an authenticated, admin-only Livewire 4 screen for selecting an active `knowledge_source` and uploading multiple PDFs. It calls the same `KnowledgeBatchIngestionService` used by `POST /api/internal/knowledge/batches`; the component does not perform matching, hashing, storage promotion, duplicate detection, or filesystem cleanup. Limits are configured by `KNOWLEDGE_INGESTION_MAX_FILES` (15) and `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES` (20480). The UI uses Livewire temporary uploads, server-side PDF MIME/extension validation, browser upload progress, sanitized errors, and links to the resulting batch and pending-review queue.
+`GET /admin/knowledge/upload` is an authenticated, admin-only Livewire 4 screen for selecting an active `knowledge_source` and uploading multiple PDFs. It calls the same `KnowledgeBatchIngestionService` used by `POST /api/internal/knowledge/batches`; the component does not perform matching, hashing, storage promotion, duplicate detection, or filesystem cleanup. There is no application-level quantity cap; `KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES` limits the sum of all PDFs to 102400 KiB (100 MB) and `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES` protects each temporary upload at the same default ceiling. The UI uses Livewire temporary uploads, server-side PDF MIME/extension validation, browser upload progress, sanitized errors, and links to the resulting batch and pending-review queue.
 
 Knowledge files use the disk selected by `KNOWLEDGE_FILESYSTEM_DISK` (default `knowledge`). The current `knowledge` disk is private local storage rooted at `storage/app/private`; switching its Laravel Filesystem driver is the intended migration boundary for future S3 work. `knowledge_documents` and `ingestion_batch_items` persist `storage_disk` plus a provider-neutral `storage_key`. `storage_path` remains populated as a legacy logical-key alias during the transition, never as an absolute path. Existing non-null keys are backfilled by migration and model readers fall back to `storage_path`.
 
@@ -648,6 +650,31 @@ Initial managed types are regulatory, clinical, pharmacological, scientific, mar
 ## Documentation Rule
 
 Every relevant implementation or architecture change must update or add technical documentation under `docs/`. Prefer concise docs that make the project easier to operate, review, test, and continue.
+
+## Ingestion Evidence, Audit, and Reanalysis
+
+Every pending item retains its immutable original on the configured private knowledge disk. Authenticated administrators can stream that object through scoped endpoints using `Content-Disposition: inline` or `attachment`; neither route accepts a path or exposes the logical object key. The downloaded bytes are the stored bytes, not a reconstructed PDF.
+
+Before reanalysis, `KnowledgePendingItemReanalysisService` locks and reloads the item, resolves its registered disk/key through `KnowledgeFileService`, recalculates SHA-256 by stream, and blocks processing on missing or divergent content. It then materializes a short-lived local copy only at the PDF-parser boundary, invokes the existing preliminary identification, matcher, `KnowledgeDocumentLifecycleService`, and pending association service. A second lock rejects stale state before metadata is changed. Previous preliminary identification is retained in `preliminary_identification_history`.
+
+Batch reanalysis uses the unique queued `ReanalyzePendingKnowledgeBatch` job and processes current PENDING IDs individually. Administrative resolution without incorporation uses the terminal `IGNORED` item status, requires a controlled reason, preserves the private object, and is counted in the new `ingestion_batches.ignored_items` counter. `COMPLETED` continues to mean that batch execution ended; the UI explicitly reports remaining intervention.
+
+The minimal persistent audit trail lives in `ingestion_batch_items.metadata.audit_history`. Entries include an event code, timestamp, authenticated actor when available, and controlled details. It records only new actions that actually occur; no historical event is fabricated for legacy items. Events currently cover reanalysis requests/results, integrity failures, association/duplicate outcomes, and non-incorporation decisions.
+
+Administrative file routes (all protected by `auth` and `admin`) are:
+
+- `GET /admin/knowledge/batches/{batch}/items/{item}/file` — authorized inline PDF stream;
+- `GET /admin/knowledge/batches/{batch}/items/{item}/download` — authorized original-byte download.
+
+Known limitation: `DUPLICATE` and legacy `ERROR` items intentionally did not retain new uploaded bytes. Their evidence is limited to persisted metadata, SHA-256, and—when linked—the canonical document object. A dedicated append-only audit table may be justified later if querying event history across millions of items becomes necessary.
+
+The document list and detail screen present the three independent lifecycle fields with explicit labels: “Arquivo PDF”, “Texto e chunks”, and “Embeddings”. Raw values are retained as technical tooltip information, while visible text explains the operational meaning. A zero chunk count is not shown as a completed result while content is pending; the UI says that chunks have not yet been generated.
+
+Pending-item reanalysis persists backend progress in `metadata.reanalysis_progress`. The value records a state (`queued`, `processing`, `completed`, or `failed`), a pipeline-milestone percentage, a controlled label, and its update timestamp. Percentages represent completed phases—queue, integrity, PDF identification, matching, and association—not an estimated remaining duration. The global pending screen polls every two seconds, renders that persisted progress as the card background and a labeled bar, disables review while work is active, and automatically removes cards whose item status is no longer `PENDING`.
+
+The pending screen also aggregates backend activity into “Na fila”, “Executando”, “Revisão necessária”, and “Falhas”. It explicitly distinguishes an active run from a finished run. Pending work without a database update for `KNOWLEDGE_PROGRESS_STALE_MINUTES` (five minutes by default) produces a visible worker-health warning instead of appearing to run indefinitely.
+
+ANVISA generic leaflets commonly place the legal marker “Medicamento Genérico, Lei nº 9.787/1999” immediately below the generic product name. The deterministic extractor treats that sentence as a regulatory marker, never as an active ingredient. In this structure the normalized product name itself is the active ingredient (including explicit combinations such as losartan + hydrochlorothiazide), and the evidence records the dedicated `generic_product_name_is_active_ingredient` pattern.
 
 ## Visual Identity
 

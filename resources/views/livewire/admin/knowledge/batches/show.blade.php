@@ -1,13 +1,39 @@
-<x-knowledge-admin.shell :title="$batch->name ?: 'Importação #'.$batch->id">
-    <div><a class="text-sm font-semibold text-teal-700" href="{{ route('admin.knowledge.batches.index') }}" wire:navigate>← Voltar às importações</a></div>
-    <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-slate-500">{{ $batch->source?->name ?? 'Sem fonte' }} · {{ $batch->created_at->format('d/m/Y H:i') }}</p><x-knowledge-admin.status-badge :status="$batch->status" /></div>
-        <dl class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">@foreach ([['Total', $batch->total_items], ['Associados', $batch->associated_items], ['Pendentes', $batch->pending_items], ['Duplicados', $batch->duplicate_items], ['Erros', $batch->error_items]] as [$label, $value])<div><dt class="text-xs uppercase text-slate-500">{{ $label }}</dt><dd class="text-xl font-semibold text-slate-950">{{ $value }}</dd></div>@endforeach</dl>
+<x-knowledge-admin.shell :title="$batch->name ?: 'Importação #'.$batch->id" :subtitle="($batch->source?->name ?? 'Sem origem').' · '.$batch->created_at->format('d/m/Y H:i')" :back="route('admin.knowledge.batches.index')" back-label="Importações">
+    <x-slot:actions>
+        <x-knowledge-admin.status-badge :status="$batch->status" />
+        @if ($batch->pending_items > 0)<x-knowledge-admin.button variant="secondary" wire:click="reanalyzePending" loading-target="reanalyzePending" loading="Enviando…">Reanalisar pendentes</x-knowledge-admin.button>@endif
+    </x-slot:actions>
+
+    @if (session('batch-feedback'))<x-knowledge-admin.alert tone="success">{{ session('batch-feedback') }}</x-knowledge-admin.alert>@endif
+    @if ($batch->status === 'COMPLETED' && $batch->pending_items > 0)
+        <x-knowledge-admin.alert tone="warning">Processamento concluído com {{ $batch->pending_items }} {{ $batch->pending_items === 1 ? 'pendência' : 'pendências' }}.</x-knowledge-admin.alert>
+    @endif
+
+    <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        @foreach ([['Total', $batch->total_items], ['Associados', $batch->associated_items], ['Pendentes', $batch->pending_items], ['Duplicados', $batch->duplicate_items], ['Com erro', $batch->error_items], ['Não incorporados', $batch->ignored_items]] as [$label, $value])
+            <x-knowledge-admin.card><p class="text-sm text-slate-600">{{ $label }}</p><p class="mt-1 text-2xl font-semibold text-slate-900">{{ $value }}</p></x-knowledge-admin.card>
+        @endforeach
     </section>
+
     <section class="grid gap-3">
         @forelse ($items as $item)
-            <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div class="min-w-0"><p class="truncate font-semibold text-slate-950">{{ $item->original_filename }}</p><p class="mt-1 text-sm text-slate-500">Item #{{ $item->id }} @if($item->external_key) · {{ $item->external_key }} @endif</p></div><x-knowledge-admin.status-badge :status="$item->status" /></div><div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600"><span>{{ $item->knowledgeDocument?->title ?? $item->reason ?? 'Aguardando resolução' }}</span>@if ($item->status === \App\Models\Knowledge\IngestionBatchItem::STATUS_PENDING)<a class="rounded-md bg-teal-700 px-3 py-2 font-semibold text-white" href="{{ route('admin.knowledge.pending.review', [$batch, $item]) }}" wire:navigate>Revisar</a>@endif</div></article>
-        @empty<div class="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-sm text-slate-600">Este lote não possui itens.</div>@endforelse
+            <x-knowledge-admin.card class="grid gap-3">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2 class="truncate text-base font-semibold text-slate-900">{{ $item->original_filename }}</h2>
+                        <p class="mt-1 text-sm text-slate-500">{{ $item->knowledgeDocument?->title ?? match($item->reason) { 'no_match_found' => 'Nenhum documento correspondente encontrado.', 'not_incorporated' => 'Resolvido sem incorporação à base.', default => $item->reason ?? 'Aguardando resolução' } }}</p>
+                    </div>
+                    <x-knowledge-admin.status-badge :status="$item->status" />
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    @if ($item->status === \App\Models\Knowledge\IngestionBatchItem::STATUS_PENDING)<x-knowledge-admin.button :href="route('admin.knowledge.pending.review', [$batch, $item])">Revisar</x-knowledge-admin.button>@endif
+                    <x-knowledge-admin.button variant="secondary" target="_blank" :href="route('admin.knowledge.items.file', [$batch, $item])">Visualizar</x-knowledge-admin.button>
+                    <x-knowledge-admin.button variant="secondary" :href="route('admin.knowledge.items.download', [$batch, $item])" download>Baixar</x-knowledge-admin.button>
+                </div>
+            </x-knowledge-admin.card>
+        @empty
+            <x-knowledge-admin.empty-state>Esta importação não possui arquivos.</x-knowledge-admin.empty-state>
+        @endforelse
     </section>
     {{ $items->links() }}
 </x-knowledge-admin.shell>

@@ -21,6 +21,11 @@ final class KnowledgeDocumentIdentificationService
 
     public function identify(?KnowledgeSource $source, UploadedFile $file): ?DocumentIdentification
     {
+        return $this->identifyPath($source, $file->getRealPath());
+    }
+
+    public function identifyPath(?KnowledgeSource $source, string $path): ?DocumentIdentification
+    {
         if ($source === null) {
             return null;
         }
@@ -30,7 +35,7 @@ final class KnowledgeDocumentIdentificationService
         }
 
         try {
-            $result = $extractor->identify($this->pdfExtractor->extract($file->getRealPath()));
+            $result = $extractor->identify($this->pdfExtractor->extract($path));
             Log::info('knowledge_document_preliminary_identification', [
                 'source_id' => $source->id, 'extractor' => $result->extractor, 'pages_analyzed' => $result->pagesAnalyzed,
                 'fields_found' => array_keys(array_filter($result->fields)), 'ambiguous_fields' => $result->ambiguousFields,

@@ -6,6 +6,7 @@ use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
 use App\Models\Knowledge\KnowledgeDocument;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -15,9 +16,12 @@ class KnowledgePendingItemAssociationService
 {
     private readonly KnowledgeDocumentLifecycleService $documentLifecycle;
 
-    public function __construct(private readonly KnowledgeFileService $fileService, ?KnowledgeDocumentLifecycleService $documentLifecycle = null)
+    private readonly KnowledgeIngestionAuditService $audit;
+
+    public function __construct(private readonly KnowledgeFileService $fileService, ?KnowledgeDocumentLifecycleService $documentLifecycle = null, ?KnowledgeIngestionAuditService $audit = null)
     {
         $this->documentLifecycle = $documentLifecycle ?? app(KnowledgeDocumentLifecycleService::class);
+        $this->audit = $audit ?? app(KnowledgeIngestionAuditService::class);
     }
 
     /**
@@ -51,14 +55,14 @@ class KnowledgePendingItemAssociationService
     /**
      * @return array{status: string, document_id: ?int, file_attached: bool, error_code: ?string, error_id: ?string, http_status: int}
      */
-    public function associate(int $batchId, int $itemId, int $documentId): array
+    public function associate(int $batchId, int $itemId, int $documentId, string $resolutionMethod = IngestionBatchItem::METHOD_MANUAL, ?User $actor = null): array
     {
         $ownedDefinitivePath = null;
         $pendingObjectToDelete = null;
         $documentToProcess = null;
 
         try {
-            $result = DB::transaction(function () use ($batchId, $itemId, $documentId, &$ownedDefinitivePath, &$pendingObjectToDelete, &$documentToProcess): array {
+            $result = DB::transaction(function () use ($batchId, $itemId, $documentId, $resolutionMethod, $actor, &$ownedDefinitivePath, &$pendingObjectToDelete, &$documentToProcess): array {
                 $item = IngestionBatchItem::query()
                     ->where('ingestion_batch_id', $batchId)
                     ->whereKey($itemId)
@@ -104,7 +108,7 @@ class KnowledgePendingItemAssociationService
 
                 if ($duplicate !== null) {
                     $pendingObjectToDelete = $pendingStorage;
-                    $this->markDuplicate($item, $duplicate);
+                    $this->markDuplicate($item, $duplicate, $resolutionMethod, $actor);
                     $this->recalculateBatchCounters($batchId);
 
                     return $this->result(
@@ -122,6 +126,10 @@ class KnowledgePendingItemAssociationService
                 $ownedDefinitivePath = $this->fileService->promotePendingObject($document, $pendingStorage['disk'], $pendingStorage['key']);
                 $document = $this->fileService->persistPendingAttachment($document, $item, $ownedDefinitivePath);
                 $this->persistAssociation($item, $document);
+                if ($resolutionMethod !== IngestionBatchItem::METHOD_MANUAL) {
+                    $item->forceFill(['resolution_method' => $resolutionMethod])->save();
+                }
+                $this->audit->append($item, 'document_associated', $actor, ['document_id' => $document->id, 'method' => $resolutionMethod]);
                 $this->recalculateBatchCounters($batchId);
                 $pendingObjectToDelete = $pendingStorage;
                 $documentToProcess = $document->content_status !== KnowledgeDocument::STATUS_READY ? $document->id : null;
@@ -190,7 +198,7 @@ class KnowledgePendingItemAssociationService
         ])->save();
     }
 
-    private function markDuplicate(IngestionBatchItem $item, KnowledgeDocument $document): void
+    private function markDuplicate(IngestionBatchItem $item, KnowledgeDocument $document, string $resolutionMethod, ?User $actor): void
     {
         $item->forceFill([
             'knowledge_document_id' => $document->id,
@@ -208,6 +216,7 @@ class KnowledgePendingItemAssociationService
                 ],
             ],
         ])->save();
+        $this->audit->append($item, 'duplicate_confirmed', $actor, ['document_id' => $document->id, 'method' => $resolutionMethod]);
     }
 
     private function recalculateBatchCounters(int $batchId): void
@@ -220,6 +229,7 @@ class KnowledgePendingItemAssociationService
             'duplicate_items' => $batch->items()->where('status', IngestionBatchItem::STATUS_DUPLICATE)->count(),
             'pending_items' => $batch->items()->where('status', IngestionBatchItem::STATUS_PENDING)->count(),
             'error_items' => $batch->items()->where('status', IngestionBatchItem::STATUS_ERROR)->count(),
+            'ignored_items' => $batch->items()->where('status', IngestionBatchItem::STATUS_IGNORED)->count(),
         ])->save();
     }
 

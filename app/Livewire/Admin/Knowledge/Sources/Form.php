@@ -57,7 +57,7 @@ class Form extends Component
     {
         return view('livewire.admin.knowledge.sources.form', [
             'typeOptions' => KnowledgeSource::typeOptions(),
-        ])->title(($this->sourceId === null ? 'Nova origem' : 'Editar origem').' - BULAI');
+        ])->title(($this->sourceId === null ? 'Nova origem' : 'Editar origem').' · BULAI');
     }
 
     /** @return array<string, array<int, mixed>> */

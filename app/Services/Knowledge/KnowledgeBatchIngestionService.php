@@ -280,7 +280,7 @@ class KnowledgeBatchIngestionService
     /**
      * @return array{0: ?KnowledgeDocument, 1: ?string, 2: ?string}
      */
-    private function resolveDocument(?string $externalKey, string $sha256, ?string $sourceDocumentId, string $normalizedFilename, ?int $sourceId): array
+    public function resolveDocument(?string $externalKey, string $sha256, ?string $sourceDocumentId, string $normalizedFilename, ?int $sourceId): array
     {
         if ($externalKey !== null) {
             $document = KnowledgeDocument::query()->where('external_key', $externalKey)->first();

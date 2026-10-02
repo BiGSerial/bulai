@@ -5,7 +5,9 @@ namespace App\Livewire\Admin\Knowledge\Pending;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
 use App\Models\Knowledge\KnowledgeDocument;
+use App\Services\Knowledge\KnowledgeIngestionAuditService;
 use App\Services\Knowledge\KnowledgePendingItemAssociationService;
+use App\Services\Knowledge\KnowledgePendingItemReanalysisService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
@@ -36,6 +38,12 @@ class Review extends Component
     public string $newDocumentExternalKey = '';
 
     public string $newDocumentSourceId = '';
+
+    public bool $showIgnoreForm = false;
+
+    public string $ignoreReason = '';
+
+    public string $ignoreNotes = '';
 
     public function mount(IngestionBatch $batch, IngestionBatchItem $item): void
     {
@@ -71,7 +79,7 @@ class Review extends Component
     {
         $validated = $this->validate([
             'newDocumentTitle' => ['required', 'string', 'max:255'],
-            'newDocumentType' => ['required', Rule::in(['bula', 'bula_paciente', 'bula_profissional', 'documento_regulatorio', 'outro'])],
+            'newDocumentType' => ['required', Rule::in(array_keys(KnowledgeDocument::documentTypeOptions()))],
             'newDocumentExternalKey' => ['nullable', 'string', 'max:255'],
             'newDocumentSourceId' => ['nullable', 'string', 'max:255'],
         ]);
@@ -88,6 +96,31 @@ class Review extends Component
         if ($result['status'] === IngestionBatchItem::STATUS_ASSOCIATED) {
             $this->creatingDocument = false;
         }
+    }
+
+    public function reanalyze(KnowledgePendingItemReanalysisService $service): void
+    {
+        $result = $service->reanalyze($this->batch->id, $this->item->id, auth()->user());
+        $this->refreshItem();
+        [$this->feedbackType, $this->feedbackMessage] = match ($result['status']) {
+            IngestionBatchItem::STATUS_ASSOCIATED => ['success', 'Reanálise concluída e documento associado.'],
+            IngestionBatchItem::STATUS_PENDING => ['warning', 'A reanálise foi concluída, mas o item ainda requer decisão administrativa.'],
+            'ALREADY_RESOLVED' => ['info', 'Este item já foi resolvido por outra operação.'],
+            default => ['error', $result['error_code'] === 'PENDING_FILE_INVALID' ? 'A integridade do arquivo não pôde ser confirmada. A reanálise foi bloqueada.' : 'Não foi possível concluir a reanálise.'],
+        };
+    }
+
+    public function ignore(KnowledgeIngestionAuditService $audit): void
+    {
+        $validated = $this->validate([
+            'ignoreReason' => ['required', Rule::in(['not_leaflet', 'wrong_source', 'out_of_scope', 'invalid_document', 'duplicate_unresolved', 'inappropriate_content', 'other'])],
+            'ignoreNotes' => ['nullable', 'string', 'max:1000'],
+        ], ['ignoreReason.required' => 'Informe o motivo para não incorporar o documento.']);
+        $status = $audit->ignore($this->batch->id, $this->item->id, $validated['ignoreReason'], $validated['ignoreNotes'] ?: null, auth()->user());
+        $this->refreshItem();
+        $this->feedbackType = $status === IngestionBatchItem::STATUS_IGNORED ? 'success' : 'info';
+        $this->feedbackMessage = $status === IngestionBatchItem::STATUS_IGNORED ? 'Item resolvido sem incorporação; o arquivo e a evidência foram preservados.' : 'Este item já foi resolvido por outra operação.';
+        $this->showIgnoreForm = false;
     }
 
     public function render(): View
@@ -119,7 +152,8 @@ class Review extends Component
             'metadata' => $this->safeMetadata(),
             'identification' => $this->identificationFields(),
             'identificationSummary' => $this->identificationSummary(),
-        ])->title("Revisar pendência #{$this->item->id} - BULA-IA");
+            'history' => collect(data_get($this->item->metadata, 'audit_history', []))->filter(fn (mixed $event): bool => is_array($event))->reverse()->values(),
+        ])->title("Revisar pendência #{$this->item->id} · BULAI");
     }
 
     /** @param array{status: string, document_id: ?int, file_attached: bool, error_code: ?string, error_id: ?string, http_status: int} $result */
@@ -133,7 +167,7 @@ class Review extends Component
             'ALREADY_RESOLVED' => ['info', 'Este item já foi resolvido por outra operação.'],
             default => match ($result['error_code']) {
                 'DOCUMENT_ALREADY_HAS_FILE' => ['warning', 'O documento escolhido já possui um arquivo. Selecione outro documento.'],
-                'DOCUMENT_SOURCE_MISMATCH' => ['warning', 'O documento escolhido pertence a outra origem. Selecione um documento da origem deste lote.'],
+                'DOCUMENT_SOURCE_MISMATCH' => ['warning', 'O documento escolhido pertence a outra origem. Selecione um documento da origem desta importação.'],
                 'PENDING_FILE_MISSING', 'PENDING_FILE_INVALID' => ['warning', 'O arquivo pendente não está disponível ou não corresponde mais ao arquivo registrado. A associação não foi realizada.'],
                 default => ['error', 'Não foi possível concluir a operação.'],
             },
