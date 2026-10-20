@@ -5,8 +5,15 @@ name: Deploy (KingHost)
 #   rollback -> volta para a release anterior registrada na VPS (código e imagens; NÃO reverte migrations).
 #   status   -> mostra a release ativa.
 #
-# Fronteira de segurança: a chave SSH deste workflow só executa `bulai-ci-entry` na VPS (comando forçado), que só aceita
-# estas ações com argumentos validados; a VPS usa o compose.prod.yaml APROVADO instalado por um administrador.
+# Ordem de autorização (importante):
+#   1. `authorize` (sem segredos, sem publicar nada): valida o commit e quem está executando.
+#   2. `release` / `operate` rodam no Environment `production`: a APROVAÇÃO humana acontece ANTES de qualquer imagem
+#      ser publicada e de qualquer segredo de SSH ser exposto. O build e o deploy ficam no MESMO job, então o digest
+#      publicado é exatamente o que é enviado à VPS (sem passagem de artefato entre jobs aprovados separadamente).
+#   3. A primeira etapa desses jobs é uma TRAVA: sem a proteção do Environment declarada, nada acontece
+#      (o GitHub cria Environments inexistentes SEM proteção; a trava evita publicar nesse estado).
+#
+# Fronteira de segurança na VPS: a chave SSH só executa `bulai-ci-entry` (comando forçado) e a VPS usa o compose APROVADO.
 on:
   workflow_dispatch:
     inputs:
@@ -34,8 +41,7 @@ env:
 
 jobs:
   authorize:
-    name: Validar o commit
-    if: ${{ inputs.action == 'deploy' }}
+    name: Validar commit e executor
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -50,10 +56,21 @@ jobs:
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "Este workflow só pode ser executado a partir da main (ref atual: $GITHUB_REF)."; exit 1
           fi
+      - name: Executor permitido (se DEPLOY_ALLOWED_ACTORS estiver definida)
+        env:
+          ALLOWED_ACTORS: ${{ vars.DEPLOY_ALLOWED_ACTORS }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if [ -n "$ALLOWED_ACTORS" ] && [[ ",${ALLOWED_ACTORS// /}," != *",$ACTOR,"* ]]; then
+            echo "O usuário $ACTOR não está em DEPLOY_ALLOWED_ACTORS."; exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: ${{ inputs.action == 'deploy' }}
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Validar commit autorizado
+        if: ${{ inputs.action == 'deploy' }}
         id: validate
         env:
           INPUT_COMMIT: ${{ inputs.commit }}
@@ -64,7 +81,7 @@ jobs:
           if ! [[ "$INPUT_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
             echo "Informe o SHA completo (40 caracteres hexadecimais minúsculos)."; exit 1
           fi
-          git fetch origin main
+          git fetch --quiet origin main
           git cat-file -e "$INPUT_COMMIT^{commit}"
           if ! git merge-base --is-ancestor "$INPUT_COMMIT" origin/main; then
             echo "O commit $INPUT_COMMIT não pertence ao histórico da main."; exit 1
@@ -78,24 +95,51 @@ jobs:
           echo "compose_sha256=$compose_sha" >> "$GITHUB_OUTPUT"
           echo "Commit autorizado: $INPUT_COMMIT (compose.prod.yaml sha256=$compose_sha)"
 
-  build:
-    name: Publicar imagens (GHCR)
+  release:
+    name: Publicar imagens e implantar (após aprovação)
     needs: authorize
     if: ${{ inputs.action == 'deploy' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
+    # A aprovação (revisores obrigatórios) e a restrição de branch ficam neste Environment e são exigidas ANTES de este job iniciar.
+    environment: production
     permissions:
       contents: read
       packages: write
-    outputs:
-      app: ${{ steps.app.outputs.digest }}
-      web: ${{ steps.web.outputs.digest }}
-      ocr: ${{ steps.ocr.outputs.digest }}
-      local_ai: ${{ steps.localai.outputs.digest }}
+    env:
+      SHA: ${{ needs.authorize.outputs.sha }}
+      COMPOSE_SHA256: ${{ needs.authorize.outputs.compose_sha256 }}
     steps:
+      - name: Trava — o Environment precisa ter a proteção declarada
+        env:
+          PROTECTION: ${{ vars.PRODUCTION_PROTECTION }}
+          ALLOWED_ACTORS: ${{ vars.DEPLOY_ALLOWED_ACTORS }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          case "$PROTECTION" in
+            reviewers) echo "Proteção declarada: revisores obrigatórios no Environment." ;;
+            actors)
+              if [ -z "$ALLOWED_ACTORS" ] || [[ ",${ALLOWED_ACTORS// /}," != *",$ACTOR,"* ]]; then
+                echo "Modo 'actors': $ACTOR não está em DEPLOY_ALLOWED_ACTORS."; exit 1
+              fi
+              echo "::warning title=Sem revisores obrigatórios::Modo 'actors' (controle compensatório). Veja docs/deployment/kinghost.md." ;;
+            *)
+              echo "Environment 'production' sem proteção declarada. Configure revisores e defina PRODUCTION_PROTECTION=reviewers"
+              echo "(ou, sem revisores disponíveis, PRODUCTION_PROTECTION=actors + DEPLOY_ALLOWED_ACTORS). Nada foi publicado."; exit 1 ;;
+          esac
+      - name: Só executa a partir da branch main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Este workflow só pode ser executado a partir da main (ref atual: $GITHUB_REF)."; exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.authorize.outputs.sha }}
+          persist-credentials: false
+      - name: O código construído é exatamente o commit autorizado
+        run: |
+          [ "$(git rev-parse HEAD)" = "$SHA" ] || { echo "HEAD difere do commit autorizado."; exit 1; }
+          [ "$(sha256sum compose.prod.yaml | cut -d' ' -f1)" = "$COMPOSE_SHA256" ] || { echo "compose.prod.yaml difere do hash autorizado."; exit 1; }
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
@@ -109,11 +153,11 @@ jobs:
           context: .
           file: docker/production/php/Dockerfile
           build-args: |
-            GIT_SHA=${{ needs.authorize.outputs.sha }}
+            GIT_SHA=${{ env.SHA }}
             GIT_REPOSITORY=${{ env.SOURCE_URL }}
           push: true
           provenance: mode=max
-          tags: ${{ env.IMAGE_PREFIX }}-app:sha-${{ needs.authorize.outputs.sha }}
+          tags: ${{ env.IMAGE_PREFIX }}-app:sha-${{ env.SHA }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,scope=app,mode=max
       - name: Imagem do Nginx (assets da MESMA imagem da aplicação)
@@ -124,11 +168,11 @@ jobs:
           file: docker/production/nginx/Dockerfile
           build-args: |
             APP_IMAGE=${{ env.IMAGE_PREFIX }}-app@${{ steps.app.outputs.digest }}
-            GIT_SHA=${{ needs.authorize.outputs.sha }}
+            GIT_SHA=${{ env.SHA }}
             GIT_REPOSITORY=${{ env.SOURCE_URL }}
           push: true
           provenance: mode=max
-          tags: ${{ env.IMAGE_PREFIX }}-web:sha-${{ needs.authorize.outputs.sha }}
+          tags: ${{ env.IMAGE_PREFIX }}-web:sha-${{ env.SHA }}
       - name: Imagem do OCR (modelos do PaddleOCR embutidos)
         id: ocr
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
@@ -138,7 +182,7 @@ jobs:
           labels: org.opencontainers.image.source=${{ env.SOURCE_URL }}
           push: true
           provenance: mode=max
-          tags: ${{ env.IMAGE_PREFIX }}-ocr:sha-${{ needs.authorize.outputs.sha }}
+          tags: ${{ env.IMAGE_PREFIX }}-ocr:sha-${{ env.SHA }}
           cache-from: type=gha,scope=ocr
           cache-to: type=gha,scope=ocr,mode=max
       - name: Imagem da IA local (llamafile; sem o modelo)
@@ -149,32 +193,113 @@ jobs:
           labels: org.opencontainers.image.source=${{ env.SOURCE_URL }}
           push: true
           provenance: mode=max
-          tags: ${{ env.IMAGE_PREFIX }}-local-ai:sha-${{ needs.authorize.outputs.sha }}
+          tags: ${{ env.IMAGE_PREFIX }}-local-ai:sha-${{ env.SHA }}
           cache-from: type=gha,scope=local-ai
           cache-to: type=gha,scope=local-ai,mode=max
-      - name: Resumo
+      - name: Os digests publicados pertencem ao commit autorizado
+        env:
+          D_APP: ${{ steps.app.outputs.digest }}
+          D_WEB: ${{ steps.web.outputs.digest }}
+          D_OCR: ${{ steps.ocr.outputs.digest }}
+          D_AI: ${{ steps.localai.outputs.digest }}
         run: |
+          set -euo pipefail
+          for d in "$D_APP" "$D_WEB" "$D_OCR" "$D_AI"; do
+            [[ "$d" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "digest inválido: '$d'"; exit 1; }
+          done
+          for pair in "app:$D_APP" "web:$D_WEB"; do
+            name=${pair%%:*}; digest=${pair#*:}
+            ref="$IMAGE_PREFIX-$name@$digest"
+            docker pull --quiet "$ref" >/dev/null
+            rev=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$ref")
+            src=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' "$ref")
+            [ "$rev" = "$SHA" ] || { echo "$name: rótulo revision ($rev) difere do commit autorizado ($SHA)"; exit 1; }
+            [ "$src" = "$SOURCE_URL" ] || { echo "$name: rótulo source inesperado ($src)"; exit 1; }
+          done
           {
-            echo "### Imagens publicadas (por digest)"
-            echo "- app: \`${{ steps.app.outputs.digest }}\`"
-            echo "- web: \`${{ steps.web.outputs.digest }}\`"
-            echo "- ocr: \`${{ steps.ocr.outputs.digest }}\`"
-            echo "- local-ai: \`${{ steps.localai.outputs.digest }}\`"
+            echo "### Release autorizada → implantada"
+            echo "- commit: \`$SHA\`"
+            echo "- compose.prod.yaml sha256: \`$COMPOSE_SHA256\`"
+            echo "- app: \`$D_APP\`"
+            echo "- web: \`$D_WEB\`"
+            echo "- ocr: \`$D_OCR\`"
+            echo "- local-ai: \`$D_AI\`"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Preparar SSH (host key fixada; sem ssh-keyscan)
+        env:
+          SSH_KEY: ${{ secrets.KINGHOST_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ vars.KINGHOST_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [ -n "$SSH_KEY" ] || { echo "Secret KINGHOST_SSH_PRIVATE_KEY ausente."; exit 1; }
+          [ -n "$KNOWN_HOSTS" ] || { echo "Variable KINGHOST_SSH_KNOWN_HOSTS ausente (cole a linha de known_hosts da VPS)."; exit 1; }
+          install -d -m 700 ~/.ssh
+          umask 077
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/bulai_ci
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Verificar e ativar na VPS
+        env:
+          HOST: ${{ vars.KINGHOST_HOST }}
+          PORT: ${{ vars.KINGHOST_SSH_PORT || '22' }}
+          SSH_USER: ${{ vars.KINGHOST_SSH_USER || 'bulai-ci' }}
+          D_APP: ${{ steps.app.outputs.digest }}
+          D_WEB: ${{ steps.web.outputs.digest }}
+          D_OCR: ${{ steps.ocr.outputs.digest }}
+          D_AI: ${{ steps.localai.outputs.digest }}
+        run: |
+          set -euo pipefail
+          [ -n "$HOST" ] || { echo "Variable KINGHOST_HOST ausente."; exit 1; }
+          ssh_run() {
+            ssh -i ~/.ssh/bulai_ci -p "$PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
+                -o ConnectTimeout=20 -o ServerAliveInterval=30 "$SSH_USER@$HOST" "$1"
+          }
+          ssh_run "check $SHA $COMPOSE_SHA256 $D_APP $D_WEB $D_OCR $D_AI"
+          ssh_run "activate $SHA $COMPOSE_SHA256 $D_APP $D_WEB $D_OCR $D_AI"
+          ssh_run "status"
+      - name: Verificação pública (opcional)
+        if: ${{ vars.PUBLIC_HEALTHCHECK_URL != '' }}
+        env:
+          URL: ${{ vars.PUBLIC_HEALTHCHECK_URL }}
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS --max-time 10 "$URL" >/dev/null; then echo "OK: $URL"; exit 0; fi
+            sleep 6
+          done
+          echo "A URL pública não respondeu: $URL"; exit 1
+      - name: Remover credenciais do runner
+        if: always()
+        run: |
+          rm -f ~/.ssh/bulai_ci ~/.ssh/known_hosts
+          docker logout ghcr.io >/dev/null 2>&1 || true
 
-  remote:
-    name: Executar na VPS
-    needs: [authorize, build]
-    # Roda quando deploy (authorize+build ok) ou quando a ação é rollback/status (jobs anteriores são pulados).
-    if: ${{ always() && !cancelled() && (inputs.action != 'deploy' || (needs.authorize.result == 'success' && needs.build.result == 'success')) }}
+  operate:
+    name: Rollback ou status (após aprovação)
+    needs: authorize
+    if: ${{ inputs.action == 'rollback' || inputs.action == 'status' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    # Aprovação manual e restrição de branch ficam no Environment `production` (Settings > Environments).
+    # Mesmo Environment, mesmas travas: rollback e status NÃO contornam a autorização.
     environment: production
     permissions:
       contents: read
     steps:
-      - name: Só executa a partir da branch main (defesa em profundidade; o Environment também deve restringir)
+      - name: Trava — o Environment precisa ter a proteção declarada
+        env:
+          PROTECTION: ${{ vars.PRODUCTION_PROTECTION }}
+          ALLOWED_ACTORS: ${{ vars.DEPLOY_ALLOWED_ACTORS }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          case "$PROTECTION" in
+            reviewers) echo "Proteção declarada: revisores obrigatórios no Environment." ;;
+            actors)
+              if [ -z "$ALLOWED_ACTORS" ] || [[ ",${ALLOWED_ACTORS// /}," != *",$ACTOR,"* ]]; then
+                echo "Modo 'actors': $ACTOR não está em DEPLOY_ALLOWED_ACTORS."; exit 1
+              fi
+              echo "::warning title=Sem revisores obrigatórios::Modo 'actors' (controle compensatório). Veja docs/deployment/kinghost.md." ;;
+            *)
+              echo "Environment 'production' sem proteção declarada. Nada foi executado."; exit 1 ;;
+          esac
+      - name: Só executa a partir da branch main
         run: |
           if [ "$GITHUB_REF" != "refs/heads/main" ]; then
             echo "Este workflow só pode ser executado a partir da main (ref atual: $GITHUB_REF)."; exit 1
@@ -191,18 +316,12 @@ jobs:
           umask 077
           printf '%s\n' "$SSH_KEY" > ~/.ssh/bulai_ci
           printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-      - name: Executar ação
+      - name: Executar ação na VPS
         env:
           ACTION: ${{ inputs.action }}
           HOST: ${{ vars.KINGHOST_HOST }}
           PORT: ${{ vars.KINGHOST_SSH_PORT || '22' }}
           SSH_USER: ${{ vars.KINGHOST_SSH_USER || 'bulai-ci' }}
-          SHA: ${{ needs.authorize.outputs.sha }}
-          COMPOSE_SHA256: ${{ needs.authorize.outputs.compose_sha256 }}
-          D_APP: ${{ needs.build.outputs.app }}
-          D_WEB: ${{ needs.build.outputs.web }}
-          D_OCR: ${{ needs.build.outputs.ocr }}
-          D_AI: ${{ needs.build.outputs.local_ai }}
         run: |
           set -euo pipefail
           [ -n "$HOST" ] || { echo "Variable KINGHOST_HOST ausente."; exit 1; }
@@ -211,16 +330,12 @@ jobs:
                 -o ConnectTimeout=20 -o ServerAliveInterval=30 "$SSH_USER@$HOST" "$1"
           }
           case "$ACTION" in
-            deploy)
-              ssh_run "check $SHA $COMPOSE_SHA256 $D_APP $D_WEB $D_OCR $D_AI"
-              ssh_run "activate $SHA $COMPOSE_SHA256 $D_APP $D_WEB $D_OCR $D_AI"
-              ;;
             rollback) ssh_run "rollback" ;;
-            status)   ssh_run "status" ;;
+            status)   ;;
           esac
           ssh_run "status"
       - name: Verificação pública (opcional)
-        if: ${{ inputs.action != 'status' && vars.PUBLIC_HEALTHCHECK_URL != '' }}
+        if: ${{ inputs.action == 'rollback' && vars.PUBLIC_HEALTHCHECK_URL != '' }}
         env:
           URL: ${{ vars.PUBLIC_HEALTHCHECK_URL }}
         run: |
@@ -229,6 +344,6 @@ jobs:
             sleep 6
           done
           echo "A URL pública não respondeu: $URL"; exit 1
-      - name: Remover a chave SSH do runner
+      - name: Remover credenciais do runner
         if: always()
         run: rm -f ~/.ssh/bulai_ci ~/.ssh/known_hosts

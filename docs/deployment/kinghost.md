@@ -151,19 +151,44 @@ docker network ls | grep bulai-internal                              # existe, m
    A linha instalada é `restrict,command="/usr/local/bin/bulai-ci-entry" ssh-ed25519 …`: a chave só aciona o comando forçado.
 
 7. **GitHub** (Settings do repositório):
-   - *Environments → `production`*: *Required reviewers*, *Deployment branches* = `main`; adicione o secret **`KINGHOST_SSH_PRIVATE_KEY`** (conteúdo de `bulai-ci`)
-     e as *variables* **`KINGHOST_HOST`** (`vixforge02.vps-kinghost.net`), **`KINGHOST_SSH_KNOWN_HOSTS`** (linha do `ssh-keyscan` já conferida),
-     opcionais `KINGHOST_SSH_PORT`, `KINGHOST_SSH_USER` (padrão `bulai-ci`) e `PUBLIC_HEALTHCHECK_URL` (só depois de o Caddy apontar para a aplicação).
+   - *Environments → `production`* (crie **antes** do primeiro deploy): *Required reviewers* e *Deployment branches* = `main`; no próprio Environment adicione o secret
+     **`KINGHOST_SSH_PRIVATE_KEY`** (conteúdo de `bulai-ci`), as *variables* **`KINGHOST_HOST`** (`vixforge02.vps-kinghost.net`),
+     **`KINGHOST_SSH_KNOWN_HOSTS`** (linha do `ssh-keyscan` já conferida), **`PRODUCTION_PROTECTION=reviewers`** (declara que a aprovação está configurada; ver
+     [Ordem de autorização](#ordem-de-autorização-do-deploy)) e, opcionais, `KINGHOST_SSH_PORT`, `KINGHOST_SSH_USER` (padrão `bulai-ci`) e `PUBLIC_HEALTHCHECK_URL` (só depois de o Caddy apontar para a aplicação).
    - *Branches → proteção da `main`*: exigir PR, exigir o check **“CI concluído”** e revisão dos CODEOWNERS (`.github/CODEOWNERS`).
    - *Actions → General*: permissões padrão do `GITHUB_TOKEN` = leitura.
    - Apague o par de chaves local depois de guardar a privada nos *secrets*.
+
+### Ordem de autorização do deploy
+
+O workflow `deploy.yml` foi organizado para que **nada seja publicado nem nenhum segredo seja exposto antes da aprovação humana**:
+
+1. `authorize` (sem segredos, não publica nada): só roda a partir da `main`; confere `DEPLOY_ALLOWED_ACTORS` (se definida); para `deploy`, exige SHA completo, ancestral da `main` e **CI verde para esse SHA**.
+2. `release` (ação `deploy`) e `operate` (`rollback`/`status`) rodam no *Environment* `production`. **A aprovação dos revisores é exigida antes de esses jobs começarem**, ou seja, antes de qualquer imagem ir ao GHCR e antes do secret SSH existir no runner.
+   `rollback` e `status` **não contornam** a autorização: passam pelo mesmo Environment, pelas mesmas travas e pela mesma checagem de `main` e de executor.
+3. A primeira etapa de `release`/`operate` é uma **trava**: sem `PRODUCTION_PROTECTION` declarada, o job falha antes de publicar ou conectar. Isso existe porque o GitHub **cria automaticamente** um Environment inexistente
+   **sem nenhuma proteção** quando um job o referencia (hoje o `production` ainda não existe no repositório).
+4. Rastreabilidade por digest: o build e o envio à VPS estão no **mesmo job**, então os digests publicados são exatamente os enviados. Antes de acionar a VPS o job confere que: o `HEAD` construído é o SHA autorizado, o hash de
+   `compose.prod.yaml` é o autorizado e as imagens `app` e `web` puxadas **por digest** têm `org.opencontainers.image.revision` = SHA e `source` = este repositório. O resumo da execução lista commit → compose → 4 digests.
+   Na VPS, `bulai-deploy` repete a checagem de rótulos e do hash do compose. As tags `sha-<commit>` servem só para localizar as imagens; a ativação usa sempre o digest.
+
+### Quando os revisores obrigatórios não estão disponíveis
+
+*Required reviewers* em Environments é gratuito em **repositórios públicos** (qualquer plano) e, em **repositórios privados**, depende do plano (GitHub Pro/Team/Enterprise). Este repositório é **público** e pertence a uma **conta pessoal**
+(verificado: `private: false`, sem Environments criados). Se, mesmo assim, o recurso não estiver disponível (por exemplo, ao tornar o repositório privado em um plano sem o recurso):
+
+- Defina no Environment `PRODUCTION_PROTECTION=actors` e no repositório a variable `DEPLOY_ALLOWED_ACTORS` (usuários separados por vírgula). O deploy passa a exigir que o executor esteja na lista (conferido em `authorize`, `release` e `operate`) e emite um **aviso**.
+- Isso é um **controle compensatório, mais fraco**: não há segunda pessoa aprovando. Quem tem permissão de escrita no repositório pode alterar o workflow em outra branch; os segredos do Environment só são liberados para as branches permitidas
+  (*Deployment branches* = `main`, que funciona sem revisores), então mantenha essa restrição e a proteção da `main` (PR + CI + CODEOWNERS), limite quem tem permissão de escrita e use 2FA.
+- Sem Environments disponíveis, **não** use *repository secrets* para a chave SSH: qualquer branch poderia lê-los. Prefira o acesso restrito do lado da VPS (comando forçado, hash do compose, digests do GHCR), que continua valendo.
+- Imagens do GHCR: confira em *Packages* a visibilidade dos pacotes `bulai-*` (o repositório é público; pacotes públicos não exigem login na VPS, privados exigem o `docker login` somente leitura).
 
 ## 5. Primeiro deploy
 
 0. **Antes do primeiro deploy**, confirme que não existe outro projeto Compose chamado `bulai` na VPS (o deploy usa `--remove-orphans` nesse projeto):
    `docker ps -a --filter label=com.docker.compose.project=bulai` deve vir vazio.
 1. Mescle o PR de infraestrutura na `main` (CI verde) e rode **Actions → Deploy (KingHost) → Run workflow**: `action = deploy`, `commit = <SHA completo da main>`.
-   O workflow valida o commit (ancestral da `main`, CI verde), publica as 4 imagens por digest e aciona `check` e `activate` na VPS.
+   O workflow valida o commit (ancestral da `main`, CI verde), **espera a aprovação do Environment**, publica as 4 imagens e aciona `check` e `activate` na VPS usando os digests recém-publicados.
 2. A VPS: confere o hash do compose, os arquivos de ambiente, o modelo, o espaço; baixa e verifica as imagens; faz backup (se o banco já existe);
    sobe o PostgreSQL; roda `php artisan migrate --force`; recria os containers aguardando os *healthchecks*; roda o *smoke test*; grava a release como ativa.
    Falha **antes** de aplicar: nada muda. Falha **depois**: restaura a release anterior (se existir) e termina com código 30.
@@ -193,7 +218,7 @@ docker network ls | grep bulai-internal                              # existe, m
 
 ## 6. Deploy de rotina, rollback e status
 
-- **Deploy:** Actions → *Deploy (KingHost)* → `deploy` + SHA da `main`. Aprovação do *Environment* quando configurada.
+- **Deploy:** Actions → *Deploy (KingHost)* → `deploy` + SHA da `main`; o job `release` espera a aprovação do *Environment* antes de publicar qualquer imagem.
 - **Rollback:** Actions → `rollback` (ou `sudo bulai-deploy rollback` na VPS). Reaplica as **imagens** da release anterior; **não reverte o banco**.
 - **Status:** Actions → `status`, ou `sudo bulai-deploy status`.
 - **Códigos de saída:** `0` ok · `10` pré-requisito · `20` compose instalado difere do commit · `30` falhou e restaurou a anterior · `31` falhou sem anterior para restaurar · `32` falhou e a restauração também falhou (intervenção manual) · `40` outro deploy em andamento.
@@ -311,6 +336,8 @@ Executadas **localmente** (Docker 28 / Compose 2.38, não na VPS):
 | GitHub *secret* (Environment `production`) | `KINGHOST_SSH_PRIVATE_KEY` | chave privada ed25519 exclusiva do CI |
 | GitHub *variable* | `KINGHOST_HOST` | host SSH da VPS |
 | GitHub *variable* | `KINGHOST_SSH_KNOWN_HOSTS` | linha(s) de `known_hosts` da VPS (host key fixada) |
+| GitHub *variable* (Environment) | `PRODUCTION_PROTECTION` | `reviewers` (aprovação configurada) ou `actors` (controle compensatório); sem ela o deploy não inicia |
+| GitHub *variable* (repositório) | `DEPLOY_ALLOWED_ACTORS` | usuários autorizados a executar o workflow (obrigatória no modo `actors`) |
 | GitHub *variable* (opcional) | `KINGHOST_SSH_PORT`, `KINGHOST_SSH_USER`, `PUBLIC_HEALTHCHECK_URL` | porta, usuário (padrão `bulai-ci`), URL pública de verificação |
 | VPS `/srv/bulai/shared/env/app.env` | `APP_KEY`, `DB_PASSWORD`, `DOCUMENT_OCR_TOKEN`, `BULAI_ADMIN_*`, … | ver `docker/production/env/app.env.example` |
 | VPS `/srv/bulai/shared/env/postgres.env` | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `BULAI_DB_PASSWORD` | superusuário de manutenção e senha do papel `bulai` |
