@@ -52,15 +52,8 @@ jobs:
           composer validate --strict --no-check-publish
           composer install --no-interaction --prefer-dist --no-progress
           composer check-platform-reqs
-      # NÃO bloqueia (continue-on-error) porque o lock atual tem advisories conhecidos e atualizar dependências exige aprovação
-      # explícita do projeto. O resultado aparece como aviso em todo CI; torne o passo obrigatório depois de atualizar o composer.lock.
-      - name: Auditoria de dependências PHP (informativa por enquanto)
-        continue-on-error: true
-        run: |
-          if ! composer audit --locked --no-dev --abandoned=report; then
-            echo "::warning title=composer audit::Há advisories de segurança no composer.lock (veja o log do passo)."
-            exit 1
-          fi
+      - name: Auditoria de dependências PHP (bloqueante)
+        run: composer audit --locked --abandoned=report
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
