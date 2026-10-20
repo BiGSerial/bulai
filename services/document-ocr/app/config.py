@@ -10,6 +10,7 @@ class Settings:
     max_pages: int
     render_dpi: int
     language: str
+    max_concurrency: int = 1
 
     @staticmethod
     def from_env() -> "Settings":
@@ -20,4 +21,5 @@ class Settings:
             max_pages=int(os.getenv("OCR_MAX_PAGES", "500")),
             render_dpi=int(os.getenv("OCR_RENDER_DPI", "200")),
             language=os.getenv("OCR_LANGUAGE", "pt"),
+            max_concurrency=max(1, int(os.getenv("OCR_MAX_CONCURRENCY", "1"))),
         )

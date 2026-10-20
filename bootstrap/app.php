@@ -19,6 +19,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->redirectGuestsTo('/login');
+
+        // Atrás de Caddy/Cloudflare/Nginx: confia nos cabeçalhos X-Forwarded-* somente dos proxies informados
+        // (lista separada por vírgulas de IPs/CIDRs, ou "*"). Vazio = não confia em nenhum.
+        $trustedProxies = trim((string) env('TRUSTED_PROXIES', ''));
+        if ($trustedProxies !== '') {
+            $middleware->trustProxies(at: $trustedProxies === '*' ? '*' : array_map('trim', explode(',', $trustedProxies)));
+        }
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

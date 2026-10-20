@@ -61,7 +61,7 @@ attempt=1
 while :; do
     rm -f "$PART"
     echo "Baixando $MODEL_FILENAME (tentativa $attempt/$MAX_ATTEMPTS)..."
-    if curl --fail --location --proto "$PROTO" --proto-redir '=https,http' --connect-timeout 20 --max-time 3600 \
+    if curl --fail --location --proto "$PROTO" --proto-redir "$PROTO" --connect-timeout 20 --max-time 3600 \
         --progress-bar --output "$PART" "$MODEL_URL"; then
         break
     fi
