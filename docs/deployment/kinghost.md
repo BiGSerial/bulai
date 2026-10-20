@@ -13,8 +13,8 @@ operação, backup, rollback e solução de falhas. Nenhum valor secreto aparece
 Internet → Cloudflare → Caddy (host, TLS) → 127.0.0.1:8080 ─┐
                                                             │ (única porta publicada)
    rede `edge`                      ┌─────────────────────┐ │
-      web (Nginx, uid 101) ◄────────┘                     │ │
-        │ socket Unix (/srv/bulai/shared/run, 2750 10010:101)
+      web (Nginx, uid 10030) ◄──────┘                     │ │
+        │ socket Unix (/srv/bulai/shared/run, 2750 10010:10030)
    redes `db` e `ai` (internal: sem saída para a internet; OCR/IA NÃO alcançam o banco)
       app (PHP-FPM 8.4, uid 10010) ── worker (queue:work, 1 job por vez, uid 10010)
         │  rede db                          │  rede ai
@@ -36,12 +36,11 @@ Os limites usam `mem_limit`/`memswap_limit`/`cpus`, atributos de serviço do Com
 
 Decisões de segurança do stack:
 
-- Containers: `cap_drop: ALL`, `no-new-privileges`, usuários não-root (`app`/`worker` uid 10010, `web` 101, `postgres` 999, `ocr` 10001, `local-ai` 10002),
+- Containers: `cap_drop: ALL`, `no-new-privileges`, usuários não-root com **UIDs/GIDs altos** (`app`/`worker` 10010, `web` 10030, `postgres` 10020, `ocr` 10001, `local-ai` 10002; ver [UIDs, bind mounts e contas do host](#uids-bind-mounts-e-contas-do-host)),
   `read_only: true` em `app`/`worker`/`web`; só `storage/app`, o socket e `tmpfs` são graváveis. Código imutável (`root:root`).
 - Redes `db` (app/worker ↔ PostgreSQL) e `ai` (app/worker ↔ OCR/IA) são `internal: true` (sem rota para fora) e nenhuma porta é publicada. OCR e IA, que processam PDFs não confiáveis,
-  **não** compartilham rede com o PostgreSQL. O PHP-FPM **não** escuta em TCP: usa um socket Unix num diretório `2750` (dono `10010`, grupo `101`). Quem alcançar esse socket executa PHP no
-  container `app` (inclusive via parâmetros FastCGI), então o acesso é restrito ao grupo 101: o `web` (que tem saída de rede pela rede `edge`) é, portanto, um ponto de pivô a proteger (imagem fixa, `read_only`, sem capabilities).
-  Se o grupo/uid 101 ou 999 já existir no host, o instalador avisa: confira `getent group 101`.
+  **não** compartilham rede com o PostgreSQL. O PHP-FPM **não** escuta em TCP: usa um socket Unix num diretório `2750` (dono `10010`, grupo `10030`). Quem alcançar esse socket executa PHP no
+  container `app` (inclusive via parâmetros FastCGI), então o acesso é restrito ao grupo 10030 (nenhuma conta do host pertence a ele): o `web` (que tem saída de rede pela rede `edge`) é, portanto, um ponto de pivô a proteger (imagem fixa, `read_only`, sem capabilities).
 - A rede existente `bulai-internal` **não é usada**: é compartilhada com contêineres que não controlamos e o socket dispensa rede.
   Se quiser anexar algo a ela, faça-o em um override aprovado, nunca expondo PHP-FPM, PostgreSQL, OCR ou IA.
 - O PostgreSQL cria o papel `bulai` **sem superusuário**, dono do banco; a extensão `vector` é criada uma única vez pelo superusuário de manutenção.
@@ -75,6 +74,34 @@ não os dados da aplicação contra uma `main`/Environment comprometidos. A defe
 proteção da `main`, CODEOWNERS e 2FA. Endurecimento futuro recomendado: verificar na VPS a *attestation* de procedência (`gh attestation verify`/`cosign`) com a identidade do workflow e `refs/heads/main`. Se o compose do commit diferir do instalado, o deploy
 **falha com código 20** até um administrador reinstalar o conjunto confiável (`install-on-vps.sh`). Risco residual: quem controla a `main` e o *Environment*
 `production` controla o código que roda (inevitável); proteja com revisão obrigatória, CODEOWNERS e aprovação do ambiente.
+
+### UIDs, bind mounts e contas do host
+
+Os bind mounts de `/srv/bulai/shared` pertencem a UIDs/GIDs numéricos, que o kernel compara com as contas **do host**. Na VPS KingHost validada: `999 = caddy`, `101 = messagebus` (uid) e `lxd` (gid).
+Com o layout inicial (PostgreSQL como `999:999`, socket com grupo `101`) isso daria **acesso indevido**: o `caddy` (e qualquer processo seu) leria e gravaria o diretório do PostgreSQL, e membros do grupo `lxd`
+(normalmente administradores) alcançariam o socket do PHP-FPM e executariam PHP no container. Demonstrado em Docker real com `--user 999:999` e `--user 1234:101`.
+
+Correção (sem alterar nenhuma conta da VPS): todos os containers usam IDs **altos**, sem equivalente no host, e o instalador **recusa** continuar se algum já existir (`getent`).
+
+| ID | Uso | Bind mount / observação |
+|---|---|---|
+| 10010 | `app`, `worker` | `/srv/bulai/shared/storage` `0750 10010:10010` |
+| 10020 | `postgres` | `/srv/bulai/shared/postgres` `0700 10020:10020`; `/etc/passwd` e `/etc/group` mínimos montados somente leitura (a imagem só inicializa o banco se o uid existir no passwd do container) |
+| 10030 | `web` (Nginx) | `/srv/bulai/shared/web-cache` `0700 10030:10030`; grupo do socket |
+| 10010:10030 | socket do PHP-FPM | `/srv/bulai/shared/run` `2750`, socket `0660`: só app e web |
+| 10001 / 10002 | `document-ocr` / `local-ai` | sem bind mount gravável (`tmpfs`; modelo `root:root` somente leitura) |
+| 0 | segredos `env/*.env`, `models`, `/var/lib/bulai-deploy` | `root:root` (`0600`/`0755`/`0700`); segredos chegam aos containers pelo daemon, nunca por bind mount |
+
+Verificado em Docker real: o stack sobe com esses IDs (PostgreSQL inicializa, Nginx lê/grava o buffer e conecta ao socket, `tmpfs` com `uid/gid` aplicados), e processos com `--user 999:999`, `101:101` e `999:101`
+**não conseguem listar** `postgres`, `storage`, `run` nem `web-cache` (apenas `models`, público por desenho: pesos abertos). O `bulai-deploy` confere dono e modo de cada diretório no `check`/`activate` e recusa o deploy se divergirem.
+Se já existir um banco inicializado com outro dono (por exemplo o `999` padrão da imagem), o instalador migra a posse para `10020` (o `caddy` deixa de ter acesso).
+
+**Limitações:**
+- **User namespaces / Docker rootless:** com `userns-remap` ou modo *rootless* o uid do container é mapeado para um *subuid* do host e os donos acima deixariam de valer. Não é suportado: o instalador e o `bulai-deploy` recusam
+  esses daemons (`docker info` com `name=userns`/`name=rootless`). A VPS atual não usa nenhum dos dois.
+- Os IDs são **fixos** no compose, nos Dockerfiles, no instalador e no `bulai-deploy` (um teste em `scripts/deploy/tests/run.sh` confere a consistência). Para trocar, altere os quatro lugares e rode o instalador.
+- O instalador só **verifica** colisões; se uma conta do host usar um desses IDs no futuro (ex.: um novo serviço criar o uid 10020), ela passará a ter acesso ao diretório correspondente. Revise `getent passwd` antes de instalar novos serviços na VPS.
+- O mesmo princípio vale para `/srv/bulai/backups` (`root:root 0700`): os dumps não ficam acessíveis a contas do host.
 
 ## 3. Requisitos da VPS
 
@@ -299,8 +326,8 @@ Para recuperar o código: o digest de cada release fica em `/var/lib/bulai-deplo
 | `document-ocr` *unhealthy* logo após subir | carregamento dos modelos; ou OOM | aguarde `start_period`; `dmesg | grep -i oom`; reduza o tamanho dos PDFs |
 | 413 em upload | limite do Caddy/Nginx/PHP (100 MB por lote) | os três já estão em 110 MB; reduza o lote |
 | Worker parado / jobs presos | job > 450 s ou worker reiniciado | `sudo bulai-deploy logs worker`; `queue:failed`; `DB_QUEUE_RETRY_AFTER` deve ser > 450 |
-| `Permission denied` em `storage` | dono incorreto de `/srv/bulai/shared/storage` | `sudo chown -R 10010:10010 /srv/bulai/shared/storage` (com o stack parado) |
-| 502 no Nginx | `app` sem socket (container reiniciando) | `sudo bulai-deploy logs app`; confira `/srv/bulai/shared/run` (`2750 10010:101`) |
+| `Permission denied` em `storage` | dono incorreto de `/srv/bulai/shared/storage` | `sudo chown -R 10010:10010 /srv/bulai/shared/storage` (com o stack parado); o `check` do deploy também aponta divergências de dono/modo |
+| 502 no Nginx | `app` sem socket (container reiniciando) | `sudo bulai-deploy logs app`; confira `/srv/bulai/shared/run` (`2750 10010:10030`) |
 | Disco cheio | imagens/logs/backups acumulados | `sudo bulai-deploy prune`; remova backups antigos; `docker system df` |
 
 ## 10. Verificações realizadas

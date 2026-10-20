@@ -23,7 +23,8 @@ expect_not_contains() { if grep -q -- "$3" <<<"$2"; then bad "$1" "contém '$3'"
 # --- ambiente de teste ------------------------------------------------------------------------------------------------
 new_env() {
     SHA_IN_USE=$SHA
-    ROOT="$WORK/$1"; rm -rf "$ROOT"; mkdir -p "$ROOT"/{releases,trusted,shared/env,shared/models,shared/postgres,shared/storage,shared/run,stub,bin}
+    ROOT="$WORK/$1"; rm -rf "$ROOT"; mkdir -p "$ROOT"/{releases,trusted,shared/env,shared/models,shared/postgres,shared/storage,shared/run,shared/web-cache,stub,bin}
+    chmod 700 "$ROOT"/shared/postgres "$ROOT"/shared/web-cache; chmod 750 "$ROOT"/shared/storage; chmod 2750 "$ROOT"/shared/run; chmod 755 "$ROOT"/shared/models
     echo "services: {}" >"$ROOT/trusted/compose.prod.yaml"
     COMPOSE_SUM=$(sha256sum "$ROOT/trusted/compose.prod.yaml" | cut -d' ' -f1)
     printf 'LOCAL_AI_MODEL_FILENAME=model.gguf\n' >"$ROOT/trusted/model.env"
@@ -105,6 +106,13 @@ new_env t6
 STUB_REVISION=$SHA2 deploy activate "$SHA" "$COMPOSE_SUM" "$D1" "$D2" "$D3" "$D4"; expect_eq "imagem com revision diferente -> 10" "$RC" 10
 new_env t7
 STUB_SOURCE=https://github.com/evil/repo deploy activate "$SHA" "$COMPOSE_SUM" "$D1" "$D2" "$D3" "$D4"; expect_eq "imagem de outro repositório -> 10" "$RC" 10
+new_env t5b; chmod 755 "$ROOT/shared/postgres"
+deploy activate "$SHA" "$COMPOSE_SUM" "$D1" "$D2" "$D3" "$D4";                expect_eq "PostgreSQL com modo aberto (755) -> 10" "$RC" 10
+expect_contains "mensagem aponta o diretório do banco" "$OUT" "shared/postgres com modo 755"
+new_env t5c; chmod 755 "$ROOT/shared/run"
+deploy activate "$SHA" "$COMPOSE_SUM" "$D1" "$D2" "$D3" "$D4";                expect_eq "diretório do socket sem setgid/2750 -> 10" "$RC" 10
+new_env t5d; rmdir "$ROOT/shared/web-cache"
+deploy activate "$SHA" "$COMPOSE_SUM" "$D1" "$D2" "$D3" "$D4";                expect_eq "web-cache ausente -> 10" "$RC" 10
 new_env t8
 deploy check "$SHA" "$COMPOSE_SUM" "$D1" "$D2" "$D3" "$D4";                   expect_eq "check OK -> 0" "$RC" 0
 expect_not_contains "check não sobe containers" "$(cat "$ROOT/stub/calls.log")" "up -d"
@@ -201,6 +209,20 @@ expect_contains "logs chama compose logs --tail" "$(cat "$ROOT/stub/calls.log")"
 echo "== rollback sem release anterior"
 new_env r1
 deploy rollback;                                                              expect_eq "rollback sem anterior -> 31" "$RC" 31
+
+echo "== consistência de UIDs/GIDs (compose × Dockerfiles × instalador × deploy)"
+REPO="$HERE/../../.."
+uid_of() { grep -oE "$2" "$1" | head -1 | grep -oE '[0-9]{5}' | head -1; }
+expect_eq "compose: postgres roda como 10020" "$(grep -A1 'user: "10020:10020"' "$REPO/compose.prod.yaml" | head -1 | grep -c 10020)" "1"
+expect_eq "compose: nginx roda como 10030" "$(grep -c 'user: "10030:10030"' "$REPO/compose.prod.yaml")" "1"
+expect_eq "passwd do postgres usa 10020" "$(grep -c '^postgres:x:10020:10020:' "$REPO/docker/production/postgres/passwd")" "1"
+expect_eq "group do postgres usa 10020" "$(grep -c '^postgres:x:10020:' "$REPO/docker/production/postgres/group")" "1"
+expect_eq "Dockerfile da aplicação usa uid/gid 10010" "$(grep -c -- '--gid 10010\|--uid 10010' "$REPO/docker/production/php/Dockerfile")" "2"
+expect_eq "instalador define os mesmos IDs" "$(grep -c 'APP_UID=10010 OCR_UID=10001 AI_UID=10002 PG_UID=10020 WEB_UID=10030' "$REPO/scripts/deploy/install-on-vps.sh")" "1"
+expect_eq "bulai-deploy confere os mesmos donos" "$(grep -cE 'check_dir (postgres 10020 10020 700|storage 10010 10010 750|web-cache 10030 10030 700|run 10010 10030 2750)' "$REPO/scripts/deploy/bulai-deploy")" "4"
+for bad in 999 101; do
+    expect_eq "nenhum container usa o ID $bad do host (caddy/messagebus/lxd)" "$(grep -cE "(user: \"$bad:|uid=${bad}[,\"]|gid=${bad}[,\"]|-o $bad |-g $bad )" "$REPO/compose.prod.yaml" "$REPO/scripts/deploy/install-on-vps.sh" | awk -F: '{s+=$2} END {print s+0}')" "0"
+done
 
 echo "== comando forçado do CI (bulai-ci-entry)"
 # O comando forçado fixa o PATH (e usa sudo); no teste, troca-se só a chamada final por um eco.
