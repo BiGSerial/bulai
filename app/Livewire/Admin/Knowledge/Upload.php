@@ -113,6 +113,41 @@ class Upload extends Component
         $this->newSourceType = KnowledgeSource::TYPE_REGULATORY;
     }
 
+    /**
+     * Retira um PDF da seleção e apaga o upload temporário correspondente.
+     *
+     * O arquivo é identificado pelo nome temporário gerado pelo Livewire, e não pela posição na lista:
+     * a posição muda a cada remoção, e um clique repetido removeria o arquivo seguinte. Um identificador
+     * que não pertence à seleção atual é ignorado.
+     */
+    public function removeFile(string $temporaryFilename): void
+    {
+        $position = collect($this->files)->search(
+            fn (mixed $file): bool => $file instanceof TemporaryUploadedFile && $file->getFilename() === $temporaryFilename,
+        );
+
+        if ($position === false) {
+            return;
+        }
+
+        $this->files[$position]->delete();
+        unset($this->files[$position]);
+        $this->files = array_values($this->files);
+        $this->resetValidation(['files', 'files.*']);
+    }
+
+    public function clearFiles(): void
+    {
+        foreach ($this->files as $file) {
+            if ($file instanceof TemporaryUploadedFile) {
+                $file->delete();
+            }
+        }
+
+        $this->reset('files');
+        $this->resetValidation(['files', 'files.*']);
+    }
+
     public function ingest(KnowledgeBatchIngestionService $service): void
     {
         $maxBatchKilobytes = (int) config('knowledge.ingestion.max_batch_kilobytes');

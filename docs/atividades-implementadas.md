@@ -71,6 +71,8 @@ Os aliases `/admin/documents` e `/admin/documents/{document}` continuam disponí
 
 O upload administrativo em `/admin/knowledge/upload` aceita múltiplos PDFs e exige a seleção de uma origem ativa. Não há limite de quantidade na aplicação; o lote pode somar no máximo 100 MB, configurável por `KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES`. O teto temporário por arquivo usa `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES`, também em 100 MB por padrão.
 
+Antes de iniciar a importação, cada PDF da lista tem a ação "Remover", e, a partir de dois arquivos, aparece "Limpar seleção", com confirmação. O contador e o total em MB se atualizam, os erros de validação da lista são limpos e o arquivo temporário do Livewire é apagado. Uma nova seleção se soma à atual, não a substitui. A remoção identifica o arquivo pelo nome temporário, e não pela posição, para que um clique repetido não remova outro arquivo. Componente: `app/Livewire/Admin/Knowledge/Upload.php` (`removeFile`, `clearFiles`); tela: `resources/views/livewire/admin/knowledge/upload.blade.php`; testes: `tests/Feature/Admin/KnowledgeUploadAdminTest.php`.
+
 Cada arquivo é tratado isoladamente. Uma falha não invalida os demais itens do lote. A resolução procura, nesta ordem:
 
 1. `external_key` explícita;
