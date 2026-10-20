@@ -1,0 +1,224 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Sem permissões além de leitura; nenhum segredo é usado neste workflow.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: "8.4"
+  NODE_VERSION: "22"
+
+jobs:
+  php:
+    name: PHP (PHPUnit, Pint, auditoria, build Vite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bulai_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres -d bulai_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, pgsql, pcntl, gd, zip, intl, mbstring, dom, fileinfo
+          coverage: none
+          tools: composer:v2
+      - name: Cache do Composer
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/composer/files
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+      - name: Dependências (composer.lock) e integridade
+        run: |
+          composer validate --strict --no-check-publish
+          composer install --no-interaction --prefer-dist --no-progress
+          composer check-platform-reqs
+      - name: Auditoria de dependências PHP
+        run: composer audit --locked --no-dev --abandoned=report
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Dependências JS (package-lock.json) e auditoria
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high
+      - name: Build dos assets (Vite)
+        run: npm run build
+      - name: Estilo (Pint)
+        run: vendor/bin/pint --test
+      - name: Preparar ambiente de teste
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+      - name: PHPUnit
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "5432"
+          DB_DATABASE: bulai_test
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+        run: php artisan test --compact
+
+  python-services:
+    name: Serviços Python (OCR e IA local)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: Testes do serviço de OCR (sem o Paddle)
+        working-directory: services/document-ocr
+        run: |
+          pip install --no-cache-dir ".[test]"
+          python -m pytest -q
+      - name: Testes do supervisor da IA local
+        working-directory: services/local-ai
+        run: |
+          pip install --no-cache-dir pytest
+          python -m pytest -q
+
+  infra:
+    name: Infraestrutura (shell, Compose, workflows, Caddy, segredos)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning scripts/deploy/bulai-deploy scripts/deploy/bulai-ci-entry scripts/deploy/install-on-vps.sh scripts/deploy/tests/run.sh docker/production/php/entrypoint.sh docker/production/postgres/init/10-bulai-app-role.sh
+      - name: Testes do script de deploy (stubs, sem tocar na VPS)
+        run: bash scripts/deploy/tests/run.sh
+      - name: Compose de desenvolvimento e de produção
+        run: |
+          docker compose -f compose.yaml config -q
+          mkdir -p /tmp/bulai-shared/env && touch /tmp/bulai-shared/env/{app,postgres,ocr}.env
+          export BULAI_SHARED_DIR=/tmp/bulai-shared APP_IMAGE=a WEB_IMAGE=b OCR_IMAGE=c LOCAL_AI_IMAGE=d
+          docker compose -f compose.prod.yaml --env-file docker/production/env/model.env config -q
+      - name: Só o Nginx publica porta, em 127.0.0.1
+        run: |
+          export BULAI_SHARED_DIR=/tmp/bulai-shared APP_IMAGE=a WEB_IMAGE=b OCR_IMAGE=c LOCAL_AI_IMAGE=d
+          docker compose -f compose.prod.yaml --env-file docker/production/env/model.env config --format json > /tmp/prod.json
+          python3 - <<'PY'
+          import json, sys
+          cfg = json.load(open('/tmp/prod.json'))
+          published = {name: svc.get('ports', []) for name, svc in cfg['services'].items() if svc.get('ports')}
+          assert list(published) == ['web'], f"portas publicadas fora do web: {published}"
+          (port,) = published['web']
+          assert port['host_ip'] == '127.0.0.1' and str(port['published']) == '8080', port
+          for name, svc in cfg['services'].items():
+              assert svc.get('privileged') is not True, f"{name} privilegiado"
+              assert 'ALL' in svc.get('cap_drop', []), f"{name} sem cap_drop ALL"
+              assert svc.get('mem_limit'), f"{name} sem limite de memória"
+          assert cfg['networks']['db']['internal'] is True and cfg['networks']['ai']['internal'] is True
+          nets = lambda n: set(cfg['services'][n].get('networks', {}))
+          assert 'db' not in nets('document-ocr') and 'db' not in nets('local-ai'), 'OCR/IA não podem alcançar o banco'
+          print('ok: portas, privilégios e limites conferidos')
+          PY
+      - name: Validar YAMLs e workflows (actionlint)
+        run: |
+          python3 - <<'PY'
+          import glob, yaml
+          for f in glob.glob('.github/workflows/*.yml') + ['compose.yaml', 'compose.prod.yaml']:
+              yaml.safe_load(open(f)); print('yaml ok', f)
+          PY
+          docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+      - name: Validar o bloco do Caddy (mesma versão da VPS)
+        run: |
+          mkdir -p /tmp/caddy/bulai
+          cp docker/production/caddy/cloudflare-ips.caddy /tmp/caddy/bulai/
+          cp docker/production/caddy/bulai.caddy /tmp/caddy/Caddyfile
+          docker run --rm -v /tmp/caddy/Caddyfile:/etc/caddy/Caddyfile:ro -v /tmp/caddy/bulai:/etc/caddy/bulai:ro caddy:2.6.2-alpine caddy validate --config /etc/caddy/Caddyfile
+      - name: Sem segredos versionados (gitleaks)
+        run: docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.30.1 detect --source /repo --no-banner --redact --verbose
+      - name: Arquivos que nunca devem estar no Git
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)(\.env|.*\.pem|.*\.key|id_rsa|id_ed25519)$' | grep -v '\.example$' || true)
+          if [ -n "$bad" ]; then echo "Arquivos sensíveis versionados:"; echo "$bad"; exit 1; fi
+          if git ls-files | grep -E '\.gguf$'; then echo "Modelo .gguf não pode ir para o Git"; exit 1; fi
+
+  docker:
+    name: Imagens Docker (build + varredura)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build da imagem da aplicação
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/production/php/Dockerfile
+          build-args: GIT_SHA=${{ github.sha }}
+          load: true
+          tags: bulai-app:ci
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+      - name: Build da imagem do Nginx
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/production/nginx/Dockerfile
+          build-args: |
+            APP_IMAGE=bulai-app:ci
+            GIT_SHA=${{ github.sha }}
+          load: true
+          tags: bulai-web:ci
+      - name: Configuração do Nginx válida
+        run: docker run --rm --add-host bulai-app:127.0.0.1 bulai-web:ci nginx -t
+      - name: A imagem da aplicação não contém .env nem credenciais
+        run: |
+          docker run --rm --entrypoint sh bulai-app:ci -c 'test ! -e /var/www/html/.env && test ! -d /var/www/html/.git'
+          docker run --rm --entrypoint php bulai-app:ci -m | grep -q pdo_pgsql
+          docker run --rm --entrypoint php bulai-app:ci -m | grep -q pcntl
+          test "$(docker run --rm --entrypoint id bulai-app:ci -u)" = "10010"
+      - name: Build do classificador local (llamafile)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: services/local-ai
+          load: true
+          tags: bulai-local-ai:ci
+          cache-from: type=gha,scope=local-ai
+          cache-to: type=gha,scope=local-ai,mode=max
+      - name: Varredura de vulnerabilidades (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bulai-app:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          vuln-type: os,library
+
+  ci-ok:
+    name: CI concluído
+    if: always()
+    needs: [php, python-services, infra, docker]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Todos os jobs obrigatórios passaram?
+        run: |
+          echo '${{ toJSON(needs) }}' | python3 -c "import json,sys; n=json.load(sys.stdin); bad=[k for k,v in n.items() if v['result']!='success']; print('falharam:', bad) if bad else print('ok'); sys.exit(1 if bad else 0)"

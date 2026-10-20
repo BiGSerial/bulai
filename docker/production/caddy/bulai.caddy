@@ -1,0 +1,35 @@
+# Bloco de site do Caddy (2.6.x) para o BULA-IA. NÃO é aplicado automaticamente: um administrador o integra ao Caddyfile
+# existente DEPOIS de validar a aplicação (ver docs/deployment/kinghost.md), mantendo o TLS e a página temporária atuais
+# até lá. Instale as faixas do Cloudflare em /etc/caddy/bulai/cloudflare-ips.caddy.
+#
+# O Caddy: (1) só atende tráfego que veio do Cloudflare (o resto recebe 403), (2) repassa o IP real do visitante
+# (CF-Connecting-IP) como X-Real-IP e o esquema como X-Forwarded-Proto, (3) envia ao Nginx interno em 127.0.0.1:8080.
+bulai.vixforge.com.br {
+	# Mantenha aqui as diretivas de TLS/log que já funcionam hoje neste site (Let's Encrypt).
+
+	import /etc/caddy/bulai/cloudflare-ips.caddy
+
+	header Strict-Transport-Security "max-age=31536000"
+
+	# Lote de envio administrativo: até 100 MB (+ overhead multipart), igual ao client_max_body_size do Nginx.
+	request_body {
+		max_size 110MB
+	}
+
+	handle @cloudflare {
+		reverse_proxy 127.0.0.1:8080 {
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-Proto https
+			header_up Host {host}
+			transport http {
+				dial_timeout 5s
+				read_timeout 150s
+				write_timeout 150s
+			}
+		}
+	}
+
+	handle {
+		respond "Acesso direto não permitido." 403
+	}
+}

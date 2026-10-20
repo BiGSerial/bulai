@@ -1,0 +1,234 @@
+name: Deploy (KingHost)
+
+# Implantação SOMENTE manual. Nunca dispara por push.
+#   deploy   -> valida um commit da main com CI verde, publica as imagens (GHCR) por digest e aciona a VPS.
+#   rollback -> volta para a release anterior registrada na VPS (código e imagens; NÃO reverte migrations).
+#   status   -> mostra a release ativa.
+#
+# Fronteira de segurança: a chave SSH deste workflow só executa `bulai-ci-entry` na VPS (comando forçado), que só aceita
+# estas ações com argumentos validados; a VPS usa o compose.prod.yaml APROVADO instalado por um administrador.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Ação"
+        type: choice
+        required: true
+        default: deploy
+        options: [deploy, rollback, status]
+      commit:
+        description: "SHA completo (40 caracteres) de um commit da main com CI verde (somente para 'deploy')"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kinghost-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_PREFIX: ghcr.io/bigserial/bulai
+  SOURCE_URL: https://github.com/BiGSerial/bulai
+
+jobs:
+  authorize:
+    name: Validar o commit
+    if: ${{ inputs.action == 'deploy' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.validate.outputs.sha }}
+      compose_sha256: ${{ steps.validate.outputs.compose_sha256 }}
+    steps:
+      - name: Só executa a partir da branch main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Este workflow só pode ser executado a partir da main (ref atual: $GITHUB_REF)."; exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Validar commit autorizado
+        id: validate
+        env:
+          INPUT_COMMIT: ${{ inputs.commit }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$INPUT_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Informe o SHA completo (40 caracteres hexadecimais minúsculos)."; exit 1
+          fi
+          git fetch origin main
+          git cat-file -e "$INPUT_COMMIT^{commit}"
+          if ! git merge-base --is-ancestor "$INPUT_COMMIT" origin/main; then
+            echo "O commit $INPUT_COMMIT não pertence ao histórico da main."; exit 1
+          fi
+          ok=$(gh run list --repo "$REPO" --workflow ci.yml --commit "$INPUT_COMMIT" --status success --json databaseId --jq 'length')
+          if [ "$ok" -lt 1 ]; then
+            echo "Não há execução do CI com sucesso para $INPUT_COMMIT."; exit 1
+          fi
+          compose_sha=$(git show "$INPUT_COMMIT:compose.prod.yaml" | sha256sum | cut -d' ' -f1)
+          echo "sha=$INPUT_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "compose_sha256=$compose_sha" >> "$GITHUB_OUTPUT"
+          echo "Commit autorizado: $INPUT_COMMIT (compose.prod.yaml sha256=$compose_sha)"
+
+  build:
+    name: Publicar imagens (GHCR)
+    needs: authorize
+    if: ${{ inputs.action == 'deploy' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      app: ${{ steps.app.outputs.digest }}
+      web: ${{ steps.web.outputs.digest }}
+      ocr: ${{ steps.ocr.outputs.digest }}
+      local_ai: ${{ steps.localai.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.authorize.outputs.sha }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Imagem da aplicação
+        id: app
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/production/php/Dockerfile
+          build-args: |
+            GIT_SHA=${{ needs.authorize.outputs.sha }}
+            GIT_REPOSITORY=${{ env.SOURCE_URL }}
+          push: true
+          provenance: mode=max
+          tags: ${{ env.IMAGE_PREFIX }}-app:sha-${{ needs.authorize.outputs.sha }}
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,scope=app,mode=max
+      - name: Imagem do Nginx (assets da MESMA imagem da aplicação)
+        id: web
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: docker/production/nginx/Dockerfile
+          build-args: |
+            APP_IMAGE=${{ env.IMAGE_PREFIX }}-app@${{ steps.app.outputs.digest }}
+            GIT_SHA=${{ needs.authorize.outputs.sha }}
+            GIT_REPOSITORY=${{ env.SOURCE_URL }}
+          push: true
+          provenance: mode=max
+          tags: ${{ env.IMAGE_PREFIX }}-web:sha-${{ needs.authorize.outputs.sha }}
+      - name: Imagem do OCR (modelos do PaddleOCR embutidos)
+        id: ocr
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: services/document-ocr
+          build-args: PREFETCH_MODELS=1
+          labels: org.opencontainers.image.source=${{ env.SOURCE_URL }}
+          push: true
+          provenance: mode=max
+          tags: ${{ env.IMAGE_PREFIX }}-ocr:sha-${{ needs.authorize.outputs.sha }}
+          cache-from: type=gha,scope=ocr
+          cache-to: type=gha,scope=ocr,mode=max
+      - name: Imagem da IA local (llamafile; sem o modelo)
+        id: localai
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: services/local-ai
+          labels: org.opencontainers.image.source=${{ env.SOURCE_URL }}
+          push: true
+          provenance: mode=max
+          tags: ${{ env.IMAGE_PREFIX }}-local-ai:sha-${{ needs.authorize.outputs.sha }}
+          cache-from: type=gha,scope=local-ai
+          cache-to: type=gha,scope=local-ai,mode=max
+      - name: Resumo
+        run: |
+          {
+            echo "### Imagens publicadas (por digest)"
+            echo "- app: \`${{ steps.app.outputs.digest }}\`"
+            echo "- web: \`${{ steps.web.outputs.digest }}\`"
+            echo "- ocr: \`${{ steps.ocr.outputs.digest }}\`"
+            echo "- local-ai: \`${{ steps.localai.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  remote:
+    name: Executar na VPS
+    needs: [authorize, build]
+    # Roda quando deploy (authorize+build ok) ou quando a ação é rollback/status (jobs anteriores são pulados).
+    if: ${{ always() && !cancelled() && (inputs.action != 'deploy' || (needs.authorize.result == 'success' && needs.build.result == 'success')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    # Aprovação manual e restrição de branch ficam no Environment `production` (Settings > Environments).
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Só executa a partir da branch main (defesa em profundidade; o Environment também deve restringir)
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "Este workflow só pode ser executado a partir da main (ref atual: $GITHUB_REF)."; exit 1
+          fi
+      - name: Preparar SSH (host key fixada; sem ssh-keyscan)
+        env:
+          SSH_KEY: ${{ secrets.KINGHOST_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ vars.KINGHOST_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [ -n "$SSH_KEY" ] || { echo "Secret KINGHOST_SSH_PRIVATE_KEY ausente."; exit 1; }
+          [ -n "$KNOWN_HOSTS" ] || { echo "Variable KINGHOST_SSH_KNOWN_HOSTS ausente (cole a linha de known_hosts da VPS)."; exit 1; }
+          install -d -m 700 ~/.ssh
+          umask 077
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/bulai_ci
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+      - name: Executar ação
+        env:
+          ACTION: ${{ inputs.action }}
+          HOST: ${{ vars.KINGHOST_HOST }}
+          PORT: ${{ vars.KINGHOST_SSH_PORT || '22' }}
+          SSH_USER: ${{ vars.KINGHOST_SSH_USER || 'bulai-ci' }}
+          SHA: ${{ needs.authorize.outputs.sha }}
+          COMPOSE_SHA256: ${{ needs.authorize.outputs.compose_sha256 }}
+          D_APP: ${{ needs.build.outputs.app }}
+          D_WEB: ${{ needs.build.outputs.web }}
+          D_OCR: ${{ needs.build.outputs.ocr }}
+          D_AI: ${{ needs.build.outputs.local_ai }}
+        run: |
+          set -euo pipefail
+          [ -n "$HOST" ] || { echo "Variable KINGHOST_HOST ausente."; exit 1; }
+          ssh_run() {
+            ssh -i ~/.ssh/bulai_ci -p "$PORT" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
+                -o ConnectTimeout=20 -o ServerAliveInterval=30 "$SSH_USER@$HOST" "$1"
+          }
+          case "$ACTION" in
+            deploy)
+              ssh_run "check $SHA $COMPOSE_SHA256 $D_APP $D_WEB $D_OCR $D_AI"
+              ssh_run "activate $SHA $COMPOSE_SHA256 $D_APP $D_WEB $D_OCR $D_AI"
+              ;;
+            rollback) ssh_run "rollback" ;;
+            status)   ssh_run "status" ;;
+          esac
+          ssh_run "status"
+      - name: Verificação pública (opcional)
+        if: ${{ inputs.action != 'status' && vars.PUBLIC_HEALTHCHECK_URL != '' }}
+        env:
+          URL: ${{ vars.PUBLIC_HEALTHCHECK_URL }}
+        run: |
+          for _ in $(seq 1 10); do
+            if curl -fsS --max-time 10 "$URL" >/dev/null; then echo "OK: $URL"; exit 0; fi
+            sleep 6
+          done
+          echo "A URL pública não respondeu: $URL"; exit 1
+      - name: Remover a chave SSH do runner
+        if: always()
+        run: rm -f ~/.ssh/bulai_ci ~/.ssh/known_hosts

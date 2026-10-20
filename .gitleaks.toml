@@ -1,0 +1,14 @@
+title = "BULA-IA gitleaks"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "`external_key` é um identificador de negócio (chave externa de documento), não um segredo."
+targetRules = ["generic-api-key"]
+regexTarget = "line"
+regexes = ['''(?i)external_?key''']
+
+[[allowlists]]
+description = "Documentação de skills de terceiros com exemplos fictícios."
+paths = ['''^\.claude/skills/''']

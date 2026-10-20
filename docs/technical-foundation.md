@@ -896,3 +896,15 @@ Limitations: AI-filled ingredients are not catalog-confirmed (shown as such); su
 - **Tests:** `KnowledgePendingReviewFlowTest`, `AnvisaCatalogAdminPageTest`, `AdminDesignSystemTest` (unchanged rules).
 - **Operational:** after pulling these changes run `php artisan migrate`, `npm run build` (new Tailwind classes) and restart the queue worker.
 - **Limitations:** tab state is client-side only; the UI was verified by tests, not visually in a browser during this change.
+
+## Production Infrastructure and CI/CD (KingHost)
+
+Full operational guide: `docs/deployment/kinghost.md`.
+
+- **Stack:** `compose.prod.yaml` (independent from the development `compose.yaml`): `web` (Nginx, only service publishing a port, `127.0.0.1:8080`), `app` (PHP 8.4-FPM), `worker` (single `queue:work`), `postgres` (pgvector/PG17, non-superuser app role), `document-ocr`, `local-ai`. Hardened containers (non-root, `cap_drop ALL`, read-only FS for app/worker/web), memory/CPU limits for 8 GB, internal `db`/`ai` networks without egress (OCR/IA cannot reach PostgreSQL), PHP-FPM reachable only through a Unix socket shared with Nginx.
+- **Images:** `docker/production/php/Dockerfile` (multi-stage: Composer `--no-dev`, Vite build, runtime; labels `source`/`revision`), `docker/production/nginx/Dockerfile` (assets copied from the same app image), OCR image built with `PREFETCH_MODELS=1` (models baked in). Tags `sha-<commit>`; the VPS pulls by digest. No `.env`/credentials in images (`.dockerignore`).
+- **Application changes:** `bootstrap/app.php` reads `TRUSTED_PROXIES` (test: `tests/Feature/Infrastructure/TrustedProxiesTest.php`); `services/document-ocr` limits concurrency (`OCR_MAX_CONCURRENCY`, default 1) and runs OCR outside the event loop so `/health` stays responsive (test in `services/document-ocr/tests/test_api.py`).
+- **Trust boundary:** `scripts/deploy/bulai-deploy` (root, validated arguments, image digests + OCI labels, approved compose installed by an administrator in `/opt/bulai/trusted`, compose-hash drift check), `scripts/deploy/bulai-ci-entry` (SSH forced command), `scripts/deploy/sudoers-bulai-ci`, `scripts/deploy/install-on-vps.sh`. The CI identity cannot run Docker, change the compose or read secrets.
+- **Workflows:** `.github/workflows/ci.yml` (PHPUnit on Postgres, Pint, composer/npm audit, Vite build, Python service tests, ShellCheck, deploy-script tests, Compose/Caddy/workflow validation, gitleaks, image build + Trivy) and `deploy.yml` (manual `workflow_dispatch` only: validates a green commit of `main`, publishes images, `check` + `activate` over restricted SSH; `rollback` and `status` actions). `.github/CODEOWNERS` protects the boundary files.
+- **Tests:** `scripts/deploy/tests/run.sh` (67 assertions against stubbed `docker`/`curl`/`sudo`); local end-to-end runs against real Docker are listed in the deployment guide.
+- **Known limitations:** nothing was executed on the VPS; rollback does not revert migrations (expand/contract rule); restoring the database is manual; no external uptime monitoring.
