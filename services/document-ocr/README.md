@@ -15,3 +15,8 @@ docker compose up -d --build document-ocr
 ```
 
 GPU é opcional e não é suportada pela imagem padrão; para usá-la, troque `paddlepaddle` por `paddlepaddle-gpu` em uma imagem derivada com NVIDIA Container Toolkit.
+
+## Produção
+
+- `OCR_MAX_CONCURRENCY` (padrão `1`): quantos documentos são processados ao mesmo tempo; o OCR roda fora do *event loop*, então `/health` responde durante um documento longo.
+- Build de produção: `docker build --build-arg PREFETCH_MODELS=1 …` baixa os modelos do PaddleOCR na construção da imagem (o container não precisa de internet em execução). Em desenvolvimento (padrão `0`) eles são baixados no primeiro uso.

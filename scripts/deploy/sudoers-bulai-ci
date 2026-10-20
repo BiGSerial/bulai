@@ -1,0 +1,8 @@
+# /etc/sudoers.d/bulai-ci — instalado por scripts/deploy/install-on-vps.sh (validado com visudo -cf).
+# O usuário de CI só pode executar o script de deploy privilegiado; ele valida estritamente os argumentos.
+Defaults:bulai-ci env_reset, secure_path="/usr/sbin:/usr/bin:/sbin:/bin", !env_editor, !visiblepw
+Cmnd_Alias BULAI_DEPLOY = /usr/local/sbin/bulai-deploy check *, \
+                          /usr/local/sbin/bulai-deploy activate *, \
+                          /usr/local/sbin/bulai-deploy rollback, \
+                          /usr/local/sbin/bulai-deploy status
+bulai-ci ALL=(root) NOPASSWD: BULAI_DEPLOY

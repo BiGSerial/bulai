@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# bulai-ci-entry — comando FORÇADO da chave SSH do CI/CD (instalado em /usr/local/bin, root:root).
+#
+# A chave do pipeline só consegue executar uma das ações abaixo, com argumentos estritamente validados, e todas elas
+# acabam em `sudo /usr/local/sbin/bulai-deploy …` (única permissão sudo do usuário bulai-ci). Não há shell interativo,
+# encaminhamento de portas nem execução de comandos arbitrários.
+#
+# authorized_keys (uma linha):
+#   restrict,command="/usr/local/bin/bulai-ci-entry" ssh-ed25519 AAAA… bulai-ci-github-actions
+set -euo pipefail
+set -f
+umask 077
+export PATH=/usr/local/bin:/usr/bin:/bin
+
+reject() { echo "bulai-ci-entry: comando não permitido" >&2; exit 2; }
+
+cmd="${SSH_ORIGINAL_COMMAND:-}"
+[[ -n $cmd && ${#cmd} -le 600 && $cmd =~ ^[a-z0-9:\ -]+$ ]] || reject
+read -r -a args <<<"$cmd"
+verb="${args[0]}"
+
+is_sha()    { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]]; }
+is_hex64()  { [[ ${1:-} =~ ^[0-9a-f]{64}$ ]]; }
+is_digest() { [[ ${1:-} =~ ^sha256:[0-9a-f]{64}$ ]]; }
+
+case "$verb" in
+    check|activate)
+        [[ ${#args[@]} -eq 7 ]] || reject
+        is_sha "${args[1]}" && is_hex64 "${args[2]}" || reject
+        for i in 3 4 5 6; do is_digest "${args[$i]}" || reject; done
+        exec sudo -n /usr/local/sbin/bulai-deploy "$verb" "${args[@]:1}"
+        ;;
+    rollback|status)
+        [[ ${#args[@]} -eq 1 ]] || reject
+        exec sudo -n /usr/local/sbin/bulai-deploy "$verb"
+        ;;
+    *) reject ;;
+esac

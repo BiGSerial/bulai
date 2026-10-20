@@ -1,0 +1,8 @@
+# Caminhos que definem a fronteira de confiança da implantação: alterações exigem revisão do proprietário.
+# (Ative "Require review from Code Owners" na proteção da branch main.)
+/compose.prod.yaml        @BiGSerial
+/docker/production/       @BiGSerial
+/scripts/deploy/          @BiGSerial
+/.github/                 @BiGSerial
+/.gitleaks.toml           @BiGSerial
+/bootstrap/app.php        @BiGSerial

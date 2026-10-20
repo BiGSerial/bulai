@@ -1,0 +1,559 @@
+#!/usr/bin/env bash
+# bulai-deploy — implantação privilegiada do BULA-IA na VPS (executa como root via sudo).
+#
+# FRONTEIRA DE CONFIANÇA (leia antes de alterar):
+#   * Este arquivo e o compose.prod.yaml aprovado vivem em locais somente-root (/usr/local/sbin e /opt/bulai/trusted).
+#     Quem aciona o deploy (usuário de CI) NÃO controla nenhum deles: só passa argumentos, validados abaixo.
+#   * Nada executável é lido de diretórios do usuário deploy/CI (releases, checkout). O código da aplicação chega
+#     como IMAGENS do GHCR referenciadas por digest (sha256) e conferidas por rótulos OCI.
+#   * O estado (release atual/anterior) fica em /var/lib/bulai-deploy, somente root.
+#   * Mudanças na orquestração (compose, portas, volumes, privilégios) exigem atualização manual do arquivo
+#     confiável por um administrador; o deploy recusa-se a rodar se o hash do compose do commit divergir do instalado.
+#
+# Uso (root):
+#   bulai-deploy check    <sha> <compose_sha256> <app> <web> <ocr> <local_ai>   valida tudo sem alterar nada
+#   bulai-deploy activate <sha> <compose_sha256> <app> <web> <ocr> <local_ai>   publica a release (com rollback automático)
+#   bulai-deploy rollback                                                       volta à release anterior (sem reverter migrations)
+#   bulai-deploy status
+#   bulai-deploy backup                                                         dump do PostgreSQL sob demanda
+#   bulai-deploy ensure-model                                                   instala/valida o modelo da IA local (SHA-256)
+#   bulai-deploy init-secrets                                                   cria arquivos de ambiente ausentes com segredos aleatórios
+#   bulai-deploy seed-admin                                                     cria/atualiza o administrador (BULAI_ADMIN_* de app.env); idempotente
+#   bulai-deploy logs <serviço> [linhas]                                        últimas linhas de logs (web|app|worker|postgres|document-ocr|local-ai)
+#   bulai-deploy artisan <args…>                                                executa `php artisan` na release ativa (somente root/administrador)
+#   bulai-deploy prune                                                          remove imagens antigas
+# <app|web|ocr|local_ai> são digests no formato sha256:<64 hex>.
+#
+# Códigos de saída: 0 ok · 2 uso · 10 pré-requisito · 20 hash do compose divergente · 30 falha com rollback automático OK
+#                   31 falha SEM rollback possível · 32 falha e rollback também falhou · 40 outra implantação em andamento.
+set -Eeuo pipefail
+umask 077
+unset BASH_ENV ENV CDPATH
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Constantes. Como root os caminhos são FIXOS. Fora de root (somente testes locais) podem ser redirecionados para um
+# diretório de teste; o sudo zera o ambiente, então essa via nunca é usada com privilégios.
+# ---------------------------------------------------------------------------------------------------------------------
+if [[ ${EUID} -eq 0 ]]; then
+    TEST_MODE=0
+    export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin   # PATH fixo com privilégios
+    STATE_DIR=/var/lib/bulai-deploy
+    TRUSTED_DIR=/opt/bulai/trusted
+    SHARED_DIR=/srv/bulai/shared
+    RELEASES_DIR=/var/lib/bulai-deploy/releases     # manifests das releases: SOMENTE root (nunca escreve em diretórios do usuário deploy)
+    BACKUPS_DIR=/srv/bulai/backups
+    LOCK_FILE=/var/lib/bulai-deploy/deploy.lock   # diretório 0700 do root (um /var/lock 1777 permitiria DoS por outros usuários)
+    LOG_FILE=/var/log/bulai-deploy.log
+    REGISTRY_PREFIX=ghcr.io/bigserial/bulai
+    PROJECT_NAME=bulai
+    WEB_URL=http://127.0.0.1:8080
+    SMOKE_TRIES=20
+    SMOKE_SLEEP=3
+else
+    TEST_MODE=1
+    : "${BULAI_TEST_ROOT:?somente testes: defina BULAI_TEST_ROOT}"
+    STATE_DIR=$BULAI_TEST_ROOT/state
+    TRUSTED_DIR=$BULAI_TEST_ROOT/trusted
+    SHARED_DIR=$BULAI_TEST_ROOT/shared
+    RELEASES_DIR=$BULAI_TEST_ROOT/state/releases
+    BACKUPS_DIR=$BULAI_TEST_ROOT/backups
+    LOCK_FILE=$BULAI_TEST_ROOT/state/deploy.lock
+    LOG_FILE=$BULAI_TEST_ROOT/deploy.log
+    REGISTRY_PREFIX=${BULAI_TEST_REGISTRY_PREFIX:-ghcr.io/bigserial/bulai}
+    PROJECT_NAME=${BULAI_TEST_PROJECT:-bulaitest}
+    WEB_URL=${BULAI_TEST_WEB_URL:-http://127.0.0.1:8080}
+    SMOKE_TRIES=${BULAI_TEST_SMOKE_TRIES:-20}
+    SMOKE_SLEEP=${BULAI_TEST_SMOKE_SLEEP:-3}
+fi
+readonly SMOKE_TRIES SMOKE_SLEEP
+readonly TEST_MODE STATE_DIR TRUSTED_DIR SHARED_DIR RELEASES_DIR BACKUPS_DIR LOCK_FILE LOG_FILE REGISTRY_PREFIX PROJECT_NAME WEB_URL
+readonly COMPOSE_FILE="$TRUSTED_DIR/compose.prod.yaml"
+readonly STATE_FILE="$STATE_DIR/state.env"
+readonly EXPECTED_SOURCE="https://github.com/BiGSerial/bulai"
+readonly MIN_FREE_BYTES=$((5 * 1024 * 1024 * 1024))
+readonly BACKUP_KEEP=10
+readonly KEEP_RELEASES=3
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Utilidades
+# ---------------------------------------------------------------------------------------------------------------------
+log() { local line; line="$(date -u +%Y-%m-%dT%H:%M:%SZ) [bulai-deploy] $*"; echo "$line" >>"$LOG_FILE" 2>/dev/null || true; echo "$line" >&2 2>/dev/null || true; }
+# Seções críticas (activate/rollback) não podem ser interrompidas no meio: queda do SSH, cancelamento do job ou SIGPIPE
+# deixariam containers novos no ar com o estado antigo registrado. O andamento continua no log em arquivo.
+shield() { trap '' HUP PIPE INT TERM; }
+die() { local code=$1; shift; log "ERRO: $*"; exit "$code"; }
+
+is_sha()    { [[ ${1:-} =~ ^[0-9a-f]{40}$ ]]; }
+is_hex64()  { [[ ${1:-} =~ ^[0-9a-f]{64}$ ]]; }
+is_digest() { [[ ${1:-} =~ ^sha256:[0-9a-f]{64}$ ]]; }
+
+need_root() {
+    if [[ ${EUID} -ne 0 && ${TEST_MODE} -ne 1 ]]; then die 10 "execute como root (via sudo)."; fi
+}
+
+ensure_dirs() {
+    mkdir -p "$STATE_DIR" "$BACKUPS_DIR" "$RELEASES_DIR"
+    chmod 700 "$STATE_DIR" "$BACKUPS_DIR" "$RELEASES_DIR"
+    touch "$LOG_FILE" 2>/dev/null && chmod 640 "$LOG_FILE" 2>/dev/null || true
+}
+
+acquire_lock() {
+    exec 9>"$LOCK_FILE"
+    flock -n 9 || die 40 "outra implantação está em andamento."
+}
+
+# docker compose sempre com o arquivo CONFIÁVEL; as únicas variáveis de configuração vêm de model.env (também confiável).
+compose() {
+    docker compose --project-name "$PROJECT_NAME" --project-directory "$TRUSTED_DIR" --env-file "$TRUSTED_DIR/model.env" -f "$COMPOSE_FILE" "$@"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Estado (KEY=VALUE lido com validação, nunca com `source`)
+# ---------------------------------------------------------------------------------------------------------------------
+declare -A ST=()
+load_state() {
+    ST=()
+    [[ -f $STATE_FILE ]] || return 0
+    local key value
+    while IFS='=' read -r key value; do
+        [[ $key =~ ^(CURRENT|PREVIOUS)_(SHA|COMPOSE|APP|WEB|OCR|LOCAL_AI|AT)$ ]] || continue
+        case "$key" in
+            *_SHA) is_sha "$value" || continue ;;
+            *_COMPOSE) is_hex64 "$value" || continue ;;
+            *_AT) [[ $value =~ ^[0-9TZ:-]{20}$ ]] || continue ;;
+            *) is_digest "$value" || continue ;;
+        esac
+        ST[$key]=$value
+    done <"$STATE_FILE"
+}
+
+save_state() {
+    local tmp="$STATE_FILE.tmp.$$" key
+    : >"$tmp"
+    for key in CURRENT_SHA CURRENT_COMPOSE CURRENT_APP CURRENT_WEB CURRENT_OCR CURRENT_LOCAL_AI CURRENT_AT \
+               PREVIOUS_SHA PREVIOUS_COMPOSE PREVIOUS_APP PREVIOUS_WEB PREVIOUS_OCR PREVIOUS_LOCAL_AI PREVIOUS_AT; do
+        [[ -n ${ST[$key]:-} ]] && printf '%s=%s\n' "$key" "${ST[$key]}" >>"$tmp"
+    done
+    chmod 600 "$tmp"
+    mv -f "$tmp" "$STATE_FILE"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Imagens
+# ---------------------------------------------------------------------------------------------------------------------
+image_ref() { # <app|web|ocr|local_ai> <digest>
+    local name=${1//_/-}
+    if [[ ${BULAI_TEST_LOCAL_TAGS:-0} == 1 && ${TEST_MODE} -eq 1 ]]; then
+        echo "bulai-${name}:t${2:7:12}"   # teste: uma tag local por digest (sha256:<hex> -> t<12 hex>)
+    else
+        echo "${REGISTRY_PREFIX}-${name}@${2}"
+    fi
+}
+
+export_images() { # <APP> <WEB> <OCR> <LOCAL_AI> digests
+    export APP_IMAGE WEB_IMAGE OCR_IMAGE LOCAL_AI_IMAGE BULAI_SHARED_DIR
+    APP_IMAGE=$(image_ref app "$1")
+    WEB_IMAGE=$(image_ref web "$2")
+    OCR_IMAGE=$(image_ref ocr "$3")
+    LOCAL_AI_IMAGE=$(image_ref local_ai "$4")
+    BULAI_SHARED_DIR=$SHARED_DIR
+}
+
+label_of() { docker image inspect --format "{{ index .Config.Labels \"$2\" }}" "$1" 2>/dev/null || true; }
+
+pull_and_verify() { # <sha>
+    local sha=$1 ref label
+    if [[ ${BULAI_TEST_SKIP_PULL:-0} != 1 || ${TEST_MODE} -ne 1 ]]; then
+        for ref in "$APP_IMAGE" "$WEB_IMAGE" "$OCR_IMAGE" "$LOCAL_AI_IMAGE"; do
+            log "baixando $ref"
+            docker pull --quiet "$ref" >/dev/null || return 1
+        done
+    fi
+    for ref in "$APP_IMAGE" "$WEB_IMAGE" "$OCR_IMAGE" "$LOCAL_AI_IMAGE"; do
+        label=$(label_of "$ref" org.opencontainers.image.source)
+        [[ $label == "$EXPECTED_SOURCE" ]] || { log "rótulo source inesperado em $ref: '$label'"; return 1; }
+    done
+    for ref in "$APP_IMAGE" "$WEB_IMAGE"; do
+        label=$(label_of "$ref" org.opencontainers.image.revision)
+        [[ $label == "$sha" ]] || { log "rótulo revision de $ref ('$label') difere do commit autorizado ($sha)"; return 1; }
+    done
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Pré-requisitos
+# ---------------------------------------------------------------------------------------------------------------------
+check_env_file() { # <nome> <chaves obrigatórias...>
+    local name=$1 file="$SHARED_DIR/env/$1.env" key mode owner
+    shift
+    [[ -f $file ]] || { log "arquivo de ambiente ausente: $file (rode: bulai-deploy init-secrets)"; return 1; }
+    mode=$(stat -c '%a' "$file"); owner=$(stat -c '%u' "$file")
+    if [[ $mode != 600 ]]; then log "permissão insegura em $file ($mode); use 600"; return 1; fi
+    if [[ ${TEST_MODE} -eq 0 && $owner != 0 ]]; then log "$file deve pertencer ao root"; return 1; fi
+    for key in "$@"; do
+        grep -Eq "^${key}=.+" "$file" || { log "$file sem valor para $key"; return 1; }
+    done
+}
+
+preflight() { # <compose_sha256>
+    command -v docker >/dev/null || { log "docker ausente"; return 1; }
+    docker compose version >/dev/null 2>&1 || { log "docker compose ausente"; return 1; }
+    local dir
+    for dir in postgres storage models run; do
+        [[ -d $SHARED_DIR/$dir ]] || { log "diretório ausente: $SHARED_DIR/$dir (rode o instalador)"; return 1; }
+    done
+    [[ -f $COMPOSE_FILE ]] || { log "compose confiável ausente: $COMPOSE_FILE (rode o instalador)"; return 1; }
+    if [[ ${TEST_MODE} -eq 0 ]]; then
+        [[ $(stat -c '%u' "$COMPOSE_FILE") == 0 ]] && (( (8#$(stat -c '%a' "$COMPOSE_FILE") & 8#022) == 0 )) \
+            || { log "$COMPOSE_FILE deve pertencer ao root e não ser gravável por grupo/outros"; return 1; }
+    fi
+    local installed
+    installed=$(sha256sum "$COMPOSE_FILE" | cut -d' ' -f1)
+    if [[ $installed != "$1" ]]; then
+        log "compose instalado ($installed) difere do compose do commit ($1). Um administrador deve revisar e reinstalar: scripts/deploy/install-on-vps.sh"
+        return 20
+    fi
+    check_env_file app APP_KEY DB_DATABASE DB_USERNAME DB_PASSWORD DB_QUEUE_RETRY_AFTER || return 1
+    check_env_file postgres POSTGRES_USER POSTGRES_PASSWORD BULAI_DB_PASSWORD || return 1
+    check_env_file ocr OCR_API_TOKEN || return 1
+    local free
+    free=$(df --output=avail -B1 "$SHARED_DIR" 2>/dev/null | tail -1 | tr -d ' ')
+    [[ ${free:-0} -ge $MIN_FREE_BYTES ]] || { log "espaço livre insuficiente em $SHARED_DIR (${free:-0} bytes; mínimo $MIN_FREE_BYTES)"; return 1; }
+    local model
+    model=$(sed -n 's/^LOCAL_AI_MODEL_FILENAME=//p' "$TRUSTED_DIR/model.env" 2>/dev/null | head -1)
+    [[ -n $model && -s "$SHARED_DIR/models/$model" ]] || { log "modelo da IA local ausente (rode: bulai-deploy ensure-model)"; return 1; }
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Banco de dados
+# ---------------------------------------------------------------------------------------------------------------------
+postgres_running() { compose ps --status running --services 2>/dev/null | grep -qx postgres; }
+
+backup_db() { # <rótulo>
+    if ! postgres_running; then
+        if [[ -n ${ST[CURRENT_SHA]:-} ]]; then log "PostgreSQL parado com release ativa: suba-o e investigue antes de migrar (sem backup, sem deploy)."; return 1; fi
+        log "PostgreSQL não está em execução e não há release anterior; backup ignorado (primeira implantação)."; return 0
+    fi
+    mkdir -p "$BACKUPS_DIR/db"; chmod 700 "$BACKUPS_DIR/db"
+    local out stamp
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    out="$BACKUPS_DIR/db/bulai-${stamp}-$1.dump"
+    log "backup do banco -> $out"
+    if ! compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d bulai -Fc' >"$out"; then rm -f "$out"; return 1; fi
+    [[ -s $out ]] || { rm -f "$out"; log "backup vazio"; return 1; }
+    chmod 600 "$out"
+    local kind
+    for kind in pre manual; do
+        # Retenção por tipo: deploys (pre-*) e backups manuais/agendados não disputam as mesmas vagas.
+        find "$BACKUPS_DIR/db" -maxdepth 1 -type f -name "bulai-*-${kind}*.dump" -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2- | tail -n +$((BACKUP_KEEP + 1)) | xargs -r rm -f --
+    done
+}
+
+migrate() {
+    log "subindo/aguardando PostgreSQL"
+    compose up -d --wait --wait-timeout 180 postgres || return 1
+    log "executando migrations (sem migrate:fresh)"
+    timeout 900 docker compose --project-name "$PROJECT_NAME" --project-directory "$TRUSTED_DIR" --env-file "$TRUSTED_DIR/model.env" -f "$COMPOSE_FILE" run --rm --no-deps -T app php artisan migrate --force || return 1
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Aplicação da release e verificação
+# ---------------------------------------------------------------------------------------------------------------------
+apply_release() {
+    log "aplicando containers (aguarda healthchecks; o worker termina o job atual antes de ser substituído)"
+    compose up -d --remove-orphans --wait --wait-timeout 900
+}
+
+smoke_test() {
+    local code
+    for _ in $(seq 1 "$SMOKE_TRIES"); do
+        code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "$WEB_URL/up" || true)
+        [[ $code == 200 ]] && break
+        sleep "$SMOKE_SLEEP"
+    done
+    [[ ${code:-} == 200 ]] || { log "smoke: $WEB_URL/up retornou '${code:-}'"; return 1; }
+    code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$WEB_URL/login" || true)
+    [[ $code == 200 ]] || { log "smoke: /login retornou '$code'"; return 1; }
+    compose exec -T app php -r '$p=new PDO("pgsql:host=".getenv("DB_HOST").";dbname=".getenv("DB_DATABASE"),getenv("DB_USERNAME"),getenv("DB_PASSWORD")); exit($p->query("select 1")->fetchColumn()==1?0:1);' \
+        || { log "smoke: aplicação sem acesso ao banco"; return 1; }
+    local svc id health
+    for svc in app web worker postgres document-ocr local-ai; do
+        id=$(compose ps -q "$svc" 2>/dev/null | head -1)
+        [[ -n $id ]] || { log "smoke: serviço $svc não está em execução"; return 1; }
+        health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")
+        [[ $health == healthy ]] || { log "smoke: $svc está '$health'"; return 1; }
+    done
+}
+
+record_release() { # <sha> <compose> <app> <web> <ocr> <ai> — manifest informativo, em diretório somente-root
+    local dir="$RELEASES_DIR/$1"
+    mkdir -p "$dir"
+    {
+        echo "sha=$1"; echo "compose_sha256=$2"; echo "app=$3"; echo "web=$4"; echo "ocr=$5"; echo "local_ai=$6"
+        echo "deployed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    } >"$dir/manifest.txt"
+}
+
+promote() { # <sha> <compose> <app> <web> <ocr> <ai>
+    local key
+    for key in SHA COMPOSE APP WEB OCR LOCAL_AI AT; do ST[PREVIOUS_$key]=${ST[CURRENT_$key]:-}; done
+    ST[CURRENT_SHA]=$1; ST[CURRENT_COMPOSE]=$2; ST[CURRENT_APP]=$3; ST[CURRENT_WEB]=$4; ST[CURRENT_OCR]=$5; ST[CURRENT_LOCAL_AI]=$6
+    ST[CURRENT_AT]=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    save_state
+    record_release "$@"
+}
+
+# Volta para as imagens guardadas no estado como PREVIOUS (sem tocar no banco).
+restore_previous() {
+    [[ -n ${ST[PREVIOUS_SHA]:-} ]] || return 1
+    export_images "${ST[PREVIOUS_APP]}" "${ST[PREVIOUS_WEB]}" "${ST[PREVIOUS_OCR]}" "${ST[PREVIOUS_LOCAL_AI]}"
+    log "restaurando release anterior ${ST[PREVIOUS_SHA]}"
+    docker pull --quiet "$APP_IMAGE" >/dev/null 2>&1 || true
+    apply_release && smoke_test
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Comandos
+# ---------------------------------------------------------------------------------------------------------------------
+parse_release_args() { # popula SHA COMPOSE_SHA D_APP D_WEB D_OCR D_AI
+    [[ $# -eq 6 ]] || die 2 "uso: <sha> <compose_sha256> <app> <web> <ocr> <local_ai>"
+    SHA=$1; COMPOSE_SHA=$2; D_APP=$3; D_WEB=$4; D_OCR=$5; D_AI=$6
+    is_sha "$SHA" || die 2 "sha inválido (40 hex minúsculos)"
+    is_hex64 "$COMPOSE_SHA" || die 2 "hash do compose inválido (64 hex minúsculos)"
+    local d
+    for d in "$D_APP" "$D_WEB" "$D_OCR" "$D_AI"; do is_digest "$d" || die 2 "digest inválido: use sha256:<64 hex>"; done
+}
+
+cmd_check() {
+    parse_release_args "$@"
+    need_root; ensure_dirs; acquire_lock
+    export_images "$D_APP" "$D_WEB" "$D_OCR" "$D_AI"
+    local rc=0
+    preflight "$COMPOSE_SHA" || rc=$?
+    [[ $rc -eq 0 ]] || { [[ $rc -eq 20 ]] && exit 20; exit 10; }
+    compose config -q || die 10 "compose confiável inválido"
+    log "check OK para $SHA"
+}
+
+cmd_activate() {
+    parse_release_args "$@"
+    need_root; ensure_dirs; acquire_lock; shield
+    load_state
+    log "=== activate $SHA ==="
+    export_images "$D_APP" "$D_WEB" "$D_OCR" "$D_AI"
+
+    local rc=0
+    preflight "$COMPOSE_SHA" || rc=$?
+    if [[ $rc -ne 0 ]]; then [[ $rc -eq 20 ]] && exit 20; die 10 "pré-requisitos não atendidos"; fi
+    compose config -q || die 10 "compose confiável inválido"
+    pull_and_verify "$SHA" || die 10 "imagens não passaram na verificação"
+
+    if [[ ${ST[CURRENT_SHA]:-} == "$SHA" && ${ST[CURRENT_APP]:-} == "$D_APP" && ${ST[CURRENT_WEB]:-} == "$D_WEB" ]]; then
+        log "release $SHA já ativa; reaplicando de forma idempotente"
+    fi
+
+    local stage=prepare
+    deploy_steps() {
+        stage=backup;  backup_db "pre-${SHA:0:12}" || return 1
+        stage=migrate; migrate || return 1
+        stage=apply;   apply_release || return 1
+        stage=smoke;   smoke_test || return 1
+    }
+    if deploy_steps; then
+        promote "$SHA" "$COMPOSE_SHA" "$D_APP" "$D_WEB" "$D_OCR" "$D_AI"
+        log "release $SHA ATIVA"
+        prune_images || true
+        exit 0
+    fi
+
+    log "FALHA na etapa '$stage'."
+    if [[ $stage == backup || $stage == prepare ]]; then
+        die 31 "nada foi alterado nos containers (falha antes de aplicar)."
+    fi
+    if [[ -z ${ST[CURRENT_SHA]:-} ]]; then
+        die 31 "primeira implantação falhou: não há release anterior para restaurar. Diagnostique com: docker compose logs."
+    fi
+    # Restaura as imagens ATUAIS (a release que estava no ar antes desta tentativa).
+    ST[PREVIOUS_SHA]=${ST[CURRENT_SHA]}; ST[PREVIOUS_APP]=${ST[CURRENT_APP]}; ST[PREVIOUS_WEB]=${ST[CURRENT_WEB]}
+    ST[PREVIOUS_OCR]=${ST[CURRENT_OCR]}; ST[PREVIOUS_LOCAL_AI]=${ST[CURRENT_LOCAL_AI]}
+    if restore_previous; then
+        die 30 "falha na etapa '$stage'; release ${ST[CURRENT_SHA]} restaurada automaticamente. Migrations aplicadas NÃO foram revertidas."
+    fi
+    die 32 "falha na etapa '$stage' e a restauração automática também falhou. Intervenção manual necessária."
+}
+
+cmd_rollback() {
+    [[ $# -eq 0 ]] || die 2 "rollback não aceita argumentos"
+    need_root; ensure_dirs; acquire_lock; shield; load_state
+    [[ -n ${ST[PREVIOUS_SHA]:-} ]] || die 31 "não há release anterior registrada."
+    local cur_sha=${ST[CURRENT_SHA]:-} target=${ST[PREVIOUS_SHA]}
+    log "=== rollback ${cur_sha:-?} -> $target ==="
+    export_images "${ST[PREVIOUS_APP]}" "${ST[PREVIOUS_WEB]}" "${ST[PREVIOUS_OCR]}" "${ST[PREVIOUS_LOCAL_AI]}"
+    pull_and_verify "$target" || die 10 "imagens da release anterior não passaram na verificação"
+    backup_db "pre-rollback-${target:0:12}" || die 31 "backup falhou; rollback cancelado."
+    apply_release && smoke_test || die 32 "rollback falhou. Intervenção manual necessária."
+    # Troca CURRENT <-> PREVIOUS.
+    local key tmp
+    for key in SHA COMPOSE APP WEB OCR LOCAL_AI AT; do
+        tmp=${ST[CURRENT_$key]:-}; ST[CURRENT_$key]=${ST[PREVIOUS_$key]:-}; ST[PREVIOUS_$key]=$tmp
+    done
+    save_state
+    record_release "${ST[CURRENT_SHA]}" "${ST[CURRENT_COMPOSE]:-$(printf '0%.0s' {1..64})}" "${ST[CURRENT_APP]}" "${ST[CURRENT_WEB]}" "${ST[CURRENT_OCR]}" "${ST[CURRENT_LOCAL_AI]}"
+    log "rollback concluído: release ${ST[CURRENT_SHA]} ativa. O schema do banco NÃO foi revertido."
+}
+
+cmd_status() {
+    need_root; ensure_dirs; load_state
+    echo "atual:    ${ST[CURRENT_SHA]:-nenhuma} (${ST[CURRENT_AT]:-})"
+    echo "anterior: ${ST[PREVIOUS_SHA]:-nenhuma} (${ST[PREVIOUS_AT]:-})"
+    if [[ -n ${ST[CURRENT_SHA]:-} ]]; then
+        export_images "${ST[CURRENT_APP]}" "${ST[CURRENT_WEB]}" "${ST[CURRENT_OCR]}" "${ST[CURRENT_LOCAL_AI]}"
+        compose ps --format 'table {{.Service}}\t{{.Status}}' 2>/dev/null || true
+    fi
+}
+
+cmd_backup() {
+    need_root; ensure_dirs; acquire_lock; load_state
+    [[ -n ${ST[CURRENT_SHA]:-} ]] || die 10 "nenhuma release ativa."
+    export_images "${ST[CURRENT_APP]}" "${ST[CURRENT_WEB]}" "${ST[CURRENT_OCR]}" "${ST[CURRENT_LOCAL_AI]}"
+    backup_db manual
+}
+
+cmd_ensure_model() {
+    need_root; ensure_dirs
+    local installer="$TRUSTED_DIR/install-local-model.sh"
+    [[ -x $installer ]] || die 10 "instalador do modelo ausente: $installer"
+    [[ -f $TRUSTED_DIR/model.env ]] || die 10 "$TRUSTED_DIR/model.env ausente"
+    mkdir -p "$SHARED_DIR/models"; chmod 755 "$SHARED_DIR/models"
+    # O script do repositório lê o modelo/URL/SHA-256 do ambiente; aqui eles vêm do arquivo confiável (não do usuário).
+    (
+        set -a; . "$TRUSTED_DIR/model.env"; set +a
+        LOCAL_AI_MODEL_DIR="$SHARED_DIR/models" "$installer"
+    )
+    chmod -R a+rX "$SHARED_DIR/models"
+}
+
+cmd_init_secrets() {
+    need_root; ensure_dirs
+    local dir="$SHARED_DIR/env"
+    mkdir -p "$dir"; chmod 700 "$dir"
+    rand() { openssl rand -hex "${1:-24}"; }
+    if [[ ! -f $dir/postgres.env ]]; then
+        local dbpass; dbpass=$(rand 24)
+        printf 'POSTGRES_USER=bulai_admin\nPOSTGRES_PASSWORD=%s\nBULAI_DB_PASSWORD=%s\n' "$(rand 24)" "$dbpass" >"$dir/postgres.env"
+        DB_PASS_FOR_APP=$dbpass
+        log "criado $dir/postgres.env"
+    fi
+    if [[ ! -f $dir/ocr.env ]]; then
+        OCR_TOKEN=$(rand 24)
+        printf 'OCR_API_TOKEN=%s\n' "$OCR_TOKEN" >"$dir/ocr.env"
+        log "criado $dir/ocr.env"
+    fi
+    if [[ ! -f $dir/app.env ]]; then
+        local dbp=${DB_PASS_FOR_APP:-$(sed -n 's/^BULAI_DB_PASSWORD=//p' "$dir/postgres.env")} ocrt=${OCR_TOKEN:-$(sed -n 's/^OCR_API_TOKEN=//p' "$dir/ocr.env")}
+        {
+            echo "APP_NAME=BULA-IA"
+            echo "APP_KEY=base64:$(openssl rand -base64 32)"
+            echo "APP_URL=https://bulai.vixforge.com.br"
+            echo "APP_LOCALE=pt_BR"
+            echo "APP_FALLBACK_LOCALE=pt_BR"
+            echo "DB_DATABASE=bulai"
+            echo "DB_USERNAME=bulai"
+            echo "DB_PASSWORD=$dbp"
+            echo "DB_QUEUE_RETRY_AFTER=900"
+            echo "KNOWLEDGE_JOB_TIMEOUT_SECONDS=420"
+            echo "DOCUMENT_OCR_TOKEN=$ocrt"
+            echo "DOCUMENT_OCR_TIMEOUT=300"
+            echo "LOCAL_AI_TIMEOUT=90"
+            echo "LOCAL_AI_MODEL_NAME=qwen2.5-1.5b-instruct"
+            echo "LOG_LEVEL=info"
+            echo "SESSION_SECURE_COOKIE=true"
+            echo "SESSION_ENCRYPT=true"
+            echo "# TRUSTED_PROXIES: não necessário; o Nginx já entrega REMOTE_ADDR/HTTPS corretos (veja docs/deployment/kinghost.md)."
+            echo "BULAI_ADMIN_NAME=Administrador"
+            echo "# Defina antes do primeiro deploy (usado pelo seeder do administrador):"
+            echo "BULAI_ADMIN_EMAIL="
+            echo "BULAI_ADMIN_PASSWORD="
+        } >"$dir/app.env"
+        log "criado $dir/app.env (preencha BULAI_ADMIN_EMAIL e BULAI_ADMIN_PASSWORD)"
+    fi
+    chmod 600 "$dir"/*.env
+    log "segredos existentes nunca são sobrescritos. Revise: $dir"
+}
+
+prune_images() {
+    load_state
+    local keep=() key ref
+    for key in CURRENT PREVIOUS; do
+        [[ -n ${ST[${key}_SHA]:-} ]] || continue
+        for ref in app web ocr local_ai; do
+            local var=${key}_${ref^^}
+            [[ -n ${ST[$var]:-} ]] && keep+=("$(image_ref "$ref" "${ST[$var]}")")
+        done
+    done
+    [[ ${#keep[@]} -gt 0 ]] || return 0
+    local img repo k skip
+    for repo in app web ocr local-ai; do
+        # `docker image ls` aceita um único repositório por chamada.
+        while read -r img; do
+            [[ -n $img && $img != *'<none>'* ]] || continue
+            skip=0
+            for k in "${keep[@]}"; do [[ $img == "$k" ]] && skip=1; done
+            if [[ $skip -eq 0 ]]; then docker image rm "$img" >/dev/null 2>&1 || true; fi
+        done < <(docker image ls --digests --format '{{.Repository}}@{{.Digest}}' "$REGISTRY_PREFIX-$repo" 2>/dev/null)
+    done
+    # Manifests de releases antigas (diretório somente-root).
+    local d
+    local -a old=()
+    while IFS= read -r d; do old+=("$d"); done < <(find "$RELEASES_DIR" -mindepth 1 -maxdepth 1 -type d -regextype posix-extended -regex '.*/[0-9a-f]{40}' -printf '%T@ %p\n' 2>/dev/null | sort -rn | cut -d' ' -f2-)
+    for d in "${old[@]:KEEP_RELEASES}"; do rm -rf -- "$d"; done
+}
+
+cmd_seed_admin() {
+    need_root; ensure_dirs; acquire_lock; load_state
+    [[ -n ${ST[CURRENT_SHA]:-} ]] || die 10 "nenhuma release ativa; faça o primeiro deploy antes."
+    grep -Eq '^BULAI_ADMIN_EMAIL=.+' "$SHARED_DIR/env/app.env" && grep -Eq '^BULAI_ADMIN_PASSWORD=.+' "$SHARED_DIR/env/app.env" \
+        || die 10 "defina BULAI_ADMIN_EMAIL e BULAI_ADMIN_PASSWORD em $SHARED_DIR/env/app.env"
+    export_images "${ST[CURRENT_APP]}" "${ST[CURRENT_WEB]}" "${ST[CURRENT_OCR]}" "${ST[CURRENT_LOCAL_AI]}"
+    compose run --rm --no-deps -T app php artisan db:seed --force --no-interaction || die 31 "seeder falhou"
+    log "administrador criado/atualizado (o seeder é idempotente). Depois disso, remova BULAI_ADMIN_PASSWORD de app.env."
+}
+
+cmd_logs() {
+    local svc=${1:-} lines=${2:-100}
+    [[ $svc =~ ^(web|app|worker|postgres|document-ocr|local-ai)$ ]] || die 2 "serviço inválido (web|app|worker|postgres|document-ocr|local-ai)"
+    [[ $lines =~ ^[0-9]{1,5}$ ]] || die 2 "número de linhas inválido"
+    need_root; load_state
+    [[ -n ${ST[CURRENT_SHA]:-} ]] || die 10 "nenhuma release ativa."
+    export_images "${ST[CURRENT_APP]}" "${ST[CURRENT_WEB]}" "${ST[CURRENT_OCR]}" "${ST[CURRENT_LOCAL_AI]}"
+    compose logs --no-color --tail "$lines" "$svc"
+}
+
+cmd_artisan() {
+    [[ $# -ge 1 ]] || die 2 "uso: bulai-deploy artisan <comando> [args…]"
+    need_root; acquire_lock; load_state
+    [[ -n ${ST[CURRENT_SHA]:-} ]] || die 10 "nenhuma release ativa."
+    export_images "${ST[CURRENT_APP]}" "${ST[CURRENT_WEB]}" "${ST[CURRENT_OCR]}" "${ST[CURRENT_LOCAL_AI]}"
+    compose run --rm --no-deps -T -e HOME=/tmp app php artisan "$@"
+}
+
+cmd_prune() { need_root; ensure_dirs; acquire_lock; prune_images; log "prune concluído"; }
+
+main() {
+    local cmd=${1:-}; shift || true
+    case "$cmd" in
+        check)         cmd_check "$@" ;;
+        activate)      cmd_activate "$@" ;;
+        rollback)      cmd_rollback "$@" ;;
+        status)        cmd_status "$@" ;;
+        backup)        cmd_backup "$@" ;;
+        ensure-model)  cmd_ensure_model "$@" ;;
+        init-secrets)  cmd_init_secrets "$@" ;;
+        seed-admin)    cmd_seed_admin "$@" ;;
+        logs)          cmd_logs "$@" ;;
+        artisan)       cmd_artisan "$@" ;;
+        prune)         cmd_prune "$@" ;;
+        *) awk 'NR > 1 && /^#/ { print } /^set -E/ { exit }' "$0" >&2; exit 2 ;;
+    esac
+}
+
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then main "$@"; fi

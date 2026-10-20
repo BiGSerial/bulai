@@ -188,6 +188,7 @@ vendor/bin/pint --dirty --format agent
 
 - [Atividades implementadas](docs/atividades-implementadas.md)
 - [Fundação técnica](docs/technical-foundation.md)
+- [Implantação em produção (VPS KingHost, Docker Compose, GitHub Actions)](docs/deployment/kinghost.md)
 - [Material técnico para o TCC](docs/tcc/README.md)
 
 O material do TCC separa funcionalidades concluídas, limitações, evidências pendentes e trabalhos futuros. O projeto acadêmico preliminar é utilizado como contexto, não como restrição de linguagem, banco de dados ou framework.

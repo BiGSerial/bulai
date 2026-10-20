@@ -1,3 +1,4 @@
+import asyncio
 import hmac
 import logging
 import tempfile
@@ -5,6 +6,7 @@ import time
 import uuid
 from pathlib import Path
 
+from starlette.concurrency import run_in_threadpool
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
 
 from .config import Settings
@@ -26,6 +28,9 @@ def create_app(settings: Settings | None = None, engine: DocumentOcrEngine | Non
     settings = settings or Settings.from_env()
     app = FastAPI(title="BULA-IA Document OCR", docs_url=None, redoc_url=None)
     state: dict[str, DocumentOcrEngine | None] = {"engine": engine}
+    # O OCR consome CPU e RAM de forma intensa: poucas execuções simultâneas (padrão 1) e fora do event loop,
+    # para que /health continue respondendo enquanto um documento longo é processado.
+    limiter = asyncio.Semaphore(settings.max_concurrency)
 
     def get_engine() -> DocumentOcrEngine:
         if state["engine"] is None:
@@ -62,7 +67,8 @@ def create_app(settings: Settings | None = None, engine: DocumentOcrEngine | Non
             path = Path(directory) / "document.pdf"
             path.write_bytes(contents)
             try:
-                parsed = get_engine().parse(InputDocument(path=path, max_pages=settings.max_pages))
+                async with limiter:
+                    parsed = await run_in_threadpool(get_engine().parse, InputDocument(path=path, max_pages=settings.max_pages))
             except EngineError:
                 logger.warning("ocr_engine_error correlation_id=%s", correlation_id)
                 raise HTTPException(status_code=422, detail="document could not be parsed")
