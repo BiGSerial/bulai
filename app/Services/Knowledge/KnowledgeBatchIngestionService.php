@@ -2,11 +2,13 @@
 
 namespace App\Services\Knowledge;
 
+use App\Jobs\ClassifyPendingDocument;
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeSource;
+use App\Services\Ai\AiProviderManager;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -372,7 +374,23 @@ class KnowledgeBatchIngestionService
             throw $exception;
         }
 
+        if ($this->shouldClassifyInBackground($item)) {
+            try {
+                ClassifyPendingDocument::dispatch($item->ingestion_batch_id, $item->id)->afterCommit();
+            } catch (Throwable $exception) {
+                // O item permanece PENDING para revisão manual/reanálise; falha de fila não pode descartá-lo.
+                Log::warning('classification_dispatch_failed', ['item_id' => $item->id, 'exception_class' => $exception::class]);
+            }
+        }
+
         return $item->refresh();
+    }
+
+    private function shouldClassifyInBackground(IngestionBatchItem $item): bool
+    {
+        return config('document_classification.dispatch_on_ingest')
+            && $item->mime_type === 'application/pdf'
+            && (config('document_ocr.enabled') || app(AiProviderManager::class)->isConfigured(AiProviderManager::CLASSIFIER));
     }
 
     /**

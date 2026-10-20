@@ -16,5 +16,48 @@ services:
       timeout: 5s
       retries: 5
 
+  document-ocr:
+    build: ./services/document-ocr
+    environment:
+      OCR_ENGINE: paddleocr
+      OCR_API_TOKEN: ${DOCUMENT_OCR_TOKEN:-}
+      OCR_LANGUAGE: pt
+    ports:
+      - "127.0.0.1:${DOCUMENT_OCR_HOST_PORT:-8090}:8000"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 3g
+    restart: unless-stopped
+
+  local-ai:
+    # Classificador local (llamafile) usado apenas para resolver ambiguidades da ingestão.
+    # Não é a IA principal do aplicativo. CPU-only; modelo instalado por scripts/install-local-model.sh.
+    build: ./services/local-ai
+    environment:
+      LOCAL_AI_MODEL_PATH: /models
+      LOCAL_AI_MODEL_FILENAME: ${LOCAL_AI_MODEL_FILENAME:-qwen2.5-1.5b-instruct-q4_k_m.gguf}
+      LOCAL_AI_MODEL_NAME: ${LOCAL_AI_MODEL_NAME:-qwen2.5-1.5b-instruct}
+      LOCAL_AI_THREADS: ${LOCAL_AI_THREADS:-4}
+      LOCAL_AI_CONTEXT: ${LOCAL_AI_CONTEXT:-2048}
+      LOCAL_AI_REQUEST_TIMEOUT: ${LOCAL_AI_REQUEST_TIMEOUT:-120}
+    volumes:
+      - ./services/local-ai/models:/models:ro
+    ports:
+      - "127.0.0.1:${LOCAL_AI_HOST_PORT:-8088}:8080"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 180s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "4.0"
+          memory: 4g
+    restart: unless-stopped
+
 volumes:
   postgres-data:

@@ -126,3 +126,13 @@ O modo padrão agenda o Job; `--sync` é indicado para diagnóstico controlado. 
 - human-in-the-loop na resolução de ambiguidades;
 - idempotência, concorrência e compensação em sistemas com banco e object storage;
 - diferença entre preparação do corpus e uma solução RAG completa.
+
+## OCR como fallback e provedores de IA
+
+**Implementado:** após a extração textual (`PdfTextExtractor`), um avaliador determinístico calcula `score`, `reasons` e `metrics`. Se a extração for reprovada, o PDF é enviado ao serviço Python `services/document-ocr` (contrato HTTP independente do engine; engine inicial PaddleOCR em CPU) e o resultado volta como `ExtractedPdf`, seguindo para normalização, seções e chunks. O método (`pdf_text` ou `ocr`), engine, versão, score antes/depois, motivo do fallback e duração ficam em `metadata.processing.extraction`, permitindo comparar métodos nos experimentos. Indisponibilidade do OCR nunca descarta o documento: ele falha de forma controlada (`OCR_UNAVAILABLE`) e pode ser reprocessado.
+
+**Infraestrutura preparada (sem uso):** contratos `TextGenerationProvider`, `EmbeddingProvider` e `VisionProvider`, gerenciador por drivers (`openai_compatible`, `fake`), DTOs próprios e `EmbeddingMetadata` (provider, modelo, dimensões, hash do conteúdo) para detectar embeddings obsoletos.
+
+**Classificação da ingestão (implementado):** a heurística determinística decide primeiro e expõe candidatos, evidências e score. Score alto é aceito; faixa intermediária consulta um classificador local (llamafile em container, CPU) que recebe apenas evidências curtas e devolve JSON estrito; score baixo vai para revisão manual. A resposta da IA só é aplicada com confiança mínima, ancoragem nas evidências e confirmação no catálogo regulatório; falhas mantêm o item pendente. Limiares são parâmetros a calibrar experimentalmente, e a acurácia do modelo local no corpus real **não foi medida**. Esta IA é distinta da futura IA principal do aplicativo (RAG).
+
+**Trabalho futuro:** geração e persistência de embeddings, job dedicado de OCR/embeddings, desambiguação por IA, RAG e avaliação de acurácia do OCR.

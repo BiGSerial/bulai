@@ -76,7 +76,8 @@ Ainda faltam dashboards operacionais, métricas temporais consolidadas, alertas 
 
 ## Limitações técnicas atuais
 
-- sem OCR para PDFs baseados em imagem;
+- classificador local (llamafile) sem medição de acurácia, com modelo padrão escolhido por adequação a CPU e não por benchmark;
+- OCR implementado apenas como fallback (PaddleOCR em CPU), sem medição de acurácia no corpus real e fora da identificação durante o upload;
 - sem embeddings, busca vetorial, Hybrid RAG ou LLM;
 - ingestão do lote síncrona na requisição;
 - um único PDF ativo por documento e sem histórico de versões;
@@ -92,7 +93,7 @@ Ainda faltam dashboards operacionais, métricas temporais consolidadas, alertas 
 ## Trabalhos futuros tecnicamente coerentes
 
 1. instituir governança, versionamento e reconciliação de arquivos;
-2. adicionar OCR com indicação clara do método e da confiança;
+2. medir a acurácia do OCR (já registrado com método, engine e score de qualidade) e avaliar engines alternativos;
 3. definir modelo de embedding e tokenizer, com versionamento;
 4. implementar recuperação lexical e vetorial com filtros de procedência;
 5. avaliar chunking, recall, precisão e relevância com conjunto de referência;

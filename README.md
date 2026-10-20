@@ -128,7 +128,41 @@ Mantenha um worker ativo para o processamento assíncrono:
 php artisan queue:work database --queue=default --timeout=60
 ```
 
-PDFs compostos apenas por imagem não são processados, pois OCR ainda não foi implementado.
+PDFs compostos apenas por imagem passam por OCR como fallback (ver abaixo). Sem o serviço OCR disponível, esses PDFs falham de forma controlada (`TEXT_EXTRACTION_FAILED` com OCR desabilitado/não configurado, `OCR_UNAVAILABLE` quando o serviço falha).
+
+### OCR (fallback)
+
+```text
+PDF -> extração textual -> avaliação de qualidade -> (qualidade ok) -> normalização -> seções -> chunks
+                                   \-> (insuficiente) -> serviço OCR -> normalização -> seções -> chunks
+```
+
+O OCR **não** roda em todos os documentos: apenas quando a extração textual é reprovada pelo avaliador determinístico (`config/document_ocr.php`, `DOCUMENT_QUALITY_*`). O serviço Python fica em `services/document-ocr` (CPU-only, sem GPU):
+
+```bash
+docker compose up -d --build document-ocr
+# .env: DOCUMENT_OCR_ENABLED=true DOCUMENT_OCR_URL=http://127.0.0.1:8090
+```
+
+Com OCR habilitado, use `KNOWLEDGE_JOB_TIMEOUT_SECONDS=330`, `DB_QUEUE_RETRY_AFTER=400` e `queue:work --timeout=330`. O método usado fica em `knowledge_documents.metadata.processing.extraction`.
+
+### Classificador local (llamafile)
+
+Camadas separadas: extração (PDF/OCR) → classificação da ingestão (heurística + IA local como fallback) → recuperação/RAG (futuro) → IA principal (futuro). A IA local só resolve ambiguidades de identificação de documentos e **não** responde a usuários.
+
+```bash
+cp .env.example .env
+./scripts/install-local-model.sh        # baixa o modelo (~1,1 GB) para services/local-ai/models (fora do Git)
+docker compose up -d
+docker compose ps                       # local-ai deve ficar "healthy" quando o modelo carregar
+curl -s http://127.0.0.1:8088/status    # READY | MODEL_LOADING | MODEL_NOT_INSTALLED | ERROR
+```
+
+Regra de decisão (`DOCUMENT_CLASSIFICATION_*`): score ≥ 85 aceita a heurística; 40–84 consulta a IA local; < 40 revisão manual. A IA nunca promove um documento sozinha: exige confiança ≥ 0,85, valores ancorados nas evidências e confirmação no catálogo ANVISA. O estado da IA local e do OCR aparece no cabeçalho do Admin. Detalhes em `docs/technical-foundation.md`; opções de tempo real em `docs/realtime-options.md`.
+
+### Provedores de IA (infraestrutura preparada)
+
+Contratos `TextGenerationProvider`, `EmbeddingProvider` e `VisionProvider` resolvidos por `AI_TEXT_DRIVER`, `AI_EMBEDDING_DRIVER` e `AI_VISION_DRIVER` (`config/ai.php`). Drivers: `openai_compatible` e `fake`. **Nenhum fluxo de negócio chama IA ainda**: embeddings, RAG e LLM não estão implementados.
 
 ## Armazenamento
 

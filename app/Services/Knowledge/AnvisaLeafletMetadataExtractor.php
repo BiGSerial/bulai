@@ -24,9 +24,10 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
             'holder' => null, 'audience' => null, 'document_type' => null, 'title' => null];
         $evidence = [];
         $ambiguous = [];
-        $productIdentityIsReliable = $this->identifyProductAndIngredient($pages, $fields, $evidence, $ambiguous);
-        $this->identifyRegistration($pages, $fields, $evidence, $ambiguous);
-        $this->identifyAudience($pages, $fields, $evidence, $ambiguous);
+        $candidates = ['product_name' => [], 'active_ingredient' => [], 'registration_number' => [], 'audience' => []];
+        $productIdentityIsReliable = $this->identifyProductAndIngredient($pages, $fields, $evidence, $ambiguous, $candidates);
+        $this->identifyRegistration($pages, $fields, $evidence, $ambiguous, $candidates);
+        $this->identifyAudience($pages, $fields, $evidence, $ambiguous, $candidates);
         $this->identifyHolder($pages, $fields, $evidence);
 
         if ($fields['product_name'] !== null && $fields['document_type'] !== null) {
@@ -38,7 +39,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
             + ($fields['document_type'] !== null ? 20 : 0) + ($fields['active_ingredient'] !== null ? 10 : 0) + ($fields['holder'] !== null ? 5 : 0);
         $eligible = $score >= 80 && $productIdentityIsReliable && $ambiguous === [] && $fields['title'] !== null && $fields['document_type'] !== null && $fields['registration_number_normalized'] !== null;
 
-        return new DocumentIdentification(self::class, $fields, $evidence, $ambiguous, $score, $eligible, count($pages));
+        return new DocumentIdentification(self::class, $fields, $evidence, $ambiguous, $score, $eligible, count($pages), candidates: $candidates, excerpts: $this->excerpts($pages));
     }
 
     /** @return list<ExtractedPage> */
@@ -58,8 +59,9 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
      * @param  array<string, string|null>  $fields
      * @param  array<string, array{value: string, page: int, pattern: string}>  $evidence
      * @param  list<string>  $ambiguous
+     * @param  array<string, list<string>>  $candidateSink
      */
-    private function identifyProductAndIngredient(array $pages, array &$fields, array &$evidence, array &$ambiguous): bool
+    private function identifyProductAndIngredient(array $pages, array &$fields, array &$evidence, array &$ambiguous, array &$candidateSink): bool
     {
         $productCandidates = [];
         $ingredientCandidates = [];
@@ -91,6 +93,10 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
             }
         }
 
+        // Uma quantidade ("50 mg de…", "10mL de…") não é nome de substância: descartar evita um princípio ativo falso e deixa o campo para o catálogo/IA.
+        $ingredientCandidates = array_filter($ingredientCandidates, fn (array $candidate): bool => preg_match('/^\d/u', $candidate['value']) !== 1);
+        $candidateSink['product_name'] = array_values(array_column($productCandidates, 'value'));
+        $candidateSink['active_ingredient'] = array_values(array_column($ingredientCandidates, 'value'));
         $product = $this->selectCandidate($productCandidates, 'product_name', $ambiguous);
         $ingredient = $this->selectCandidate($ingredientCandidates, 'active_ingredient', $ambiguous);
 
@@ -111,8 +117,8 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
         return $product !== null && ($product['weight'] >= 35 || $converges);
     }
 
-    /** @param list<ExtractedPage> $pages @param array<string, string|null> $fields @param array<string, array{value: string, page: int, pattern: string}> $evidence @param list<string> $ambiguous */
-    private function identifyRegistration(array $pages, array &$fields, array &$evidence, array &$ambiguous): void
+    /** @param list<ExtractedPage> $pages @param array<string, string|null> $fields @param array<string, array{value: string, page: int, pattern: string}> $evidence @param list<string> $ambiguous @param array<string, list<string>> $candidateSink */
+    private function identifyRegistration(array $pages, array &$fields, array &$evidence, array &$ambiguous, array &$candidateSink): void
     {
         $candidates = [];
         foreach ($pages as $page) {
@@ -124,6 +130,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
                 }
             }
         }
+        $candidateSink['registration_number'] = array_map('strval', array_keys($candidates));
         if (count($candidates) > 1) {
             $ambiguous[] = 'registration_number';
 
@@ -139,8 +146,8 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
         }
     }
 
-    /** @param list<ExtractedPage> $pages @param array<string, string|null> $fields @param array<string, array{value: string, page: int, pattern: string}> $evidence @param list<string> $ambiguous */
-    private function identifyAudience(array $pages, array &$fields, array &$evidence, array &$ambiguous): void
+    /** @param list<ExtractedPage> $pages @param array<string, string|null> $fields @param array<string, array{value: string, page: int, pattern: string}> $evidence @param list<string> $ambiguous @param array<string, list<string>> $candidateSink */
+    private function identifyAudience(array $pages, array &$fields, array &$evidence, array &$ambiguous, array &$candidateSink): void
     {
         $patient = null;
         $professional = null;
@@ -149,6 +156,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
             $professional ??= preg_match('/(?:Bula para o profissional|INFORMAÇÕES (?:TÉCNICAS )?AOS? PROFISSIONAIS|^[^\r\n]{2,100}\bPROFISSIONAL\b)/imu', $page->text) === 1 ? $page->number : null;
             $patient ??= preg_match('/(?:Bula para o paciente|INFORMAÇÕES AO PACIENTE|^[^\r\n]{2,100}\bPACIENTE\b)/imu', $page->text) === 1 ? $page->number : null;
         }
+        $candidateSink['audience'] = array_values(array_filter([$patient !== null ? 'patient' : null, $professional !== null ? 'professional' : null]));
         if ($patient !== null && $professional !== null) {
             $ambiguous[] = 'audience';
 
@@ -173,6 +181,30 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
                 return;
             }
         }
+    }
+
+    /**
+     * Trechos curtos que sustentam a identificação; são o único conteúdo do PDF enviado ao classificador local.
+     *
+     * @param  list<ExtractedPage>  $pages
+     * @return list<array{page: int, type: string, text: string}>
+     */
+    private function excerpts(array $pages): array
+    {
+        $excerpts = [];
+        foreach ($pages as $page) {
+            $header = $this->clean(implode(' ', array_slice(preg_split('/\R/u', $page->text) ?: [], 0, 3)));
+            if ($header !== '') {
+                $excerpts[] = ['page' => $page->number, 'type' => 'page_header', 'text' => mb_substr($header, 0, 300)];
+            }
+            foreach (['identification_section' => '/IDENTIFICA[CÇ][AÃ]O\s+DO\s+MEDICAMENTO(.{0,400})/isu', 'composition' => '/\bCOMPOSI[CÇ][AÃ]O\b(.{0,400})/isu'] as $type => $pattern) {
+                if (preg_match($pattern, $page->text, $match) === 1 && $this->clean($match[1]) !== '') {
+                    $excerpts[] = ['page' => $page->number, 'type' => $type, 'text' => $this->clean($match[1])];
+                }
+            }
+        }
+
+        return array_slice($excerpts, 0, 8);
     }
 
     private function clean(string $value): string

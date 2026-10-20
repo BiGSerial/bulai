@@ -108,8 +108,7 @@ A preparação textual foi implementada antes da busca semântica. Isso prioriza
 
 ## Escopo não implementado
 
-- OCR de documentos digitalizados;
-- embeddings e busca vetorial;
+- uso de embeddings e busca vetorial (a camada de provedores de IA existe, mas está preparada e sem uso);
 - recuperação híbrida e reranking;
 - geração de respostas por LLM;
 - avaliação clínica das respostas;

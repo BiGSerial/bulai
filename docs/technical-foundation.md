@@ -229,6 +229,16 @@ Automatic creation requires at least `80`, a structurally reliable or convergent
 
 The verified `bula_1790735935676.pdf` sample produced ATROVENT/ATROVENT N, brometo de ipratrópio, registration `1.0367.0004` normalized to `103670004`, professional leaflet, and Boehringer Ingelheim as holder, with score `100`. The numeric filename was not used as evidence.
 
+### ANVISA regulatory catalog and convergent evidence
+
+`DADOS_ABERTOS_MEDICAMENTOS.csv` is imported as structured data into `anvisa_medicines`; it is never converted into a knowledge document or chunk. `anvisa_catalog_imports` records dataset name, original filename, SHA-256, encoding, delimiter, counters, status and timestamps. Run `php artisan knowledge:import-anvisa-medicines /path/DADOS_ABERTOS_MEDICAMENTOS.csv --encoding=ISO-8859-1`. An identical completed checksum returns the existing import without rewriting the catalog. The importer streams the CSV, converts each field to UTF-8 and performs chunked PostgreSQL upserts by stable `record_key`.
+
+Canonical 9- or 13-digit registration numbers are preserved as text and indexed; the original value is retained separately. Rows without a valid registration remain available by process/technical record key but cannot provide strong registration confirmation. Product, active ingredient and holder retain their source strings alongside controlled comparable forms.
+
+`AnvisaLeafletMetadataExtractor` remains database-independent and reports only documentary evidence. `KnowledgeDocumentIdentificationService` passes its result to `KnowledgeDocumentRegulatoryValidator`, which queries the `AnvisaRegulatoryCatalog` contract. Validation is stored under `preliminary_identification.regulatory_validation` with one of `CONFIRMED`, `CONFLICT`, `INCONCLUSIVE`, `NOT_FOUND` or `NOT_AVAILABLE`, plus field comparisons, conflicts and catalog provenance. A product or active-ingredient conflict disables automatic creation; missing/unavailable catalog data keeps the pre-existing documentary fallback and never pretends to be confirmation. Registration status is contextual and does not reject historical leaflets.
+
+The administrative review separates PDF candidates from catalog values and shows divergences explicitly. The real catalog row for registration `103670004` identifies ATROVENT, brometo de ipratrópio, Boehringer Ingelheim and status `Ativo`; controlled comparison with the verified Atrovent leaflet confirms product, ingredient and holder independently.
+
 The internal import endpoint accepts a logical document, source metadata, optional batch metadata, and chunks. Documents are created or updated by `external_key`.
 
 Example:
@@ -455,7 +465,7 @@ The document pipeline is intentionally separate from vector processing:
 
 `private PDF → page extraction → conservative normalization → deterministic sections → structural chunks → knowledge_chunks`
 
-No OCR, embedding generation, vector retrieval, LLM, or external service is used.
+The only external service is the optional internal OCR container, used as a fallback (see *OCR Fallback and AI Provider Layer*). No embedding generation, vector retrieval, or LLM is used.
 
 ### PDF extraction
 
@@ -474,7 +484,7 @@ Only paths recorded on `knowledge_documents` and located below `knowledge/origin
 - chunk maximum: 2,600 characters;
 - same-section overlap: 200 characters.
 
-Image-only PDFs and PDFs with insufficient text fail with `TEXT_EXTRACTION_FAILED`. OCR is intentionally absent. Invalid/unsupported PDFs produce the generic `PROCESSING_ERROR`; technical exceptions remain in logs with an `error_id`.
+Image-only PDFs and PDFs with insufficient text are sent to the OCR fallback when it is enabled; with OCR disabled/unconfigured they fail with `TEXT_EXTRACTION_FAILED`, and with an OCR outage and unusable text they fail with `OCR_UNAVAILABLE`. Invalid/unsupported PDFs produce the generic `PROCESSING_ERROR`; technical exceptions remain in logs with an `error_id`.
 
 ### Normalization and sections
 
@@ -603,7 +613,7 @@ Covered behavior:
 - Embedding generation is not implemented.
 - RAG retrieval and assistant response generation are not implemented.
 - No production HTTPS enforcement middleware has been added yet.
-- OCR remains intentionally absent; text-only PDF extraction and deterministic chunking are implemented.
+- OCR runs only as a fallback in the queued processing job (not during upload-time identification, which still uses `PdfTextExtractor` only); the OCR engine's real-world accuracy on the pharmaceutical corpus has not been measured.
 - Knowledge Admin supports manual pending-item association and creation of logical documents, but does not yet provide general editing of document metadata.
 - Admin creation depends on explicit environment variables; there is no user-management UI yet.
 - The PWA baseline does not provide offline authenticated document access.
@@ -679,3 +689,210 @@ ANVISA generic leaflets commonly place the legal marker “Medicamento Genérico
 ## Visual Identity
 
 The official production SVG set is stored under `public/brand/`: horizontal, transparent horizontal, dark vertical, symbol, and app icon. The transparent horizontal logo is used on the login and Knowledge Admin headers, while `bulai-icone-app.svg` is used by the browser and PWA manifest. The vectors preserve their supplied navy and orange variants, capsule/chat symbol, BULAI wordmark, and “Bulas Inteligentes” signature. Embedded C2PA metadata was removed for delivery size only; vector artwork was not changed.
+
+
+## OCR Fallback and AI Provider Layer
+
+### Status
+
+| Item | Status |
+| --- | --- |
+| Quality gate + OCR fallback (Laravel + Python service) | implemented |
+| `DocumentOcrClient` HTTP driver, config, controlled errors | implemented |
+| AI contracts, manager, `openai_compatible` and `fake` drivers, DTOs | infrastructure prepared (not used by any business flow) |
+| Embedding versioning metadata (`EmbeddingMetadata`) | infrastructure prepared (not persisted yet) |
+| Embedding generation, `GenerateDocumentEmbeddings` job, RAG, LLM classification | future work |
+| Dedicated `ProcessDocumentOcr` job | future work (OCR currently runs inside `ProcessKnowledgeDocument`) |
+
+### Flow
+
+`PDF → PdfTextExtractor → DocumentExtractionQualityEvaluator → (acceptable) normalization | (rejected) DocumentOcrClient → normalization → sections → chunks`
+
+- `DocumentTextExtractionService` (`app/Services/Knowledge`) wraps `PdfTextExtractor` (unchanged) and returns a `DocumentExtractionResult`. `KnowledgeDocumentProcessor` consumes it.
+- `HeuristicExtractionQualityEvaluator` is deterministic (no LLM). It returns `score`, `is_acceptable`, `reasons` and `metrics` using: no pages/text, character count, characters per page, empty-page ratio, short-line fragmentation, invalid-character ratio, alphabetic ratio and word count. Each reason subtracts a fixed penalty; `NO_PAGES`/`NO_TEXT` are always rejected. Thresholds: `config/document_ocr.php` (`DOCUMENT_QUALITY_*`).
+- `HttpDocumentOcrClient` posts the PDF (validated `%PDF-` signature and size) to `POST {DOCUMENT_OCR_URL}/v1/documents/parse` with `X-Correlation-Id` and optional bearer `DOCUMENT_OCR_TOKEN`. Timeout, connect timeout and limited retries (connection errors, 429, 5xx; never on timeout) are configurable. Failures become `DocumentOcrException` codes: `OCR_DISABLED`, `OCR_NOT_CONFIGURED`, `OCR_INVALID_FILE`, `OCR_PAYLOAD_TOO_LARGE`, `OCR_UNAVAILABLE`, `OCR_TIMEOUT`, `OCR_RATE_LIMITED`, `OCR_REJECTED`, `OCR_INVALID_RESPONSE`. Messages never contain URL, token or document text; logs carry only codes, correlation id, counts and durations.
+- The response is converted to `ExtractedPdf`/`ExtractedPage` (pages sorted and validated, optional page confidence, engine metadata in `ExtractedPdf::$metadata`). Blocks/bboxes stay in the Python response and are not used by Laravel yet.
+- Failure policy: OCR failure with usable text keeps the text extraction; OCR failure with unusable text fails the document as `OCR_UNAVAILABLE` (previous chunks are preserved; reprocess with `--force`). OCR disabled or unconfigured preserves the previous `TEXT_EXTRACTION_FAILED` behavior.
+
+### Audit metadata
+
+`knowledge_documents.metadata.processing.extraction`: `extraction_method` (`pdf_text`|`ocr`), `extractor`, `ocr_engine`, `ocr_version`, `quality_score`, `quality_score_after_ocr`, `quality_reasons`, `fallback_reason`, `ocr_error_code`, `pages_processed`, `processing_duration` (ms). Chunk metadata `extraction_method` now holds `pdf_text` or `ocr` (previously the library name).
+
+### Python service (`services/document-ocr`)
+
+FastAPI, `POST /v1/documents/parse` and `GET /health`, optional bearer token, size/MIME/page limits. `app.engine.DocumentOcrEngine` is the engine contract; `PaddleOcrEngine` (CPU, `pypdfium2` rendering) is the initial implementation and is imported lazily. The HTTP contract does not mention PaddleOCR. Docker: `docker compose up -d --build document-ocr` (2 CPUs / 3 GB limits, no GPU, no NVIDIA toolkit required). Tests (`pytest`) use a fake engine; the PaddleOCR engine itself was not exercised by automated tests.
+
+### AI provider layer
+
+`Application → AI contracts → AiProviderManager → drivers → external/local APIs`
+
+- Contracts (`app/Services/Ai`): `TextGenerationProvider`, `EmbeddingProvider`, `VisionProvider`. A driver may implement only some capabilities; each is resolved independently by `AI_TEXT_DRIVER`, `AI_EMBEDDING_DRIVER`, `AI_VISION_DRIVER`. Unset/unknown drivers raise `AI_NOT_CONFIGURED`.
+- New drivers are registered with `AiProviderManager::extend($capability, $driver, $closure)` without touching consumers.
+- `openai_compatible` driver talks to `{AI_*_BASE_URL}/chat/completions` and `/embeddings` (OpenAI, gateways, Ollama, vLLM, llama.cpp...) using `AI_*_API_KEY`, `AI_*_MODEL`, `AI_*_TIMEOUT`, `AI_*_RETRIES`. Vendor JSON never leaves `app/Services/Ai/OpenAiCompatible`; consumers see DTOs in `app/Data/Ai`.
+- `fake` driver: deterministic, for tests and offline development.
+- Errors are `AiProviderException` codes (`AI_RATE_LIMITED`, `AI_TIMEOUT`, `AI_UNAVAILABLE`, `AI_AUTH_FAILED`, `AI_REJECTED`, `AI_INVALID_RESPONSE`, `AI_INVALID_REQUEST`, `AI_NOT_CONFIGURED`) with a correlation id; keys, URLs and prompts are never in messages. `ai_request_completed`/`ai_request_failed` logs record provider, capability, operation, model, latency, token counts and success, never content or secrets. Monetary cost is not computed (no price table).
+- `EmbeddingMetadata` (`provider`, `model`, `dimensions`, `generated_at`, `content_hash`) defines embedding validity as content hash + provider + model; `isObsoleteFor()` flags stale embeddings. Nothing generates or stores embeddings yet; `embedding_status` stays `PENDING`.
+- Long AI calls must run in queued jobs, never in controllers or Livewire components.
+
+### Operations
+
+```bash
+docker compose up -d --build document-ocr
+curl http://127.0.0.1:8090/health
+php artisan knowledge:process-document 123 --force --sync
+cd services/document-ocr && pytest
+```
+
+### Tests
+
+`tests/Unit/Services/Knowledge/{HeuristicExtractionQualityEvaluatorTest,HttpDocumentOcrClientTest,DocumentTextExtractionServiceTest}.php`, `tests/Unit/Services/Ai/AiProviderLayerTest.php`, OCR cases in `tests/Feature/Knowledge/KnowledgeDocumentProcessingTest.php`, `services/document-ocr/tests/test_api.py`. No test calls a real external API.
+
+
+## Local Classification Layer (llamafile) and Service Health
+
+Responsibilities are separated: **(1) extraction** (`PdfTextExtractor` / OCR), **(2) ingestion classification** (heuristic first, local model as fallback — this section), **(3) retrieval** (embeddings/RAG, future), **(4) main application LLM** (future). The local llamafile model belongs only to layer 2; it never answers users and does not take part in RAG.
+
+### Status
+
+| Item | Status |
+| --- | --- |
+| Heuristic candidates/evidence/score exposed for classification | implemented |
+| Score gate (`ACCEPTED_HEURISTIC` / local model / `MANUAL_REVIEW`) | implemented |
+| `DocumentClassificationProvider` + llamafile driver + strict DTO | implemented |
+| `services/local-ai` container (llamafile, CPU), `scripts/install-local-model.sh`, `scripts/setup-local-ai.sh` | implemented; the image was built and, with a 1 MB test GGUF (not the default Qwen model), the states `MODEL_NOT_INSTALLED` → `READY`, a real chat completion and the Docker healthcheck were verified manually; on 2026-10-18 the default Qwen2.5-1.5B Q4_K_M model was downloaded (SHA-256 verified), reached `READY` and answered classification requests in ~8–14 s per document on CPU only (16 logical cores, 15 GB RAM, WSL2, base commit `ecdd93f` plus uncommitted work); accuracy on a labelled corpus was not measured |
+| `ClassifyPendingDocument` queue job | implemented |
+| Visible health of local AI/OCR in the Admin | implemented (polling; see `docs/realtime-options.md`) |
+| Accuracy of the local model on the real corpus | not measured |
+| `ProcessDocumentOcr`, `GenerateDocumentEmbeddings` jobs | future (OCR runs inside the processing and classification jobs) |
+
+### Flow
+
+`PDF → text extraction → quality gate → [OCR] → heuristic (candidates, evidence, score) → regulatory validation → score gate`
+
+- `score >= DOCUMENT_CLASSIFICATION_AUTO_ACCEPT_SCORE` (85): heuristic accepted; model not called.
+- `AI_MIN_SCORE (40) <= score < 85`: `KnowledgeDocumentClassificationService` calls the classifier.
+- `score < 40`: `MANUAL_REVIEW`; model not called.
+- Thresholds are configuration (`config/document_classification.php`), to be tuned by experiments, not scientific constants.
+- Heavy work never runs in the upload request. `KnowledgeBatchIngestionService` still identifies with the text extractor only; when OCR or the classifier is enabled it dispatches `ClassifyPendingDocument` for each PENDING PDF (after commit). The job reuses `KnowledgePendingItemReanalysisService::reanalyze`, which now calls `identifyPath(..., deep: true)` (OCR + classification). Manual "reanalyze" from the Admin therefore also uses the deep path.
+
+### Classifier contract
+
+`DocumentClassificationRequest` carries only: `heuristic_score`, name/ingredient candidates, registration, audience candidates, short evidence excerpts (page header, identification section, composition; ≤ 8 excerpts, ≤ 400 chars each) and ambiguous fields — never the PDF or full text. `LlamafileDocumentClassificationProvider` is the `llamafile` driver of the generic OpenAI-compatible client (`ai.classifier.drivers.llamafile`, `LOCAL_AI_URL`), temperature 0, JSON-schema response format.
+
+`DocumentClassificationResponse::fromModelOutput` is strict: exactly the keys `product_name`, `active_ingredient`, `document_type` (`bula_paciente`|`bula_profissional`|null), `confidence` (0–1 number), `evidence` (≤ 5 strings). Malformed/incomplete JSON, extra keys, wrong types or out-of-range confidence raise `AI_INVALID_RESPONSE`; nothing is repaired.
+
+### Acceptance rules for a model answer
+
+1. `confidence >= DOCUMENT_CLASSIFICATION_AI_MIN_CONFIDENCE` (0.85), otherwise `AI_LOW_CONFIDENCE` (nothing merged).
+2. Values must be grounded in the heuristic candidates or the evidence excerpts sent, and must not contradict values the heuristic already found; otherwise `AI_REJECTED`.
+3. A `document_type` is accepted only if it matches an audience candidate found by the heuristic; names must match whole words of a candidate or excerpt (≥ 4 characters). Accepted values fill only fields the heuristic left empty/ambiguous and the result is re-validated against the ANVISA catalog. It is applied **only if** the catalog status is `CONFIRMED` and the document is otherwise complete (`AI_ACCEPTED`); otherwise the suggestion is only recorded (`AI_SUGGESTED`) and fields/ambiguities stay as the heuristic left them (the item stays PENDING).
+4. Provider failure/timeout/invalid output: `AI_UNAVAILABLE` (with controlled `error_code`); heuristic result kept; item stays PENDING. Classifier not configured: `AI_DISABLED`. If OCR text scores lower than the native text, the native extraction is kept (`ocr_error_code=OCR_WORSE_THAN_TEXT`). `ClassifyPendingDocument` has its own timeout (OCR + classifier timeouts + margin; keep `DB_QUEUE_RETRY_AFTER` above it) and a `failed()` handler that marks the item progress as failed so it can be re-queued.
+
+Audit data: `metadata.preliminary_identification.classification` (`decision`, `heuristic_score`, `ai_used`, `model`, `confidence`, `duration_ms`, `error_code`, `reason`, `result`) and `.extraction` (see OCR section). Candidate lists and prompts are not logged.
+
+### `services/local-ai` container
+
+`supervisor` (Python stdlib) starts llamafile (`-m /models/<file> -c <ctx> -t <threads>`, bound to 127.0.0.1 inside the container), reports state and proxies only `POST /v1/chat/completions` and `GET /v1/models`:
+
+- `GET /status` (always 200) and `GET /health` (200 only when `READY`): `SERVICE_AVAILABLE`, `MODEL_NOT_INSTALLED`, `MODEL_LOADING`, `READY`, `ERROR`. `READY` requires upstream health **and** a successful 1-token inference probe.
+- Missing model → `MODEL_NOT_INSTALLED` (no crash loop); the process starts as soon as the file appears. Crashes restart with exponential backoff; load timeout → `ERROR`.
+- Config: `LOCAL_AI_THREADS`, `LOCAL_AI_CONTEXT`, `LOCAL_AI_LOAD_TIMEOUT`, `LOCAL_AI_REQUEST_TIMEOUT`. Compose: 4 CPUs / 4 GB, `restart: unless-stopped`, healthcheck, no GPU, port published only on `127.0.0.1:${LOCAL_AI_HOST_PORT:-8088}`.
+- The model is never in Git (`services/local-ai/models/*` ignored) and is mounted read-only; it is not downloaded at container start.
+
+### Model installation
+
+`scripts/install-local-model.sh [--force]`: skips when the file exists with the right SHA-256; downloads to `<file>.part` (https only, redirects, 3 attempts), checks HTTP status, size (when advertised) and SHA-256, removes partial files on any failure, then promotes atomically and writes `models/model.json` (`model`, `filename`, `source`, `sha256`, `quantization`, `installed_at`; no secrets). Exit codes: 0 ok, 1 download/size failure, 2 invalid usage/config, 3 checksum mismatch. Default model: Qwen2.5-1.5B-Instruct Q4_K_M (≈1.1 GB, Apache-2.0, multilingual incl. Portuguese, follows short instructions, produces JSON) — chosen for CPU/low RAM, not benchmarked against alternatives. Override with `LOCAL_AI_MODEL_URL/FILENAME/SHA256/NAME`. `scripts/setup-local-ai.sh` installs, starts the container, waits for `READY` and sends a test request.
+
+```bash
+cp .env.example .env
+./scripts/install-local-model.sh
+docker compose up -d
+docker compose ps
+curl -s http://127.0.0.1:8088/status
+curl -s http://127.0.0.1:8088/v1/chat/completions -H 'Content-Type: application/json' \
+  -d '{"model":"local","max_tokens":20,"messages":[{"role":"user","content":"Responda apenas: ok"}]}'
+```
+
+### Service health in the Admin
+
+`ServiceHealthChecker` (5 s cache) probes `LOCAL_AI_URL/status` and `DOCUMENT_OCR_URL/health`; failures become `UNREACHABLE`, never exceptions. The `admin.knowledge.service-health` Livewire component is rendered in the shared Admin shell header (every page, `wire:poll.10s`) with colored dot + text badge per service. The same data is available as JSON at `GET /admin/knowledge/services/health` (admin-only). Transport options (polling vs SSE vs WebSocket) are analysed in `docs/realtime-options.md`.
+
+### Tests
+
+`tests/Unit/Services/Ai/{DocumentClassificationResponseTest,LlamafileClassificationProviderTest}.php`, `tests/Feature/Knowledge/{KnowledgeDocumentClassificationTest,KnowledgeBackgroundClassificationTest}.php`, `tests/Feature/Admin/ServiceHealthTest.php`, `services/local-ai/tests/test_supervisor.py`. No test calls a real model or external API.
+
+## Automatic Analysis Audit and Visibility
+
+Purpose: make what OCR and the local AI did on each pending file visible and auditable on the admin review page.
+
+- **Audit trail:** every deep analysis (`KnowledgePendingItemReanalysisService::reanalyze`, used by `ClassifyPendingDocument` and the "Reanalisar" button) appends an `automatic_analysis` event to `ingestion_batch_items.metadata.audit_history` with the extraction metadata (method, quality before/after OCR, engine, pages, duration, OCR error code), the classification (decision, heuristic score, thresholds in force, model, confidence, duration, error code, reason, AI answer with its evidence quotes) and the resulting fields. No PDF text or prompt is stored. Earlier results also remain in `preliminary_identification_history`.
+- **Presenter:** `app/Services/Knowledge/AutomaticAnalysisReport.php` turns the stored data into labelled steps (text reading → heuristic → local AI → decision) and the list of previous runs.
+- **UI:** section "Análise automática" on `admin/knowledge/.../review` (`livewire/shared/analysis-run.blade.php`). It warns when OCR/AI never ran, shows queue progress with 3 s polling while a job is `queued`/`processing`, and lists earlier runs.
+- **Fix found while testing with the real model:** llamafile ignores the OpenAI `response_format: json_schema` and the model answered outside the contract (`AI_INVALID_RESPONSE`). The classifier now sends `json_object` + `schema` (grammar-enforced) when `ai.classifier.drivers.llamafile.structured_output = grammar`, and the prompt names the exact keys. `openai_compatible` keeps `json_schema`.
+- **Tests:** `KnowledgeBackgroundClassificationTest` (audit entries, review page rendering, not-yet-analyzed warning), `LlamafileClassificationProviderTest`.
+- **Limitations:** the Reanalisar button still runs the analysis inside the web request (OCR + AI may take tens of seconds); the queue path (`ClassifyPendingDocument`) is the non-blocking one.
+
+### Human decision on the AI suggestion (comparison board)
+
+- **Why:** the automatic rule never lets the AI contradict the heuristic, so a correct AI answer (e.g. "omeprazol sódico") was discarded when the heuristic had a wrong value ("10mL de solução diluente"). The rule is kept for unattended processing; the administrator now decides.
+- **Data:** `classification.heuristic` (heuristic fields before the AI ran), `classification.result` (AI answer), `classification.checks` (per field: value appears in the text sent to the AI; conflicts with the heuristic) and `classification.forced`.
+- **Quadro comparativo** (review page): per field heuristic × AI × relation (Igual / Diverge / Só a IA / Só a heurística) plus the grounding flag; evidence quotes in a collapsible block; technical details per step collapsed.
+- **Actions** (`KnowledgeAiSuggestionReviewService`, Livewire `Review`): apply marked fields, accept all, reject the AI analysis, undo. The admin chooses fields, never types values; only values stored by the analysis can be applied. Applying updates the item's identification and pre-fills "Novo documento"; values are not catalog-confirmed. Events `ai_suggestion_accepted`, `ai_suggestion_rejected`, `ai_decision_reverted` go to `audit_history` with actor, previous and applied values; `metadata.ai_review` holds the current decision and is cleared by a new analysis (history is kept in the audit trail).
+- **On-demand AI:** "Consultar IA agora" queues `ClassifyPendingDocument(forceAi: true)` (`KnowledgePendingItemReanalysisService::queueItem`), bypassing the score gate; progress and result appear through the existing 3 s polling. Refused when the classifier is not configured or the item is already queued/processing.
+- **Tests:** `KnowledgeAiSuggestionReviewTest`, forced case in `KnowledgeDocumentClassificationTest`.
+- **Limitations:** accepted values are not re-validated against the ANVISA catalog automatically; a new analysis discards the current decision.
+
+### Stored prompt (audit)
+
+- `classification.prompt` is saved with every AI consultation (also when it fails): `user` (the payload sent: heuristic score, candidates, registration, audience candidates, evidence excerpts, ambiguous fields), `sha256` of that payload and, when the provider answered, `system` (instruction), `temperature`, `max_tokens`, `structured_output` and `raw_response` (first 4000 characters of the model output). It is also copied into the `automatic_analysis` audit event of each run.
+- It only contains short excerpts already extracted from the PDF (≤ ~400 characters each), never the file. It lives in `ingestion_batch_items.metadata` (admin-only), **not** in application logs, which still carry only decision, score, model, confidence and timing.
+- Disable with `DOCUMENT_CLASSIFICATION_STORE_PROMPT=false` (`config/document_classification.php`). Review page: collapsible "Prompt enviado à IA e resposta bruta" with copy buttons.
+- Limitation: when the answer is rejected as invalid (`AI_INVALID_RESPONSE`) the raw answer is not kept, because the provider exception carries only a controlled error code.
+
+### Active ingredient is always sought (interaction checks depend on it)
+
+Resolution chain, each step recorded with its origin:
+1. **PDF heuristic** (`AnvisaLeafletMetadataExtractor`). A candidate that starts with a quantity ("50 mg de…", "10mL de…") is discarded: it is not a substance name.
+2. **ANVISA catalog by registration number** (`KnowledgeDocumentRegulatoryValidator`): when the PDF has no active ingredient, the catalog value fills it (`regulatory_validation.filled_from_catalog`). The lookup is no longer blocked by an ambiguous *other* field; only an ambiguous registration blocks it. The catalog record now also exposes regulatory category, therapeutic class and registration expiry.
+3. **Local AI**, consulted whenever the ingredient is still missing, at any heuristic score (`gap_fill`): it does not change the score decision (ACCEPTED_HEURISTIC / MANUAL_REVIEW) and its outcome is kept in `classification.gap_fill_outcome`. If the answer passes the ingredient's own checks (confidence ≥ 0.85, grounded in the excerpts sent, no conflict, plausible name) the ingredient is kept even when another field (e.g. document type) made the whole answer rejected (`ingredient_filled_by_ai`). It never alters automatic-association eligibility.
+4. **Administrator**: the board offers "apply" per field and per source (AI or catalog).
+
+UI (review page): **Dados do medicamento** panel (product, active ingredients as badges with origin, type, registration, process, holder, regulatory category, therapeutic class, registration status/expiry, each with its origin PDF / Catálogo ANVISA / IA), a red alert when the ingredient is missing, and a three-source comparison board (heuristic × catalog × AI) with checkboxes (`catalog:campo`, `ai:campo`; the first source selected for a field wins). The "heuristic" column shows only what the PDF brought. The AI prompt now asks for at most 3 evidence quotes of 120 characters and `max_tokens` is 700 (a 400-token cap truncated the JSON on long quotes); footnote asterisks are stripped from AI names.
+
+Operational note: the ANVISA catalog must be imported (`php artisan knowledge:import-anvisa-medicines <DADOS_ABERTOS_MEDICAMENTOS.csv>`); with an empty catalog the validation is "NOT_AVAILABLE" and step 2 does nothing.
+
+Tests: `KnowledgeDocumentRegulatoryValidatorTest`, `AnvisaLeafletMetadataExtractorTest`, `KnowledgeDocumentClassificationTest`, `KnowledgeAiSuggestionReviewTest`, `DocumentClassificationResponseTest`.
+Limitations: AI-filled ingredients are not catalog-confirmed (shown as such); substance splitting for display is a simple separator split; the 1.5B model still produces wrong ingredient names that only the plausibility/grounding checks and the human catch.
+
+## Importação do catálogo ANVISA pelo Admin
+
+**Propósito.** Permitir que o administrador envie o `DADOS_ABERTOS_MEDICAMENTOS.csv` (portal de dados abertos da ANVISA, conjunto "Medicamentos registrados") pela interface, sem usar `knowledge:import-anvisa-medicines`. O catálogo alimenta a validação regulatória (`KnowledgeDocumentRegulatoryValidator`) e o preenchimento do princípio ativo.
+
+**Arquivos.**
+- `app/Livewire/Admin/Knowledge/Catalog/Index.php` e `resources/views/livewire/admin/knowledge/catalog/index.blade.php`: situação do catálogo, formulário, progresso (`wire:poll.3s` apenas enquanto há importação ativa) e histórico das 10 últimas.
+- `app/Jobs/ImportAnvisaCatalog.php`: `tries=1`, timeout `KNOWLEDGE_ANVISA_CATALOG_JOB_TIMEOUT_SECONDS` (600); reutiliza `AnvisaMedicineCsvImporter` (novo parâmetro opcional `$tracking`, que reaproveita a linha da importação e grava o progresso a cada 750 linhas); apaga o arquivo ao final; `failed()` grava `FAILED` + `error_reference` e registra o detalhe só no log.
+- Migration `add_progress_fields_to_anvisa_catalog_imports_table`: `uploaded_by`, `stored_path` (limpo após a importação) e `error_reference`. Status novo `QUEUED` (histórico anterior continua válido).
+- `config/knowledge.php` (`anvisa_catalog.max_kilobytes`, padrão 51200 / `KNOWLEDGE_ANVISA_CATALOG_MAX_KILOBYTES`) e `status-badge` (rótulo "Na fila").
+
+**Rota.** `admin.knowledge.catalog.index` → `GET /admin/knowledge/catalog` (grupo `auth` + `admin`).
+
+**Fila e arquivos.** O CSV é guardado em `anvisa-catalog/` no disco privado `knowledge.filesystem_disk`. Só uma importação ativa por vez (`QUEUED`/`PROCESSING` com atualização nas últimas 2 h; linhas abandonadas deixam de bloquear). Arquivo já importado (mesma assinatura SHA-256) não é reenviado à fila. Exige `queue:work` e `DB_QUEUE_RETRY_AFTER` maior que o timeout do job.
+
+**Testes.** `tests/Feature/Knowledge/AnvisaCatalogAdminPageTest.php` (envio, job, recusas, concorrência, estado vazio, falha segura, acesso admin) e `AnvisaMedicineCatalogTest.php`.
+
+**Limitações.** Progresso mostrado em linhas lidas (sem percentual, pois o total não é conhecido). Falha deixa o histórico com código de referência; o detalhe está em `storage/logs`. Não há cancelamento de importação em andamento.
+
+## Admin UX Refresh (review page, navigation, cards)
+
+- **Navigation (`components/knowledge-admin/shell.blade.php`):** icons and a hover hint on every item, new item "Catálogo ANVISA", "Ir para o conteúdo" skip link, shadowed header. Menu order follows the workflow: Visão geral → Adicionar documentos → Importações → Pendências → Documentos → Origens → Catálogo ANVISA. (The design-system test forbids `stroke-*` classes/attributes, so icons use `stroke="currentColor"` only.)
+- **Pending review page (`livewire/admin/knowledge/pending/review.blade.php`):**
+  - Top summary card: steps (Conferir os dados → Escolher o destino → Concluído), medicine / active ingredient / registration with catalog status, and a **"Próximo passo"** box that adapts (analysis running, ingredient missing, divergences, or all consistent) with the main action **"Criar documento com estes dados e finalizar"** plus "Associar a documento existente" and "Não incorporar".
+  - Four tabs (Alpine, URL hash kept, sticky bar): Dados do medicamento · Análise (OCR e IA) (badge with the number of divergences) · Resolver pendência / Resultado · Arquivo e histórico. This replaces one very long page.
+  - "Resolver pendência" is a three-option chooser (criar / associar / não incorporar) showing one form at a time.
+  - After finishing (associate, create or not incorporate) the summary becomes **"Pendência concluída"** with "Abrir o documento", **"Próxima pendência (N restantes)"** (same batch first) and "Voltar à fila".
+  - Card height limits: values `line-clamp-2` with full text in `title`, scroll areas (`max-h-72`/`max-h-96`) for document search, history and previous runs, history shows 6 events with "Mostrar todos (N)", collapsed technical/prompt blocks.
+- **Pending queue (`pending/index.blade.php`):** each card shows medicine, active ingredient (or "Sem princípio ativo") and the automatic decision as chips; text is truncated.
+- **Catalog page:** see "ANVISA catalog import page" above (route `admin.knowledge.catalog.index`).
+- **Tests:** `KnowledgePendingReviewFlowTest`, `AnvisaCatalogAdminPageTest`, `AdminDesignSystemTest` (unchanged rules).
+- **Operational:** after pulling these changes run `php artisan migrate`, `npm run build` (new Tailwind classes) and restart the queue worker.
+- **Limitations:** tab state is client-side only; the UI was verified by tests, not visually in a browser during this change.

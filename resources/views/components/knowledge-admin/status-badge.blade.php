@@ -5,6 +5,7 @@
         'READY' => ['Pronto', 'success'],
         'COMPLETED' => ['Concluída', 'success'],
         'PENDING' => ['Pendente', 'warning'],
+        'QUEUED' => ['Na fila', 'info'],
         'PROCESSING' => ['Processando', 'info'],
         'DUPLICATE' => ['Duplicado', 'info'],
         'ERROR' => ['Erro', 'danger'],

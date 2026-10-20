@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Knowledge;
 
+use App\Data\Knowledge\ExtractedPage;
+use App\Data\Knowledge\ExtractedPdf;
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeSource;
+use App\Services\Knowledge\DocumentOcrClient;
+use App\Services\Knowledge\DocumentOcrException;
 use App\Services\Knowledge\KnowledgeChunker;
 use App\Services\Knowledge\KnowledgeDocumentProcessor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,6 +149,65 @@ class KnowledgeDocumentProcessingTest extends TestCase
             ->expectsOutput('Processamento enfileirado.')
             ->assertSuccessful();
         Queue::assertPushed(ProcessKnowledgeDocument::class, fn (ProcessKnowledgeDocument $queuedJob): bool => $queuedJob->documentId === $document->id && $queuedJob->force);
+    }
+
+    public function test_image_only_pdf_is_processed_through_ocr_fallback_and_audited(): void
+    {
+        Storage::fake('local');
+        $this->bindOcr(new ExtractedPdf([
+            new ExtractedPage(1, "COMPOSIÇÃO\nCada comprimido contém 500 mg de dipirona monoidratada."),
+            new ExtractedPage(2, "INDICAÇÕES\nIndicado para dor e febre."),
+        ], ['engine' => 'paddleocr', 'engine_version' => '3.0']));
+        $document = $this->documentWithFixture('no-text.pdf');
+
+        $result = app(KnowledgeDocumentProcessor::class)->process($document->id);
+
+        $this->assertSame('READY', $result['status']);
+        $extraction = $document->refresh()->metadata['processing']['extraction'];
+        $this->assertSame('ocr', $extraction['extraction_method']);
+        $this->assertSame('paddleocr', $extraction['ocr_engine']);
+        $this->assertSame('NO_TEXT', $extraction['fallback_reason']);
+        $this->assertSame(2, $extraction['pages_processed']);
+        $this->assertSame(['ocr'], $document->chunks()->get()->pluck('metadata.extraction_method')->unique()->values()->all());
+        $this->assertSame([1, 2], $document->chunks()->orderBy('chunk_index')->pluck('page_start')->all());
+    }
+
+    public function test_ocr_outage_on_unusable_text_fails_with_controlled_code_and_keeps_chunks(): void
+    {
+        Storage::fake('local');
+        $this->bindOcr(null, DocumentOcrException::UNAVAILABLE);
+        $document = $this->documentWithFixture('no-text.pdf');
+        $document->chunks()->create(['chunk_index' => 0, 'content' => 'Conteúdo preservado.', 'metadata' => []]);
+
+        $result = app(KnowledgeDocumentProcessor::class)->process($document->id, force: true);
+
+        $this->assertSame('OCR_UNAVAILABLE', $result['error_code']);
+        $this->assertSame('FAILED', $document->refresh()->content_status);
+        $this->assertSame('Conteúdo preservado.', $document->chunks()->sole()->content);
+    }
+
+    public function test_disabled_ocr_keeps_the_previous_text_extraction_failure_code(): void
+    {
+        Storage::fake('local');
+        $document = $this->documentWithFixture('no-text.pdf');
+
+        $result = app(KnowledgeDocumentProcessor::class)->process($document->id);
+
+        $this->assertSame('TEXT_EXTRACTION_FAILED', $result['error_code']);
+    }
+
+    private function bindOcr(?ExtractedPdf $document, ?string $failWith = null): void
+    {
+        config()->set('document_ocr.enabled', true);
+        $this->app->instance(DocumentOcrClient::class, new class($document, $failWith) implements DocumentOcrClient
+        {
+            public function __construct(private readonly ?ExtractedPdf $document, private readonly ?string $failWith) {}
+
+            public function parse(string $localFile): ExtractedPdf
+            {
+                return $this->failWith !== null ? throw new DocumentOcrException($this->failWith) : $this->document;
+            }
+        });
     }
 
     private function documentWithFixture(string $fixture, ?string $externalKey = null): KnowledgeDocument

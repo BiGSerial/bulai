@@ -10,9 +10,9 @@ final class KnowledgeTextNormalizer
     public function normalize(ExtractedPdf $document): ExtractedPdf
     {
         return new ExtractedPdf(array_map(
-            fn (ExtractedPage $page): ExtractedPage => new ExtractedPage($page->number, $this->normalizeText($page->text)),
+            fn (ExtractedPage $page): ExtractedPage => new ExtractedPage($page->number, $this->normalizeText($page->text), $page->confidence),
             $document->pages,
-        ));
+        ), $document->metadata);
     }
 
     public function normalizeText(string $text): string

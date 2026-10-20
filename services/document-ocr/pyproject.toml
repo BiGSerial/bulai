@@ -1,0 +1,29 @@
+[project]
+name = "bulai-document-ocr"
+version = "0.1.0"
+description = "Serviço interno de OCR/document parsing do BULA-IA (CPU-first)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.7,<3",
+]
+
+[project.optional-dependencies]
+# Engine padrão (PaddleOCR, CPU). GPU é opcional: troque paddlepaddle por paddlepaddle-gpu numa imagem derivada.
+paddle = [
+    "numpy>=1.26,<3",
+    "pillow>=10.4",
+    "pypdfium2>=4.30,<5",
+    "paddlepaddle>=3.0,<4",
+    "paddleocr>=3.0,<4",
+]
+test = ["httpx>=0.27", "pytest>=8"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

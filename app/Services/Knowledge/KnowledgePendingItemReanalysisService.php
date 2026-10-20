@@ -49,10 +49,10 @@ final class KnowledgePendingItemReanalysisService
     }
 
     /** @return array{status: string, error_code: ?string, document_id: ?int} */
-    public function reanalyze(int $batchId, int $itemId, ?User $actor = null): array
+    public function reanalyze(int $batchId, int $itemId, ?User $actor = null, bool $forceAi = false): array
     {
         try {
-            $snapshot = DB::transaction(function () use ($batchId, $itemId, $actor): array {
+            $snapshot = DB::transaction(function () use ($batchId, $itemId, $actor, $forceAi): array {
                 $item = IngestionBatchItem::query()->where('ingestion_batch_id', $batchId)->whereKey($itemId)->lockForUpdate()->firstOrFail();
                 if ($item->status !== IngestionBatchItem::STATUS_PENDING) {
                     return ['resolved' => true, 'document_id' => $item->knowledge_document_id];
@@ -70,7 +70,7 @@ final class KnowledgePendingItemReanalysisService
 
                     return ['error' => 'PENDING_FILE_INVALID'];
                 }
-                $this->audit->append($item, 'reanalysis_requested', $actor);
+                $this->audit->append($item, 'reanalysis_requested', $actor, $forceAi ? ['forced_ai' => true] : []);
 
                 return ['storage' => $storage, 'sha256' => $item->sha256];
             });
@@ -83,7 +83,7 @@ final class KnowledgePendingItemReanalysisService
 
             $batch = IngestionBatch::query()->with('source')->findOrFail($batchId);
             $this->updateProgress($itemId, 'processing', 35, 'Lendo e identificando o PDF');
-            $identification = $this->files->withLocalCopy($snapshot['storage']['disk'], $snapshot['storage']['key'], fn (string $path) => $this->identification->identifyPath($batch->source, $path));
+            $identification = $this->files->withLocalCopy($snapshot['storage']['disk'], $snapshot['storage']['key'], fn (string $path) => $this->identification->identifyPath($batch->source, $path, deep: true, forceAi: $forceAi));
             $prepared = DB::transaction(function () use ($batchId, $itemId, $snapshot, $identification, $actor): array {
                 $item = IngestionBatchItem::query()->where('ingestion_batch_id', $batchId)->whereKey($itemId)->lockForUpdate()->firstOrFail();
                 if ($item->status !== IngestionBatchItem::STATUS_PENDING) {
@@ -96,6 +96,7 @@ final class KnowledgePendingItemReanalysisService
                 if (isset($metadata['preliminary_identification'])) {
                     $metadata['preliminary_identification_history'][] = ['superseded_at' => now()->toISOString(), 'value' => $metadata['preliminary_identification']];
                 }
+                unset($metadata['ai_review']);
                 if ($identification !== null) {
                     $metadata['preliminary_identification'] = [...$identification->metadata(), 'used_for_lifecycle' => true];
                     foreach (['title', 'document_type', 'active_ingredient', 'product_name', 'registration_number', 'holder'] as $field) {
@@ -105,6 +106,12 @@ final class KnowledgePendingItemReanalysisService
                 $item->forceFill(['source_document_id' => $identification?->sourceDocumentId() ?? $item->source_document_id, 'metadata' => $metadata])->save();
                 $this->setProgress($item, 'processing', 65, 'Identificação preliminar concluída');
                 $this->audit->append($item, 'preliminary_identification_completed', $actor, ['score' => $identification?->score ?? 0, 'pages' => $identification?->pagesAnalyzed ?? 0, 'eligible' => $identification?->automaticCreationEligible ?? false]);
+                $this->audit->append($item, 'automatic_analysis', $actor, [
+                    'extraction' => $identification?->extraction ?: null,
+                    'classification' => $identification?->classification ?: null,
+                    'score' => $identification?->score ?? 0,
+                    'fields' => $identification?->fields ?? [],
+                ]);
 
                 return ['item' => $item->refresh()];
             });
@@ -148,6 +155,27 @@ final class KnowledgePendingItemReanalysisService
 
             return ['status' => 'ERROR', 'error_code' => 'PROCESSING_ERROR', 'document_id' => null];
         }
+    }
+
+    /** Marca um único item como enfileirado para a análise (usado pelo pedido explícito de análise da IA). */
+    public function queueItem(int $itemId, ?User $actor = null, bool $forceAi = false): bool
+    {
+        return DB::transaction(function () use ($itemId, $actor, $forceAi): bool {
+            $item = IngestionBatchItem::query()->whereKey($itemId)->lockForUpdate()->firstOrFail();
+            if ($item->status !== IngestionBatchItem::STATUS_PENDING || in_array(data_get($item->metadata, 'reanalysis_progress.state'), ['queued', 'processing'], true)) {
+                return false;
+            }
+            $this->setProgress($item, 'queued', 5, $forceAi ? 'Aguardando a análise da IA' : 'Aguardando processamento');
+            $this->audit->append($item, 'reanalysis_queued', $actor, $forceAi ? ['forced_ai' => true] : []);
+
+            return true;
+        });
+    }
+
+    /** Chamado quando o job é interrompido (timeout/falha): libera o item para nova tentativa e revisão manual. */
+    public function markFailed(int $itemId): void
+    {
+        $this->updateProgress($itemId, 'failed', 100, 'Não foi possível concluir a classificação');
     }
 
     private function updateProgress(int $itemId, string $state, int $percent, string $label): void

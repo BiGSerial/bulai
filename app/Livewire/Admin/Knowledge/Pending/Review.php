@@ -2,9 +2,13 @@
 
 namespace App\Livewire\Admin\Knowledge\Pending;
 
+use App\Jobs\ClassifyPendingDocument;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
 use App\Models\Knowledge\KnowledgeDocument;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Knowledge\AutomaticAnalysisReport;
+use App\Services\Knowledge\KnowledgeAiSuggestionReviewService;
 use App\Services\Knowledge\KnowledgeIngestionAuditService;
 use App\Services\Knowledge\KnowledgePendingItemAssociationService;
 use App\Services\Knowledge\KnowledgePendingItemReanalysisService;
@@ -39,6 +43,9 @@ class Review extends Component
 
     public string $newDocumentSourceId = '';
 
+    /** @var list<string> Campos da sugestão da IA marcados para aplicar. */
+    public array $selectedAiFields = [];
+
     public bool $showIgnoreForm = false;
 
     public string $ignoreReason = '';
@@ -53,10 +60,66 @@ class Review extends Component
         $this->newDocumentTitle = str($item->original_filename)->beforeLast('.')->replace(['-', '_'], ' ')->headline()->toString();
         $this->newDocumentExternalKey = $item->external_key ?? '';
         $this->newDocumentSourceId = $item->source_document_id ?? '';
+        $this->prefillNewDocument();
+    }
+
+    private function prefillNewDocument(): void
+    {
         $identified = $this->identificationFields();
         $this->newDocumentTitle = (string) ($identified['title'] ?? $this->newDocumentTitle);
         $this->newDocumentType = (string) ($identified['document_type'] ?? $this->newDocumentType);
         $this->newDocumentSourceId = (string) ($identified['registration_number_normalized'] ?? $this->newDocumentSourceId);
+    }
+
+    /** Pede à IA local uma nova análise deste arquivo, na fila e independentemente da pontuação da heurística. */
+    public function requestAiAnalysis(KnowledgePendingItemReanalysisService $service, AiProviderManager $providers): void
+    {
+        if (! $providers->isConfigured(AiProviderManager::CLASSIFIER)) {
+            [$this->feedbackType, $this->feedbackMessage] = ['warning', 'A IA local não está configurada neste ambiente.'];
+
+            return;
+        }
+        if (! $service->queueItem($this->item->id, auth()->user(), forceAi: true)) {
+            [$this->feedbackType, $this->feedbackMessage] = ['info', 'Este item já está em análise ou foi resolvido.'];
+            $this->refreshItem();
+
+            return;
+        }
+        ClassifyPendingDocument::dispatch($this->batch->id, $this->item->id, true, auth()->id());
+        $this->refreshItem();
+        [$this->feedbackType, $this->feedbackMessage] = ['info', 'Análise da IA enfileirada. Esta tela atualiza sozinha quando terminar.'];
+    }
+
+    public function applyAiSuggestion(KnowledgeAiSuggestionReviewService $reviews, bool $all = false): void
+    {
+        $fields = $all ? array_keys($reviews->suggestion($this->item)) : $this->selectedAiFields;
+        $result = $reviews->accept($this->batch->id, $this->item->id, $fields, auth()->user());
+        $this->selectedAiFields = [];
+        $this->refreshItem();
+        $this->prefillNewDocument();
+        [$this->feedbackType, $this->feedbackMessage] = match ($result['status']) {
+            KnowledgeAiSuggestionReviewService::ACCEPTED => ['success', 'Valores da IA aplicados a este item. Eles não foram confirmados no catálogo: confira antes de associar.'],
+            'NOTHING_SELECTED' => ['warning', 'Marque ao menos um campo da IA para aplicar.'],
+            default => ['info', 'Este item já foi resolvido por outra operação.'],
+        };
+    }
+
+    public function rejectAiSuggestion(KnowledgeAiSuggestionReviewService $reviews): void
+    {
+        $result = $reviews->reject($this->batch->id, $this->item->id, auth()->user());
+        $this->selectedAiFields = [];
+        $this->refreshItem();
+        [$this->feedbackType, $this->feedbackMessage] = $result['status'] === KnowledgeAiSuggestionReviewService::REJECTED
+            ? ['success', 'Análise da IA rejeitada. Os valores da heurística foram mantidos.']
+            : ['info', 'Este item já foi resolvido por outra operação.'];
+    }
+
+    public function revertAiDecision(KnowledgeAiSuggestionReviewService $reviews): void
+    {
+        $reverted = $reviews->revert($this->batch->id, $this->item->id, auth()->user());
+        $this->refreshItem();
+        $this->prefillNewDocument();
+        [$this->feedbackType, $this->feedbackMessage] = $reverted ? ['success', 'Decisão sobre a IA desfeita.'] : ['info', 'Não há decisão para desfazer.'];
     }
 
     public function selectDocument(int $documentId): void
@@ -123,7 +186,13 @@ class Review extends Component
         $this->showIgnoreForm = false;
     }
 
-    public function render(): View
+    /** Atualiza o item enquanto a análise automática roda na fila (usado pelo polling da tela). */
+    public function refreshAnalysis(): void
+    {
+        $this->refreshItem();
+    }
+
+    public function render(AutomaticAnalysisReport $analysisReport): View
     {
         $this->item->loadMissing('ingestionBatch.source', 'knowledgeDocument');
 
@@ -152,8 +221,21 @@ class Review extends Component
             'metadata' => $this->safeMetadata(),
             'identification' => $this->identificationFields(),
             'identificationSummary' => $this->identificationSummary(),
+            'regulatoryValidation' => $this->regulatoryValidation(),
+            'analysis' => $analysisReport->forItem($this->item),
+            'aiConfigured' => app(AiProviderManager::class)->isConfigured(AiProviderManager::CLASSIFIER),
+            'nextPending' => $this->nextPending(),
+            'pendingRemaining' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->whereKeyNot($this->item->id)->count(),
             'history' => collect(data_get($this->item->metadata, 'audit_history', []))->filter(fn (mixed $event): bool => is_array($event))->reverse()->values(),
         ])->title("Revisar pendência #{$this->item->id} · BULAI");
+    }
+
+    /** Próxima pendência a revisar (da mesma importação primeiro), para o fluxo contínuo depois de concluir um item. */
+    private function nextPending(): ?IngestionBatchItem
+    {
+        $pending = IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->whereKeyNot($this->item->id);
+
+        return (clone $pending)->where('ingestion_batch_id', $this->batch->id)->orderBy('id')->first() ?? $pending->orderBy('id')->first();
     }
 
     /** @param array{status: string, document_id: ?int, file_attached: bool, error_code: ?string, error_id: ?string, http_status: int} $result */
@@ -213,5 +295,13 @@ class Review extends Component
 
         return ['score' => (int) ($identification['score'] ?? 0), 'pages' => (int) ($identification['pages_analyzed'] ?? 0),
             'ambiguous' => array_values(array_filter($identification['ambiguous_fields'] ?? [], 'is_string'))];
+    }
+
+    /** @return array<string, mixed>|null */
+    private function regulatoryValidation(): ?array
+    {
+        $validation = data_get($this->item->metadata, 'preliminary_identification.regulatory_validation');
+
+        return is_array($validation) && $validation !== [] ? $validation : null;
     }
 }

@@ -23,7 +23,7 @@ Os textos descrevem o estado implementado do sistema em 1º de outubro de 2026. 
 - Converta as descrições de implementação em argumentos relacionados aos objetivos específicos do trabalho.
 - Inclua referências bibliográficas para RAG, recuperação de informação, segurança, qualidade de software e arquitetura; esta pasta não inventa nem antecipa referências.
 - Diferencie claramente funcionalidade implementada, decisão de projeto, limitação e trabalho futuro.
-- Não apresente embeddings, busca vetorial, RAG, OCR ou geração de respostas como resultados prontos: esses recursos ainda não existem no sistema.
+- Não apresente embeddings, busca vetorial, RAG ou geração de respostas como resultados prontos: não existem no sistema (apenas a infraestrutura de provedores de IA foi preparada). O OCR existe como fallback, mas sua acurácia ainda não foi avaliada.
 - Use capturas de tela sem dados pessoais, segredos, tokens, caminhos internos ou conteúdo farmacêutico restrito.
 - Identifique versão do código, ambiente, massa de teste e procedimento sempre que apresentar uma medição.
 - Descreva a arquitetura efetivamente construída e justifique suas decisões pelos requisitos do sistema. Linguagens, bancos e frameworks citados no projeto preliminar eram possibilidades iniciais, não compromissos técnicos.
@@ -37,3 +37,20 @@ Os textos descrevem o estado implementado do sistema em 1º de outubro de 2026. 
 - interface administrativa: `app/Livewire/Admin`;
 - estrutura persistente: `database/migrations`;
 - evidências automatizadas: `tests/Feature` e `tests/Unit`.
+
+## Notas acadêmicas por tema (07 a 16)
+
+Notas redigidas em 18/10/2026 a partir do código e da documentação técnica, mapeadas às seções de `Word/PROJETO_TCC_ 2026-10-18.docx` (Cap. 1 Introdução; Cap. 2 Referencial Teórico; Cap. 3 Metodologia; Cap. 4 Cronograma). Referências bibliográficas ainda não incluídas estão marcadas como "[referência a incluir: ...]". O registro de continuidade está em [_registro-de-notas.md](_registro-de-notas.md).
+
+| Documento | Seções do docx relacionadas |
+| --- | --- |
+| [07-ocr-e-extracao-de-texto.md](07-ocr-e-extracao-de-texto.md) | 3.3.2 (etapa 2), 3.4 |
+| [08-classificacao-hibrida-heuristica-llm.md](08-classificacao-hibrida-heuristica-llm.md) | 3.3, 3.3.2 (etapas 1 e 2), 3.4 |
+| [09-llms-locais-quantizacao-llamafile.md](09-llms-locais-quantizacao-llamafile.md) | 2.6.3, 3.3.3 |
+| [10-arquitetura-de-provedores-de-ia-desacoplados.md](10-arquitetura-de-provedores-de-ia-desacoplados.md) | 3.3.1, 3.3.3 |
+| [11-validacao-estrita-e-grounding.md](11-validacao-estrita-e-grounding.md) | 2.7.2, 3.3.1, 3.5.3 |
+| [12-auditabilidade-e-explicabilidade.md](12-auditabilidade-e-explicabilidade.md) | 2.7.2, 3.3.1, 3.5.1 |
+| [13-observabilidade-e-saude-de-servicos.md](13-observabilidade-e-saude-de-servicos.md) | 3.3.3, 3.4 |
+| [14-comunicacao-em-tempo-real-sse-websocket.md](14-comunicacao-em-tempo-real-sse-websocket.md) | 3.3.2 (etapa 6), 3.3.3 |
+| [15-ameacas-a-validade-e-limitacoes.md](15-ameacas-a-validade-e-limitacoes.md) | 3.5.1, 3.5.3 |
+| [16-trabalhos-futuros.md](16-trabalhos-futuros.md) | 3.4, Cap. 4 |

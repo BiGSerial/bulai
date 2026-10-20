@@ -30,6 +30,9 @@
         <env name="DB_USERNAME" value="postgres"/>
         <env name="DB_PASSWORD" value="postgres"/>
         <env name="DB_URL" value=""/>
+        <env name="DOCUMENT_OCR_ENABLED" value="false"/>
+        <env name="DOCUMENT_CLASSIFIER_DRIVER" value=""/>
+        <env name="LOCAL_AI_URL" value=""/>
         <env name="KNOWLEDGE_FILESYSTEM_DISK" value="local"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>

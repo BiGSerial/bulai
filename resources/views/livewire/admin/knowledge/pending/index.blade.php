@@ -69,11 +69,20 @@
                 <div class="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0 flex-1">
                     <h2 class="truncate text-base font-semibold text-slate-900">{{ $item->original_filename }}</h2>
-                    <p class="mt-1 text-sm text-slate-500">{{ $item->ingestionBatch->name ?: 'Importação #'.$item->ingestion_batch_id }} · {{ $item->ingestionBatch->source?->name ?? 'Sem origem' }} · {{ $item->created_at->format('d/m/Y H:i') }}</p>
+                    <p class="mt-1 truncate text-sm text-slate-500">{{ $item->ingestionBatch->name ?: 'Importação #'.$item->ingestion_batch_id }} · {{ $item->ingestionBatch->source?->name ?? 'Sem origem' }} · {{ $item->created_at->format('d/m/Y H:i') }}</p>
+                    @php
+                        $found = (array) data_get($item->metadata, 'preliminary_identification.fields', []);
+                        $decision = data_get($item->metadata, 'preliminary_identification.classification.decision');
+                    @endphp
+                    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+                        @if (filled($found['product_name'] ?? null))<x-knowledge-admin.badge class="max-w-xs truncate" title="{{ $found['product_name'] }}">{{ $found['product_name'] }}</x-knowledge-admin.badge>@endif
+                        @if (filled($found['active_ingredient'] ?? null))<x-knowledge-admin.badge tone="success" class="max-w-xs truncate" title="{{ $found['active_ingredient'] }}">{{ $found['active_ingredient'] }}</x-knowledge-admin.badge>@elseif (data_get($item->metadata, 'preliminary_identification') !== null)<x-knowledge-admin.badge tone="danger">Sem princípio ativo</x-knowledge-admin.badge>@endif
+                        @if ($decision)<x-knowledge-admin.badge :tone="in_array($decision, ['ACCEPTED_HEURISTIC', 'AI_ACCEPTED'], true) ? 'success' : (in_array($decision, ['AI_UNAVAILABLE', 'AI_REJECTED'], true) ? 'warning' : 'neutral')">{{ match ($decision) { 'ACCEPTED_HEURISTIC' => 'Heurística confiante', 'AI_ACCEPTED' => 'Resolvido pela IA', 'AI_SUGGESTED' => 'IA sugeriu', 'AI_REJECTED' => 'IA divergiu', 'AI_UNAVAILABLE' => 'IA indisponível', 'AI_LOW_CONFIDENCE' => 'IA incerta', 'MANUAL_REVIEW' => 'Revisão manual', default => 'Análise feita' } }}</x-knowledge-admin.badge>@endif
+                    </div>
                     @if($progress)
                         <div class="mt-2 flex flex-wrap items-center gap-2 text-sm"><span class="inline-flex items-center gap-1.5 font-semibold {{ $progressState === 'failed' ? 'text-rose-700' : ($progressState === 'completed' ? 'text-emerald-700' : 'text-brand-700') }}">@if($isActive)<span class="size-2 animate-pulse rounded-full bg-current"></span>@endif {{ $progress['label'] ?? 'Reanalisando' }}</span><span class="text-xs font-medium text-slate-500">{{ $progressPercent }}%</span></div>
                     @else
-                        <p class="mt-1 text-sm text-slate-600">{{ $reasonLabel }}</p>
+                        <p class="mt-1 line-clamp-2 text-sm text-slate-600">{{ $reasonLabel }}</p>
                     @endif
                 </div>
                 @if($isActive)<span class="rounded-lg border border-brand-100 bg-white/80 px-3 py-2 text-sm font-semibold text-brand-800">{{ $progressState === 'queued' ? 'Na fila' : 'Processando' }}</span>@else<x-knowledge-admin.button :href="route('admin.knowledge.pending.review', [$item->ingestionBatch, $item])">Revisar</x-knowledge-admin.button>@endif

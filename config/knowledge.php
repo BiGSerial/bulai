@@ -6,6 +6,10 @@ return [
         'max_batch_kilobytes' => (int) env('KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES', 102_400),
         'max_file_kilobytes' => (int) env('KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES', 102_400),
     ],
+    'anvisa_catalog' => [
+        'max_kilobytes' => (int) env('KNOWLEDGE_ANVISA_CATALOG_MAX_KILOBYTES', 51_200),
+        'job_timeout_seconds' => (int) env('KNOWLEDGE_ANVISA_CATALOG_JOB_TIMEOUT_SECONDS', 600),
+    ],
     'processing' => [
         'max_pdf_bytes' => (int) env('KNOWLEDGE_MAX_PDF_BYTES', 25 * 1024 * 1024),
         'max_pages' => (int) env('KNOWLEDGE_MAX_PAGES', 500),

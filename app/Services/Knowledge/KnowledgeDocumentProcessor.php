@@ -2,6 +2,7 @@
 
 namespace App\Services\Knowledge;
 
+use App\Data\Knowledge\DocumentExtractionResult;
 use App\Data\Knowledge\ExtractedPdf;
 use App\Data\Knowledge\KnowledgeChunkDraft;
 use App\Models\Knowledge\KnowledgeDocument;
@@ -14,7 +15,7 @@ use Throwable;
 final class KnowledgeDocumentProcessor
 {
     public function __construct(
-        private readonly PdfTextExtractor $extractor,
+        private readonly DocumentTextExtractionService $extractor,
         private readonly KnowledgeTextNormalizer $normalizer,
         private readonly KnowledgeSectionDetector $sectionDetector,
         private readonly KnowledgeChunker $chunker,
@@ -53,11 +54,13 @@ final class KnowledgeDocumentProcessor
             }
 
             $this->assertStoredObjectIsProcessable($snapshot['storage']['disk'], $snapshot['storage']['key']);
-            $extracted = $this->fileService->withLocalCopy(
+            $extraction = $this->fileService->withLocalCopy(
                 $snapshot['storage']['disk'],
                 $snapshot['storage']['key'],
-                fn (string $path): ExtractedPdf => $this->extractor->extract($path),
+                fn (string $path): DocumentExtractionResult => $this->extractor->extract($path),
             );
+            $this->assertOcrFallbackDidNotLeaveUnusableText($extraction);
+            $extracted = $extraction->document;
             $this->assertExtractionLimits($extracted);
             $normalized = $this->normalizer->normalize($extracted);
             $this->assertTextIsUsable($normalized->characterCount());
@@ -71,10 +74,15 @@ final class KnowledgeDocumentProcessor
                 'document_id' => $documentId,
                 'pages' => count($normalized->pages),
                 'characters' => $normalized->characterCount(),
+                'extraction_method' => $extraction->method,
+                'quality_score' => $extraction->quality->score,
+                'quality_score_after_ocr' => $extraction->ocrQuality?->score,
+                'fallback_reason' => $extraction->fallbackReason,
+                'ocr_error_code' => $extraction->ocrErrorCode,
             ]);
 
             $contentHash = hash('sha256', implode("\n\f\n", array_map(fn ($page): string => $page->text, $normalized->pages)));
-            DB::transaction(function () use ($documentId, $snapshot, $normalized, $sections, $chunks, $contentHash, $startedAt): void {
+            DB::transaction(function () use ($documentId, $snapshot, $normalized, $sections, $chunks, $contentHash, $startedAt, $extraction): void {
                 $document = KnowledgeDocument::query()->whereKey($documentId)->lockForUpdate()->firstOrFail();
                 if ($this->fileService->documentStorage($document) !== $snapshot['storage'] || $document->sha256 !== $snapshot['sha256']) {
                     throw new RuntimeException('DOCUMENT_CHANGED_DURING_PROCESSING');
@@ -88,7 +96,7 @@ final class KnowledgeDocumentProcessor
                     'page_end' => $chunk->pageEnd,
                     'content' => $chunk->content,
                     'token_count' => null,
-                    'metadata' => $chunk->metadata,
+                    'metadata' => [...$chunk->metadata, 'extraction_method' => $extraction->method],
                 ], $chunks));
 
                 $document->forceFill([
@@ -103,6 +111,7 @@ final class KnowledgeDocumentProcessor
                         'sections' => count($sections),
                         'chunks' => count($chunks),
                         'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
+                        'extraction' => $extraction->metadata(),
                     ]),
                 ])->save();
             });
@@ -140,6 +149,15 @@ final class KnowledgeDocumentProcessor
 
         if ($this->fileService->objectSize($diskName, $key) > (int) config('knowledge.processing.max_pdf_bytes')) {
             throw new RuntimeException('PDF_SIZE_LIMIT_EXCEEDED');
+        }
+    }
+
+    private function assertOcrFallbackDidNotLeaveUnusableText(DocumentExtractionResult $extraction): void
+    {
+        if ($extraction->ocrFailed()
+            && ! in_array($extraction->ocrErrorCode, [DocumentOcrException::DISABLED, DocumentOcrException::NOT_CONFIGURED], true)
+            && $extraction->document->characterCount() < (int) config('knowledge.processing.min_text_characters')) {
+            throw new RuntimeException('OCR_UNAVAILABLE');
         }
     }
 
@@ -198,6 +216,7 @@ final class KnowledgeDocumentProcessor
             'PDF_PAGE_LIMIT_EXCEEDED',
             'TEXT_SIZE_LIMIT_EXCEEDED',
             'TEXT_EXTRACTION_FAILED',
+            'OCR_UNAVAILABLE',
             'DOCUMENT_CHANGED_DURING_PROCESSING',
         ], true) ? $exception->getMessage() : 'PROCESSING_ERROR';
     }

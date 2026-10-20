@@ -141,7 +141,7 @@ Sem `--sync`, o comando agenda o Job na fila. O worker de produção deve estar 
 php artisan queue:work database --queue=default --timeout=60
 ```
 
-Documentos já prontos são ignorados, salvo com `--force`. O reprocessamento substitui os chunks atomicamente; uma falha mantém os chunks válidos anteriores e grava somente código e referência controlados do erro. PDFs compostos apenas por imagem falham porque OCR ainda não está implementado.
+Documentos já prontos são ignorados, salvo com `--force`. O reprocessamento substitui os chunks atomicamente; uma falha mantém os chunks válidos anteriores e grava somente código e referência controlados do erro. PDFs compostos apenas por imagem usam o OCR como fallback; sem o serviço, falham com `TEXT_EXTRACTION_FAILED` (OCR desabilitado) ou `OCR_UNAVAILABLE` (serviço indisponível).
 
 ## 9. Armazenamento e integridade
 
@@ -174,7 +174,7 @@ Para mudanças futuras, deve-se executar primeiro o arquivo de teste mais direta
 ## Limitações conhecidas
 
 - embeddings, busca vetorial, RAG e respostas por LLM ainda não foram implementados;
-- OCR não está disponível;
+- OCR é apenas fallback do job de processamento (não atua na identificação durante o upload) e sua acurácia não foi medida;
 - não existe interface de gestão de usuários;
 - documentos podem ser criados e inspecionados no Admin, mas ainda não há edição geral de seus metadados;
 - emissão e revogação administrativa de tokens não possuem interface web;

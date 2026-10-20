@@ -106,7 +106,7 @@ Antes de executar, complementar com pares negativos, versões das bases, amostra
 - respostas geradas por IA;
 - busca semântica ou híbrida;
 - embeddings armazenados e consultados;
-- OCR;
+- acurácia do OCR (o fallback existe, mas não foi medido);
 - acurácia clínica;
 - conformidade integral com LGPD;
 - desempenho ou escalabilidade em produção;

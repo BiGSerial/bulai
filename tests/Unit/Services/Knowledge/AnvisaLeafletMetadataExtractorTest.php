@@ -49,6 +49,16 @@ class AnvisaLeafletMetadataExtractorTest extends TestCase
         $this->assertSame(55, $result->score);
     }
 
+    public function test_a_quantity_is_never_taken_as_the_active_ingredient(): void
+    {
+        $pdf = new ExtractedPdf([new ExtractedPage(1, "I - IDENTIFICAÇÃO DO MEDICAMENTO\nomeprazol sódico 40mg\nCOMPOSIÇÃO\nCada ampola contém: 10mL de solução diluente\n")]);
+
+        $result = app(AnvisaLeafletMetadataExtractor::class)->identify($pdf);
+
+        $this->assertNull($result->fields['active_ingredient']);
+        $this->assertNotContains('10mL de solução diluente', $result->candidates['active_ingredient']);
+    }
+
     public function test_rejects_regulatory_headings_and_confirms_generic_identity_from_composition(): void
     {
         $pdf = new ExtractedPdf([
