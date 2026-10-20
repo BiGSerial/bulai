@@ -30,8 +30,19 @@
 
             @if ($files !== [])
                 <div class="grid gap-2" aria-live="polite">
-                    @foreach ($files as $file)<div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm"><span class="min-w-0 truncate font-medium text-slate-800">{{ $file->getClientOriginalName() }}</span><span class="shrink-0 text-slate-500">{{ number_format($file->getSize() / 1048576, 1, ',', '.') }} MB</span></div>@endforeach
-                    <p class="text-sm text-slate-600">{{ count($files) }} {{ count($files) === 1 ? 'arquivo' : 'arquivos' }} · {{ number_format(collect($files)->sum(fn ($file) => $file->getSize()) / 1048576, 1, ',', '.') }} MB</p>
+                    @foreach ($files as $file)
+                        <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 py-1 pl-3 pr-1 text-sm" wire:key="{{ $file->getFilename() }}">
+                            <span class="min-w-0 truncate font-medium text-slate-800">{{ $file->getClientOriginalName() }}</span>
+                            <span class="flex shrink-0 items-center gap-1">
+                                <span class="text-slate-500">{{ number_format($file->getSize() / 1048576, 1, ',', '.') }} MB</span>
+                                <x-knowledge-admin.button variant="quiet" wire:click="removeFile({{ \Illuminate\Support\Js::from($file->getFilename()) }})" aria-label="Remover {{ $file->getClientOriginalName() }} da seleção" loading-target="ingest,removeFile,clearFiles">Remover</x-knowledge-admin.button>
+                            </span>
+                        </div>
+                    @endforeach
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm text-slate-600">{{ count($files) }} {{ count($files) === 1 ? 'arquivo' : 'arquivos' }} · {{ number_format(collect($files)->sum(fn ($file) => $file->getSize()) / 1048576, 1, ',', '.') }} MB</p>
+                        @if (count($files) > 1)<x-knowledge-admin.button variant="quiet" wire:click="clearFiles" wire:confirm="Remover todos os arquivos selecionados?" loading-target="ingest,removeFile,clearFiles">Limpar seleção</x-knowledge-admin.button>@endif
+                    </div>
                 </div>
             @endif
 

@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Livewire\Admin\Knowledge\Upload;
+use App\Models\Knowledge\IngestionBatchItem;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeSource;
 use App\Models\User;
@@ -11,6 +12,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -91,6 +94,86 @@ class KnowledgeUploadAdminTest extends TestCase
             ->call('ingest')
             ->assertHasErrors(['files'])
             ->assertSee('O tamanho total dos PDFs não pode ultrapassar o limite de 100 MB por importação.');
+    }
+
+    public function test_removing_a_selected_file_keeps_the_others_deletes_its_temporary_upload_and_clears_list_errors(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $component = Livewire::actingAs($admin)->test(Upload::class)
+            ->set('files', [$this->pdf('dipirona.pdf', 'a'), UploadedFile::fake()->create('planilha.pdf', 10, 'text/plain'), $this->pdf('paracetamol.pdf', 'c')])
+            ->call('ingest')
+            ->assertHasErrors(['sourceId', 'files.1']);
+        [$firstFile, $wrongFile, $lastFile] = $component->get('files');
+
+        $component->call('removeFile', $wrongFile->getFilename());
+
+        $component->assertHasNoErrors(['files', 'files.*'])
+            ->assertHasErrors(['sourceId'])
+            ->assertSee('2 arquivos')
+            ->assertDontSee('planilha.pdf');
+        $this->assertSame(['dipirona.pdf', 'paracetamol.pdf'], $this->selectedFilenames($component));
+        $this->assertFalse($wrongFile->exists());
+        $this->assertTrue($firstFile->exists());
+        $this->assertTrue($lastFile->exists());
+    }
+
+    public function test_clearing_the_selection_empties_the_list_and_deletes_every_temporary_upload(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $component = Livewire::actingAs($admin)->test(Upload::class)
+            ->set('files', [$this->pdf('dipirona.pdf', 'a'), $this->pdf('paracetamol.pdf', 'b')]);
+        [$firstFile, $secondFile] = $component->get('files');
+
+        $component->call('clearFiles');
+
+        $component->assertSet('files', [])->assertDontSee('dipirona.pdf');
+        $this->assertFalse($firstFile->exists());
+        $this->assertFalse($secondFile->exists());
+    }
+
+    public function test_removing_with_an_unknown_or_already_removed_identifier_keeps_the_selection(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $component = Livewire::actingAs($admin)->test(Upload::class)
+            ->set('files', [$this->pdf('dipirona.pdf', 'a'), $this->pdf('paracetamol.pdf', 'b'), $this->pdf('ibuprofeno.pdf', 'c')]);
+        [$removedFile, $secondFile, $thirdFile] = $component->get('files');
+        $component->call('removeFile', $removedFile->getFilename());
+
+        $component->call('removeFile', 0)
+            ->call('removeFile', 1)
+            ->call('removeFile', 'arquivo-inexistente.pdf')
+            ->call('removeFile', $removedFile->getFilename());
+
+        $component->assertHasNoErrors();
+        $this->assertSame(['paracetamol.pdf', 'ibuprofeno.pdf'], $this->selectedFilenames($component));
+        $this->assertTrue($secondFile->exists());
+        $this->assertTrue($thirdFile->exists());
+    }
+
+    public function test_importing_after_a_removal_only_imports_the_remaining_files(): void
+    {
+        Storage::fake('local');
+        Queue::fake();
+        $admin = User::factory()->admin()->create();
+        $source = $this->source();
+        $component = Livewire::actingAs($admin)->test(Upload::class)
+            ->set('sourceId', $source->id)
+            ->set('files', [$this->pdf('dipirona.pdf', 'a'), $this->pdf('escolhido-por-engano.pdf', 'b'), $this->pdf('paracetamol.pdf', 'c')]);
+        $component->call('removeFile', $component->get('files')[1]->getFilename());
+
+        $component->call('ingest');
+
+        $component->assertHasNoErrors()->assertSee('Importação concluída');
+        $this->assertDatabaseHas('ingestion_batches', ['total_items' => 2]);
+        $this->assertSame(['dipirona.pdf', 'paracetamol.pdf'], IngestionBatchItem::query()->orderBy('original_filename')->pluck('original_filename')->all());
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function selectedFilenames(Testable $component): array
+    {
+        return array_map(fn (TemporaryUploadedFile $file): string => $file->getClientOriginalName(), $component->get('files'));
     }
 
     private function source(): KnowledgeSource
