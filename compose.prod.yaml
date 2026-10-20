@@ -5,7 +5,10 @@
 # na VPS. Variáveis obrigatórias (definidas pelo script de deploy): APP_IMAGE, WEB_IMAGE, OCR_IMAGE, LOCAL_AI_IMAGE.
 #
 # Rede/portas: somente o Nginx publica porta, em 127.0.0.1:8080 (o Caddy do host faz o TLS e encaminha para lá).
-# Nginx e PHP-FPM conversam por um socket Unix (diretório 2750 10010:101 criado pelo instalador): não há FastCGI em rede.
+# Nginx e PHP-FPM conversam por um socket Unix (diretório 2750 10010:10030 criado pelo instalador): não há FastCGI em rede.
+# UIDs/GIDs dos containers (10001 ocr, 10002 local-ai, 10010 app/worker, 10020 postgres, 10030 nginx) são ALTOS de propósito:
+# nenhum deles pode coincidir com contas do host (ex.: 999=caddy, 101=messagebus/lxd na KingHost), pois os bind mounts
+# `/srv/bulai/shared/*` seriam acessíveis a essas contas. O instalador recusa instalar se algum já existir no host.
 # Redes internas, sem saída para a internet e sem portas publicadas: `db` (app/worker ↔ postgres) e `ai` (app/worker ↔ OCR/IA).
 # OCR e IA processam entradas não confiáveis (PDFs) e por isso NÃO compartilham rede com o PostgreSQL.
 # A rede externa `bulai-internal` NÃO é usada: ela é compartilhada com contêineres desconhecidos e um socket dispensa rede.
@@ -58,6 +61,8 @@ x-php-app: &php-app
 services:
   web:
     image: ${WEB_IMAGE:?WEB_IMAGE é obrigatório}
+    # Nginx sem root com UID/GID próprios (10030), sem relação com contas do host; o socket e o cache pertencem a esse uid.
+    user: "10030:10030"
     <<: *hardening
     read_only: true
     restart: unless-stopped
@@ -72,7 +77,9 @@ services:
     tmpfs:
       - /tmp:size=16m
     volumes:
-      - web-cache:/var/cache/nginx
+      # Buffer de corpos grandes (PDFs) em DISCO, em diretório do host pertencente ao uid 10030 (não um volume nomeado,
+      # que herdaria o dono 101 da imagem).
+      - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/web-cache:/var/cache/nginx
       - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/run:/run/php
     mem_limit: 192m
     memswap_limit: 192m
@@ -119,8 +126,9 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
-    # Usuário fixo do postgres da imagem: o diretório de dados deve pertencer a 999:999 (feito pelo instalador).
-    user: "999:999"
+    # UID/GID 10020 (não o 999 padrão da imagem, que no host é o caddy): o diretório de dados pertence a 10020:10020 (instalador).
+    # A imagem só inicializa o banco se o uid existir no /etc/passwd do container: arquivos mínimos montados somente leitura.
+    user: "10020:10020"
     <<: *hardening
     restart: unless-stopped
     logging: *default-logging
@@ -146,8 +154,10 @@ services:
     volumes:
       - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/postgres:/var/lib/postgresql/data
       - ./docker/production/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./docker/production/postgres/passwd:/etc/passwd:ro
+      - ./docker/production/postgres/group:/etc/group:ro
     tmpfs:
-      - /var/run/postgresql:uid=999,gid=999,mode=0775
+      - /var/run/postgresql:uid=10020,gid=10020,mode=0775
     networks:
       - db
     healthcheck:
@@ -228,5 +238,3 @@ networks:
   ai:
     internal: true
 
-volumes:
-  web-cache: {}

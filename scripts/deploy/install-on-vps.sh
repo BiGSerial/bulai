@@ -11,7 +11,7 @@
 #   /usr/local/bin/bulai-ci-entry         comando forçado da chave SSH do CI
 #   /etc/sudoers.d/bulai-ci               única permissão sudo do usuário de CI
 #   /opt/bulai/trusted/                   compose.prod.yaml, init do PostgreSQL, model.env, instalador do modelo
-#   /srv/bulai/shared/{env,postgres,storage,models,run}   segredos, dados, arquivos privados, modelo e socket do PHP-FPM
+#   /srv/bulai/shared/{env,postgres,storage,models,run,web-cache}   segredos, dados, arquivos privados, modelo, socket do PHP-FPM e buffer do Nginx
 # E prepara diretórios/permissões em /srv/bulai. NÃO altera o Caddy, a rede Docker nem os usuários existentes
 # (willhome, deploy); apenas cria o usuário de sistema `bulai-ci` se ele não existir.
 set -Eeuo pipefail
@@ -28,6 +28,7 @@ cd "$REPO_ROOT"
 SOURCE_FILES=(
     scripts/deploy/install-on-vps.sh scripts/deploy/bulai-deploy scripts/deploy/bulai-ci-entry scripts/deploy/sudoers-bulai-ci
     scripts/install-local-model.sh compose.prod.yaml docker/production/env/model.env docker/production/postgres/init/10-bulai-app-role.sh
+    docker/production/postgres/passwd docker/production/postgres/group
 )
 path_untrusted() { # <caminho> -> 0 se NÃO for confiável
     local path owner mode
@@ -72,6 +73,8 @@ FILES=(
     "docker/production/env/model.env|$TRUSTED/model.env|0644"
     "scripts/install-local-model.sh|$TRUSTED/install-local-model.sh|0755"
     "docker/production/postgres/init/10-bulai-app-role.sh|$TRUSTED/docker/production/postgres/init/10-bulai-app-role.sh|0755"
+    "docker/production/postgres/passwd|$TRUSTED/docker/production/postgres/passwd|0644"
+    "docker/production/postgres/group|$TRUSTED/docker/production/postgres/group|0644"
 )
 
 drift=0
@@ -88,12 +91,30 @@ for entry in "${FILES[@]}"; do
 done
 echo "commit do repositório: $(git rev-parse HEAD 2>/dev/null || echo desconhecido)"
 echo "sha256 do compose.prod.yaml: $(sha256sum compose.prod.yaml | cut -d' ' -f1)"
+# ---- UIDs/GIDs dos containers --------------------------------------------------------------------------------------
+# Os bind mounts de /srv/bulai/shared pertencem a estes IDs. Se uma conta do host usar o mesmo uid/gid (ex.: 999=caddy,
+# 101=messagebus/lxd na KingHost), essa conta teria acesso ao PostgreSQL, aos arquivos privados ou ao socket do PHP-FPM.
+# Por isso os containers usam IDs altos e o instalador RECUSA continuar se algum já existir no host (não altera contas).
+APP_UID=10010 OCR_UID=10001 AI_UID=10002 PG_UID=10020 WEB_UID=10030
+collision=0
+for id in "$OCR_UID" "$AI_UID" "$APP_UID" "$PG_UID" "$WEB_UID"; do
+    if getent passwd "$id" >/dev/null; then echo "ERRO: uid $id pertence a '$(getent passwd "$id" | cut -d: -f1)' no host." >&2; collision=1; fi
+    if getent group "$id" >/dev/null; then echo "ERRO: gid $id pertence a '$(getent group "$id" | cut -d: -f1)' no host." >&2; collision=1; fi
+done
+if [[ $collision -ne 0 ]]; then
+    echo "Colisão de uid/gid com contas do host: escolha outros IDs em compose.prod.yaml, Dockerfiles e neste instalador (não altere as contas da VPS)." >&2
+    exit 1
+fi
+# User namespaces/rootless mudam o mapeamento dos donos dos bind mounts (uid do container -> subuid do host): não suportado.
+if docker info --format '{{json .SecurityOptions}}' 2>/dev/null | grep -Eq 'name=(userns|rootless)'; then
+    echo "O daemon Docker usa userns-remap/rootless: os donos dos bind mounts precisariam ser remapeados. Não suportado por este instalador." >&2
+    exit 1
+fi
+echo "uids/gids dos containers livres no host; Docker sem userns/rootless"
 if [[ $CHECK_ONLY -eq 1 ]]; then exit "$drift"; fi
 
 # ---- usuário de CI ---------------------------------------------------------------------------------------------------
 if ! id "$CI_USER" >/dev/null 2>&1; then
-    # uid/gid dos containers não podem colidir com contas do host (o socket do PHP-FPM usa o grupo 101; o PostgreSQL, o uid 999).
-    if getent passwd 10010 >/dev/null || getent group 10010 >/dev/null; then echo "uid/gid 10010 já em uso no host; ajuste o instalador/compose." >&2; exit 1; fi
     useradd --system --create-home --home-dir "/home/$CI_USER" --shell /bin/bash --comment "BULA-IA CI/CD (comando forçado)" "$CI_USER"
     usermod -p '*' "$CI_USER"   # sem senha válida; o acesso é só pela chave com comando forçado
     echo "criado usuário de sistema $CI_USER (senha bloqueada)"
@@ -103,22 +124,24 @@ touch "/home/$CI_USER/.ssh/authorized_keys"
 chown "$CI_USER:$CI_USER" "/home/$CI_USER/.ssh/authorized_keys"
 chmod 0600 "/home/$CI_USER/.ssh/authorized_keys"
 
-# ---- avisos de colisão de uid/gid ------------------------------------------------------------------------------------
-for id in 999 101; do
-    if getent passwd "$id" >/dev/null; then echo "AVISO: uid $id pertence a '$(getent passwd "$id" | cut -d: -f1)' no host (usado pelos containers postgres/nginx). Confira o isolamento." >&2; fi
-    if getent group "$id" >/dev/null; then echo "AVISO: gid $id pertence a '$(getent group "$id" | cut -d: -f1)' no host. Quem estiver nesse grupo alcança o socket do PHP-FPM (gid 101)." >&2; fi
-done
-
 # ---- diretórios ------------------------------------------------------------------------------------------------------
 install -d -m 0755 -o root -g root /opt/bulai "$TRUSTED" "$TRUSTED/docker" "$TRUSTED/docker/production" "$TRUSTED/docker/production/postgres" "$TRUSTED/docker/production/postgres/init"
 install -d -m 0755 -o root -g root /srv/bulai "$SHARED"
 install -d -m 0700 -o root -g root "$SHARED/env" /srv/bulai/backups /var/lib/bulai-deploy
-install -d -m 0700 -o 999 -g 999 "$SHARED/postgres"          # uid/gid do usuário postgres da imagem pgvector
-install -d -m 0750 -o 10010 -g 10010 "$SHARED/storage"       # uid/gid do usuário `bulai` da imagem da aplicação
+# Dados do PostgreSQL: dono 10020 (container). Se já houver um banco inicializado com outro dono (ex.: o uid 999 padrão da imagem),
+# a posse é migrada para 10020 para que o container consiga lê-lo e o uid 999 (caddy) deixe de ter acesso.
+install -d -m 0700 -o "$PG_UID" -g "$PG_UID" "$SHARED/postgres"
+if [[ -f $SHARED/postgres/PG_VERSION && $(stat -c '%u' "$SHARED/postgres/PG_VERSION") != "$PG_UID" ]]; then
+    echo "migrando a posse do banco existente em $SHARED/postgres para $PG_UID:$PG_UID"
+    chown -R "$PG_UID:$PG_UID" "$SHARED/postgres"
+fi
+install -d -m 0750 -o "$APP_UID" -g "$APP_UID" "$SHARED/storage"       # arquivos privados (usuário `bulai` da imagem da aplicação)
+install -d -m 0700 -o "$WEB_UID" -g "$WEB_UID" "$SHARED/web-cache"     # buffer em disco do Nginx
 install -d -m 0755 -o root -g root "$SHARED/models"          # somente leitura nos containers
 chown -R root:root "$SHARED/models"                          # conteúdo antigo não pode ficar com outro dono
-# Socket do PHP-FPM compartilhado só com o Nginx: dono = usuário da aplicação (10010), grupo = nginx (101), setgid.
-install -d -m 2750 -o 10010 -g 101 "$SHARED/run"
+# Socket do PHP-FPM compartilhado só com o Nginx: dono = usuário da aplicação (10010), grupo = nginx (10030), setgid:
+# nenhuma conta do host está nesse grupo, então só os dois containers alcançam o socket.
+install -d -m 2750 -o "$APP_UID" -g "$WEB_UID" "$SHARED/run"
 # Releases: o usuário deploy continua dono (informativo). Só cria se ainda não existir.
 [[ -d /srv/bulai/releases ]] || install -d -m 0755 /srv/bulai/releases
 

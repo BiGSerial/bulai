@@ -194,13 +194,30 @@ check_env_file() { # <nome> <chaves obrigatórias...>
     done
 }
 
+check_dir() { # <nome> <uid> <gid> <modo>
+    local dir="$SHARED_DIR/$1" got
+    [[ -d $dir ]] || { log "diretório ausente: $dir (rode o instalador)"; return 1; }
+    got=$(stat -c '%a' "$dir")
+    [[ $got == "$4" ]] || { log "$dir com modo $got (esperado $4)"; return 1; }
+    if [[ ${TEST_MODE} -eq 0 ]]; then
+        got=$(stat -c '%u:%g' "$dir")
+        [[ $got == "$2:$3" ]] || { log "$dir com dono $got (esperado $2:$3); rode o instalador"; return 1; }
+    fi
+}
+
 preflight() { # <compose_sha256>
     command -v docker >/dev/null || { log "docker ausente"; return 1; }
     docker compose version >/dev/null 2>&1 || { log "docker compose ausente"; return 1; }
-    local dir
-    for dir in postgres storage models run; do
-        [[ -d $SHARED_DIR/$dir ]] || { log "diretório ausente: $SHARED_DIR/$dir (rode o instalador)"; return 1; }
-    done
+    # Donos/modos dos diretórios persistentes. UIDs/GIDs ALTOS dos containers (nunca 999/101: no host pertencem a caddy/messagebus/lxd).
+    # Como root o dono é conferido por inteiro; em modo de teste (sem root) só o modo.
+    check_dir postgres 10020 10020 700 || return 1
+    check_dir storage 10010 10010 750 || return 1
+    check_dir web-cache 10030 10030 700 || return 1
+    check_dir run 10010 10030 2750 || return 1
+    check_dir models 0 0 755 || return 1
+    if docker info --format '{{json .SecurityOptions}}' 2>/dev/null | grep -Eq 'name=(userns|rootless)'; then
+        log "Docker com userns-remap/rootless: donos dos bind mounts não suportados"; return 1
+    fi
     [[ -f $COMPOSE_FILE ]] || { log "compose confiável ausente: $COMPOSE_FILE (rode o instalador)"; return 1; }
     if [[ ${TEST_MODE} -eq 0 ]]; then
         [[ $(stat -c '%u' "$COMPOSE_FILE") == 0 ]] && (( (8#$(stat -c '%a' "$COMPOSE_FILE") & 8#022) == 0 )) \
