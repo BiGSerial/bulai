@@ -7,6 +7,10 @@ Embeddings, recuperação vetorial, integração com LLM e análise de interaç�
 ## Funcionalidades atuais
 
 - autenticação administrativa por sessão e controle de acesso pelo perfil `ADMIN`;
+- gestão de usuários em `/admin/users` (cadastro com senha provisória exibida uma única vez, edição, ativação/desativação, nova senha provisória e histórico de auditoria);
+- página "Primeiro acesso" em `/first-access`: quem usa senha provisória define a própria senha (sem repetir a provisória), com boas-vindas e explicação do sistema por perfil na primeira vez;
+- página "Minha conta" em `/account` para qualquer perfil, com troca voluntária de senha;
+- login endurecido: limite de 5 tentativas por minuto por e-mail e IP, e-mail sem diferenciar maiúsculas, bloqueio de acesso desativado e registro do último acesso;
 - cadastro, edição, ativação e desativação de origens documentais;
 - cadastro e consulta de documentos lógicos;
 - upload administrativo de múltiplos PDFs;
@@ -73,7 +77,7 @@ BULAI_ADMIN_PASSWORD="change-me-locally" \
 php artisan db:seed
 ```
 
-O seeder não cria o administrador quando e-mail ou senha não são informados explicitamente.
+O seeder não cria o administrador quando e-mail ou senha não são informados explicitamente. O e-mail é gravado em minúsculas, e o administrador do seed fica sempre ativo e sem troca de senha obrigatória (serve como acesso de recuperação). Os demais acessos são criados pela tela de usuários.
 
 ## Módulo administrativo
 
@@ -84,9 +88,10 @@ O acesso começa em `/login`. As principais páginas protegidas são:
 - `/admin/knowledge/sources`: origens documentais;
 - `/admin/knowledge/documents`: catálogo de documentos;
 - `/admin/knowledge/batches`: lotes de ingestão;
-- `/admin/knowledge/pending`: itens que exigem revisão.
+- `/admin/knowledge/pending`: itens que exigem revisão;
+- `/admin/users`: usuários, perfis, situação do acesso e histórico de auditoria.
 
-Somente usuários com perfil `ADMIN` podem acessar essas rotas.
+Somente usuários com perfil `ADMIN` ativos e sem troca de senha pendente podem acessar essas rotas; um `USER` recebe `403`. Depois do login, quem usa senha provisória vai para `/first-access` ("Primeiro acesso") até definir a própria senha; depois disso, o `ADMIN` segue para o admin e o perfil `USER` vai para `/account` ("Minha conta"), onde troca a senha e encerra a sessão.
 
 ## API interna
 

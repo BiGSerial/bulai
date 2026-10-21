@@ -29,6 +29,25 @@ class AdminSeederTest extends TestCase
 
         $this->assertSame('BULA-IA Admin', $admin->name);
         $this->assertSame(UserRole::Admin, $admin->role);
+        $this->assertTrue($admin->isActive());
+        $this->assertFalse($admin->must_change_password);
+        $this->assertCredentials([
+            'email' => 'admin@example.com',
+            'password' => 'secret-password',
+        ]);
+    }
+
+    public function test_database_seeder_normalizes_email_and_restores_a_blocked_admin(): void
+    {
+        $admin = User::factory()->admin()->inactive()->mustChangePassword()->create(['email' => 'admin@example.com']);
+        $this->setAdminEnvironment('BULA-IA Admin', ' Admin@Example.COM ', 'secret-password');
+
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertDatabaseCount('users', 1);
+        $admin->refresh();
+        $this->assertTrue($admin->isActive());
+        $this->assertFalse($admin->must_change_password);
         $this->assertCredentials([
             'email' => 'admin@example.com',
             'password' => 'secret-password',
