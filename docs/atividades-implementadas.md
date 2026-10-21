@@ -10,6 +10,9 @@ Este documento apresenta o que já está pronto no BULA-IA e como cada fluxo fun
 | --- | --- | --- |
 | Autenticação administrativa | Pronta | `/login` |
 | Controle de acesso por perfil | Pronto | Middleware `auth` e `admin` |
+| Gestão de usuários com auditoria | Pronta | `/admin/users` |
+| Minha conta e troca de senha | Pronta | `/account` |
+| Primeiro acesso (troca da senha provisória) | Pronto | `/first-access` |
 | Painel da base de conhecimento | Pronto | `/admin/knowledge` |
 | Cadastro e gestão de origens | Prontos | `/admin/knowledge/sources` |
 | Cadastro manual de documento lógico | Pronto | `/admin/knowledge/documents/create` |
@@ -27,7 +30,9 @@ Este documento apresenta o que já está pronto no BULA-IA e como cada fluxo fun
 
 ## 1. Autenticação e autorização administrativa
 
-O sistema usa autenticação de sessão do Laravel. O usuário entra por `/login` e encerra a sessão por `POST /logout`. Todas as páginas administrativas exigem autenticação e o perfil `ADMIN`; usuários com perfil `USER` recebem `403`.
+O sistema usa autenticação de sessão do Laravel. O usuário entra por `/login` e encerra a sessão por `POST /logout`. Todas as páginas administrativas exigem autenticação, acesso ativo e o perfil `ADMIN`; usuários com perfil `USER` recebem `403`.
+
+O login aceita o e-mail sem diferenciar maiúsculas, bloqueia a 6ª tentativa no mesmo minuto para o mesmo e-mail e IP (mensagem no próprio formulário), recusa acesso desativado (a mensagem só aparece quando a senha está correta) e grava o último acesso. Depois do login, quem usa senha provisória vai para "Primeiro acesso"; depois disso, o `ADMIN` segue para o admin e o perfil `USER` vai para "Minha conta" (ver seção 11).
 
 O primeiro administrador pode ser criado pelo seeder:
 
@@ -38,7 +43,7 @@ BULAI_ADMIN_PASSWORD="change-me-locally" \
 php artisan db:seed
 ```
 
-O seeder não cria uma conta quando e-mail ou senha não estão definidos explicitamente.
+O seeder não cria uma conta quando e-mail ou senha não estão definidos explicitamente. O e-mail é gravado em minúsculas e o administrador do seed fica sempre ativo e sem troca de senha obrigatória.
 
 ## 2. Painel da base de conhecimento
 
@@ -71,7 +76,7 @@ Os aliases `/admin/documents` e `/admin/documents/{document}` continuam disponí
 
 O upload administrativo em `/admin/knowledge/upload` aceita múltiplos PDFs e exige a seleção de uma origem ativa. Não há limite de quantidade na aplicação; o lote pode somar no máximo 100 MB, configurável por `KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES`. O teto temporário por arquivo usa `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES`, também em 100 MB por padrão.
 
-Antes de iniciar a importação, cada PDF da lista tem a ação "Remover", e, a partir de dois arquivos, aparece "Limpar seleção", com confirmação. O contador e o total em MB se atualizam, os erros de validação da lista são limpos e o arquivo temporário do Livewire é apagado. Uma nova seleção se soma à atual, não a substitui. A remoção identifica o arquivo pelo nome temporário, e não pela posição, para que um clique repetido não remova outro arquivo. Componente: `app/Livewire/Admin/Knowledge/Upload.php` (`removeFile`, `clearFiles`); tela: `resources/views/livewire/admin/knowledge/upload.blade.php`; testes: `tests/Feature/Admin/KnowledgeUploadAdminTest.php`.
+Antes de iniciar a importação, cada PDF da lista tem a ação "Remover", e, a partir de dois arquivos, aparece "Limpar seleção", com confirmação numa janela do BULAI. O contador e o total em MB se atualizam, os erros de validação da lista são limpos e o arquivo temporário do Livewire é apagado. Uma nova seleção se soma à atual, não a substitui. A remoção identifica o arquivo pelo nome temporário, e não pela posição, para que um clique repetido não remova outro arquivo. Componente: `app/Livewire/Admin/Knowledge/Upload.php` (`removeFile`, `clearFiles`); tela: `resources/views/livewire/admin/knowledge/upload.blade.php`; testes: `tests/Feature/Admin/KnowledgeUploadAdminTest.php`.
 
 Cada arquivo é tratado isoladamente. Uma falha não invalida os demais itens do lote. A resolução procura, nesta ordem:
 
@@ -161,9 +166,31 @@ SHA-256 protege a identidade dos bytes e detecta duplicidades ou alterações. A
 
 A aplicação possui manifesto instalável, service worker e identidade visual em `public/brand`. O service worker pode armazenar assets estáticos, mas não guarda navegações autenticadas de `/admin` ou `/login`. Não há uso offline dos documentos administrativos.
 
+## 11. Gestão de usuários, primeiro acesso e Minha conta
+
+Em `/admin/users` (item "Usuários" do menu), o administrador lista os acessos em cartões (nome, e-mail, perfil, situação, último acesso), busca por nome ou e-mail e filtra por situação e perfil. Também pode:
+
+- cadastrar um usuário informando nome, e-mail e perfil (`ADMIN` = "Administrador", `USER` = "Usuário"); o sistema gera uma senha provisória de 16 caracteres (letras e números), mostrada **uma única vez** numa janela com botão "Copiar", e exige a troca no primeiro acesso;
+- editar nome, e-mail e perfil;
+- desativar ou reativar o acesso (com confirmação);
+- gerar uma nova senha provisória (com confirmação, na página do usuário);
+- consultar o histórico de auditoria na página do usuário.
+
+Travas no serviço (`app/Services/Users/UserAccountService.php`): ninguém desativa nem rebaixa o próprio acesso, o sistema nunca fica sem administrador ativo (transação com bloqueio das linhas de administradores ativos) e e-mail repetido, mesmo com outras maiúsculas, é recusado. Desativar, trocar o perfil ou gerar nova senha provisória derruba as sessões da pessoa (linhas da tabela `sessions`) e invalida o "Manter conectado".
+
+A senha provisória nunca vai para a sessão, para o log nem para a auditoria. A tabela `user_audit_events` registra, só por inclusão, `created`, `updated`, `role_changed`, `deactivated`, `reactivated`, `temporary_password_issued` e `password_changed`, com autor e IP.
+
+Em `/first-access` ("Primeiro acesso"), quem ainda usa senha provisória define a própria senha antes de usar o sistema: só "Nova senha" e confirmação (pelo menos 12 caracteres, letras e números, diferente da provisória), sem pedir a provisória de novo. Enquanto a troca estiver pendente, o login, `/`, o admin e a Minha conta levam para essa tela. Na primeira vez, a tela dá as boas-vindas com o nome da pessoa, apresenta o BULAI e explica o sistema: para o `ADMIN`, as áreas do menu, com as mesmas explicações das dicas do menu; para o `USER`, o que ele faz em Minha conta e o aviso de que a consulta de bulas ainda vai chegar. Para quem já usava o sistema e recebeu nova senha provisória, a tela só pede a nova senha ("Defina sua nova senha"). Ao salvar, a troca encerra as outras sessões, fica registrada no histórico ("Ao substituir a senha provisória.") e leva o `ADMIN` ao admin e o `USER` à Minha conta.
+
+Em `/account` ("Minha conta", também no cabeçalho do admin), qualquer pessoa autenticada vê nome, e-mail e perfil, troca a senha quando quiser (senha atual, nova com pelo menos 12 caracteres, letras e números, diferente da atual) e sai. A troca encerra as outras sessões abertas e mantém a atual.
+
+Antes de usar em um banco existente, rode `php artisan migrate`: a migration normaliza os e-mails para minúsculas e para, sem alterar nada, se houver dois cadastros com o mesmo e-mail ignorando maiúsculas.
+
+Testes: `tests/Feature/Admin/UserManagementAdminTest.php`, `tests/Feature/Auth/AuthenticationTest.php`, `tests/Feature/Auth/AccountTest.php`, `tests/Feature/Auth/FirstAccessTest.php`, `tests/Feature/Auth/AccountStateMiddlewareTest.php`, `tests/Feature/Auth/LivewirePersistentMiddlewareTest.php` e `tests/Feature/Infrastructure/UserAccountStateMigrationTest.php`.
+
 ## Verificação automatizada
 
-A suíte cobre os principais fluxos e falhas de autenticação, autorização, importação, anexação, lotes, duplicidades, quarentena, associação manual, origens, Admin, processamento, portabilidade de armazenamento e PWA.
+A suíte cobre os principais fluxos e falhas de autenticação, autorização, gestão de usuários, importação, anexação, lotes, duplicidades, quarentena, associação manual, origens, Admin, processamento, portabilidade de armazenamento e PWA.
 
 Para executar toda a suíte:
 
@@ -177,7 +204,7 @@ Para mudanças futuras, deve-se executar primeiro o arquivo de teste mais direta
 
 - embeddings, busca vetorial, RAG e respostas por LLM ainda não foram implementados;
 - OCR é apenas fallback do job de processamento (não atua na identificação durante o upload) e sua acurácia não foi medida;
-- não existe interface de gestão de usuários;
+- a gestão de usuários não envia convite por e-mail (a senha provisória é entregue pelo administrador), não exclui usuários e não tem perfil de curadoria;
 - documentos podem ser criados e inspecionados no Admin, mas ainda não há edição geral de seus metadados;
 - emissão e revogação administrativa de tokens não possuem interface web;
 - ingestão em lote ocorre sincronamente durante a requisição;
@@ -206,3 +233,4 @@ Para mudanças futuras, deve-se executar primeiro o arquivo de teste mais direta
 - Todas as telas admin migradas para `<x-knowledge-admin.shell>`; documentos agora têm o mesmo menu completo.
 - Interface 100% em português (locale `pt_BR`, status traduzidos, paginação e validação em português).
 - Fiscal automático: `tests/Feature/Admin/AdminDesignSystemTest.php`.
+- Confirmações em janela própria (`<x-knowledge-admin.confirm-modal>`), no lugar da caixa nativa do navegador (`wire:confirm`): gerar nova senha provisória e desativar/reativar acesso (página do usuário e cartões da lista), processar/reprocessar documento e limpar a seleção de PDFs. Cada janela tem título em forma de pergunta, a consequência explicada e o botão com o verbo da ação (vermelho nas ações de risco); fecha com Cancelar, Esc ou clique fora. Regras de uso em `docs/admin-design-system.md`; testes: `tests/Feature/Admin/ConfirmModalAdminTest.php` e `AdminDesignSystemTest` (reprova `wire:confirm`).

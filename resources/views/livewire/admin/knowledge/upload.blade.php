@@ -41,7 +41,11 @@
                     @endforeach
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-sm text-slate-600">{{ count($files) }} {{ count($files) === 1 ? 'arquivo' : 'arquivos' }} · {{ number_format(collect($files)->sum(fn ($file) => $file->getSize()) / 1048576, 1, ',', '.') }} MB</p>
-                        @if (count($files) > 1)<x-knowledge-admin.button variant="quiet" wire:click="clearFiles" wire:confirm="Remover todos os arquivos selecionados?" loading-target="ingest,removeFile,clearFiles">Limpar seleção</x-knowledge-admin.button>@endif
+                        @if (count($files) > 1)
+                            <x-knowledge-admin.confirm-modal action="clearFiles" tone="danger" title="Limpar seleção?" :message="'Os '.count($files).' arquivos selecionados serão retirados da lista e nada será importado. Para importá-los depois, será preciso selecioná-los de novo.'" confirm-label="Limpar seleção" loading="Limpando…">
+                                <x-knowledge-admin.button variant="quiet" loading-target="ingest,removeFile,clearFiles">Limpar seleção</x-knowledge-admin.button>
+                            </x-knowledge-admin.confirm-modal>
+                        @endif
                     </div>
                 </div>
             @endif

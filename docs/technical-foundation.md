@@ -121,19 +121,28 @@ The rate limit is registered in `App\Providers\AppServiceProvider`.
 
 The web admin surface uses Laravel's default session guard and a project role enum:
 
-- `App\UserRole::Admin` stores `ADMIN`
-- `App\UserRole::User` stores `USER`
+- `App\UserRole::Admin` stores `ADMIN` ("Administrador")
+- `App\UserRole::User` stores `USER` ("Usuário"); labels come from `UserRole::options()` / `label()`
 - `App\Http\Middleware\EnsureUserIsAdmin` protects admin routes through the `admin` middleware alias.
+- `App\Http\Middleware\EnsureUserIsActive` logs out a deactivated account (`users.active = false`) and redirects to `/login`.
+- `App\Http\Middleware\EnsureTemporaryPasswordIsChanged` redirects to `/first-access` while `users.must_change_password` is true (except on the first-access routes and logout). It protects the admin group and the "Minha conta" routes.
+
+The two new middlewares are referenced **by class** in `routes/web.php` (`bootstrap/app.php` is not changed). The admin group runs `auth` → `EnsureUserIsActive` → `admin` → `EnsureTemporaryPasswordIsChanged`, so a `USER` still receives `403` before any password redirect. `AppServiceProvider` registers all three as Livewire persistent middleware (see "Gestão de usuários e endurecimento do login").
 
 Routes in `routes/web.php`:
 
 - `GET /login`
-- `POST /login`
+- `POST /login` (`throttle:login`)
 - `POST /logout`
+- `GET /first-access`, `PUT /first-access/password` ("Primeiro acesso": mandatory change of the temporary password, any role)
+- `GET /account`, `PUT /account/password` ("Minha conta", any role, voluntary password change)
+- `GET /admin/users`, `/admin/users/create`, `/admin/users/{user}`, `/admin/users/{user}/edit`
 - `GET /admin/documents`
 - `GET /admin/documents/{document}`
 
-Unauthenticated admin requests redirect to `/login`. Authenticated non-admin users receive `403`.
+Unauthenticated admin requests redirect to `/login`. Authenticated non-admin users receive `403`. After login, anyone with a temporary password goes to `/first-access`; an `ADMIN` without a pending password change goes to the intended admin page (default `/admin/documents`); a `USER` goes to `/account`. Except for that `ADMIN`, the intended URL is discarded. `/` follows the same rule (`User::homeRouteName()`).
+
+Login hardening (`AuthenticatedSessionController`, `AppServiceProvider`): e-mail normalized with `Str::lower(trim())`; rate limiter `login` = 5 attempts/minute per e-mail + IP, answered with a redirect to the form and `auth.throttle` in the `email` error; `Auth::attemptWhen` refuses inactive accounts, and the "acesso desativado" message is shown only after the password matches; `last_login_at` is recorded; `Password::defaults()` = at least 12 characters with letters and numbers.
 
 To seed the first admin, set these environment variables before running `php artisan db:seed`:
 
@@ -143,7 +152,7 @@ BULAI_ADMIN_EMAIL="admin@example.com"
 BULAI_ADMIN_PASSWORD="change-me-locally"
 ```
 
-The seeder skips admin creation unless both `BULAI_ADMIN_EMAIL` and `BULAI_ADMIN_PASSWORD` are present. Password hashing is handled by the `User` model's `hashed` cast.
+The seeder skips admin creation unless both `BULAI_ADMIN_EMAIL` and `BULAI_ADMIN_PASSWORD` are present. Password hashing is handled by the `User` model's `hashed` cast. The e-mail is stored lowercased, and the seeded admin is always set active and without a forced password change (it doubles as the recovery account).
 
 ## Admin Document UI
 
@@ -515,7 +524,7 @@ php artisan queue:work database --queue=default --timeout=60
 
 The default command dispatches the same Job used by the Admin. `--sync` is intended for controlled diagnostics. A queue worker must be running in production.
 
-The document detail in Knowledge Admin displays content status, processing time, controlled error/reference, chunk count, and paginated chunks with section and page range. Process/reprocess actions require explicit Livewire confirmation and only dispatch the Job.
+The document detail in Knowledge Admin displays content status, processing time, controlled error/reference, chunk count, and paginated chunks with section and page range. Process/reprocess actions require explicit confirmation in the admin dialog (`confirm-modal`; reprocessing uses the `danger` tone because it replaces the current chunks) and only dispatch the Job.
 
 The committed multi-page fixture is synthetic but pharmacologically representative and validates ordering, page association, sections, dosages, units, decimal commas, and percentages. No licensed or redistributable real pharmaceutical PDF was present in the repository; real-source acceptance testing remains required before embedding work.
 
@@ -597,8 +606,10 @@ Covered behavior:
 - promotion and post-promotion failures preserve quarantine, roll back database state, compensate only operation-owned files, and sanitize internal errors;
 - manual association requires a valid token with the existing `knowledge:ingest` scope and never exposes `storage_path`.
 - login, invalid login, and logout.
+- login rate limit, case-insensitive e-mail, `last_login_at`, inactive accounts, and role-based destination after login.
 - admin route redirect for guests and `403` for authenticated `USER` role.
-- configured admin seed creation and skip behavior when credentials are absent.
+- configured admin seed creation and skip behavior when credentials are absent; seed e-mail normalization and reactivation.
+- user management, account page, first-access page, account-state middlewares, and Livewire persistent middleware (see "Gestão de usuários e endurecimento do login").
 - admin document list/detail rendering, reactive filters, filter reset, and escaped chunk content.
 - parser boundary, ordered one-based pages, no-text and invalid PDFs, conservative normalization, section detection, structural chunking, page traceability, atomic reprocessing, Job/command dispatch, and Admin chunk inspection.
 - PWA manifest and service worker policy for authenticated paths.
@@ -615,14 +626,14 @@ Covered behavior:
 - No production HTTPS enforcement middleware has been added yet.
 - OCR runs only as a fallback in the queued processing job (not during upload-time identification, which still uses `PdfTextExtractor` only); the OCR engine's real-world accuracy on the pharmaceutical corpus has not been measured.
 - Knowledge Admin supports manual pending-item association and creation of logical documents, but does not yet provide general editing of document metadata.
-- Admin creation depends on explicit environment variables; there is no user-management UI yet.
+- The first admin still depends on explicit environment variables (`db:seed`); further accounts are created in `/admin/users` with a temporary password handed over by the administrator (no e-mail invitation, no account deletion, no curator role).
 - The PWA baseline does not provide offline authenticated document access.
 
 ## Administrative Upload and Portable Knowledge Storage
 
 `GET /admin/knowledge/upload` is an authenticated, admin-only Livewire 4 screen for selecting an active `knowledge_source` and uploading multiple PDFs. It calls the same `KnowledgeBatchIngestionService` used by `POST /api/internal/knowledge/batches`; the component does not perform matching, hashing, storage promotion, duplicate detection, or filesystem cleanup. There is no application-level quantity cap; `KNOWLEDGE_INGESTION_MAX_BATCH_KILOBYTES` limits the sum of all PDFs to 102400 KiB (100 MB) and `KNOWLEDGE_INGESTION_MAX_FILE_KILOBYTES` protects each temporary upload at the same default ceiling. The UI uses Livewire temporary uploads, server-side PDF MIME/extension validation, browser upload progress, sanitized errors, and links to the resulting batch and pending-review queue.
 
-Before importing, the administrator can remove a single selected PDF (`Upload::removeFile`) or clear the whole selection (`Upload::clearFiles`, shown from two files on, with a browser confirmation). Removal identifies the file by the Livewire temporary filename (`TemporaryUploadedFile::getFilename()`), never by its list position: positions shift after each removal and Livewire 4 defers a second click until the first request finishes, so an index would remove the next file. An identifier that does not belong to the current selection is a no-op. Both actions delete the temporary upload (`TemporaryUploadedFile::delete()`) and clear the `files` / `files.*` validation errors; this is the only filesystem cleanup in the component, which still never touches knowledge storage. The identifier is rendered into `wire:click` through `Js::from`. In Livewire 4, a new selection on the `multiple` input is appended to the current one (`uploadMultiple(..., append = true)`), so removal is the way to correct a wrong pick. Coverage: `tests/Feature/Admin/KnowledgeUploadAdminTest.php` (remove one, clear all, unknown or already-removed identifier, import after removal).
+Before importing, the administrator can remove a single selected PDF (`Upload::removeFile`) or clear the whole selection (`Upload::clearFiles`, shown from two files on, confirmed in the admin dialog `confirm-modal`). Removal identifies the file by the Livewire temporary filename (`TemporaryUploadedFile::getFilename()`), never by its list position: positions shift after each removal and Livewire 4 defers a second click until the first request finishes, so an index would remove the next file. An identifier that does not belong to the current selection is a no-op. Both actions delete the temporary upload (`TemporaryUploadedFile::delete()`) and clear the `files` / `files.*` validation errors; this is the only filesystem cleanup in the component, which still never touches knowledge storage. The identifier is rendered into `wire:click` through `Js::from`. In Livewire 4, a new selection on the `multiple` input is appended to the current one (`uploadMultiple(..., append = true)`), so removal is the way to correct a wrong pick. Coverage: `tests/Feature/Admin/KnowledgeUploadAdminTest.php` (remove one, clear all, unknown or already-removed identifier, import after removal).
 
 Knowledge files use the disk selected by `KNOWLEDGE_FILESYSTEM_DISK` (default `knowledge`). The current `knowledge` disk is private local storage rooted at `storage/app/private`; switching its Laravel Filesystem driver is the intended migration boundary for future S3 work. `knowledge_documents` and `ingestion_batch_items` persist `storage_disk` plus a provider-neutral `storage_key`. `storage_path` remains populated as a legacy logical-key alias during the transition, never as an absolute path. Existing non-null keys are backfilled by migration and model readers fall back to `storage_path`.
 
@@ -914,3 +925,59 @@ Full operational guide: `docs/deployment/kinghost.md`.
 ### UID/GID hardening for bind mounts (VPS compatibility fix)
 
 Container IDs are now high and unrelated to host accounts (app/worker 10010, postgres 10020, nginx 10030, ocr 10001, local-ai 10002): on the KingHost VPS `999` is `caddy` and `101` is `messagebus`/`lxd`, which would have given those accounts access to the PostgreSQL data directory and the PHP-FPM socket. PostgreSQL runs as 10020 with minimal read-only `/etc/passwd`/`/etc/group` mounts (`docker/production/postgres/{passwd,group}`); Nginx runs as 10030 with its disk buffer in `/srv/bulai/shared/web-cache`; the socket directory is `2750 10010:10030`. `install-on-vps.sh` refuses to continue when any of these IDs exists on the host (it never edits accounts), migrates the ownership of an already-initialised database, and refuses userns-remap/rootless Docker; `bulai-deploy` checks owner/mode of every shared directory. See `docs/deployment/kinghost.md` ("UIDs, bind mounts e contas do host"). Tests: `scripts/deploy/tests/run.sh` (80 assertions, including ID consistency across compose, Dockerfiles, installer and deploy script).
+
+## Gestão de usuários e endurecimento do login
+
+**Propósito.** Permitir que o administrador crie e mantenha acessos pela interface, sem `db:seed`, com rastreabilidade, e endurecer o login (limite de tentativas, conta desativada, troca obrigatória de senha provisória).
+
+**Arquivos.**
+- `app/Services/Users/UserAccountService.php` (`final`): `create` (devolve `[User, senha provisória]`), `update`, `setActive`, `issueTemporaryPassword`, `changePassword` e `completeFirstAccess` (os dois últimos compartilham `storeOwnPassword`). Travas e gravações em `DB::transaction` com `lockForUpdate` nas linhas de ADMIN ativos (sempre travadas antes da linha-alvo, para evitar deadlock): ninguém se desativa nem se rebaixa, nunca fica zero ADMIN ativo, e-mail repetido ignorando caixa vira `ValidationException` (também o `23505` do índice único). Senha provisória: `Str::password(16, symbols: false)`.
+- `app/Livewire/Admin/Users/{Index,Form,Show}.php` + `resources/views/livewire/admin/users/*.blade.php`: lista em cartões (busca `q` na URL, filtros de situação e perfil, paginação de 15), formulário único de criar/editar e detalhe com histórico. O `boot()` de cada componente confere o perfil ADMIN (defesa em profundidade).
+- `resources/views/components/knowledge-admin/temporary-password-modal.blade.php`: janela da senha provisória com "Copiar" e aviso de que não será mostrada novamente.
+- `app/Http/Controllers/Auth/AccountController.php` + `resources/views/auth/account.blade.php`: "Minha conta", fora do shell do admin (troca voluntária, com senha atual).
+- `app/Http/Controllers/Auth/FirstAccessController.php` + `resources/views/auth/first-access.blade.php`: "Primeiro acesso", fora do shell (ver "Primeiro acesso" abaixo).
+- `app/AdminNavigation.php`: fonte única do menu do admin (rota, rótulo, padrão de rota ativa, ícone e dica), usada pelo `shell` e pelo resumo de áreas do primeiro acesso.
+- `app/Http/Middleware/EnsureUserIsActive.php`, `EnsureTemporaryPasswordIsChanged.php`; `app/Models/UserAuditEvent.php`; `app/Models/User.php` (casts, `isActive()`, `homeRouteName()`, `hasSetOwnPassword()`, `creator()`, `auditEvents()`); `app/UserRole.php` (`options()`, `label()`).
+- `app/Providers/AppServiceProvider.php`: limitador `login`, `Password::defaults()` e `Livewire::addPersistentMiddleware()`.
+- `lang/pt_BR/auth.php` (`inactive`) e `lang/pt_BR/validation.php` (`confirmed`, `current_password`, `different`, `password.*`).
+- `database/factories/UserFactory.php` (estados `inactive()` e `mustChangePassword()`; o padrão continua ativo e sem troca pendente) e `database/seeders/DatabaseSeeder.php`.
+
+**Rotas.** `admin.users.index|create|show|edit` → `/admin/users[...]` (grupo admin); `first-access` → `GET /first-access` e `first-access.password.update` → `PUT /first-access/password` (`auth` + `EnsureUserIsActive`); `account` → `GET /account` e `account.password.update` → `PUT /account/password` (`auth` + `EnsureUserIsActive` + `EnsureTemporaryPasswordIsChanged`); `login.store` com `throttle:login`.
+
+**Tabelas.**
+- `users` (migration `add_account_state_to_users_table`): `active` (bool, default `true`, índice), `must_change_password` (bool, default `false`), `created_by` (FK `users`, `nullOnDelete`), `last_login_at`. Antes de alterar o esquema, normaliza os e-mails (`Str::lower(trim())`) e aborta, sem mudar nada, se dois cadastros colidirem ignorando caixa (a mensagem lista só os ids). O `users_email_unique` é mantido. O `down()` remove as colunas, mas não desfaz a normalização.
+- `user_audit_events` (só inclusão): `user_id` (FK, `restrictOnDelete`), `actor_id` (FK anulável, `nullOnDelete`), `event`, `details` (jsonb), `ip`, `created_at`. Eventos: `created` (e-mail e perfil), `updated` (campos alterados com de/para, nunca senha), `role_changed` (de/para), `deactivated`, `reactivated`, `temporary_password_issued`, `password_changed` (`details` vazio na Minha conta; `{"via": "first_access"}` no primeiro acesso, mostrado no histórico como "Ao substituir a senha provisória."). Rótulos pt-BR na página do usuário.
+
+**Senha provisória.** Gerada pelo serviço, gravada só como hash (cast `hashed`), marca `must_change_password`. É exibida uma vez: fica numa propriedade `protected` do componente (não entra no snapshot do Livewire nem na sessão) e some na requisição seguinte. Nunca vai para `session()->flash`, log ou auditoria (a sessão fica no banco sem criptografia em produção).
+
+**Derrubar acesso.** Desativar, trocar o perfil ou gerar nova senha provisória gira o `remember_token` e apaga as linhas de `sessions` com o `user_id` da pessoa (quando `SESSION_DRIVER=database`). Na troca de senha pela própria pessoa, a sessão atual é preservada e as demais são apagadas. Com outro driver, a rede de segurança é o `EnsureUserIsActive` e o perfil relido do banco a cada requisição.
+
+**Middleware persistente do Livewire.** `Livewire::addPersistentMiddleware([EnsureUserIsActive, EnsureUserIsAdmin, EnsureTemporaryPasswordIsChanged])`: no POST do endpoint de update, o Livewire refaz a rota original (memo `path`/`method` do snapshot), resolve o middleware com `Router::gatherRouteMiddleware()` — que transforma o alias `admin` na classe `EnsureUserIsAdmin` — e reaplica somente os que estão na lista, comparando por nome de classe. Por isso o alias não precisou mudar. Prova: `tests/Feature/Auth/LivewirePersistentMiddlewareTest.php` abre a tela de Origens por HTTP, faz uma ação válida e repete a ação depois de rebaixar (403), desativar (volta ao login, sessão encerrada) ou exigir troca de senha (vai ao primeiro acesso). Sem o registro no provider, os três testes falham com 200 (verificado).
+
+**Primeiro acesso.** Quem tem `must_change_password` vai a `/first-access` no login (mesmo com URL pretendida do admin), em `/` e em qualquer rota do admin ou da Minha conta (`EnsureTemporaryPasswordIsChanged`). Sem troca pendente, `GET` e `PUT` de `/first-access` só redirecionam ao destino do perfil — a rota nunca troca senha sem a pendência, porque não pede a senha atual. O formulário pede só "Nova senha" + confirmação (`Password::defaults()`) e recusa a nova igual à provisória (`Hash::check` contra o hash atual: "A nova senha deve ser diferente da senha provisória."). Ao salvar, `UserAccountService::completeFirstAccess()` limpa a pendência, gira o `remember_token`, apaga as outras sessões (mantém a atual) e audita `password_changed` com `{"via": "first_access"}`; o ADMIN segue para `/admin/documents` e o USER para `/account`, com `accountFeedback` ("Senha definida com sucesso."), exibido na Minha conta e no `shell`.
+
+A tela tem dois modos, decididos por `User::hasSetOwnPassword()` (existe `password_changed` na auditoria da pessoa?), sem coluna nova: **boas-vindas** (nunca definiu a própria senha) — título com o nome, apresentação curta do BULAI e, para ADMIN, o resumo das áreas do menu lido de `App\AdminNavigation::items()` (mesma fonte do `shell`; mudar o menu atualiza a tela); para USER, o que ele pode fazer em Minha conta e o aviso de que a consulta de bulas ainda vai chegar — e **nova senha** (já definiu antes e recebeu nova senha provisória) — título "Defina sua nova senha" e um texto curto, sem a apresentação.
+
+**Operação.** Rodar `php artisan migrate` (expand: colunas novas com default; compatível com a versão anterior do código). Se a migration abortar por e-mails duplicados, unificar ou alterar os cadastros indicados e rodar de novo. O admin do seed (`bulai-deploy seed-admin`) volta a ficar ativo e sem troca obrigatória ao rodar o seeder.
+
+**Testes.** `tests/Feature/Admin/UserManagementAdminTest.php` (acesso, criação com senha exibida uma vez, duplicidade, edição auditada, travas, sessões, nova senha provisória, filtros, escape, histórico), `tests/Feature/Auth/AuthenticationTest.php` (limite, caixa do e-mail, `last_login_at`, conta desativada, destino por perfil), `tests/Feature/Auth/AccountTest.php`, `tests/Feature/Auth/FirstAccessTest.php`, `tests/Feature/Auth/AccountStateMiddlewareTest.php`, `tests/Feature/Auth/LivewirePersistentMiddlewareTest.php`, `tests/Feature/Auth/AdminSeederTest.php`, `tests/Feature/Infrastructure/UserAccountStateMigrationTest.php` e `AdminDesignSystemTest` (inclui `auth/account.blade.php`, `auth/first-access.blade.php` e as strings de `app/AdminNavigation.php`).
+
+**Limitações.** Sem convite nem redefinição de senha por e-mail (a senha provisória é entregue pelo administrador); sem exclusão definitiva de usuário; sem perfil de curadoria; sem gestão de tokens da API pela interface; o limite de login conta todas as tentativas (inclusive as bem-sucedidas) e usa o cache da aplicação; a troca de senha em `/account` não tem limite próprio de tentativas; quem usava o sistema antes da trilha de auditoria e recebe nova senha provisória vê o modo de boas-vindas no primeiro acesso (não há `password_changed` registrado); datas exibidas no fuso da aplicação (UTC).
+
+## Janela de confirmação do admin (`confirm-modal`)
+
+**Propósito.** Trocar a caixa nativa do navegador (`wire:confirm`, "127.0.0.1 diz… OK/Cancelar") por uma janela no visual do BULAI, com título, consequência explicada e botão com o verbo da ação.
+
+**Arquivos.**
+- `resources/views/components/knowledge-admin/confirm-modal.blade.php` (novo): props `title`, `message`, `confirm-label`, `action`, `tone` (`primary` | `danger`), `loading`, `loading-target` (padrão: `action`). O botão que abre a janela vem no slot, sem `wire:click`; `action` é a mesma expressão que iria no `wire:click` (`clearFiles` vira `clearFiles()`).
+- Telas: `livewire/admin/users/show.blade.php` (gerar nova senha provisória; desativar/reativar), `livewire/admin/users/index.blade.php` (desativar/reativar em cada cartão), `livewire/admin/documents/show.blade.php` (processar/reprocessar), `livewire/admin/knowledge/upload.blade.php` (limpar seleção). Nenhum componente Livewire mudou.
+
+**Funcionamento.** Tudo no cliente (Alpine que vem com o Livewire 4): abrir e cancelar não fazem requisição. O botão de confirmar executa `run(() => $wire.<ação>)`: uma trava `busy` e o `wire:loading.attr="disabled"` do `button` (mesmo `loading-target` nos três botões da janela) impedem clique duplo; Esc, clique fora e Cancelar são ignorados enquanto a ação roda; a janela fecha no `finally`, inclusive se a promessa do Livewire for rejeitada (ação cancelada ou erro), para não travar. Acessibilidade: `role="dialog"`, `aria-modal`, `aria-labelledby`/`aria-describedby`; foco em "Cancelar" depois do quadro em que o `x-show` exibe a janela (o Alpine mostra o elemento num `requestAnimationFrame`); `x-trap.noscroll.noreturn.noautofocus` prende o foco (o focus-trap recalcula os focáveis a cada Tab) e trava a rolagem; ao fechar, o foco volta ao botão de origem, se ele ainda existir (a lista pode remover o cartão, e "Limpar seleção" some com a lista).
+
+**Ids e chaves.** Os ids são `confirmacao-` + 12 caracteres do `md5` da expressão da ação (ex.: `toggleActive(5)`), então cada cartão da lista tem os seus. O componente não usa `wire:key`: com `smart_wire_keys` (padrão do Livewire 4), um `wire:key` fora de laço vira prefixo da chave dos componentes Livewire renderizados depois — no teste, o `service-health` do cabeçalho passou a ter `confirmacao-…` na chave, o que o remontaria quando a ação muda (ex.: `processDocument(false)` → `processDocument(true)`).
+
+**Testes.** `tests/Feature/Admin/ConfirmModalAdminTest.php` lê cada janela pelo DOM (`Dom\HTMLDocument`, PHP 8.4), resolvendo título e mensagem pelos ids de `aria-labelledby`/`aria-describedby` — ids repetidos trariam o texto de outra janela (verificado: com id fixo, dois testes falham) — e confere título, rótulo e ação nas quatro telas. `AdminDesignSystemTest::test_confirmations_use_the_confirm_modal_instead_of_the_native_browser_dialog` reprova `wire:confirm` em qualquer arquivo de `resources/views`. `KnowledgeDocumentProcessingAdminTest` passou a conferir o título novo ("Processar documento?").
+
+**Operação.** `npm run build` (classes novas no CSS, por exemplo `max-w-md` e `contents`).
+
+**Limitações.** Abrir, Esc, foco e trava de rolagem dependem de JavaScript e não têm teste automatizado (o projeto não tem testes de navegador). Depois de "Gerar nova senha provisória", o foco volta ao botão de origem, atrás da janela da senha, que não gerencia foco (comportamento anterior do `modal`). Sem transição de entrada/saída, como o `modal`.

@@ -13,7 +13,14 @@ O sistema armazena documentos farmacêuticos e metadados operacionais. Mesmo qua
 - middleware `auth` para sessão válida;
 - middleware `admin` para o papel `ADMIN`;
 - invalidação da sessão no logout;
-- usuário `USER` recebe `403` nas páginas administrativas.
+- usuário `USER` recebe `403` nas páginas administrativas;
+- limite de 5 tentativas de login por minuto para o mesmo e-mail e IP, com a mensagem no próprio formulário;
+- conta desativada não entra, e a mensagem de desativação só aparece quando a senha está correta (não revela a existência do e-mail);
+- senha com pelo menos 12 caracteres, letras e números; acessos novos recebem senha provisória exibida uma única vez e trocada obrigatoriamente na tela de primeiro acesso, que recusa repetir a senha provisória e só troca a senha enquanto houver a pendência (fora dela, a troca exige a senha atual, em "Minha conta");
+- desativar, trocar o perfil ou gerar nova senha provisória encerra as sessões da pessoa e invalida o "Manter conectado";
+- as ações Livewire reaplicam as checagens da rota (conta ativa, perfil `ADMIN`, troca de senha pendente), o que impede um administrador rebaixado de agir em uma tela já aberta;
+- o sistema nunca fica sem administrador ativo e ninguém desativa ou rebaixa o próprio acesso;
+- trilha de auditoria da gestão de usuários (`user_audit_events`), sem senha.
 
 ### Autenticação da API interna
 
@@ -52,7 +59,9 @@ O sistema armazena documentos farmacêuticos e metadados operacionais. Mesmo qua
 
 | Ameaça | Controle atual | Risco residual |
 | --- | --- | --- |
-| Acesso web por usuário sem privilégio | Sessão + papel `ADMIN` | Falhas futuras de autorização em novas rotas |
+| Acesso web por usuário sem privilégio | Sessão + papel `ADMIN` + conta ativa, reaplicados nas ações Livewire | Falhas futuras de autorização em novas rotas |
+| Tentativa de senha por força bruta | Limite por e-mail + IP e senha mínima de 12 caracteres | Ataque distribuído por muitos IPs; sem segundo fator |
+| Acesso remanescente de quem saiu da equipe | Desativação com encerramento de sessões e auditoria | Depende de o administrador desativar a conta a tempo |
 | Uso indevido da API | Token com escopo, expiração, revogação e rate limit | Vazamento do token durante seu período de validade |
 | Publicação acidental de PDF | Disco privado e ausência de URL pública | Configuração incorreta de um futuro driver remoto |
 | Path traversal | Chaves geradas e validação do prefixo esperado | Novos pontos de leitura devem manter a mesma regra |
@@ -86,7 +95,8 @@ Caso haja dados pessoais, a análise deve considerar a LGPD e ser revisada pelo 
 - monitoramento e alertas de autenticação, ingestão e fila;
 - varredura de dependências e atualização contínua;
 - avaliação de PDFs hostis e isolamento do parser;
-- trilha de auditoria administrativa dedicada;
+- trilha de auditoria administrativa dedicada para as demais áreas (a gestão de usuários já possui a sua);
+- segundo fator de autenticação e redefinição de senha por e-mail;
 - plano de backup, restauração e resposta a incidentes;
 - revisão formal de ameaça antes de expor o sistema externamente.
 

@@ -52,7 +52,7 @@ class KnowledgeDocumentProcessingAdminTest extends TestCase
 
         Livewire::actingAs($admin)->test(Show::class, ['document' => $document])
             ->assertSee('Processar documento')
-            ->assertSee('Iniciar o processamento deste documento?')
+            ->assertSee('Processar documento?')
             ->call('processDocument')
             ->assertSee('Processamento enfileirado.');
 

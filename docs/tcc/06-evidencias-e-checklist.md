@@ -74,6 +74,7 @@ Preencher antes dos experimentos:
 | RF10 | Serviço de associação | `KnowledgePendingItemAssociationApiTest` | PENDENTE DE REGISTRO |
 | RF11/RF12 | Pipeline, Job e comando | `KnowledgeDocumentProcessingTest` e testes unitários | PENDENTE DE REGISTRO |
 | RF13/RF14 | Livewire Admin e relacionamentos | `tests/Feature/Admin` | PENDENTE DE REGISTRO |
+| RF15/RF16 | `UserAccountService`, Livewire de usuários, "Primeiro acesso", "Minha conta" e middlewares de estado da conta | `UserManagementAdminTest`, `FirstAccessTest`, `AccountTest`, `AccountStateMiddlewareTest`, `LivewirePersistentMiddlewareTest` | PENDENTE DE REGISTRO |
 
 Substitua “PENDENTE DE REGISTRO” pelo resultado real da execução associada à versão avaliada.
 
@@ -87,7 +88,7 @@ Substitua “PENDENTE DE REGISTRO” pelo resultado real da execução associada
 6. provocar PDF sem texto e registrar falha controlada;
 7. medir tempo de ingestão e processamento em amostra caracterizada;
 8. verificar que arquivo e caminho privado não aparecem nas respostas;
-9. testar acesso como visitante, `USER` e `ADMIN`;
+9. testar acesso como visitante, `USER` e `ADMIN`, com conta desativada e com senha provisória (primeiro acesso de verdade e nova senha provisória de quem já usava o sistema);
 10. restaurar backup em ambiente de ensaio, caso recuperação seja parte do escopo.
 
 ## Protocolo de avaliação previsto no projeto

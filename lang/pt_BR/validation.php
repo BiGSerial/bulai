@@ -2,6 +2,9 @@
 
 return [
     'array' => 'O campo :attribute deve ser uma lista.',
+    'confirmed' => 'A confirmação de :attribute não confere.',
+    'current_password' => 'A senha atual está incorreta.',
+    'different' => 'O campo :attribute deve ser diferente de :other.',
     'email' => 'Informe um e-mail válido em :attribute.',
     'exists' => 'O valor selecionado em :attribute é inválido.',
     'file' => 'O campo :attribute deve ser um arquivo.',
@@ -20,6 +23,13 @@ return [
         'file' => 'O arquivo em :attribute deve ter pelo menos :min KB.',
         'numeric' => 'O campo :attribute deve ser pelo menos :min.',
         'string' => 'O campo :attribute deve ter pelo menos :min caracteres.',
+    ],
+    'password' => [
+        'letters' => 'O campo :attribute deve conter pelo menos uma letra.',
+        'mixed' => 'O campo :attribute deve conter pelo menos uma letra maiúscula e uma minúscula.',
+        'numbers' => 'O campo :attribute deve conter pelo menos um número.',
+        'symbols' => 'O campo :attribute deve conter pelo menos um símbolo.',
+        'uncompromised' => 'O valor informado em :attribute apareceu em um vazamento de dados. Escolha outro.',
     ],
     'required' => 'Preencha o campo :attribute.',
     'string' => 'O campo :attribute deve ser um texto.',
@@ -43,5 +53,6 @@ return [
         'ignoreNotes' => 'observação',
         'email' => 'e-mail',
         'password' => 'senha',
+        'current_password' => 'senha atual',
     ],
 ];

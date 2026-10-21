@@ -18,10 +18,10 @@ O escopo acadêmico planejado considera 30 medicamentos selecionados, dados da A
 
 | Ator | Responsabilidade |
 | --- | --- |
-| Administrador | Gerencia origens, documentos, uploads, lotes, pendências e processamento |
+| Administrador | Gerencia origens, documentos, uploads, lotes, pendências, processamento e acessos de usuários |
 | Integração interna | Envia documentos e PDFs pelas APIs protegidas por token |
 | Worker de fila | Executa o processamento assíncrono dos documentos |
-| Usuário comum | Possui perfil previsto no modelo, mas não acessa o módulo administrativo |
+| Usuário comum | Acessa apenas "Primeiro acesso" (enquanto usa senha provisória) e "Minha conta" (dados do acesso e troca de senha); não acessa o módulo administrativo |
 
 ## Requisitos funcionais implementados
 
@@ -38,7 +38,9 @@ O escopo acadêmico planejado considera 30 medicamentos selecionados, dados da A
 - RF11 — extrair texto de PDFs, detectar seções e criar chunks rastreáveis;
 - RF12 — reprocessar um documento sem perder chunks válidos em caso de falha;
 - RF13 — apresentar painel, catálogos, estados e erros controlados no Admin;
-- RF14 — manter procedência entre origem, lote, documento e chunks.
+- RF14 — manter procedência entre origem, lote, documento e chunks;
+- RF15 — gerir acessos (cadastrar com senha provisória, editar, ativar/desativar e gerar nova senha provisória) com trilha de auditoria;
+- RF16 — permitir a qualquer usuário autenticado trocar a própria senha, obrigatoriamente quando ela for provisória (tela de primeiro acesso, que na primeira vez dá as boas-vindas e explica o sistema conforme o perfil).
 
 ## Requisitos não funcionais observáveis
 
@@ -112,5 +114,5 @@ A preparação textual foi implementada antes da busca semântica. Isso prioriza
 - recuperação híbrida e reranking;
 - geração de respostas por LLM;
 - avaliação clínica das respostas;
-- gestão de usuários pela interface;
+- convite e redefinição de senha por e-mail, exclusão definitiva de usuários e perfis adicionais (por exemplo, curadoria);
 - alta disponibilidade ou implantação multirregional.
