@@ -14,6 +14,8 @@ erDiagram
     KNOWLEDGE_DOCUMENTS o|--o{ INGESTION_BATCH_ITEMS : associa
     INGESTION_TOKENS }o--|| API_INTERNA : autoriza
     USERS }o--|| PERFIL : possui
+    USERS ||--o{ USER_AUDIT_EVENTS : registra
+    USERS o|--o{ USERS : cadastra
 ```
 
 ## Entidades principais
@@ -46,7 +48,11 @@ Autoriza integrações internas. Persiste nome, hash do token, escopo, expiraç�
 
 ### `users`
 
-Usa o guard de sessão do Laravel e o papel `ADMIN` ou `USER` para autorização administrativa.
+Usa o guard de sessão do Laravel e o papel `ADMIN` ou `USER` para autorização administrativa. O e-mail é gravado em minúsculas (único). O estado da conta fica em `active` (acesso permitido), `must_change_password` (senha provisória pendente de troca), `created_by` (quem cadastrou) e `last_login_at` (último acesso). Desativar não apaga o registro, o que preserva a autoria e o histórico.
+
+### `user_audit_events`
+
+Trilha de auditoria da gestão de usuários, somente de inclusão: pessoa afetada, autor da ação, evento (`created`, `updated`, `role_changed`, `deactivated`, `reactivated`, `temporary_password_issued`, `password_changed`), detalhes em JSON (campos alterados, perfil de/para, origem da troca de senha — `via: first_access` quando feita na tela de primeiro acesso), IP e data. Nunca contém senha ou hash.
 
 ## Estados do domínio
 

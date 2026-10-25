@@ -1,10 +1,15 @@
 <x-knowledge-admin.shell :title="$document->title" :subtitle="$document->external_key" :back="route('admin.knowledge.documents.index')" back-label="Documentos">
     @if ($document->storage_key || $document->storage_path)
         <x-slot:actions>
-            <x-knowledge-admin.button
-                wire:click="processDocument({{ $document->content_status === 'READY' ? 'true' : 'false' }})"
-                wire:confirm="{{ $document->content_status === 'READY' ? 'Reprocessar e substituir os trechos atuais?' : 'Iniciar o processamento deste documento?' }}"
-                loading-target="processDocument" loading="Enfileirando…">{{ $document->content_status === 'READY' ? 'Reprocessar' : 'Processar documento' }}</x-knowledge-admin.button>
+            <x-knowledge-admin.confirm-modal
+                :action="$document->content_status === 'READY' ? 'processDocument(true)' : 'processDocument(false)'"
+                :tone="$document->content_status === 'READY' ? 'danger' : 'primary'"
+                :title="$document->content_status === 'READY' ? 'Reprocessar documento?' : 'Processar documento?'"
+                :message="$document->content_status === 'READY' ? 'Os trechos atuais deste documento serão substituídos pelos do novo processamento, que roda em segundo plano.' : 'O texto do PDF será extraído e dividido em trechos. O processamento roda em segundo plano.'"
+                :confirm-label="$document->content_status === 'READY' ? 'Reprocessar' : 'Processar documento'"
+                loading="Enfileirando…">
+                <x-knowledge-admin.button>{{ $document->content_status === 'READY' ? 'Reprocessar' : 'Processar documento' }}</x-knowledge-admin.button>
+            </x-knowledge-admin.confirm-modal>
         </x-slot:actions>
     @endif
 

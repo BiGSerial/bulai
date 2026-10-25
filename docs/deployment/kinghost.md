@@ -228,6 +228,10 @@ O workflow `deploy.yml` foi organizado para que **nada seja publicado nem nenhum
 
    A senha continua no ambiente dos containers atuais até serem recriados: faça um novo deploy (ou `rollback`) em seguida para removê-la do ambiente em execução.
 
+   O admin do seed é o acesso de recuperação: grava o e-mail em minúsculas e fica sempre **ativo e sem troca de senha obrigatória** (rodar `seed-admin` de novo reativa a conta). Os demais acessos são criados em **Admin → Usuários**, com senha provisória exibida uma única vez e troca obrigatória no primeiro login.
+
+   A migration `add_account_state_to_users_table` normaliza os e-mails de `users` para minúsculas e **aborta sem alterar nada** se houver dois cadastros com o mesmo e-mail ignorando maiúsculas (a mensagem lista só os ids). Nesse caso, unifique ou altere os cadastros indicados e repita o deploy.
+
 4. **Valide antes de mexer no Caddy** (a página temporária continua no ar):
 
    ```bash

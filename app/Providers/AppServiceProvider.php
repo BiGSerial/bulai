@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
+use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\DocumentClassificationProvider;
 use App\Services\Ai\EmbeddingProvider;
@@ -16,9 +19,13 @@ use App\Services\Knowledge\HttpDocumentOcrClient;
 use App\Services\Knowledge\PdfTextExtractor;
 use App\Services\Knowledge\PrinsFrankPdfTextExtractor;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -49,5 +56,27 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('knowledge-ingest', function (Request $request): Limit {
             return Limit::perMinute(30)->by($request->ip());
         });
+
+        // Ao exceder, volta ao formulário de login com a mensagem no campo de e-mail (em vez da página 429).
+        RateLimiter::for('login', function (Request $request): Limit {
+            $email = $request->input('email');
+
+            return Limit::perMinute(5)
+                ->by((is_string($email) ? Str::lower(trim($email)) : '').'|'.$request->ip())
+                ->response(fn (Request $request, array $headers): RedirectResponse => redirect()
+                    ->route('login')
+                    ->withInput($request->only('email'))
+                    ->withErrors(['email' => __('auth.throttle', ['seconds' => $headers['Retry-After'] ?? 60])]));
+        });
+
+        Password::defaults(fn (): Password => Password::min(12)->letters()->numbers());
+
+        // Ações Livewire (POST no endpoint de update) reaplicam estes middlewares da rota original:
+        // um ADMIN rebaixado, desativado ou com troca de senha pendente não age numa tela já aberta.
+        Livewire::addPersistentMiddleware([
+            EnsureUserIsActive::class,
+            EnsureUserIsAdmin::class,
+            EnsureTemporaryPasswordIsChanged::class,
+        ]);
     }
 }

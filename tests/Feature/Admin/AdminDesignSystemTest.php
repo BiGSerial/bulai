@@ -37,6 +37,8 @@ class AdminDesignSystemTest extends TestCase
             ...File::allFiles(resource_path('views/components/knowledge-admin')),
             ...File::allFiles(resource_path('views/vendor/livewire')),
             resource_path('views/auth/login.blade.php') => null,
+            resource_path('views/auth/account.blade.php') => null,
+            resource_path('views/auth/first-access.blade.php') => null,
         ];
 
         $views = [];
@@ -72,6 +74,13 @@ class AdminDesignSystemTest extends TestCase
                     $this->assertMatchesRegularExpression('/type="(file|checkbox)"/', $line, "{$file->getFilename()}:".($number + 1).' use <x-knowledge-admin.input>.');
                 }
             }
+        }
+    }
+
+    public function test_confirmations_use_the_confirm_modal_instead_of_the_native_browser_dialog(): void
+    {
+        foreach (File::allFiles(resource_path('views')) as $file) {
+            $this->assertStringNotContainsString('wire:confirm', File::get($file->getPathname()), "{$file->getRelativePathname()}: use <x-knowledge-admin.confirm-modal> em vez de wire:confirm (caixa nativa do navegador).");
         }
     }
 
@@ -114,7 +123,8 @@ class AdminDesignSystemTest extends TestCase
     public function test_user_facing_text_is_in_portuguese_and_uses_the_standard_vocabulary(): void
     {
         $sources = $this->adminViews();
-        foreach (File::allFiles(app_path('Livewire')) as $file) {
+        // O menu (rótulos e dicas) vem de App\AdminNavigation e aparece no shell e no primeiro acesso.
+        foreach ([...File::allFiles(app_path('Livewire')), new \SplFileInfo(app_path('AdminNavigation.php'))] as $file) {
             preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", File::get($file->getPathname()), $strings);
             $sources[str_replace(base_path().'/', '', $file->getPathname())] = implode("\n", $strings[1]);
         }

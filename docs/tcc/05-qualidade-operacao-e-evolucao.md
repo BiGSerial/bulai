@@ -7,6 +7,7 @@ O projeto usa PHPUnit e separa testes de feature e unitários. Os testes de feat
 Principais grupos cobertos:
 
 - login, logout, perfil administrativo e seeder;
+- gestão de usuários, senha provisória, primeiro acesso, "Minha conta", limite de tentativas de login e reaplicação das checagens nas ações Livewire;
 - emissão e validação indireta de tokens por API;
 - importação estruturada e atualização idempotente;
 - anexação privada e rejeição de PDF inválido ou duplicado;
@@ -82,7 +83,7 @@ Ainda faltam dashboards operacionais, métricas temporais consolidadas, alertas 
 - ingestão do lote síncrona na requisição;
 - um único PDF ativo por documento e sem histórico de versões;
 - sem edição geral de metadados do documento no Admin;
-- sem interface de gestão de usuários e tokens;
+- sem interface de gestão de tokens da API; a gestão de usuários não tem convite por e-mail nem exclusão definitiva;
 - sem expiração automática da quarentena;
 - sem reconciliação automática entre banco e filesystem;
 - sem acesso autenticado offline;
