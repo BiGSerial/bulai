@@ -279,7 +279,7 @@ sudo journalctl -u docker --since today        # eventos do daemon (OOM kills ap
 
 - Logs de aplicação vão para `stderr` (`LOG_CHANNEL=stderr`) → `docker logs`, com rotação `json-file` (10 MB × 5 por container). Nada de conteúdo de PDF/prompts nos logs.
 - O cabeçalho do Admin mostra a saúde da IA local e do OCR; `docker compose ps` mostra os *healthchecks*. Um OCR longo não bloqueia o `/health` do OCR (execução fora do *event loop*).
-- **Atualizar containers:** é o deploy normal (imagens novas por digest). Imagens-base (PHP, Nginx, Node, Composer, PostgreSQL) ficam fixadas por digest nos Dockerfiles/compose;
+- **Atualizar containers:** é o deploy normal (imagens novas por digest). Imagens-base (PHP, Nginx, Node, Composer, PostgreSQL) ficam fixadas por digest nos Dockerfiles/compose (PHP em `php:8.4.27-fpm-bookworm`; o build da imagem `app` roda `apt-get upgrade` para aplicar correções do Debian publicadas depois da imagem-base);
   atualize-as por PR (compose → reinstalar o conjunto confiável com `install-on-vps.sh`).
 - **Alterar o compose, o init do PostgreSQL, `model.env` ou o próprio script:** PR revisado → mesclar → administrador roda `install-on-vps.sh` (mostra o que mudou) → o próximo deploy passa a usar o novo arquivo.
 - **Trocar o modelo da IA:** altere `docker/production/env/model.env` (URL, SHA-256, arquivo) via PR → reinstalar → `sudo bulai-deploy ensure-model`.

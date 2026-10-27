@@ -981,3 +981,7 @@ A tela tem dois modos, decididos por `User::hasSetOwnPassword()` (existe `passwo
 **Operação.** `npm run build` (classes novas no CSS, por exemplo `max-w-md` e `contents`).
 
 **Limitações.** Abrir, Esc, foco e trava de rolagem dependem de JavaScript e não têm teste automatizado (o projeto não tem testes de navegador). Depois de "Gerar nova senha provisória", o foco volta ao botão de origem, atrás da janela da senha, que não gerencia foco (comportamento anterior do `modal`). Sem transição de entrada/saída, como o `modal`.
+
+### PHP base image update (8.4.26 → 8.4.27)
+
+`docker/production/php/Dockerfile` now pins `php:8.4.27-fpm-bookworm@sha256:df5a5113…` (was 8.4.26) and runs `apt-get upgrade` in `php-base`. Trivy (fixed vulnerabilities only) on the base: 8.4.26 had 70 HIGH/CRITICAL (1 CRITICAL, `linux-libc-dev` CVE-2026-98621; 69 HIGH); 8.4.27 has 3 HIGH; the final `app` image has 0 HIGH/CRITICAL with a fix available. Remaining CRITICALs have no fix in Debian bookworm (`linux-libc-dev` kernel headers, `libsqlite3-0`, `libxml2` fix deferred, `zlib1g` will-not-fix) and are accepted risk: the CI gate blocks CRITICAL with a fix (`ignore-unfixed`). Base images are pinned by digest, so they only move when the digest is changed in a PR.
