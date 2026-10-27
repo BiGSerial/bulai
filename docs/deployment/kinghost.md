@@ -122,7 +122,7 @@ docker network ls | grep bulai-internal                              # existe, m
    recusa árvores que não pertençam ao root). No **seu computador**, com o commit da PR/`main` já revisado:
 
    ```bash
-   git archive --format=tar.gz -o bulai-trusted.tgz <SHA revisado> compose.prod.yaml docker/production scripts
+   git -c tar.umask=0022 archive --format=tar.gz -o bulai-trusted.tgz <SHA revisado> compose.prod.yaml docker/production scripts
    sha256sum bulai-trusted.tgz                          # anote o hash
    scp bulai-trusted.tgz willhome@vixforge02.vps-kinghost.net:~/   # home do willhome, não /tmp (diretório 1777 pré-criável por outros usuários)
    ```
@@ -132,7 +132,7 @@ docker network ls | grep bulai-internal                              # existe, m
    ```bash
    chmod 600 ~/bulai-trusted.tgz && sha256sum ~/bulai-trusted.tgz     # deve ser IGUAL ao hash anotado
    sudo install -d -m 0755 -o root -g root /root/bulai-src && sudo tar -xzf ~/bulai-trusted.tgz -C /root/bulai-src --no-same-owner
-   sudo chown -R root:root /root/bulai-src && rm ~/bulai-trusted.tgz
+   sudo chown -R root:root /root/bulai-src && sudo chmod -R go-w /root/bulai-src && rm ~/bulai-trusted.tgz
    sha256sum /root/bulai-src/compose.prod.yaml           # anote: é o hash que o deploy confere
    ```
 
