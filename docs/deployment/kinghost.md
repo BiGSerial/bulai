@@ -330,7 +330,7 @@ Para recuperar o código: o digest de cada release fica em `/var/lib/bulai-deplo
 | `local-ai` *unhealthy* / `MODEL_NOT_INSTALLED` | modelo ausente ou corrompido; RAM insuficiente | `ensure-model`; `docker logs bulai-local-ai-1`; confira `docker stats` |
 | `document-ocr` *unhealthy* logo após subir | carregamento dos modelos; ou OOM | aguarde `start_period`; `dmesg | grep -i oom`; reduza o tamanho dos PDFs |
 | 413 em upload | limite do Caddy/Nginx/PHP (100 MB por lote) | os três já estão em 110 MB; reduza o lote |
-| Worker parado / jobs presos | job > 450 s ou worker reiniciado | `sudo bulai-deploy logs worker`; `queue:failed`; `DB_QUEUE_RETRY_AFTER` deve ser > 450 |
+| Worker parado / jobs presos | job > 450 s ou worker reiniciado | `sudo bulai-deploy logs worker`; `queue:failed`; `REDIS_QUEUE_RETRY_AFTER` (fixo em 900 no compose) deve ser > 450; se o Redis reiniciou, use "Reenfileirar parados" em Fila e serviços |
 | `Permission denied` em `storage` | dono incorreto de `/srv/bulai/shared/storage` | `sudo chown -R 10010:10010 /srv/bulai/shared/storage` (com o stack parado); o `check` do deploy também aponta divergências de dono/modo |
 | 502 no Nginx | `app` sem socket (container reiniciando) | `sudo bulai-deploy logs app`; confira `/srv/bulai/shared/run` (`2750 10010:10030`) |
 | Disco cheio | imagens/logs/backups acumulados | `sudo bulai-deploy prune`; remova backups antigos; `docker system df` |

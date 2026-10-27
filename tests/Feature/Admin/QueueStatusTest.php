@@ -18,6 +18,7 @@ use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Redis;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -74,6 +75,29 @@ final class QueueStatusTest extends TestCase
         $this->assertCount(2, $snapshot['items']);
         $this->assertSame(1, $snapshot['stale']);
         $this->assertFalse(collect($snapshot['items'])->firstWhere('id', $fresh->id)['stale']);
+    }
+
+    public function test_snapshot_reads_the_redis_queue(): void
+    {
+        config()->set('queue.default', 'redis');
+        [, $item] = $this->pendingItem('r.pdf', 'queued');
+        $payload = json_encode(['data' => ['command' => serialize(new ClassifyPendingDocument($item->ingestion_batch_id, $item->id))]]);
+        $connection = \Mockery::mock();
+        $connection->shouldReceive('llen')->with('queues:default')->andReturn(1);
+        $connection->shouldReceive('zcard')->with('queues:default:delayed')->andReturn(0);
+        $connection->shouldReceive('zcard')->with('queues:default:reserved')->andReturn(2);
+        $connection->shouldReceive('lrange')->with('queues:default', 0, 499)->andReturn([$payload]);
+        Redis::shouldReceive('connection')->with('default')->andReturn($connection);
+
+        $snapshot = app(QueueStatusService::class)->snapshot();
+
+        $this->assertSame(1, $snapshot['jobs']['waiting']);
+        $this->assertSame(2, $snapshot['jobs']['running']);
+        $this->assertTrue($snapshot['items'][0]['has_job']);
+
+        $connection->shouldReceive('lrange')->with('queues:default', 0, -1)->andReturn([$payload]);
+        $connection->shouldReceive('lrem')->once()->with('queues:default', 1, $payload)->andReturn(1);
+        $this->assertSame(1, app(QueueStatusService::class)->removeWaitingJobs($item->id));
     }
 
     public function test_requeue_and_cancel_act_only_on_the_chosen_item(): void

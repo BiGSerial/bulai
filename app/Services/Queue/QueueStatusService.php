@@ -4,6 +4,7 @@ namespace App\Services\Queue;
 
 use App\Models\Knowledge\IngestionBatchItem;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
 
 /** Fotografia da fila de análise: worker, jobs no banco e itens em andamento/travados. */
@@ -23,11 +24,22 @@ final class QueueStatusService
     {
         $jobs = ['waiting' => 0, 'running' => 0, 'failed' => 0];
         $jobItemIds = [];
-        if (config('queue.default') === 'database' && Schema::hasTable(config('queue.connections.database.table', 'jobs'))) {
-            $table = (string) config('queue.connections.database.table', 'jobs');
+        $driver = $this->driver();
+        if ($driver === 'database') {
+            $table = $this->table();
             $jobs['waiting'] = DB::table($table)->whereNull('reserved_at')->count();
             $jobs['running'] = DB::table($table)->whereNotNull('reserved_at')->count();
             $jobItemIds = $this->itemIdsInQueue($table);
+        } elseif ($driver === 'redis') {
+            $redis = $this->redis();
+            $key = $this->redisKey();
+            $jobs['waiting'] = (int) $redis->llen($key) + (int) $redis->zcard($key.':delayed');
+            $jobs['running'] = (int) $redis->zcard($key.':reserved');
+            foreach (array_slice((array) $redis->lrange($key, 0, 499), 0, 500) as $payload) {
+                if (($id = $this->itemIdOf((string) $payload)) !== null) {
+                    $jobItemIds[] = $id;
+                }
+            }
         }
         if (Schema::hasTable('failed_jobs')) {
             $jobs['failed'] = DB::table('failed_jobs')->count();
@@ -61,11 +73,22 @@ final class QueueStatusService
     /** Remove da fila os jobs ainda não iniciados deste item (evita análise duplicada ou indesejada). */
     public function removeWaitingJobs(int $itemId): int
     {
-        $table = (string) config('queue.connections.database.table', 'jobs');
-        if (config('queue.default') !== 'database' || ! Schema::hasTable($table)) {
+        $removed = 0;
+        if ($this->driver() === 'redis') {
+            $redis = $this->redis();
+            $key = $this->redisKey();
+            foreach ((array) $redis->lrange($key, 0, -1) as $payload) {
+                if ($this->itemIdOf((string) $payload) === $itemId) {
+                    $removed += (int) $redis->lrem($key, 1, $payload);
+                }
+            }
+
+            return $removed;
+        }
+        $table = $this->table();
+        if ($this->driver() !== 'database') {
             return 0;
         }
-        $removed = 0;
         foreach (DB::table($table)->whereNull('reserved_at')->get(['id', 'payload']) as $row) {
             if ($this->itemIdOf((string) $row->payload) === $itemId) {
                 $removed += DB::table($table)->where('id', $row->id)->whereNull('reserved_at')->delete();
@@ -73,6 +96,31 @@ final class QueueStatusService
         }
 
         return $removed;
+    }
+
+    private function driver(): ?string
+    {
+        $driver = config('queue.connections.'.config('queue.default').'.driver');
+        if ($driver === 'database' && ! Schema::hasTable($this->table())) {
+            return null;
+        }
+
+        return is_string($driver) ? $driver : null;
+    }
+
+    private function table(): string
+    {
+        return (string) config('queue.connections.database.table', 'jobs');
+    }
+
+    private function redis(): mixed
+    {
+        return Redis::connection(config('queue.connections.'.config('queue.default').'.connection', 'default'));
+    }
+
+    private function redisKey(): string
+    {
+        return 'queues:'.config('queue.connections.'.config('queue.default').'.queue', 'default');
     }
 
     private function itemIdOf(string $payload): ?int
