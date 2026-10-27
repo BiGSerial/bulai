@@ -8,6 +8,7 @@ use App\Services\Knowledge\DocumentOcrClient;
 use App\Services\Knowledge\DocumentOcrException;
 use App\Services\Knowledge\DocumentTextExtractionService;
 use App\Services\Knowledge\HeuristicExtractionQualityEvaluator;
+use App\Services\Knowledge\PageLimitedDocumentOcrClient;
 use App\Services\Knowledge\PdfTextExtractor;
 use Tests\TestCase;
 
@@ -86,6 +87,56 @@ final class DocumentTextExtractionServiceTest extends TestCase
 
             public function extract(string $absolutePath): ExtractedPdf
             {
+                return $this->document;
+            }
+        };
+    }
+
+    public function test_first_pages_supplement_adds_only_the_lines_ocr_saw_and_keeps_native_text(): void
+    {
+        $native = new ExtractedPdf([new ExtractedPage(1, "Bula para o profissional\nMerck S/A"), new ExtractedPage(2, 'Texto nativo da página 2')]);
+        $ocr = $this->limitedOcr(new ExtractedPdf([new ExtractedPage(1, "GLIFAGE®\ncloridrato de metformina\nMerck S/A"), new ExtractedPage(2, 'Texto nativo da página 2')], ['engine' => 'paddleocr']));
+
+        $result = $this->service($this->text($native), $ocr)->supplementFirstPages($native, '/fake.pdf', 3);
+
+        $this->assertSame(3, $ocr->requestedPages);
+        $this->assertSame(2, $result['added_lines']);
+        $this->assertSame('paddleocr', $result['engine']);
+        $this->assertSame("Bula para o profissional\nMerck S/A\nGLIFAGE®\ncloridrato de metformina", $result['document']->pages[0]->text);
+        $this->assertSame('Texto nativo da página 2', $result['document']->pages[1]->text);
+    }
+
+    public function test_first_pages_supplement_is_skipped_when_disabled_unsupported_failing_or_adding_nothing(): void
+    {
+        $native = new ExtractedPdf([new ExtractedPage(1, 'Merck S/A')]);
+        $same = new ExtractedPdf([new ExtractedPage(1, 'MERCK S/A')]);
+
+        $this->assertNull($this->service($this->text($native), $this->limitedOcr($same))->supplementFirstPages($native, '/f.pdf', 0), 'páginas = 0 desativa');
+        $this->assertNull($this->service($this->text($native), $this->ocr($same))->supplementFirstPages($native, '/f.pdf', 3), 'cliente sem suporte a limite de páginas');
+        $this->assertNull($this->service($this->text($native), $this->limitedOcr(null, DocumentOcrException::UNAVAILABLE))->supplementFirstPages($native, '/f.pdf', 3), 'OCR indisponível');
+        $this->assertNull($this->service($this->text($native), $this->limitedOcr($same))->supplementFirstPages($native, '/f.pdf', 3), 'sem linhas novas');
+    }
+
+    private function limitedOcr(?ExtractedPdf $document, ?string $failWith = null): object
+    {
+        return new class($document, $failWith) implements PageLimitedDocumentOcrClient
+        {
+            public ?int $requestedPages = null;
+
+            public function __construct(private readonly ?ExtractedPdf $document, private readonly ?string $failWith) {}
+
+            public function parse(string $localFile): ExtractedPdf
+            {
+                return $this->parseFirstPages($localFile, 0);
+            }
+
+            public function parseFirstPages(string $localFile, int $pages): ExtractedPdf
+            {
+                $this->requestedPages = $pages;
+                if ($this->failWith !== null) {
+                    throw new DocumentOcrException($this->failWith);
+                }
+
                 return $this->document;
             }
         };

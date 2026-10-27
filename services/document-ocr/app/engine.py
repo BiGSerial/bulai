@@ -18,6 +18,9 @@ def build_engine(settings: Settings) -> DocumentOcrEngine:
     if settings.engine == "paddleocr":
         from .engines.paddle import PaddleOcrEngine
 
-        return PaddleOcrEngine(language=settings.language, dpi=settings.render_dpi)
+        return PaddleOcrEngine(
+            language=settings.language, dpi=settings.render_dpi, det_model=settings.det_model, rec_model=settings.rec_model,
+            enable_mkldnn=settings.enable_mkldnn, cpu_threads=settings.cpu_threads,
+        )
 
     raise ValueError(f"Engine OCR não suportado: {settings.engine}")

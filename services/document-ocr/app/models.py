@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class InputDocument:
     path: Path
     max_pages: int
+    page_limit: int | None = None  # processa só as N primeiras páginas (capa/identificação), sem OCR do documento inteiro
 
 
 @dataclass

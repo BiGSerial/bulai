@@ -1,0 +1,91 @@
+name: OCR (imagem e teste real)
+
+# Constrói a imagem do OCR do jeito de produção (modelos embutidos), sobe o container endurecido e roda um OCR REAL
+# de um PDF só com imagem. Existe porque o CI principal não constrói esta imagem (é pesada) e uma quebra do PaddleOCR
+# (oneDNN, versões novas) passou despercebida. NÃO publica imagens: a publicação continua só no deploy, após aprovação.
+#   - pull_request / push na main: quando algo do OCR muda (versões fixadas em constraints.txt).
+#   - semanal (canário): constrói SEM constraints para detectar cedo versões novas do Paddle que quebrem.
+on:
+  pull_request:
+    paths:
+      - "services/document-ocr/**"
+      - ".github/workflows/ocr-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/document-ocr/**"
+      - ".github/workflows/ocr-image.yml"
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      use_constraints:
+        description: "Usar as versões fixadas (constraints.txt)? Desmarque para testar versões novas."
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ocr-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ocr:
+    name: ${{ github.event_name == 'schedule' && 'Canário (versões novas)' || 'Imagem, OCR real e varredura' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      USE_CONSTRAINTS: ${{ github.event_name == 'schedule' && '0' || (inputs.use_constraints == false && '0' || '1') }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+      - name: Testes unitários do serviço
+        working-directory: services/document-ocr
+        run: |
+          pip install --no-cache-dir ".[test]"
+          python -m pytest -q
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Construir a imagem (modelos embutidos, como em produção)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: services/document-ocr
+          build-args: |
+            PREFETCH_MODELS=1
+            USE_CONSTRAINTS=${{ env.USE_CONSTRAINTS }}
+          load: true
+          push: false
+          tags: bulai-ocr:ci
+          cache-from: type=gha,scope=ocr-ci
+          cache-to: type=gha,scope=ocr-ci,mode=max
+      - name: Subir o container (sem capabilities, limites de produção)
+        run: |
+          docker run -d --name ocr -p 127.0.0.1:18090:8000 --cap-drop ALL --security-opt no-new-privileges:true \
+            --memory 2g --cpus 2 -e OCR_API_TOKEN=ci-token --tmpfs /tmp:size=256m bulai-ocr:ci
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18090/health >/dev/null 2>&1; then echo "serviço no ar"; exit 0; fi
+            sleep 2
+          done
+          docker logs ocr | tail -30; exit 1
+      - name: OCR real de um PDF só com imagem
+        run: |
+          pip install --no-cache-dir pillow
+          python services/document-ocr/smoke/ocr_smoke.py http://127.0.0.1:18090 ci-token
+      - name: O serviço recusa chamadas sem o token
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -F 'file=@/dev/null' http://127.0.0.1:18090/v1/documents/parse)
+          [ "$code" = "401" ] || { echo "esperado 401, obtido $code"; exit 1; }
+      - name: Logs do container (em caso de falha)
+        if: failure()
+        run: docker logs ocr | tail -80
+      - name: Varredura de vulnerabilidades (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: bulai-ocr:ci
+          severity: CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          vuln-type: os,library

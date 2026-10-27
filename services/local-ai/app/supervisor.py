@@ -35,7 +35,7 @@ class Config:
     port: int = 8080
     upstream_port: int = 8081
     threads: int = 4
-    context: int = 2048
+    context: int = 8192
     load_timeout: int = 600
     request_timeout: int = 120
     max_body_bytes: int = 256 * 1024
@@ -52,7 +52,7 @@ class Config:
             port=int(env.get("LOCAL_AI_PORT", "8080")),
             upstream_port=int(env.get("LOCAL_AI_UPSTREAM_PORT", "8081")),
             threads=int(env.get("LOCAL_AI_THREADS", "4")),
-            context=int(env.get("LOCAL_AI_CONTEXT", "2048")),
+            context=int(env.get("LOCAL_AI_CONTEXT", "8192")),
             load_timeout=int(env.get("LOCAL_AI_LOAD_TIMEOUT", "600")),
             request_timeout=int(env.get("LOCAL_AI_REQUEST_TIMEOUT", "120")),
         )

@@ -56,6 +56,20 @@ final class HttpDocumentOcrClientTest extends TestCase
             && $request->hasHeader('X-Correlation-Id'));
     }
 
+    public function test_first_pages_request_sends_the_page_limit_and_the_full_request_does_not(): void
+    {
+        Http::fake(['*' => Http::response(['engine' => 'paddleocr', 'pages' => [['page' => 1, 'text' => 'Capa']], 'processing' => ['duration_ms' => 10]])]);
+        $client = new HttpDocumentOcrClient;
+
+        $client->parseFirstPages($this->file, 3);
+        $client->parse($this->file);
+
+        $bodies = Http::recorded()->map(fn (array $pair): string => (string) $pair[0]->body());
+        $this->assertStringContainsString('name="page_limit"', $bodies[0]);
+        $this->assertStringContainsString("\r\n3\r\n", $bodies[0]);
+        $this->assertStringNotContainsString('page_limit', $bodies[1]);
+    }
+
     public function test_disabled_or_unconfigured_ocr_does_not_call_the_service(): void
     {
         Http::fake();

@@ -11,9 +11,19 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-final class HttpDocumentOcrClient implements DocumentOcrClient
+final class HttpDocumentOcrClient implements PageLimitedDocumentOcrClient
 {
     public function parse(string $localFile): ExtractedPdf
+    {
+        return $this->send($localFile, null);
+    }
+
+    public function parseFirstPages(string $localFile, int $pages): ExtractedPdf
+    {
+        return $this->send($localFile, max(1, $pages));
+    }
+
+    private function send(string $localFile, ?int $pageLimit): ExtractedPdf
     {
         $correlationId = Str::uuid()->toString();
         $config = config('document_ocr.drivers.http');
@@ -32,7 +42,7 @@ final class HttpDocumentOcrClient implements DocumentOcrClient
         try {
             $response = $this->request($config, $correlationId)
                 ->attach('file', $contents, 'document.pdf', ['Content-Type' => 'application/pdf'])
-                ->post(rtrim((string) $config['url'], '/').'/v1/documents/parse');
+                ->post(rtrim((string) $config['url'], '/').'/v1/documents/parse', $pageLimit === null ? [] : ['page_limit' => $pageLimit]);
         } catch (ConnectionException $exception) {
             $code = str_contains($exception->getMessage(), 'timed out') || str_contains($exception->getMessage(), 'cURL error 28')
                 ? DocumentOcrException::TIMEOUT

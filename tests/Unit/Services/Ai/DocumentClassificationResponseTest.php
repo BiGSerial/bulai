@@ -19,6 +19,16 @@ final class DocumentClassificationResponseTest extends TestCase
         $this->assertCount(2, $response->evidence);
     }
 
+    public function test_overlong_evidence_is_shortened_instead_of_discarding_a_correct_answer(): void
+    {
+        $response = DocumentClassificationResponse::fromModelOutput(json_encode([...self::valid(), 'evidence' => [str_repeat('x', 900), 'curta']]), 'qwen');
+
+        $this->assertSame(400, mb_strlen($response->evidence[0]));
+        $this->assertStringEndsWith('…', $response->evidence[0]);
+        $this->assertSame('curta', $response->evidence[1]);
+        $this->assertSame('Novalgina', $response->productName);
+    }
+
     public function test_evidence_quotes_as_long_as_the_excerpts_sent_to_the_model_are_accepted(): void
     {
         $response = DocumentClassificationResponse::fromModelOutput(json_encode([...self::valid(), 'evidence' => [str_repeat('x', 400)]]), 'qwen');
@@ -62,7 +72,6 @@ final class DocumentClassificationResponseTest extends TestCase
             'product not string' => [json_encode([...$valid, 'product_name' => ['a']])],
             'evidence not list of strings' => [json_encode([...$valid, 'evidence' => [1]])],
             'too much evidence' => [json_encode([...$valid, 'evidence' => array_fill(0, 6, 'x')])],
-            'evidence quote over the limit' => [json_encode([...$valid, 'evidence' => [str_repeat('x', 501)]])],
         ];
     }
 

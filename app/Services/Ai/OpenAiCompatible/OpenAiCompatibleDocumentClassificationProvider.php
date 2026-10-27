@@ -15,7 +15,7 @@ final class OpenAiCompatibleDocumentClassificationProvider implements DocumentCl
 {
     private const SYSTEM_PROMPT = 'Você identifica bulas de medicamentos. Use SOMENTE os candidatos e trechos fornecidos; '
         .'não invente nomes. Responda apenas com um objeto JSON com exatamente as chaves product_name, active_ingredient, '
-        .'document_type (bula_paciente, bula_profissional ou null), confidence (número de 0 a 1) e evidence (lista de até 3 trechos literais, cada um com no máximo 120 caracteres). '
+        .'document_type (bula_paciente, bula_profissional ou null), confidence (número de 0 a 1) e evidence (lista de até 2 trechos literais curtos, cada um com no máximo 120 caracteres). '
         .'Use null quando não houver evidência.';
 
     public function __construct(private readonly OpenAiCompatibleClient $client) {}
@@ -32,7 +32,7 @@ final class OpenAiCompatibleDocumentClassificationProvider implements DocumentCl
         $body = $this->client->post('chat/completions', [
             'model' => $model,
             'temperature' => 0,
-            'max_tokens' => 700,
+            'max_tokens' => 1200,
             'messages' => [
                 ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
                 ['role' => 'user', 'content' => $payload],
@@ -48,7 +48,7 @@ final class OpenAiCompatibleDocumentClassificationProvider implements DocumentCl
         try {
             $response = DocumentClassificationResponse::fromModelOutput($content, is_string($body['model'] ?? null) ? mb_substr($body['model'], 0, 100) : $model, [
                 'provider' => $this->client->provider,
-                'prompt' => ['system' => self::SYSTEM_PROMPT, 'temperature' => 0, 'max_tokens' => 700, 'structured_output' => $this->client->option('structured_output') === 'grammar' ? 'grammar' : 'json_schema'],
+                'prompt' => ['system' => self::SYSTEM_PROMPT, 'temperature' => 0, 'max_tokens' => 1200, 'structured_output' => $this->client->option('structured_output') === 'grammar' ? 'grammar' : 'json_schema'],
                 'raw_response' => mb_substr($content, 0, 4000),
             ]);
         } catch (AiProviderException) {

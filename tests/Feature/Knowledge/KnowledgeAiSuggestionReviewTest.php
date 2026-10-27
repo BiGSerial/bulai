@@ -97,6 +97,22 @@ final class KnowledgeAiSuggestionReviewTest extends TestCase
             ->assertSee('01/2033');
     }
 
+    public function test_panel_shows_the_molecular_formula_and_the_ocr_supplement_note(): void
+    {
+        [$batch, $item] = $this->rejectedItem();
+        $metadata = $item->metadata;
+        $metadata['preliminary_identification']['fields']['molecular_formula'] = 'C4H11N5·HCl';
+        $metadata['preliminary_identification']['extraction'] = ['extraction_method' => 'pdf_text', 'ocr_supplement' => ['pages' => 3, 'added_lines' => 4, 'engine' => 'paddleocr', 'score_before' => 55, 'score_after' => 75, 'adopted' => true]];
+        $item->forceFill(['metadata' => $metadata])->save();
+
+        Livewire::actingAs(User::factory()->admin()->create())->test(Review::class, ['batch' => $batch, 'item' => $item->refresh()])
+            ->assertSee('Fórmula molecular')
+            ->assertSee('C4H11N5·HCl')
+            ->assertSee('Texto nativo + OCR da capa')
+            ->assertSee('o OCR leu as 3 primeiras páginas e acrescentou 4 linhas')
+            ->assertSee('resultado adotado');
+    }
+
     public function test_admin_can_accept_selected_ai_fields_and_it_is_audited_and_prefills_the_new_document(): void
     {
         [$batch, $item] = $this->rejectedItem();

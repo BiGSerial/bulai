@@ -14,6 +14,8 @@ return [
             'max_pdf_bytes' => (int) env('DOCUMENT_OCR_MAX_PDF_BYTES', 25 * 1024 * 1024),
         ],
     ],
+    // OCR complementar das N primeiras páginas (capa/identificação) quando a heurística, mesmo com texto nativo, não achou candidatos confiáveis. 0 = desativado.
+    'supplement_pages' => (int) env('DOCUMENT_OCR_SUPPLEMENT_PAGES', 3),
     'quality' => [
         'min_score' => (float) env('DOCUMENT_QUALITY_MIN_SCORE', 0.6),
         'min_characters' => (int) env('DOCUMENT_QUALITY_MIN_CHARACTERS', 400),

@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     OMP_NUM_THREADS=2 \
     OCR_MAX_CONCURRENCY=1 \
+    OCR_ENABLE_MKLDNN=0 \
     OCR_PORT=8000
 
 RUN apt-get update \
@@ -14,9 +15,16 @@ RUN apt-get update \
     && useradd --create-home --uid 10001 ocr
 
 WORKDIR /srv
-COPY pyproject.toml .
+ENV PYTHONPATH=/srv
+
+# Dependências primeiro (camada pesada em cache: mudar o código do serviço não reinstala o Paddle).
+# USE_CONSTRAINTS=1 (padrão) usa as versões exatas validadas em constraints.txt; o canário semanal usa 0 para testar versões novas.
+ARG USE_CONSTRAINTS=1
+COPY pyproject.toml constraints.txt ./
+RUN python -c "import tomllib; p = tomllib.load(open('pyproject.toml', 'rb'))['project']; print('\n'.join(p['dependencies'] + p['optional-dependencies']['paddle']))" > /tmp/requirements.txt \
+    && if [ "$USE_CONSTRAINTS" = "1" ]; then pip install -c constraints.txt -r /tmp/requirements.txt; else pip install -r /tmp/requirements.txt; fi \
+    && rm /tmp/requirements.txt
 COPY app ./app
-RUN pip install ".[paddle]"
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 USER ocr
@@ -25,7 +33,7 @@ USER ocr
 # de internet em execução e o primeiro OCR não demore. Em desenvolvimento (padrão 0) os modelos são baixados no primeiro uso.
 ARG PREFETCH_MODELS=0
 RUN if [ "$PREFETCH_MODELS" = "1" ]; then \
-        python -c "from paddleocr import PaddleOCR; PaddleOCR(lang='pt', use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False)"; \
+        python -m app.warmup; \
     fi
 
 EXPOSE 8000

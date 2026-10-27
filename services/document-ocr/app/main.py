@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 
 from starlette.concurrency import run_in_threadpool
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 
 from .config import Settings
 from .engine import DocumentOcrEngine, EngineError, build_engine
@@ -52,9 +52,12 @@ def create_app(settings: Settings | None = None, engine: DocumentOcrEngine | Non
     async def parse(
         request: Request,
         file: UploadFile = File(...),
+        page_limit: int | None = Form(default=None),
         x_correlation_id: str | None = Header(default=None),
     ) -> ParseResponse:
         correlation_id = x_correlation_id or str(uuid.uuid4())
+        if page_limit is not None and not 1 <= page_limit <= settings.max_pages:
+            raise HTTPException(status_code=422, detail="invalid page_limit")
         started = time.perf_counter()
 
         contents = await file.read(settings.max_pdf_bytes + 1)
@@ -68,7 +71,7 @@ def create_app(settings: Settings | None = None, engine: DocumentOcrEngine | Non
             path.write_bytes(contents)
             try:
                 async with limiter:
-                    parsed = await run_in_threadpool(get_engine().parse, InputDocument(path=path, max_pages=settings.max_pages))
+                    parsed = await run_in_threadpool(get_engine().parse, InputDocument(path=path, max_pages=settings.max_pages, page_limit=page_limit))
             except EngineError:
                 logger.warning("ocr_engine_error correlation_id=%s", correlation_id)
                 raise HTTPException(status_code=422, detail="document could not be parsed")
