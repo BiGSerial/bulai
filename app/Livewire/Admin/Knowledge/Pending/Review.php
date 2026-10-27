@@ -161,16 +161,18 @@ class Review extends Component
         }
     }
 
+    /** Reanalisa só este documento, na fila, sem bloquear a tela. */
     public function reanalyze(KnowledgePendingItemReanalysisService $service): void
     {
-        $result = $service->reanalyze($this->batch->id, $this->item->id, auth()->user());
+        if (! $service->queueItem($this->item->id, auth()->user())) {
+            [$this->feedbackType, $this->feedbackMessage] = ['info', 'Este item já está em análise ou foi resolvido.'];
+            $this->refreshItem();
+
+            return;
+        }
+        ClassifyPendingDocument::dispatch($this->batch->id, $this->item->id, false, auth()->id());
         $this->refreshItem();
-        [$this->feedbackType, $this->feedbackMessage] = match ($result['status']) {
-            IngestionBatchItem::STATUS_ASSOCIATED => ['success', 'Reanálise concluída e documento associado.'],
-            IngestionBatchItem::STATUS_PENDING => ['warning', 'A reanálise foi concluída, mas o item ainda requer decisão administrativa.'],
-            'ALREADY_RESOLVED' => ['info', 'Este item já foi resolvido por outra operação.'],
-            default => ['error', $result['error_code'] === 'PENDING_FILE_INVALID' ? 'A integridade do arquivo não pôde ser confirmada. A reanálise foi bloqueada.' : 'Não foi possível concluir a reanálise.'],
-        };
+        [$this->feedbackType, $this->feedbackMessage] = ['info', 'Reanálise enfileirada. Esta tela atualiza sozinha quando terminar.'];
     }
 
     public function ignore(KnowledgeIngestionAuditService $audit): void

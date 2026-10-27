@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\KnowledgeBatchItemFileController;
+use App\Http\Controllers\Admin\KnowledgeStreamController;
 use App\Http\Controllers\Admin\ServiceHealthController;
 use App\Http\Controllers\Auth\AccountController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
@@ -16,6 +17,7 @@ use App\Livewire\Admin\Knowledge\Catalog\Index as KnowledgeCatalogIndex;
 use App\Livewire\Admin\Knowledge\Dashboard as KnowledgeDashboard;
 use App\Livewire\Admin\Knowledge\Pending\Index as KnowledgePendingIndex;
 use App\Livewire\Admin\Knowledge\Pending\Review as KnowledgePendingReview;
+use App\Livewire\Admin\Knowledge\QueueStatus as KnowledgeQueueStatus;
 use App\Livewire\Admin\Knowledge\Sources\Form as KnowledgeSourceForm;
 use App\Livewire\Admin\Knowledge\Sources\Index as KnowledgeSourceIndex;
 use App\Livewire\Admin\Knowledge\Sources\Show as KnowledgeSourceShow;
@@ -58,6 +60,8 @@ Route::prefix('admin')
     ->group(function (): void {
         Route::get('/knowledge', KnowledgeDashboard::class)->name('knowledge.dashboard');
         Route::get('/knowledge/services/health', ServiceHealthController::class)->name('knowledge.services.health');
+        Route::get('/knowledge/stream', KnowledgeStreamController::class)->name('knowledge.stream');
+        Route::get('/knowledge/queue', KnowledgeQueueStatus::class)->name('knowledge.queue');
         Route::get('/knowledge/upload', KnowledgeUpload::class)->name('knowledge.upload');
         Route::get('/knowledge/sources', KnowledgeSourceIndex::class)->name('knowledge.sources.index');
         Route::get('/knowledge/sources/create', KnowledgeSourceForm::class)->name('knowledge.sources.create');

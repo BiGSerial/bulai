@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Knowledge\Pending;
 
+use App\Jobs\ClassifyPendingDocument;
 use App\Jobs\ReanalyzePendingKnowledgeBatch;
 use App\Models\Knowledge\IngestionBatchItem;
 use App\Services\Knowledge\KnowledgePendingItemReanalysisService;
@@ -35,6 +36,19 @@ class Index extends Component
             ReanalyzePendingKnowledgeBatch::dispatch($batchId, auth()->id());
         }
         $this->feedback = $queued === 1 ? '1 item enviado para reanálise.' : "{$queued} itens enviados para reanálise.";
+    }
+
+    /** Reanalisa somente este documento (em vez de todos os pendentes). */
+    public function reanalyzeItem(KnowledgePendingItemReanalysisService $service, int $itemId): void
+    {
+        $item = IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->find($itemId);
+        if ($item === null || ! $service->queueItem($item->id, auth()->user())) {
+            $this->feedback = 'Este item já está em análise ou foi resolvido.';
+
+            return;
+        }
+        ClassifyPendingDocument::dispatch($item->ingestion_batch_id, $item->id, false, auth()->id());
+        $this->feedback = 'Documento enviado para reanálise.';
     }
 
     public function render(): View

@@ -4,6 +4,7 @@ namespace App\Services\Health;
 
 use App\Data\Health\ServiceHealth;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -29,7 +30,7 @@ final class ServiceHealthChecker
             return new ServiceHealth('ocr', ServiceHealth::DISABLED);
         }
 
-        return $this->cached('ocr', fn (): ServiceHealth => $this->probe('ocr', rtrim((string) $url, '/').'/health', false));
+        return $this->cached('ocr', fn (): ServiceHealth => $this->probe('ocr', rtrim((string) $url, '/').'/status', false));
     }
 
     /** @return array{local_ai: ServiceHealth, ocr: ServiceHealth} */
@@ -43,7 +44,7 @@ final class ServiceHealthChecker
         try {
             $cached = Cache::remember("service-health:{$service}", self::CACHE_SECONDS, fn (): array => get_object_vars($resolver()));
             if (is_array($cached) && is_string($cached['state'] ?? null)) {
-                return new ServiceHealth($service, $cached['state'], is_int($cached['latencyMs'] ?? null) ? $cached['latencyMs'] : null, is_string($cached['model'] ?? null) ? $cached['model'] : null);
+                return ServiceHealth::fromArray($service, $cached);
             }
         } catch (\Throwable) {
             // Cache indisponível: sonda diretamente.
@@ -57,19 +58,39 @@ final class ServiceHealthChecker
         $startedAt = hrtime(true);
         try {
             $response = Http::acceptJson()->timeout(3)->connectTimeout(2)->get($url);
+            if (! $reportsState && $response->status() === 404) {
+                // Imagem antiga do OCR sem /status: cai para /health (sem dados de atividade).
+                $response = Http::acceptJson()->timeout(3)->connectTimeout(2)->get(preg_replace('#/status$#', '/health', $url));
+            }
         } catch (ConnectionException) {
             return new ServiceHealth($service, ServiceHealth::UNREACHABLE);
         }
 
         $latency = (int) ((hrtime(true) - $startedAt) / 1_000_000);
         if (! $reportsState) {
-            return new ServiceHealth($service, $response->successful() ? ServiceHealth::READY : ServiceHealth::ERROR, $latency);
+            return new ServiceHealth($service, $response->successful() ? ServiceHealth::READY : ServiceHealth::ERROR, $latency, null, ...$this->activity($response));
         }
 
         $state = $response->json('status');
         $known = [ServiceHealth::READY, ServiceHealth::SERVICE_AVAILABLE, ServiceHealth::MODEL_LOADING, ServiceHealth::MODEL_NOT_INSTALLED, ServiceHealth::ERROR];
         $model = $response->json('model');
 
-        return new ServiceHealth($service, in_array($state, $known, true) ? $state : ServiceHealth::ERROR, $latency, is_string($model) ? mb_substr($model, 0, 100) : null);
+        return new ServiceHealth($service, in_array($state, $known, true) ? $state : ServiceHealth::ERROR, $latency, is_string($model) ? mb_substr($model, 0, 100) : null, ...$this->activity($response));
+    }
+
+    /**
+     * @return array{busy: ?bool, activeRequests: ?int, currentSeconds: ?int, restarts: ?int}
+     */
+    private function activity(Response $response): array
+    {
+        $int = fn (mixed $value): ?int => is_int($value) ? max(0, $value) : null;
+        $busy = $response->json('busy');
+
+        return [
+            'busy' => is_bool($busy) ? $busy : null,
+            'activeRequests' => $int($response->json('active_requests') ?? $response->json('active')),
+            'currentSeconds' => $int(is_numeric($response->json('current_seconds')) ? (int) $response->json('current_seconds') : null),
+            'restarts' => $int($response->json('restarts')),
+        ];
     }
 }

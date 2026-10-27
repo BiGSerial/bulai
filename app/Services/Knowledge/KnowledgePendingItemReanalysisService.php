@@ -158,17 +158,30 @@ final class KnowledgePendingItemReanalysisService
     }
 
     /** Marca um único item como enfileirado para a análise (usado pelo pedido explícito de análise da IA). */
-    public function queueItem(int $itemId, ?User $actor = null, bool $forceAi = false): bool
+    public function queueItem(int $itemId, ?User $actor = null, bool $forceAi = false, bool $replaceActive = false): bool
     {
-        return DB::transaction(function () use ($itemId, $actor, $forceAi): bool {
+        return DB::transaction(function () use ($itemId, $actor, $forceAi, $replaceActive): bool {
             $item = IngestionBatchItem::query()->whereKey($itemId)->lockForUpdate()->firstOrFail();
-            if ($item->status !== IngestionBatchItem::STATUS_PENDING || in_array(data_get($item->metadata, 'reanalysis_progress.state'), ['queued', 'processing'], true)) {
+            if ($item->status !== IngestionBatchItem::STATUS_PENDING || (! $replaceActive && in_array(data_get($item->metadata, 'reanalysis_progress.state'), ['queued', 'processing'], true))) {
                 return false;
             }
             $this->setProgress($item, 'queued', 5, $forceAi ? 'Aguardando a análise da IA' : 'Aguardando processamento');
             $this->audit->append($item, 'reanalysis_queued', $actor, $forceAi ? ['forced_ai' => true] : []);
 
             return true;
+        });
+    }
+
+    /** Cancela uma análise em andamento/enfileirada: o item segue pendente para revisão manual. */
+    public function cancel(int $itemId, ?User $actor = null): void
+    {
+        DB::transaction(function () use ($itemId, $actor): void {
+            $item = IngestionBatchItem::query()->whereKey($itemId)->lockForUpdate()->first();
+            if ($item === null || $item->status !== IngestionBatchItem::STATUS_PENDING) {
+                return;
+            }
+            $this->setProgress($item, 'failed', 100, 'Análise cancelada pelo administrador');
+            $this->audit->append($item, 'reanalysis_cancelled', $actor);
         });
     }
 

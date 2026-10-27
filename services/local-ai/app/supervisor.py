@@ -3,6 +3,7 @@
 Somente biblioteca padrão. O container nunca entra em crash loop por falta de modelo: ele reporta
 MODEL_NOT_INSTALLED e passa a iniciar o llamafile assim que o arquivo aparecer no volume.
 """
+import hmac
 import http.client
 import json
 import logging
@@ -39,6 +40,10 @@ class Config:
     load_timeout: int = 600
     request_timeout: int = 120
     max_body_bytes: int = 256 * 1024
+    # Token do POST /admin/restart; sem token a rota responde 404 (reinício nunca fica aberto).
+    admin_token: str | None = None
+    # Segundos que uma requisição ao llamafile pode ficar em voo antes de o watchdog reiniciá-lo; 0 desativa.
+    hang_timeout: int = 240
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> "Config":
@@ -55,6 +60,8 @@ class Config:
             context=int(env.get("LOCAL_AI_CONTEXT", "8192")),
             load_timeout=int(env.get("LOCAL_AI_LOAD_TIMEOUT", "600")),
             request_timeout=int(env.get("LOCAL_AI_REQUEST_TIMEOUT", "120")),
+            admin_token=env.get("LOCAL_AI_ADMIN_TOKEN") or None,
+            hang_timeout=max(0, int(env.get("LOCAL_AI_HANG_TIMEOUT", "240"))),
         )
 
 
@@ -87,8 +94,17 @@ def http_probe(port: int, timeout: float = 5.0) -> Probe:
 
 
 class Supervisor:
-    def __init__(self, config: Config, probe: Probe | None = None, spawn: Callable[[list[str]], subprocess.Popen] | None = None) -> None:
+    def __init__(self, config: Config, probe: Probe | None = None, spawn: Callable[[list[str]], subprocess.Popen] | None = None,
+                 clock: Callable[[], float] = time.time) -> None:
         self.config = config
+        self._clock = clock
+        self._booted_at = clock()
+        self._inflight: dict[int, tuple[float, int]] = {}
+        self._next_request_id = 0
+        self._generation = 0
+        self._completed = 0
+        self._failed = 0
+        self._total_restarts = 0
         self._probe = probe or http_probe(config.upstream_port)
         self._spawn = spawn or (lambda cmd: subprocess.Popen(cmd))
         self._process: subprocess.Popen | None = None
@@ -97,6 +113,7 @@ class Supervisor:
         self._next_restart_at = 0.0
         self._probe_ok = False
         self._lock = threading.Lock()
+        self._metrics_lock = threading.Lock()
         self._status = Status(SERVICE_AVAILABLE, model=config.model_name)
 
     def command(self) -> list[str]:
@@ -105,8 +122,68 @@ class Supervisor:
                 "-m", str(c.model_path), "-c", str(c.context), "-t", str(c.threads)]
 
     def status(self) -> Status:
+        # Leitura sem lock: _status é sempre substituído por um objeto novo, e o reinício pode segurar o lock por alguns segundos.
+        return self._status
+
+    def status_dict(self) -> dict:
+        """Estado do modelo (campos legados) mais ocupação do proxy, contadores e uptime."""
+        now = self._clock()
+        with self._metrics_lock:
+            oldest = min((started for started, _ in self._inflight.values()), default=None)
+            metrics = {
+                "busy": bool(self._inflight),
+                "active_requests": len(self._inflight),
+                "current_seconds": round(now - oldest, 3) if oldest is not None else None,
+                "completed": self._completed,
+                "failed": self._failed,
+                "restarts": self._total_restarts,
+                "uptime_seconds": round(now - self._booted_at, 3),
+            }
+        return {**self.status().as_dict(), **metrics}
+
+    def begin_request(self) -> int:
+        with self._metrics_lock:
+            self._next_request_id += 1
+            self._inflight[self._next_request_id] = (self._clock(), self._generation)
+            return self._next_request_id
+
+    def end_request(self, token: int, success: bool) -> None:
+        with self._metrics_lock:
+            self._inflight.pop(token, None)
+            if success:
+                self._completed += 1
+            else:
+                self._failed += 1
+
+    def check_hang(self, now: float | None = None) -> bool:
+        """Reinicia o llamafile se alguma requisição da geração atual passou de hang_timeout. Devolve se reiniciou."""
+        if self.config.hang_timeout <= 0:
+            return False
+        now = self._clock() if now is None else now
+        with self._metrics_lock:
+            ages = [now - started for started, generation in self._inflight.values() if generation == self._generation]
+        if not ages or max(ages) <= self.config.hang_timeout:
+            return False
+        log.error("local_ai_watchdog_restart seconds=%.0f timeout=%d", max(ages), self.config.hang_timeout)
+        self.request_restart(now)
+        return True
+
+    def request_restart(self, now: float | None = None) -> None:
+        """Reinicia apenas o subprocesso do llamafile; o estado volta a READY sozinho quando o modelo carregar."""
+        now = self._clock() if now is None else now
         with self._lock:
-            return self._status
+            with self._metrics_lock:
+                self._generation += 1
+                self._total_restarts += 1
+            self._terminate()
+            self._probe_ok = False
+            self._next_restart_at = 0.0
+            if not self.config.model_path.is_file():
+                self._set(MODEL_NOT_INSTALLED, "run scripts/install-local-model.sh")
+                return
+            self._process = self._spawn(self.command())
+            self._started_at = now
+            self._set(MODEL_LOADING, "restarting llamafile")
 
     def _set(self, state: str, detail: str | None = None) -> None:
         if self._status.state != state or self._status.detail != detail:
@@ -128,6 +205,8 @@ class Supervisor:
                 self._process = None
                 self._probe_ok = False
                 self._restarts += 1
+                with self._metrics_lock:
+                    self._total_restarts += 1
                 self._next_restart_at = now + min(60, 2 ** min(self._restarts, 6))
                 self._set(ERROR, f"llamafile exited with code {code}")
 
@@ -176,9 +255,14 @@ class Supervisor:
             return False
 
     def _terminate(self) -> None:
-        if self._process is not None and self._process.poll() is None:
-            self._process.terminate()
-        self._process = None
+        process, self._process = self._process, None
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
 
     def run_forever(self, interval: float = 3.0) -> None:
         while True:
@@ -186,6 +270,14 @@ class Supervisor:
                 self.tick()
             except Exception:  # o supervisor nunca deve morrer
                 log.exception("supervisor tick failed")
+            time.sleep(interval)
+
+    def watch_forever(self, interval: float = 5.0) -> None:
+        while True:
+            try:
+                self.check_hang()
+            except Exception:
+                log.exception("watchdog check failed")
             time.sleep(interval)
 
     def shutdown(self) -> None:
@@ -215,14 +307,30 @@ def make_handler(supervisor: Supervisor) -> type[BaseHTTPRequestHandler]:
         def do_GET(self):
             path = self.path.split("?")[0]
             if path == "/status":
-                return self._json(200, supervisor.status().as_dict())
+                return self._json(200, supervisor.status_dict())
             if path == "/health":
                 status = supervisor.status()
                 return self._json(200 if status.state == READY else 503, status.as_dict())
             self._proxy("GET", path)
 
         def do_POST(self):
+            path = self.path.split("?")[0]
+            if path == "/admin/restart":
+                return self._admin_restart()
             self._proxy("POST", self.path.split("?")[0])
+
+        def _admin_restart(self) -> None:
+            length = min(int(self.headers.get("Content-Length") or 0), config.max_body_bytes)
+            if length:
+                self.rfile.read(length)
+            if config.admin_token is None:
+                return self._json(404, {"error": "not_found"})
+            supplied = self.headers.get("Authorization") or ""
+            if not hmac.compare_digest(supplied.encode(), f"Bearer {config.admin_token}".encode()):
+                return self._json(401, {"error": "unauthorized"})
+            log.warning("local_ai_restart_requested")
+            supervisor.request_restart()
+            self._json(202, {"status": "restarting"})
 
         def _proxy(self, method: str, path: str) -> None:
             if (method, path) not in ALLOWED_PROXY:
@@ -234,14 +342,22 @@ def make_handler(supervisor: Supervisor) -> type[BaseHTTPRequestHandler]:
             if length > config.max_body_bytes:
                 return self._json(413, {"error": "payload_too_large"})
             body = self.rfile.read(length) if length else None
+            tracked = (method, path) == ("POST", "/v1/chat/completions")
+            token = supervisor.begin_request() if tracked else None
+            success = False
             try:
                 conn = http.client.HTTPConnection("127.0.0.1", config.upstream_port, timeout=config.request_timeout)
                 conn.request(method, path, body=body, headers={"Content-Type": "application/json"})
                 response = conn.getresponse()
-                self._send(response.status, response.read(), response.getheader("Content-Type") or "application/json")
+                payload = response.read()
                 conn.close()
+                success = response.status < 500
+                self._send(response.status, payload, response.getheader("Content-Type") or "application/json")
             except (OSError, http.client.HTTPException):
                 self._json(504, {"error": "upstream_timeout_or_unavailable"})
+            finally:
+                if token is not None:
+                    supervisor.end_request(token, success)
 
     return Handler
 
@@ -250,6 +366,7 @@ def serve(config: Config) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     supervisor = Supervisor(config)
     threading.Thread(target=supervisor.run_forever, daemon=True).start()
+    threading.Thread(target=supervisor.watch_forever, daemon=True).start()
     server = ThreadingHTTPServer((config.host, config.port), make_handler(supervisor))
     log.info("local-ai supervisor listening on %s:%d", config.host, config.port)
     try:
