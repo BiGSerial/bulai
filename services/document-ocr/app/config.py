@@ -17,6 +17,8 @@ class Settings:
     rec_model: str = "latin_PP-OCRv5_mobile_rec"
     enable_mkldnn: bool = False
     cpu_threads: int = 2
+    # Tempo máximo (s) de um documento em processamento antes do watchdog reiniciar o processo; 0 desativa.
+    request_timeout: int = 900
 
     @staticmethod
     def from_env() -> "Settings":
@@ -32,4 +34,5 @@ class Settings:
             rec_model=os.getenv("OCR_REC_MODEL", "latin_PP-OCRv5_mobile_rec"),
             enable_mkldnn=os.getenv("OCR_ENABLE_MKLDNN", "0").lower() in {"1", "true", "yes"},
             cpu_threads=max(1, int(os.getenv("OCR_CPU_THREADS", "2"))),
+            request_timeout=max(0, int(os.getenv("OCR_REQUEST_TIMEOUT", "900"))),
         )

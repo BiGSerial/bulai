@@ -20,6 +20,10 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libpq-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libicu-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" pdo_pgsql pcntl opcache gd zip intl \
+    && apt-get install -y --no-install-recommends $PHPIZE_DEPS \
+    && pecl install redis-6.2.0 \
+    && docker-php-ext-enable redis \
+    && apt-get purge -y $PHPIZE_DEPS \
     && apt-get purge -y libpq-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libicu-dev \
     && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*

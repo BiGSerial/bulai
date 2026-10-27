@@ -26,3 +26,13 @@ GPU é opcional e não é suportada pela imagem padrão; para usá-la, troque `p
 - O oneDNN do Paddle 3.x quebra na CPU (`ConvertPirAttribute2RuntimeAttribute not support …`): `OCR_ENABLE_MKLDNN=0` (padrão) o desliga. Os modelos `medium` levam ~1 min por página sem oneDNN; o padrão agora são os leves `PP-OCRv5_mobile_det` + `latin_PP-OCRv5_mobile_rec` (`OCR_DET_MODEL`, `OCR_REC_MODEL`; vazios = o Paddle escolhe pelo idioma), 150 dpi (`OCR_RENDER_DPI`), `OCR_CPU_THREADS=2`.
 - `python -m app.warmup` baixa esses modelos (usado no build de produção com `PREFETCH_MODELS=1`).
 - `POST /v1/documents/parse` aceita o campo de formulário `page_limit` (1..`OCR_MAX_PAGES`): processa só as N primeiras páginas (usado para complementar capas).
+
+## Ocupação, reinício e watchdog
+
+Sem Docker socket: o reinício acontece dentro do processo e o Docker (`restart: unless-stopped`) religa o container quando ele sai.
+
+- `GET /status` (sem autenticação): `{"status":"ok","busy":bool,"active":int,"queued":int,"current_seconds":float|null,"since":"<ISO8601 UTC>"|null,"completed":int,"failed":int,"uptime_seconds":float}`. `active` = documentos em processamento; `queued` = aguardando o limite `OCR_MAX_CONCURRENCY`; `current_seconds`/`since` = o documento mais antigo em andamento. Contadores em memória (zeram quando o processo reinicia). Falha = erro do engine (422/500).
+- `POST /admin/restart` exige `Authorization: Bearer <OCR_API_TOKEN>` (401 se errado; **404 se o serviço não tem token configurado**). Responde `202 {"status":"restarting"}` e ~1 s depois encerra o processo com `os._exit(0)`.
+- Watchdog: `OCR_REQUEST_TIMEOUT` (segundos, padrão `900`; `0` desativa). Uma thread verifica a cada 5 s o documento mais antigo em andamento; se exceder o limite, registra `ocr_watchdog_timeout` e encerra o processo com código `3`.
+- Testes: `create_app(..., exit_fn=..., restart_delay=..., watchdog_interval=..., clock=...)` permitem injetar a saída e o relógio.
+- Limitação: se o cliente cancelar a requisição, o documento deixa de contar como ativo mesmo que a thread do engine ainda esteja rodando.

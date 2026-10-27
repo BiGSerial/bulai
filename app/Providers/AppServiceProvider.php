@@ -18,9 +18,15 @@ use App\Services\Knowledge\HeuristicExtractionQualityEvaluator;
 use App\Services\Knowledge\HttpDocumentOcrClient;
 use App\Services\Knowledge\PdfTextExtractor;
 use App\Services\Knowledge\PrinsFrankPdfTextExtractor;
+use App\Services\Queue\WorkerHeartbeat;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Queue\Events\Looping;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -53,6 +59,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Event::listen(Looping::class, fn () => app(WorkerHeartbeat::class)->beat());
+        Event::listen(JobProcessing::class, fn () => app(WorkerHeartbeat::class)->beat(busy: true));
+        Event::listen([JobProcessed::class, JobFailed::class], fn () => app(WorkerHeartbeat::class)->beat(force: true));
+
         RateLimiter::for('knowledge-ingest', function (Request $request): Limit {
             return Limit::perMinute(30)->by($request->ip());
         });

@@ -39,6 +39,8 @@ return [
     ],
     'local_ai' => [
         'url' => env('LOCAL_AI_URL'),
+        // Token do endpoint administrativo de reinício; sem ele o botão de reiniciar fica indisponível.
+        'admin_token' => env('LOCAL_AI_ADMIN_TOKEN'),
     ],
     'classifier' => [
         'default' => env('DOCUMENT_CLASSIFIER_DRIVER'),

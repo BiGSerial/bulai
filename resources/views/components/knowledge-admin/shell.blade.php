@@ -4,7 +4,7 @@
     // Itens do menu (rota, rótulo, padrão de rota ativa, ícone e dica): fonte única em App\AdminNavigation.
     $navigation = \App\AdminNavigation::items();
 @endphp
-<div class="min-h-screen bg-slate-50 text-slate-900">
+<div class="min-h-screen bg-slate-50 text-slate-900" data-realtime-url="{{ route('admin.knowledge.stream') }}">
     <a class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-30 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-brand-800 focus:shadow-sm" href="#conteudo">Ir para o conteúdo</a>
     <header class="border-b border-slate-200 bg-white shadow-sm">
         <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">

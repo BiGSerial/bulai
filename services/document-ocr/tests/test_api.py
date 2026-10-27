@@ -170,3 +170,132 @@ def test_settings_default_to_light_models_without_mkldnn(monkeypatch):
     assert loaded.enable_mkldnn is False and loaded.cpu_threads == 2 and loaded.render_dpi == 150
     monkeypatch.setenv("OCR_ENABLE_MKLDNN", "true")
     assert Settings.from_env().enable_mkldnn is True
+
+
+def test_status_idle_has_the_contract_fields():
+    body = client().get("/status").json()
+
+    assert set(body) == {"status", "busy", "active", "queued", "current_seconds", "since", "completed", "failed", "uptime_seconds"}
+    assert body["status"] == "ok" and body["busy"] is False
+    assert (body["active"], body["queued"], body["completed"], body["failed"]) == (0, 0, 0, 0)
+    assert body["current_seconds"] is None and body["since"] is None
+    assert body["uptime_seconds"] >= 0
+
+
+def test_status_is_busy_while_processing_and_counts_queue_and_completion():
+    import asyncio
+    import threading
+    import time
+
+    import httpx
+
+    class SlowEngine(FakeEngine):
+        def parse(self, document: InputDocument) -> ParsedDocument:
+            time.sleep(0.4)
+            return super().parse(document)
+
+    app = create_app(settings(), SlowEngine())
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://ocr") as http:
+            parses = [
+                asyncio.create_task(http.post("/v1/documents/parse", files={"file": ("a.pdf", PDF, "application/pdf")}))
+                for _ in range(2)
+            ]
+            await asyncio.sleep(0.15)
+            busy = (await http.get("/status")).json()
+            await asyncio.gather(*parses)
+            done = (await http.get("/status")).json()
+            return busy, done
+
+    busy, done = asyncio.run(scenario())
+
+    assert busy["busy"] is True and busy["active"] == 1 and busy["queued"] == 1
+    assert busy["current_seconds"] > 0 and busy["since"].endswith("Z")
+    assert done["busy"] is False and done["active"] == 0 and done["queued"] == 0
+    assert done["completed"] == 2 and done["failed"] == 0 and done["since"] is None
+
+
+def test_status_counts_failures():
+    c = client(FakeEngine(EngineError("x")))
+    post(c)
+    body = c.get("/status").json()
+
+    assert body["failed"] == 1 and body["completed"] == 0 and body["active"] == 0 and body["queued"] == 0
+
+
+def wait_for(condition, timeout=2.0):
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return False
+
+
+def test_admin_restart_requires_the_token_and_exits_after_the_response():
+    exits = []
+    app = create_app(settings(token="s3cret"), FakeEngine(), exit_fn=exits.append, restart_delay=0.05)
+    c = TestClient(app)
+
+    assert c.post("/admin/restart").status_code == 401
+    assert c.post("/admin/restart", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    assert exits == []
+
+    response = c.post("/admin/restart", headers={"Authorization": "Bearer s3cret"})
+    assert response.status_code == 202 and response.json() == {"status": "restarting"}
+    assert wait_for(lambda: exits == [0])
+
+
+def test_admin_restart_is_404_without_a_configured_token():
+    exits = []
+    c = TestClient(create_app(settings(token=None), FakeEngine(), exit_fn=exits.append, restart_delay=0.01))
+
+    assert c.post("/admin/restart").status_code == 404
+    assert c.post("/admin/restart", headers={"Authorization": "Bearer anything"}).status_code == 404
+    assert not wait_for(lambda: exits, timeout=0.2)
+
+
+def test_watchdog_exits_with_code_3_only_when_the_oldest_document_exceeds_the_timeout():
+    from app.runtime import ActivityTracker, Watchdog
+
+    now = [100.0]
+    exits = []
+    tracker = ActivityTracker(clock=lambda: now[0])
+    watchdog = Watchdog(tracker, timeout=60, exit_fn=exits.append, interval=0.01)
+
+    assert watchdog.check() is False  # ocioso
+    tracker.enqueue()
+    token = tracker.start()
+    now[0] += 60
+    assert watchdog.check() is False and exits == []
+    now[0] += 1
+    assert watchdog.check() is True and exits == [3]
+
+    tracker.finish(token, success=False)
+    assert Watchdog(tracker, timeout=0, exit_fn=exits.append).check() is False
+
+
+def test_watchdog_thread_fires_exit_fn():
+    from app.runtime import ActivityTracker, Watchdog
+
+    now = [0.0]
+    exits = []
+    tracker = ActivityTracker(clock=lambda: now[0])
+    tracker.enqueue()
+    tracker.start()
+    now[0] = 10.0
+    watchdog = Watchdog(tracker, timeout=5, exit_fn=exits.append, interval=0.01)
+    watchdog.start()
+
+    assert wait_for(lambda: exits == [3])
+    watchdog.stop()
+
+
+def test_request_timeout_setting(monkeypatch):
+    monkeypatch.delenv("OCR_REQUEST_TIMEOUT", raising=False)
+    assert Settings.from_env().request_timeout == 900
+    monkeypatch.setenv("OCR_REQUEST_TIMEOUT", "0")
+    assert Settings.from_env().request_timeout == 0

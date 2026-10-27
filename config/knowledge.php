@@ -27,4 +27,10 @@ return [
         'max_characters' => (int) env('KNOWLEDGE_CHUNK_MAX_CHARACTERS', 2_600),
         'overlap_characters' => (int) env('KNOWLEDGE_CHUNK_OVERLAP_CHARACTERS', 200),
     ],
+    // Server-Sent Events da administração: cada conexão dura `seconds` e o navegador reconecta sozinho.
+    'stream' => [
+        'seconds' => (int) env('KNOWLEDGE_STREAM_SECONDS', 25),
+        'interval_ms' => (int) env('KNOWLEDGE_STREAM_INTERVAL_MS', 2000),
+        'max_per_user' => (int) env('KNOWLEDGE_STREAM_MAX_PER_USER', 2),
+    ],
 ];

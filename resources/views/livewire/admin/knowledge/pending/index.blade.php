@@ -40,7 +40,7 @@
         </section>
     @endif
     <x-knowledge-admin.search wire:model.live.debounce.350ms="search" placeholder="Nome do arquivo ou identificador" />
-    <section class="grid gap-3" wire:poll.2s wire:loading.class="opacity-60" wire:target="search">
+    <section class="grid gap-3" wire:poll.5s x-data x-on:bulai-realtime.window="$wire.$refresh()" wire:loading.class="opacity-60" wire:target="search">
         @forelse ($items as $item)
             @php
                 $progress = data_get($item->metadata, 'reanalysis_progress');
@@ -85,7 +85,7 @@
                         <p class="mt-1 line-clamp-2 text-sm text-slate-600">{{ $reasonLabel }}</p>
                     @endif
                 </div>
-                @if($isActive)<span class="rounded-lg border border-brand-100 bg-white/80 px-3 py-2 text-sm font-semibold text-brand-800">{{ $progressState === 'queued' ? 'Na fila' : 'Processando' }}</span>@else<x-knowledge-admin.button :href="route('admin.knowledge.pending.review', [$item->ingestionBatch, $item])">Revisar</x-knowledge-admin.button>@endif
+                @if($isActive)<span class="rounded-lg border border-brand-100 bg-white/80 px-3 py-2 text-sm font-semibold text-brand-800">{{ $progressState === 'queued' ? 'Na fila' : 'Processando' }}</span>@else<div class="flex flex-wrap gap-2"><x-knowledge-admin.button variant="secondary" wire:click="reanalyzeItem({{ $item->id }})" loading-target="reanalyzeItem({{ $item->id }})" loading="Enfileirando…">Reanalisar</x-knowledge-admin.button><x-knowledge-admin.button :href="route('admin.knowledge.pending.review', [$item->ingestionBatch, $item])">Revisar</x-knowledge-admin.button></div>@endif
                 </div>
             </article>
         @empty

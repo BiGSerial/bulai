@@ -39,7 +39,14 @@ Todas as necessidades atuais e previstas são **unidirecionais** (o cliente só 
 
 Critério de revisão: se o polling de saúde/progresso passar a gerar carga perceptível (muitos admins simultâneos) ou se a IA principal exigir streaming de tokens, implementar o item 2.
 
+## Implementação do SSE (feito)
+
+- `GET /admin/knowledge/stream` (`KnowledgeStreamController`, nome `admin.knowledge.stream`, só ADMIN): `text/event-stream` com `retry: 3000`, evento `changed` (resumo JSON: worker, contagem de jobs, itens ativos/parados, estado e `busy` dos serviços) quando algo muda e comentário `: ping` caso contrário. A cada ~2 s calcula a "assinatura" de `QueueStatusService::snapshot()` + `ServiceHealthChecker::all()`.
+- Conexões curtas: `KNOWLEDGE_STREAM_SECONDS` (25), `KNOWLEDGE_STREAM_INTERVAL_MS` (2000) e no máximo `KNOWLEDGE_STREAM_MAX_PER_USER` (2) conexões por usuário (429 acima disso; contador no cache, liberado no `finally`). A sessão é liberada (`session()->save()`) antes do loop.
+- Cliente: `resources/js/app.js` abre um único `EventSource` quando a página tem `data-realtime-url` (shell do admin) e dispara o evento de janela `bulai-realtime`; as telas Pendências e Fila e serviços chamam `$wire.$refresh()` nele. O `wire:poll` (5 s) permanece como reserva.
+- Produção: location própria no Nginx (`fastcgi_buffering off`, `X-Accel-Buffering: no`). Cada stream ocupa um worker do FPM (`pm.max_children = 6`); com 2 conexões por usuário e poucos administradores é aceitável. **Se houver mais administradores simultâneos, criar um pool/socket FPM dedicado ao stream ou reduzir `KNOWLEDGE_STREAM_MAX_PER_USER`.** Fila, cache e sessão usam Redis (ver `docs/technical-foundation.md`); o stream ainda compara snapshots (Pub/Sub fica para quando houver fan-out alto).
+
 ## Limitações atuais
 
-- O polling mostra mudanças com atraso de até 10 s (saúde) ou 2 s (progresso).
+- Sem SSE conectado, o polling mostra mudanças com atraso de até 10 s (saúde) ou 5 s (progresso).
 - O estado da IA local é consultado a cada 5 s no máximo (cache), mesmo com vários administradores abertos.

@@ -214,11 +214,12 @@ echo "== consistência de UIDs/GIDs (compose × Dockerfiles × instalador × dep
 REPO="$HERE/../../.."
 uid_of() { grep -oE "$2" "$1" | head -1 | grep -oE '[0-9]{5}' | head -1; }
 expect_eq "compose: postgres roda como 10020" "$(grep -A1 'user: "10020:10020"' "$REPO/compose.prod.yaml" | head -1 | grep -c 10020)" "1"
+expect_eq "compose: redis roda como 10040" "$(grep -c 'user: "10040:10040"' "$REPO/compose.prod.yaml")" "1"
 expect_eq "compose: nginx roda como 10030" "$(grep -c 'user: "10030:10030"' "$REPO/compose.prod.yaml")" "1"
 expect_eq "passwd do postgres usa 10020" "$(grep -c '^postgres:x:10020:10020:' "$REPO/docker/production/postgres/passwd")" "1"
 expect_eq "group do postgres usa 10020" "$(grep -c '^postgres:x:10020:' "$REPO/docker/production/postgres/group")" "1"
 expect_eq "Dockerfile da aplicação usa uid/gid 10010" "$(grep -c -- '--gid 10010\|--uid 10010' "$REPO/docker/production/php/Dockerfile")" "2"
-expect_eq "instalador define os mesmos IDs" "$(grep -c 'APP_UID=10010 OCR_UID=10001 AI_UID=10002 PG_UID=10020 WEB_UID=10030' "$REPO/scripts/deploy/install-on-vps.sh")" "1"
+expect_eq "instalador define os mesmos IDs" "$(grep -c 'APP_UID=10010 OCR_UID=10001 AI_UID=10002 PG_UID=10020 WEB_UID=10030 REDIS_UID=10040' "$REPO/scripts/deploy/install-on-vps.sh")" "1"
 expect_eq "bulai-deploy confere os mesmos donos" "$(grep -cE 'check_dir (postgres 10020 10020 700|storage 10010 10010 750|web-cache 10030 10030 700|run 10010 10030 2750)' "$REPO/scripts/deploy/bulai-deploy")" "4"
 for bad in 999 101; do
     expect_eq "nenhum container usa o ID $bad do host (caddy/messagebus/lxd)" "$(grep -cE "(user: \"$bad:|uid=${bad}[,\"]|gid=${bad}[,\"]|-o $bad |-g $bad )" "$REPO/compose.prod.yaml" "$REPO/scripts/deploy/install-on-vps.sh" | awk -F: '{s+=$2} END {print s+0}')" "0"

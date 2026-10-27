@@ -95,9 +95,9 @@ echo "sha256 do compose.prod.yaml: $(sha256sum compose.prod.yaml | cut -d' ' -f1
 # Os bind mounts de /srv/bulai/shared pertencem a estes IDs. Se uma conta do host usar o mesmo uid/gid (ex.: 999=caddy,
 # 101=messagebus/lxd na KingHost), essa conta teria acesso ao PostgreSQL, aos arquivos privados ou ao socket do PHP-FPM.
 # Por isso os containers usam IDs altos e o instalador RECUSA continuar se algum já existir no host (não altera contas).
-APP_UID=10010 OCR_UID=10001 AI_UID=10002 PG_UID=10020 WEB_UID=10030
+APP_UID=10010 OCR_UID=10001 AI_UID=10002 PG_UID=10020 WEB_UID=10030 REDIS_UID=10040
 collision=0
-for id in "$OCR_UID" "$AI_UID" "$APP_UID" "$PG_UID" "$WEB_UID"; do
+for id in "$OCR_UID" "$AI_UID" "$APP_UID" "$PG_UID" "$WEB_UID" "$REDIS_UID"; do
     if getent passwd "$id" >/dev/null; then echo "ERRO: uid $id pertence a '$(getent passwd "$id" | cut -d: -f1)' no host." >&2; collision=1; fi
     if getent group "$id" >/dev/null; then echo "ERRO: gid $id pertence a '$(getent group "$id" | cut -d: -f1)' no host." >&2; collision=1; fi
 done

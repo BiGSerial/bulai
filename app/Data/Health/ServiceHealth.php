@@ -23,7 +23,34 @@ final readonly class ServiceHealth
         public string $state,
         public ?int $latencyMs = null,
         public ?string $model = null,
+        public ?bool $busy = null,
+        public ?int $activeRequests = null,
+        public ?int $currentSeconds = null,
+        public ?int $restarts = null,
     ) {}
+
+    /** Verdadeiro quando o serviço informou que está processando algo agora. */
+    public function isWorking(): bool
+    {
+        return $this->busy === true;
+    }
+
+    /** @param array<string, mixed> $data */
+    public static function fromArray(string $service, array $data): self
+    {
+        $int = fn (string $key): ?int => is_int($data[$key] ?? null) ? $data[$key] : null;
+
+        return new self(
+            $service,
+            (string) $data['state'],
+            $int('latencyMs'),
+            is_string($data['model'] ?? null) ? $data['model'] : null,
+            is_bool($data['busy'] ?? null) ? $data['busy'] : null,
+            $int('activeRequests'),
+            $int('currentSeconds'),
+            $int('restarts'),
+        );
+    }
 
     public function isReady(): bool
     {
@@ -54,9 +81,9 @@ final readonly class ServiceHealth
         };
     }
 
-    /** @return array{service: string, state: string, label: string, latency_ms: ?int, model: ?string} */
+    /** @return array{service: string, state: string, label: string, latency_ms: ?int, model: ?string, busy: ?bool, active_requests: ?int, current_seconds: ?int, restarts: ?int} */
     public function toArray(): array
     {
-        return ['service' => $this->service, 'state' => $this->state, 'label' => $this->label(), 'latency_ms' => $this->latencyMs, 'model' => $this->model];
+        return ['service' => $this->service, 'state' => $this->state, 'label' => $this->label(), 'latency_ms' => $this->latencyMs, 'model' => $this->model, 'busy' => $this->busy, 'active_requests' => $this->activeRequests, 'current_seconds' => $this->currentSeconds, 'restarts' => $this->restarts];
     }
 }

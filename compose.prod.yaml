@@ -6,7 +6,7 @@
 #
 # Rede/portas: somente o Nginx publica porta, em 127.0.0.1:8080 (o Caddy do host faz o TLS e encaminha para lá).
 # Nginx e PHP-FPM conversam por um socket Unix (diretório 2750 10010:10030 criado pelo instalador): não há FastCGI em rede.
-# UIDs/GIDs dos containers (10001 ocr, 10002 local-ai, 10010 app/worker, 10020 postgres, 10030 nginx) são ALTOS de propósito:
+# UIDs/GIDs dos containers (10001 ocr, 10002 local-ai, 10010 app/worker, 10020 postgres, 10030 nginx, 10040 redis) são ALTOS de propósito:
 # nenhum deles pode coincidir com contas do host (ex.: 999=caddy, 101=messagebus/lxd na KingHost), pois os bind mounts
 # `/srv/bulai/shared/*` seriam acessíveis a essas contas. O instalador recusa instalar se algum já existir no host.
 # Redes internas, sem saída para a internet e sem portas publicadas: `db` (app/worker ↔ postgres) e `ai` (app/worker ↔ OCR/IA).
@@ -36,9 +36,13 @@ x-php-app: &php-app
     DB_CONNECTION: pgsql
     DB_HOST: postgres
     DB_PORT: "5432"
-    QUEUE_CONNECTION: database
-    SESSION_DRIVER: database
-    CACHE_STORE: database
+    QUEUE_CONNECTION: redis
+    SESSION_DRIVER: redis
+    CACHE_STORE: redis
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    REDIS_QUEUE_RETRY_AFTER: "900"
     DOCUMENT_OCR_ENABLED: "true"
     DOCUMENT_OCR_DRIVER: http
     DOCUMENT_OCR_URL: http://document-ocr:8000
@@ -51,6 +55,7 @@ x-php-app: &php-app
   networks:
     - db
     - ai
+    - cache
   tmpfs:
     - /tmp:size=64m,mode=1777
     - /var/www/html/bootstrap/cache:size=16m,uid=10010,gid=10010,mode=0700
@@ -93,6 +98,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/storage:/var/www/html/storage/app
       - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/run:/run/php
@@ -110,6 +117,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "grep -lE 'queue[:]work' /proc/[0-9]*/cmdline >/dev/null 2>&1"]
       interval: 30s
@@ -123,6 +132,32 @@ services:
     # Deixa o job em andamento terminar antes de substituir o container.
     stop_grace_period: 480s
     stop_signal: SIGTERM
+
+  redis:
+    # Fila, cache e sessões. Rede interna `cache` (só app/worker), sem porta publicada e sem saída para a internet.
+    # UID/GID 10040 (alto, como os demais). Sem persistência (/data em tmpfs): se o Redis reiniciar, as sessões caem e
+    # análises enfileiradas aparecem como "paradas" em Fila e serviços, de onde são reenfileiradas com um clique.
+    image: redis:7.4-alpine@sha256:6ba19c50b56777f5c11c58eff8ddb69d0d5f27ba131cffb63f180ccfd43c66af
+    user: "10040:10040"
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction", "--save", ""]
+    <<: *hardening
+    read_only: true
+    restart: unless-stopped
+    logging: *default-logging
+    networks:
+      - cache
+    tmpfs:
+      - /data:size=160m,uid=10040,gid=10040,mode=0700
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    mem_limit: 192m
+    memswap_limit: 192m
+    cpus: 0.5
+    pids_limit: 64
+    stop_grace_period: 15s
 
   postgres:
     image: pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
@@ -236,5 +271,8 @@ networks:
     internal: true
   # OCR e IA local: só app/worker e os dois serviços; sem saída para a internet e sem acesso ao banco.
   ai:
+    internal: true
+  # Redis (fila/cache/sessão): só app/worker e redis; sem saída para a internet.
+  cache:
     internal: true
 
