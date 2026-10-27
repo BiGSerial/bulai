@@ -2,6 +2,7 @@
 
 namespace App\Services\Knowledge;
 
+use App\Data\Knowledge\DocumentExtractionResult;
 use App\Data\Knowledge\DocumentIdentification;
 use App\Models\Knowledge\KnowledgeSource;
 use Illuminate\Http\UploadedFile;
@@ -29,6 +30,15 @@ final class KnowledgeDocumentIdentificationService
         return $this->identifyPath($source, $file->getRealPath());
     }
 
+    /** Heurística sem confiança suficiente: pontuação abaixo do aceite automático, produto/princípio ativo ausentes ou ambiguidade. */
+    private function isWeak(DocumentIdentification $identified): bool
+    {
+        return $identified->errorCode === null
+            && ($identified->score < (int) config('document_classification.auto_accept_score')
+                || blank($identified->fields['product_name'] ?? null) || blank($identified->fields['active_ingredient'] ?? null)
+                || $identified->ambiguousFields !== []);
+    }
+
     /**
      * @param  bool  $deep  Usa OCR (se necessário) e o classificador local. Só deve ser usado em jobs de fila,
      *                      nunca na requisição de upload.
@@ -46,8 +56,22 @@ final class KnowledgeDocumentIdentificationService
         try {
             if ($deep) {
                 $extraction = $this->deepExtractor->extract($path);
-                $result = $this->regulatoryValidator->validate($extractor->identify($extraction->document));
-                $result = $this->classification->refine($result, $forceAi)->with(['extraction' => $extraction->metadata()]);
+                $identified = $extractor->identify($extraction->document);
+                $extractionMetadata = $extraction->metadata();
+                if ($this->isWeak($identified) && $extraction->method !== DocumentExtractionResult::METHOD_OCR) {
+                    // Mesmo com texto nativo, a heurística não achou candidatos confiáveis: tenta o OCR das primeiras páginas
+                    // (capa, marca em imagem) e só adota o resultado se ele não for pior.
+                    $supplement = $this->deepExtractor->supplementFirstPages($extraction->document, $path, (int) config('document_ocr.supplement_pages', 3));
+                    if ($supplement !== null) {
+                        $second = $extractor->identify($supplement['document']);
+                        $adopted = $second->score >= $identified->score;
+                        $extractionMetadata['ocr_supplement'] = ['pages' => $supplement['document']->metadata['ocr_supplement_pages'] ?? null, 'added_lines' => $supplement['added_lines'],
+                            'engine' => $supplement['engine'], 'score_before' => $identified->score, 'score_after' => $second->score, 'adopted' => $adopted];
+                        $identified = $adopted ? $second : $identified;
+                    }
+                }
+                $result = $this->regulatoryValidator->validate($identified);
+                $result = $this->classification->refine($result, $forceAi)->with(['extraction' => $extractionMetadata]);
             } else {
                 $result = $this->regulatoryValidator->validate($extractor->identify($this->pdfExtractor->extract($path)));
             }

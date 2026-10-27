@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     OMP_NUM_THREADS=2 \
     OCR_MAX_CONCURRENCY=1 \
+    OCR_ENABLE_MKLDNN=0 \
     OCR_PORT=8000
 
 RUN apt-get update \
@@ -25,7 +26,7 @@ USER ocr
 # de internet em execução e o primeiro OCR não demore. Em desenvolvimento (padrão 0) os modelos são baixados no primeiro uso.
 ARG PREFETCH_MODELS=0
 RUN if [ "$PREFETCH_MODELS" = "1" ]; then \
-        python -c "from paddleocr import PaddleOCR; PaddleOCR(lang='pt', use_doc_orientation_classify=False, use_doc_unwarping=False, use_textline_orientation=False)"; \
+        python -m app.warmup; \
     fi
 
 EXPOSE 8000

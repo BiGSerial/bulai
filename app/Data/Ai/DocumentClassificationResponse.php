@@ -8,6 +8,8 @@ final readonly class DocumentClassificationResponse
 {
     public const DOCUMENT_TYPES = ['bula_paciente', 'bula_profissional'];
 
+    public const EVIDENCE_MAX_CHARACTERS = 400;
+
     private const KEYS = ['product_name', 'active_ingredient', 'document_type', 'confidence', 'evidence'];
 
     /**
@@ -49,12 +51,16 @@ final readonly class DocumentClassificationResponse
         if (($data['document_type'] !== null && ! in_array($data['document_type'], self::DOCUMENT_TYPES, true))
             || (! is_int($confidence) && ! is_float($confidence)) || $confidence < 0 || $confidence > 1
             || ! is_array($evidence) || ! array_is_list($evidence) || count($evidence) > 5
-            || array_filter($evidence, fn (mixed $item): bool => ! is_string($item) || mb_strlen($item) > 500) !== []) {
+            || array_filter($evidence, fn (mixed $item): bool => ! is_string($item)) !== []) {
             throw new AiProviderException(AiProviderException::INVALID_RESPONSE);
         }
 
         // Marcas de nota de rodapé ("amoxicilina*") copiadas da bula não fazem parte do nome.
         $clean = fn (?string $value): ?string => $value === null ? null : (trim(preg_replace('/\s+/', ' ', str_replace('*', '', $value)) ?? $value) ?: null);
+
+        // As citações são só apoio para o revisor (nunca decidem nada): o modelo pequeno tende a copiar blocos inteiros, então
+        // cada uma é encurtada em vez de invalidar uma resposta correta. Formato e tipos continuam estritos.
+        $evidence = array_map(fn (string $item): string => mb_strlen($item) > self::EVIDENCE_MAX_CHARACTERS ? rtrim(mb_substr($item, 0, self::EVIDENCE_MAX_CHARACTERS - 1)).'…' : $item, $evidence);
 
         return new self($clean($data['product_name']), $clean($data['active_ingredient']), $data['document_type'], (float) $confidence, $evidence, $model, $metadata);
     }
@@ -71,7 +77,7 @@ final readonly class DocumentClassificationResponse
                 'active_ingredient' => ['type' => ['string', 'null'], 'maxLength' => 160],
                 'document_type' => ['enum' => [...self::DOCUMENT_TYPES, null]],
                 'confidence' => ['type' => 'number', 'minimum' => 0, 'maximum' => 1],
-                'evidence' => ['type' => 'array', 'maxItems' => 5, 'items' => ['type' => 'string', 'maxLength' => 500]],
+                'evidence' => ['type' => 'array', 'maxItems' => 5, 'items' => ['type' => 'string', 'maxLength' => self::EVIDENCE_MAX_CHARACTERS]],
             ],
         ];
     }

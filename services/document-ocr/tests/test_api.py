@@ -143,3 +143,30 @@ def test_ocr_runs_one_document_at_a_time_and_health_stays_responsive():
     assert engine.peak == 1
     assert health_status == 200
     assert health_latency < 0.25
+
+
+def test_page_limit_is_forwarded_to_the_engine_and_validated():
+    seen = {}
+
+    class LimitEngine(FakeEngine):
+        def parse(self, document: InputDocument) -> ParsedDocument:
+            seen["limit"] = document.page_limit
+            return super().parse(document)
+
+    c = client(LimitEngine())
+    assert c.post("/v1/documents/parse", files={"file": ("a.pdf", PDF, "application/pdf")}, data={"page_limit": "3"}).status_code == 200
+    assert seen["limit"] == 3
+    assert c.post("/v1/documents/parse", files={"file": ("a.pdf", PDF, "application/pdf")}).status_code == 200
+    assert seen["limit"] is None
+    for invalid in ("0", "-1", "999"):
+        assert c.post("/v1/documents/parse", files={"file": ("a.pdf", PDF, "application/pdf")}, data={"page_limit": invalid}).status_code == 422
+
+
+def test_settings_default_to_light_models_without_mkldnn(monkeypatch):
+    for name in ("OCR_DET_MODEL", "OCR_REC_MODEL", "OCR_ENABLE_MKLDNN", "OCR_CPU_THREADS", "OCR_RENDER_DPI"):
+        monkeypatch.delenv(name, raising=False)
+    loaded = Settings.from_env()
+    assert (loaded.det_model, loaded.rec_model) == ("PP-OCRv5_mobile_det", "latin_PP-OCRv5_mobile_rec")
+    assert loaded.enable_mkldnn is False and loaded.cpu_threads == 2 and loaded.render_dpi == 150
+    monkeypatch.setenv("OCR_ENABLE_MKLDNN", "true")
+    assert Settings.from_env().enable_mkldnn is True

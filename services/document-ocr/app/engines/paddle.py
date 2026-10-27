@@ -7,9 +7,15 @@ from ..models import Block, InputDocument, ParsedDocument, ParsedPage
 
 
 class PaddleOcrEngine(DocumentOcrEngine):
-    def __init__(self, language: str = "pt", dpi: int = 200) -> None:
+    def __init__(
+        self, language: str = "pt", dpi: int = 150, det_model: str = "", rec_model: str = "", enable_mkldnn: bool = False, cpu_threads: int = 2
+    ) -> None:
         self._language = language
         self._dpi = dpi
+        self._det_model = det_model
+        self._rec_model = rec_model
+        self._enable_mkldnn = enable_mkldnn
+        self._cpu_threads = cpu_threads
         self._ocr = None
 
     def parse(self, document: InputDocument) -> ParsedDocument:
@@ -21,12 +27,13 @@ class PaddleOcrEngine(DocumentOcrEngine):
 
         pdf = pdfium.PdfDocument(str(document.path))
         try:
-            if len(pdf) > document.max_pages:
+            total = min(len(pdf), document.page_limit) if document.page_limit else len(pdf)
+            if total > document.max_pages:
                 raise EngineError("limite de páginas excedido")
 
             ocr = self._engine()
             pages: list[ParsedPage] = []
-            for index in range(len(pdf)):
+            for index in range(total):
                 image = pdf[index].render(scale=self._dpi / 72).to_pil().convert("RGB")
                 pages.append(self._parse_page(index + 1, ocr.predict(np.array(image))))
 
@@ -41,12 +48,18 @@ class PaddleOcrEngine(DocumentOcrEngine):
             except ImportError as exc:  # pragma: no cover
                 raise EngineError("paddleocr não instalado") from exc
 
-            self._ocr = PaddleOCR(
-                lang=self._language,
-                use_doc_orientation_classify=False,
-                use_doc_unwarping=False,
-                use_textline_orientation=False,
-            )
+            options: dict = {
+                "use_doc_orientation_classify": False,
+                "use_doc_unwarping": False,
+                "use_textline_orientation": False,
+                "enable_mkldnn": self._enable_mkldnn,
+                "cpu_threads": self._cpu_threads,
+            }
+            if self._det_model and self._rec_model:
+                options.update(text_detection_model_name=self._det_model, text_recognition_model_name=self._rec_model)
+            else:
+                options["lang"] = self._language
+            self._ocr = PaddleOCR(**options)
 
         return self._ocr
 

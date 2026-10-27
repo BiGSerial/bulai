@@ -16,6 +16,7 @@ final class AutomaticAnalysisReport
         KnowledgeDocumentClassificationService::AI_ACCEPTED => ['Resolvido pela IA', 'success', 'A IA resolveu a ambiguidade e o catálogo ANVISA confirmou o produto.'],
         KnowledgeDocumentClassificationService::AI_SUGGESTED => ['Sugestão da IA', 'warning', 'A IA sugeriu valores, mas sem confirmação do catálogo ANVISA eles não foram aplicados.'],
         KnowledgeDocumentClassificationService::AI_LOW_CONFIDENCE => ['IA com baixa confiança', 'warning', 'A confiança da IA ficou abaixo do mínimo; nada foi aplicado.'],
+        KnowledgeDocumentClassificationService::AI_CONFIRMED => ['IA confirmou a heurística', 'success', 'A IA concordou com os campos encontrados pela heurística e não acrescentou nada novo.'],
         KnowledgeDocumentClassificationService::AI_REJECTED => ['Resposta da IA rejeitada', 'danger', 'A resposta da IA foi descartada por não ter respaldo no documento ou por contradizer a heurística.'],
         KnowledgeDocumentClassificationService::AI_UNAVAILABLE => ['IA indisponível', 'danger', 'A IA local não respondeu de forma utilizável; o item segue para revisão manual.'],
         KnowledgeDocumentClassificationService::AI_DISABLED => ['IA desativada', 'neutral', 'O classificador local não está configurado; o item segue para revisão manual.'],
@@ -113,6 +114,7 @@ final class AutomaticAnalysisReport
             'rows' => [
                 $row('Medicamento', $fields['product_name'] ?? ($catalog['product_name'] ?? null), isset($fields['product_name']) ? $source('product_name') : 'Catálogo ANVISA'),
                 $row('Princípio ativo', $ingredient, $source('active_ingredient')),
+                $row('Fórmula molecular', $fields['molecular_formula'] ?? null, 'PDF'),
                 $row('Tipo de bula', $fields['document_type'] ?? null, $source('document_type')),
                 $row('Registro ANVISA', $fields['registration_number_normalized'] ?? ($catalog['registration_number'] ?? null), isset($fields['registration_number_normalized']) ? 'PDF' : 'Catálogo ANVISA'),
                 $row('Processo', $catalog['process_number'] ?? null, 'Catálogo ANVISA'),
@@ -150,9 +152,10 @@ final class AutomaticAnalysisReport
     {
         $ocr = ($extraction['extraction_method'] ?? null) === 'ocr';
         $error = $extraction['ocr_error_code'] ?? null;
+        $supplement = is_array($extraction['ocr_supplement'] ?? null) ? $extraction['ocr_supplement'] : null;
 
         return [
-            'method_label' => $ocr ? 'OCR' : 'Texto nativo do PDF',
+            'method_label' => $supplement !== null ? 'Texto nativo + OCR da capa' : ($ocr ? 'OCR' : 'Texto nativo do PDF'),
             'ocr_used' => $ocr,
             'tone' => $error !== null ? 'danger' : ($ocr ? 'info' : 'success'),
             'engine' => $extraction['ocr_engine'] ?? null,
@@ -165,8 +168,10 @@ final class AutomaticAnalysisReport
                 $error !== null => 'O OCR foi tentado, mas falhou: '.(self::ERRORS[$error] ?? $error).' Foi usado o texto nativo.',
                 $ocr => 'O texto nativo era insuficiente e o OCR o substituiu.',
                 isset($extraction['fallback_reason']) => 'O OCR foi tentado, mas o texto nativo teve resultado melhor e foi mantido.',
+                $supplement !== null => sprintf('O texto nativo tinha qualidade, mas a heurística não estava confiante: o OCR leu as %d primeiras páginas e acrescentou %d linhas (pontuação %s → %s, %s).', (int) ($supplement['pages'] ?? 0), (int) ($supplement['added_lines'] ?? 0), $supplement['score_before'] ?? '?', $supplement['score_after'] ?? '?', ($supplement['adopted'] ?? false) ? 'resultado adotado' : 'resultado descartado por ser pior'),
                 default => 'O texto nativo tinha qualidade suficiente; o OCR não foi necessário.',
             },
+            'ocr_supplement' => $supplement,
         ];
     }
 

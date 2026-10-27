@@ -10,6 +10,11 @@ use Illuminate\Support\Str;
 
 final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataExtractor
 {
+    public function __construct(
+        private readonly LeafletTextHeuristics $text = new LeafletTextHeuristics,
+        private readonly ChemicalFormulaDetector $formulas = new ChemicalFormulaDetector,
+    ) {}
+
     public function supports(KnowledgeSource $source): bool
     {
         $identity = Str::ascii(Str::lower($source->name.' '.($source->collection ?? $source->organization ?? '')));
@@ -21,25 +26,40 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
     {
         $pages = $this->identityPages($pdf);
         $fields = ['product_name' => null, 'active_ingredient' => null, 'registration_number' => null, 'registration_number_normalized' => null,
-            'holder' => null, 'audience' => null, 'document_type' => null, 'title' => null];
+            'holder' => null, 'audience' => null, 'document_type' => null, 'title' => null, 'molecular_formula' => null];
         $evidence = [];
         $ambiguous = [];
         $candidates = ['product_name' => [], 'active_ingredient' => [], 'registration_number' => [], 'audience' => []];
-        $productIdentityIsReliable = $this->identifyProductAndIngredient($pages, $fields, $evidence, $ambiguous, $candidates);
+        $titleBlock = [];
+        $productIdentityIsReliable = $this->identifyProductAndIngredient($pages, $fields, $evidence, $ambiguous, $candidates, $titleBlock);
         $this->identifyRegistration($pages, $fields, $evidence, $ambiguous, $candidates);
         $this->identifyAudience($pages, $fields, $evidence, $ambiguous, $candidates);
         $this->identifyHolder($pages, $fields, $evidence);
+        if ($fields['holder'] === null && $titleBlock !== [] && ($titleBlock[array_key_first($titleBlock)]['holder'] ?? null) !== null) {
+            $first = $titleBlock[array_key_first($titleBlock)];
+            $fields['holder'] = $first['holder'];
+            $evidence['holder'] = ['value' => $first['holder'], 'page' => array_key_first($titleBlock), 'pattern' => 'cover_company_line'];
+        }
+        $formulaHits = $this->formulas->detect($pdf->pages);
+        $candidates['molecular_formula'] = array_values(array_unique(array_column($formulaHits, 'formula')));
+        if (count($candidates['molecular_formula']) === 1) {
+            $fields['molecular_formula'] = $candidates['molecular_formula'][0];
+            $evidence['molecular_formula'] = ['value' => $fields['molecular_formula'], 'page' => $formulaHits[0]['page'], 'pattern' => $formulaHits[0]['labeled'] ? 'labeled_molecular_formula' : 'chemical_formula_pattern'];
+        }
 
         if ($fields['product_name'] !== null && $fields['document_type'] !== null) {
             $label = $fields['document_type'] === 'bula_paciente' ? 'Bula do paciente' : 'Bula do profissional de saúde';
             $fields['title'] = $fields['product_name'].' — '.$label;
         }
 
+        // Marca® + nome genérico repetidos em mais de uma página (capa e folha de rosto) é evidência forte de identidade.
+        $titleConverges = count($titleBlock) >= 2 && count(array_unique(array_map(fn (array $block): string => $this->normalizedIdentity($block['brand'].'|'.$block['generic']), $titleBlock))) === 1;
         $score = ($fields['registration_number_normalized'] !== null ? 40 : 0) + ($fields['product_name'] !== null ? 25 : 0)
-            + ($fields['document_type'] !== null ? 20 : 0) + ($fields['active_ingredient'] !== null ? 10 : 0) + ($fields['holder'] !== null ? 5 : 0);
+            + ($fields['document_type'] !== null ? 20 : 0) + ($fields['active_ingredient'] !== null ? 10 : 0) + ($fields['holder'] !== null ? 5 : 0)
+            + ($titleConverges && $fields['product_name'] !== null && $fields['active_ingredient'] !== null ? 15 : 0);
         $eligible = $score >= 80 && $productIdentityIsReliable && $ambiguous === [] && $fields['title'] !== null && $fields['document_type'] !== null && $fields['registration_number_normalized'] !== null;
 
-        return new DocumentIdentification(self::class, $fields, $evidence, $ambiguous, $score, $eligible, count($pages), candidates: $candidates, excerpts: $this->excerpts($pages));
+        return new DocumentIdentification(self::class, $fields, $evidence, $ambiguous, $score, $eligible, count($pages), candidates: $candidates, excerpts: $this->excerpts($pages, $formulaHits));
     }
 
     /** @return list<ExtractedPage> */
@@ -60,13 +80,29 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
      * @param  array<string, array{value: string, page: int, pattern: string}>  $evidence
      * @param  list<string>  $ambiguous
      * @param  array<string, list<string>>  $candidateSink
+     * @param  array<int, array{brand: string, generic: ?string, holder: ?string}>  $titleBlocks  Blocos de título por página (saída).
      */
-    private function identifyProductAndIngredient(array $pages, array &$fields, array &$evidence, array &$ambiguous, array &$candidateSink): bool
+    private function identifyProductAndIngredient(array $pages, array &$fields, array &$evidence, array &$ambiguous, array &$candidateSink, array &$titleBlocks = []): bool
     {
         $productCandidates = [];
         $ingredientCandidates = [];
 
         foreach ($pages as $page) {
+            // Capa / folha de rosto: marca® + nome genérico (+ titular). É a fonte mais confiável da identidade.
+            if ($page->number <= (int) config('knowledge.identification.first_pages', 2) + 1 && ($block = $this->text->titleBlock($page)) !== null) {
+                $titleBlocks[$page->number] = $block;
+                $this->addCandidate($productCandidates, trim(preg_replace('/[®™]+$/u', '', $block['brand']) ?? $block['brand']), $page->number, 'cover_brand', 60);
+                $this->addCandidate($ingredientCandidates, (string) $block['generic'], $page->number, 'cover_generic_name', 55);
+            }
+
+            $formula = $this->text->compositionFormula($page);
+            foreach ($formula['formula_lines'] as $name) {
+                $this->addCandidate($ingredientCandidates, $name, $page->number, 'composition_formula_line', 45);
+            }
+            foreach ($formula['equivalent_bases'] as $base) {
+                $this->addCandidate($ingredientCandidates, $base, $page->number, 'equivalent_base', 20);
+            }
+
             if (preg_match('/IDENTIFICA[CÇ][AÃ]O\s+DO\s+MEDICAMENTO\s*\R+(?:\s*\R)*([^\r\n]{2,120})/iu', $page->text, $match) === 1) {
                 $this->addCandidate($productCandidates, $match[1], $page->number, 'identification_section_heading', 40);
             }
@@ -83,7 +119,8 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
                 }
             }
 
-            if (preg_match('/^\s*([^\n]{2,100})\R\s*\(([^\n)]{3,120})\)/mu', $page->text, $match) === 1) {
+            if (preg_match('/^\s*([^\n]{2,100})\R\s*\(([^\n)]{3,120})\)/mu', $page->text, $match) === 1
+                && ! $this->text->isCompositionLine($match[1]) && ! $this->text->isCompositionLine($match[2])) {
                 $this->addCandidate($productCandidates, $match[1], $page->number, 'title_followed_by_parenthesized_ingredient', 35);
                 $this->addCandidate($ingredientCandidates, $match[2], $page->number, 'parenthesized_ingredient', 50);
             }
@@ -94,7 +131,8 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
         }
 
         // Uma quantidade ("50 mg de…", "10mL de…") não é nome de substância: descartar evita um princípio ativo falso e deixa o campo para o catálogo/IA.
-        $ingredientCandidates = array_filter($ingredientCandidates, fn (array $candidate): bool => preg_match('/^\d/u', $candidate['value']) !== 1);
+        $ingredientCandidates = array_filter($ingredientCandidates, fn (array $candidate): bool => preg_match('/^\W*\d|^\W*equivalente\b/iu', $candidate['value']) !== 1
+            && preg_match('/^\p{Lu}{2,5}$/u', $candidate['value']) !== 1);  // siglas ("IBP") não são substâncias
         $candidateSink['product_name'] = array_values(array_column($productCandidates, 'value'));
         $candidateSink['active_ingredient'] = array_values(array_column($ingredientCandidates, 'value'));
         $product = $this->selectCandidate($productCandidates, 'product_name', $ambiguous);
@@ -184,27 +222,44 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
     }
 
     /**
-     * Trechos curtos que sustentam a identificação; são o único conteúdo do PDF enviado ao classificador local.
+     * Trechos que sustentam a identificação; são o único conteúdo do PDF enviado ao classificador local.
+     * Cobrem capa, identificação, composição ("fórmula"), contexto de fórmulas moleculares e linhas de titular/registro.
      *
      * @param  list<ExtractedPage>  $pages
+     * @param  list<array{formula: string, page: int, context: string, labeled: bool}>  $formulaHits
      * @return list<array{page: int, type: string, text: string}>
      */
-    private function excerpts(array $pages): array
+    private function excerpts(array $pages, array $formulaHits = []): array
     {
         $excerpts = [];
         foreach ($pages as $page) {
-            $header = $this->clean(implode(' ', array_slice(preg_split('/\R/u', $page->text) ?: [], 0, 3)));
+            $lines = $this->text->lines($page);
+            $header = $this->clean(implode(' ', array_slice($lines, 0, 3)));
             if ($header !== '') {
                 $excerpts[] = ['page' => $page->number, 'type' => 'page_header', 'text' => mb_substr($header, 0, 300)];
             }
-            foreach (['identification_section' => '/IDENTIFICA[CÇ][AÃ]O\s+DO\s+MEDICAMENTO(.{0,400})/isu', 'composition' => '/\bCOMPOSI[CÇ][AÃ]O\b(.{0,400})/isu'] as $type => $pattern) {
-                if (preg_match($pattern, $page->text, $match) === 1 && $this->clean($match[1]) !== '') {
-                    $excerpts[] = ['page' => $page->number, 'type' => $type, 'text' => $this->clean($match[1])];
+            if ($page->number <= (int) config('knowledge.identification.first_pages', 2) && count($lines) > 3) {
+                $excerpts[] = ['page' => $page->number, 'type' => 'cover_block', 'text' => mb_substr($this->clean(implode(' | ', array_slice($lines, 0, 14))), 0, 1200)];
+            }
+            if (preg_match('/IDENTIFICA[CÇ][AÃ]O\s+DO\s+MEDICAMENTO(.{0,900})/isu', $page->text, $match) === 1 && $this->clean($match[1]) !== '') {
+                $excerpts[] = ['page' => $page->number, 'type' => 'identification_section', 'text' => $this->clean($match[1])];
+            }
+            if (preg_match('/\bCOMPOSI[CÇ][AÃ]O\b(.{0,1600})/isu', $page->text, $match) === 1 && $this->clean($match[1]) !== '') {
+                $block = preg_split('/\R\s*(?:INFORMA[CÇ][OÕ]ES|\d+\.\s+[A-ZÀ-Ú])/u', $match[1])[0] ?? $match[1];
+                $excerpts[] = ['page' => $page->number, 'type' => 'composition', 'text' => mb_substr($this->clean($block), 0, 1200)];
+            }
+            foreach (array_slice($lines, 0, 80) as $line) {
+                if (preg_match('/\b(?:Registro|MS|Reg\.?|CNPJ|Registrado por|Importado e Registrado)\b.{0,160}/iu', $line, $match) === 1 && mb_strlen($line) <= 220) {
+                    $excerpts[] = ['page' => $page->number, 'type' => 'holder_registration', 'text' => mb_substr($line, 0, 220)];
+                    break;
                 }
             }
         }
+        foreach (array_slice($formulaHits, 0, 3) as $hit) {
+            $excerpts[] = ['page' => $hit['page'], 'type' => 'formula_context', 'text' => mb_substr($hit['context'], 0, 420)];
+        }
 
-        return array_slice($excerpts, 0, 8);
+        return array_slice($excerpts, 0, 16);
     }
 
     private function clean(string $value): string
@@ -219,7 +274,10 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
         $value = preg_replace('/^Nome\h+gen[eé]rico\h*:\h*/iu', '', $value) ?? $value;
         $value = preg_replace('/\h*\(DCB\h*:\h*\d+\)\h*$/iu', '', $value) ?? $value;
         $value = $this->clean($value);
-        if ($this->isRejectedIdentityCandidate($value)) {
+        // Líderes pontilhados e marcas de nota ("metformina* ..500 mg") nunca fazem parte do nome; linhas que começam por
+        // "*", "(" ou "equivalente" são notas da composição, não nomes.
+        $value = rtrim(preg_replace('/\s*\.{2,}.*$/u', '', $value) ?? $value, "*†‡ \t");
+        if ($value === '' || preg_match('/^[*(]|^equivalente\b/iu', $value) === 1 || $this->isRejectedIdentityCandidate($value)) {
             return;
         }
 
@@ -230,6 +288,9 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
 
         if (! isset($candidates[$key]) || $weight > $candidates[$key]['weight']) {
             $candidates[$key] = compact('value', 'page', 'pattern', 'weight');
+        } elseif ($weight === $candidates[$key]['weight'] && mb_strtoupper($candidates[$key]['value']) === $candidates[$key]['value'] && mb_strtoupper($value) !== $value) {
+            // Mesma identidade e mesmo peso: prefere a grafia com minúsculas ("Glifage") à caixa alta da capa ("GLIFAGE").
+            $candidates[$key]['value'] = $value;
         }
     }
 
@@ -266,7 +327,7 @@ final class AnvisaLeafletMetadataExtractor implements KnowledgeDocumentMetadataE
         preg_match_all('/cada\h+[^\r\n:]{1,100}\h+cont[eé]m\h*:?\h*([^\r\n.;]{2,160})/iu', $section[1], $matches);
         foreach ($matches[1] as $candidate) {
             $candidate = preg_split('/\h+(?:[.·•…]{2,}|\d+(?:[,.]\d+)?\h*(?:mg|mcg|g|ml|%))/iu', $candidate, 2)[0] ?? $candidate;
-            $candidates[] = $candidate;
+            $candidates[] = $this->text->sanitizeSubstance($candidate);
         }
 
         return $candidates;

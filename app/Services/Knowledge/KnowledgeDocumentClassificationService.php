@@ -26,6 +26,9 @@ final class KnowledgeDocumentClassificationService
 
     public const AI_REJECTED = 'AI_REJECTED';
 
+    /** A IA respondeu, concordou com tudo o que a heurística achou e não acrescentou nada (confirmação, não rejeição). */
+    public const AI_CONFIRMED = 'AI_CONFIRMED';
+
     public const AI_UNAVAILABLE = 'AI_UNAVAILABLE';
 
     public const AI_DISABLED = 'AI_DISABLED';
@@ -99,6 +102,10 @@ final class KnowledgeDocumentClassificationService
         }
 
         $rejection = $this->rejectionReason($identification, $response);
+        if ($rejection === 'nothing_resolved') {
+            // Sem conflito e sem novidade: a IA confirma a heurística (com confiança suficiente, já verificada acima).
+            return $conclude($identification, [...$ai, 'decision' => self::AI_CONFIRMED]);
+        }
         if ($rejection !== null) {
             return $conclude($this->withIngredientFromAi($identification, $response, $ai['checks']), [...$ai, 'decision' => self::AI_REJECTED, 'reason' => $rejection, 'ingredient_filled_by_ai' => $this->canFillIngredient($identification, $response, $ai['checks'])]);
         }

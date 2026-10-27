@@ -116,6 +116,17 @@ final class KnowledgeDocumentClassificationTest extends TestCase
         $this->assertSame('bula_paciente', $result->fields['document_type'], 'O tipo conflitante não é aplicado.');
     }
 
+    public function test_ai_that_agrees_with_the_heuristic_and_adds_nothing_is_a_confirmation_not_a_rejection(): void
+    {
+        $this->useProvider($this->answer(productName: 'Novalgina'));
+
+        $result = $this->refine($this->identification(score: 60, fields: ['product_name' => 'Novalgina', 'title' => 'Novalgina — Bula do paciente']));
+
+        $this->assertSame('AI_CONFIRMED', $result->classification['decision']);
+        $this->assertNull($result->classification['reason'] ?? null);
+        $this->assertSame('Novalgina', $result->fields['product_name']);
+    }
+
     public function test_intermediate_score_calls_the_model_and_a_grounded_answer_resolves_the_ambiguity(): void
     {
         $provider = $this->useProvider($this->answer(productName: 'Novalgina'));
