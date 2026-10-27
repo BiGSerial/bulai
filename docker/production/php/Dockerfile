@@ -5,7 +5,7 @@
 # Build (o contexto é a raiz do repositório):
 #   docker build -f docker/production/php/Dockerfile --build-arg GIT_SHA=$(git rev-parse HEAD) -t bulai-app:$(git rev-parse HEAD) .
 
-ARG PHP_IMAGE=php:8.4-fpm-bookworm@sha256:6bfef8e416977aa41f48e3e42a40c1e08050d24e4a938c6edb421400bff24601
+ARG PHP_IMAGE=php:8.4.27-fpm-bookworm@sha256:df5a5113e1179ddf4560cd15727eb3812f6457829756d2a96c6c11bb4c250089
 ARG COMPOSER_IMAGE=composer:2.8@sha256:5248900ab8b5f7f880c2d62180e40960cd87f60149ec9a1abfd62ac72a02577c
 ARG NODE_IMAGE=node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
 
@@ -13,7 +13,9 @@ FROM ${COMPOSER_IMAGE} AS composer-bin
 
 # Base PHP com as extensões exigidas pelo projeto (composer check-platform-reqs) e pelo runtime.
 FROM ${PHP_IMAGE} AS php-base
+# `apt-get upgrade` aplica as correções de segurança do Debian publicadas depois do build da imagem-base (fixada por digest).
 RUN apt-get update \
+    && apt-get upgrade -y --no-install-recommends \
     && apt-get install -y --no-install-recommends libpq5 libzip4 libpng16-16 libjpeg62-turbo libfreetype6 libicu72 libfcgi-bin \
     && apt-get install -y --no-install-recommends libpq-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libicu-dev \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
