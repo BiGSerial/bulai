@@ -1030,3 +1030,15 @@ Problem: pending files stayed "not analyzed", the queue was invisible, the worke
 - `QueueStatusService` reads the active driver (`database` tables or Redis keys `queues:default[:reserved|:delayed]`), including removal of waiting jobs of one item. Failed jobs stay in the `failed_jobs` table.
 - **Not done**: SSE over Redis Pub/Sub (the stream still compares snapshots every 2 s; they are now cheap Redis reads). Test: `QueueStatusTest::test_snapshot_reads_the_redis_queue` (mocked connection); the suite itself runs with `sync`/`array`.
 - **Deploy**: the first deploy with this change rebuilds the PHP image (new extension) and starts the `redis` container; run the installer first so the 10040 collision check runs. Nothing was deployed.
+
+### Drug interactions ingestion (DDInter)
+
+Goal: ingest the public DDInter drug–drug interaction exports (`ddinter_downloads_code_*.csv`; columns `DDInterID_A, Drug_A, DDInterID_B, Drug_B, Level`) as complementary information to the leaflet. It does **not** replace the leaflet (the regulatory source) and carries only the severity (`major|moderate|minor|unknown`), no mechanism or management text.
+
+- **Tables**: `drug_interaction_imports` (one row per file: sha256 unique, status `QUEUED|PROCESSING|COMPLETED|FAILED`, row counters, uploader, error reference) and `drug_interactions` (`pair_key` unique, `source`, both drug external ids/names, `normalized_*_name` indexed, `severity` indexed, `import_id`).
+- **Canonical pair**: each pair is stored once with the lower numeric DDInter id as drug A; `ddinter:<idA>:<idB>` is the upsert key, so the same pair appearing in several letter files is updated, not duplicated (222k CSV rows → 160,235 pairs).
+- **`DrugInteractionCsvImporter`**: validates the exact header (BOM tolerated), rejects rows with invalid ids, empty names, identical drugs or an unknown level, dedupes inside the file, upserts in batches of 1000, reports progress and is idempotent per file hash. Names are normalized (lowercase, ASCII, single spaces) for later matching with the active ingredient.
+- **Entry points**: `php artisan knowledge:import-drug-interactions <files|directory>`; Admin page **Interações** (`/admin/knowledge/interactions`, ADMIN only) with multi-file upload (≤ 12 files, ≤ 20 MB each) that queues one `ImportDrugInteractions` job per file, shows totals by severity, imports in progress and history. The uploaded file is deleted after the job. Config: `knowledge.drug_interactions.*` (`KNOWLEDGE_INTERACTIONS_*`).
+- **Measured**: the 8 files provided import in ≈15 s; a repeat takes 0.2 s.
+- **Tests**: `tests/Feature/Knowledge/DrugInteractionImportTest.php`.
+- **Limitations / next steps**: only the 8 letters supplied were available (download the rest from DDInter); names are in English, so linking to the Portuguese active ingredient (ANVISA catalog) needs a synonym table; showing interactions in the medicine panel and cross-checking against the leaflet's interaction section are not implemented yet. DDInter's terms of use are non-commercial/academic — confirm them and credit the source wherever the data is displayed.
