@@ -10,6 +10,12 @@ return [
         'max_kilobytes' => (int) env('KNOWLEDGE_ANVISA_CATALOG_MAX_KILOBYTES', 51_200),
         'job_timeout_seconds' => (int) env('KNOWLEDGE_ANVISA_CATALOG_JOB_TIMEOUT_SECONDS', 600),
     ],
+    // Interações medicamentosas (DDInter): cada CSV tem alguns MB; um job por arquivo.
+    'drug_interactions' => [
+        'max_kilobytes' => (int) env('KNOWLEDGE_INTERACTIONS_MAX_KILOBYTES', 20_480),
+        'max_files' => (int) env('KNOWLEDGE_INTERACTIONS_MAX_FILES', 12),
+        'job_timeout_seconds' => (int) env('KNOWLEDGE_INTERACTIONS_JOB_TIMEOUT_SECONDS', 600),
+    ],
     'processing' => [
         'max_pdf_bytes' => (int) env('KNOWLEDGE_MAX_PDF_BYTES', 25 * 1024 * 1024),
         'max_pages' => (int) env('KNOWLEDGE_MAX_PAGES', 500),

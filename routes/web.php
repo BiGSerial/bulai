@@ -15,6 +15,7 @@ use App\Livewire\Admin\Knowledge\Batches\Index as KnowledgeBatchIndex;
 use App\Livewire\Admin\Knowledge\Batches\Show as KnowledgeBatchShow;
 use App\Livewire\Admin\Knowledge\Catalog\Index as KnowledgeCatalogIndex;
 use App\Livewire\Admin\Knowledge\Dashboard as KnowledgeDashboard;
+use App\Livewire\Admin\Knowledge\Interactions\Index as KnowledgeInteractionsIndex;
 use App\Livewire\Admin\Knowledge\Pending\Index as KnowledgePendingIndex;
 use App\Livewire\Admin\Knowledge\Pending\Review as KnowledgePendingReview;
 use App\Livewire\Admin\Knowledge\QueueStatus as KnowledgeQueueStatus;
@@ -73,6 +74,7 @@ Route::prefix('admin')
         Route::get('/knowledge/batches', KnowledgeBatchIndex::class)->name('knowledge.batches.index');
         Route::get('/knowledge/batches/{batch}', KnowledgeBatchShow::class)->name('knowledge.batches.show');
         Route::get('/knowledge/catalog', KnowledgeCatalogIndex::class)->name('knowledge.catalog.index');
+        Route::get('/knowledge/interactions', KnowledgeInteractionsIndex::class)->name('knowledge.interactions.index');
         Route::get('/knowledge/pending', KnowledgePendingIndex::class)->name('knowledge.pending.index');
         Route::get('/knowledge/batches/{batch}/items/{item}/review', KnowledgePendingReview::class)
             ->scopeBindings()

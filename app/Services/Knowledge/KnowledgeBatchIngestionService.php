@@ -84,7 +84,7 @@ class KnowledgeBatchIngestionService
             'duration_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
         ]);
 
-        return $batch->refresh()->load('items');
+        return $batch->refresh()->load(['items' => fn ($query) => $query->orderBy('id')]);
     }
 
     /**

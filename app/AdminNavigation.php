@@ -40,6 +40,7 @@ final class AdminNavigation
             self::item('admin.knowledge.documents.index', 'Documentos', 'admin.*documents.*', 'document', 'Documentos já incorporados à base'),
             self::item('admin.knowledge.sources.index', 'Origens', 'admin.knowledge.sources.*', 'library', 'De onde vêm os documentos (ex.: ANVISA)'),
             self::item('admin.knowledge.catalog.index', 'Catálogo ANVISA', 'admin.knowledge.catalog.*', 'beaker', 'Lista oficial de medicamentos usada para validar bulas'),
+            self::item('admin.knowledge.interactions.index', 'Interações', 'admin.knowledge.interactions.*', 'beaker', 'Interações medicamentosas (DDInter) usadas como informação complementar'),
             self::item('admin.knowledge.queue', 'Fila e serviços', 'admin.knowledge.queue', 'queue', 'Fila de análises, OCR e IA local: ver o que está rodando e reiniciar se travar'),
             self::item('admin.users.index', 'Usuários', 'admin.users.*', 'users', 'Quem acessa o BULAI e com qual perfil'),
         ];
