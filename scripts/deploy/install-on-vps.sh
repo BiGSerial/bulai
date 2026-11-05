@@ -27,7 +27,7 @@ cd "$REPO_ROOT"
 # usuário injetasse código que o root executaria.
 SOURCE_FILES=(
     scripts/deploy/install-on-vps.sh scripts/deploy/bulai-deploy scripts/deploy/bulai-ci-entry scripts/deploy/sudoers-bulai-ci
-    scripts/install-local-model.sh compose.prod.yaml docker/production/env/model.env docker/production/postgres/init/10-bulai-app-role.sh
+    scripts/install-local-model.sh scripts/install-embedding-model.sh compose.prod.yaml docker/production/env/model.env docker/production/postgres/init/10-bulai-app-role.sh
     docker/production/postgres/passwd docker/production/postgres/group
 )
 path_untrusted() { # <caminho> -> 0 se NÃO for confiável
@@ -72,6 +72,7 @@ FILES=(
     "compose.prod.yaml|$TRUSTED/compose.prod.yaml|0644"
     "docker/production/env/model.env|$TRUSTED/model.env|0644"
     "scripts/install-local-model.sh|$TRUSTED/install-local-model.sh|0755"
+    "scripts/install-embedding-model.sh|$TRUSTED/install-embedding-model.sh|0755"
     "docker/production/postgres/init/10-bulai-app-role.sh|$TRUSTED/docker/production/postgres/init/10-bulai-app-role.sh|0755"
     "docker/production/postgres/passwd|$TRUSTED/docker/production/postgres/passwd|0644"
     "docker/production/postgres/group|$TRUSTED/docker/production/postgres/group|0644"

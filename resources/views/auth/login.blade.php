@@ -1,27 +1,20 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Entrar · BULAI</title>
-    @vite(['resources/css/app.css'])
-</head>
-<body class="grid min-h-screen place-items-center bg-slate-50 px-4 text-slate-900 antialiased">
-    <main class="w-full max-w-sm">
-        <form method="POST" action="{{ route('login.store') }}">
-            @csrf
-            <x-knowledge-admin.card class="grid gap-4 sm:p-7">
-                <img class="mx-auto h-12 w-auto" src="/brand/bulai-logo-horizontal-transparente.svg" alt="BULAI — Bulas Inteligentes">
-                <h1 class="text-center text-xl font-semibold text-slate-900">Área administrativa</h1>
-
-                @error('email')<x-knowledge-admin.alert tone="danger">{{ $message }}</x-knowledge-admin.alert>@enderror
-
-                <x-knowledge-admin.input label="E-mail" type="email" name="email" :value="old('email')" autocomplete="email" required autofocus />
-                <x-knowledge-admin.input label="Senha" type="password" name="password" autocomplete="current-password" required />
-                <label class="flex items-center gap-2 text-sm text-slate-700"><input class="rounded border-slate-300 text-brand-700 focus:ring-brand-600" name="remember" type="checkbox" value="1">Manter conectado</label>
-                <x-knowledge-admin.button type="submit">Entrar</x-knowledge-admin.button>
-            </x-knowledge-admin.card>
-        </form>
-    </main>
-</body>
-</html>
+@extends('layouts.auth')
+@section('title', 'Entrar')
+@section('heading', 'Entrar')
+@section('lead', 'Acesse o aplicativo do paciente ou a Área administrativa com a sua conta.')
+@section('content')
+    <form method="POST" action="{{ route('login.store') }}" novalidate>
+        @csrf
+        <x-knowledge-admin.card class="grid gap-5 sm:p-7">
+            @error('email')<x-knowledge-admin.alert tone="danger" id="login-erro" role="alert">{{ $message }}</x-knowledge-admin.alert>@enderror
+            <x-knowledge-admin.input label="E-mail" type="email" name="email" :value="old('email')" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required autofocus aria-describedby="login-erro" class="min-h-14 text-lg" />
+            <x-knowledge-admin.input label="Senha" type="password" name="password" autocomplete="current-password" required class="min-h-14 text-lg" />
+            <label class="flex min-h-12 items-center gap-3 text-slate-800"><input class="size-6 rounded border-slate-300 text-brand-700 focus:ring-brand-600" name="remember" type="checkbox" value="1" @checked(old('remember'))>Continuar conectado neste aparelho</label>
+            <x-knowledge-admin.button variant="accent" type="submit" class="min-h-16 w-full text-xl">Entrar</x-knowledge-admin.button>
+            <a class="inline-flex min-h-12 items-center justify-center font-semibold text-brand-800 underline-offset-2 hover:underline" href="{{ route('password.request') }}">Esqueci minha senha</a>
+        </x-knowledge-admin.card>
+    </form>
+@endsection
+@section('footer')
+    <p>Sem conta? Peça o acesso a um administrador; ele entrega uma senha provisória.</p>
+@endsection

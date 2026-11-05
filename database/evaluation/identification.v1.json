@@ -1,0 +1,559 @@
+{
+    "version": "v1",
+    "seed_sha256": "8ce7b805acfa223a8199fc6241e17a97a935b90591644ff9181541ef4d2ae8a4",
+    "reference_imports": {
+        "ddinter_downloads_code_A.csv": "a22ca451d2b755ca2331886f7e00540c86f555f9f55704a59a19c691251f52e0",
+        "ddinter_downloads_code_B.csv": "76de5115a55587f0e822e1096b684fd3ddde058fbefcbb19896df58820ace130",
+        "ddinter_downloads_code_D.csv": "c0627ec39965dbe27829e4934cd20d71eb079f4e373287678737bba9423a306a",
+        "ddinter_downloads_code_H.csv": "f0f925f0ba1ee68c4668d3e7a6732719b34623b22a0f5d017f9090e59f63c88e",
+        "ddinter_downloads_code_L.csv": "f54f4486cc00344f8c86508c31c2ca3fad6d1d37ec3af5bcf609b4bbda5507ef",
+        "ddinter_downloads_code_P.csv": "83f8c0edb20d09ef29b8500b48f9623e208379525688ade9e70a7df2d8749d55",
+        "ddinter_downloads_code_R.csv": "1c39c3d4a6e41659b7a988538d7f363867592abc6f41a815de8746f6e2150574",
+        "ddinter_downloads_code_V.csv": "353973fb300453946aea95733e8fb52338e4b59426d2ce6ca318363d4f84f10a"
+    },
+    "description": "Gabarito preliminar de identificação (nome digitado -> princípios ativos esperados, em inglês como no DDInter). Elaborado pelo autor do sistema, de forma independente do resolvedor; NÃO foi validado por profissional de saúde.",
+    "items": [
+        {
+            "id": 1,
+            "query": "Marevan",
+            "registration_number": "103900147",
+            "product_name": "MAREVAN",
+            "expected_ingredients": [
+                "warfarin"
+            ]
+        },
+        {
+            "id": 2,
+            "query": "Tylenol",
+            "registration_number": "157211214",
+            "product_name": "TYLENOL",
+            "expected_ingredients": [
+                "acetaminophen"
+            ]
+        },
+        {
+            "id": 3,
+            "query": "Aspirina",
+            "registration_number": "170560020",
+            "product_name": "ASPIRINA",
+            "expected_ingredients": [
+                "acetylsalicylic acid"
+            ]
+        },
+        {
+            "id": 4,
+            "query": "AAS",
+            "registration_number": "178170936",
+            "product_name": "AAS",
+            "expected_ingredients": [
+                "acetylsalicylic acid"
+            ]
+        },
+        {
+            "id": 5,
+            "query": "Losartana potássica",
+            "registration_number": "151670044",
+            "product_name": "LOSARTANA POTÁSSICA",
+            "expected_ingredients": [
+                "losartan"
+            ]
+        },
+        {
+            "id": 6,
+            "query": "Cataflam",
+            "registration_number": "100680038",
+            "product_name": "CATAFLAM",
+            "expected_ingredients": [
+                "diclofenac"
+            ]
+        },
+        {
+            "id": 7,
+            "query": "Voltaren",
+            "registration_number": "100680060",
+            "product_name": "VOLTAREN",
+            "expected_ingredients": [
+                "diclofenac"
+            ]
+        },
+        {
+            "id": 8,
+            "query": "Omeprazol",
+            "registration_number": "105730544",
+            "product_name": "OMEPRAZOL",
+            "expected_ingredients": [
+                "omeprazole"
+            ]
+        },
+        {
+            "id": 9,
+            "query": "Pantoprazol",
+            "registration_number": "100681129",
+            "product_name": "PANTOPRAZOL",
+            "expected_ingredients": [
+                "pantoprazole"
+            ]
+        },
+        {
+            "id": 10,
+            "query": "Amoxicilina",
+            "registration_number": "151670019",
+            "product_name": "AMOXICILINA",
+            "expected_ingredients": [
+                "amoxicillin"
+            ]
+        },
+        {
+            "id": 11,
+            "query": "Azitromicina",
+            "registration_number": "105350160",
+            "product_name": "AZITROMICINA",
+            "expected_ingredients": [
+                "azithromycin"
+            ]
+        },
+        {
+            "id": 12,
+            "query": "Ciprofloxacino",
+            "registration_number": "103110155",
+            "product_name": "CIPROFLOXACINO",
+            "expected_ingredients": [
+                "ciprofloxacin"
+            ]
+        },
+        {
+            "id": 13,
+            "query": "Glifage",
+            "registration_number": "100890193",
+            "product_name": "GLIFAGE",
+            "expected_ingredients": [
+                "metformin"
+            ]
+        },
+        {
+            "id": 14,
+            "query": "Diovan",
+            "registration_number": "100680065",
+            "product_name": "DIOVAN",
+            "expected_ingredients": [
+                "valsartan"
+            ]
+        },
+        {
+            "id": 15,
+            "query": "Norvasc",
+            "registration_number": "188300080",
+            "product_name": "NORVASC",
+            "expected_ingredients": [
+                "amlodipine"
+            ]
+        },
+        {
+            "id": 16,
+            "query": "Atenolol",
+            "registration_number": "103700396",
+            "product_name": "ATENOLOL",
+            "expected_ingredients": [
+                "atenolol"
+            ]
+        },
+        {
+            "id": 17,
+            "query": "Captopril",
+            "registration_number": "100630288",
+            "product_name": "CAPTOPRIL",
+            "expected_ingredients": [
+                "captopril"
+            ]
+        },
+        {
+            "id": 18,
+            "query": "Enalapril",
+            "registration_number": "118190185",
+            "product_name": "MALEATO DE ENALAPRIL",
+            "expected_ingredients": [
+                "enalapril"
+            ]
+        },
+        {
+            "id": 19,
+            "query": "Lasix",
+            "registration_number": "183260356",
+            "product_name": "LASIX",
+            "expected_ingredients": [
+                "furosemide"
+            ]
+        },
+        {
+            "id": 20,
+            "query": "Hidroclorotiazida",
+            "registration_number": "183260430",
+            "product_name": "HIDROCLOROTIAZIDA",
+            "expected_ingredients": [
+                "hydrochlorothiazide"
+            ]
+        },
+        {
+            "id": 21,
+            "query": "Sertralina",
+            "registration_number": "110390191",
+            "product_name": "CLORIDRATO DE SERTRALINA",
+            "expected_ingredients": [
+                "sertraline"
+            ]
+        },
+        {
+            "id": 22,
+            "query": "Fluoxetina",
+            "registration_number": "141070130",
+            "product_name": "CLORIDRATO DE FLUOXETINA",
+            "expected_ingredients": [
+                "fluoxetine"
+            ]
+        },
+        {
+            "id": 23,
+            "query": "Rivotril",
+            "registration_number": "115240011",
+            "product_name": "RIVOTRIL",
+            "expected_ingredients": [
+                "clonazepam"
+            ]
+        },
+        {
+            "id": 24,
+            "query": "Diazepam",
+            "registration_number": "167730219",
+            "product_name": "DIAZEPAM",
+            "expected_ingredients": [
+                "diazepam"
+            ]
+        },
+        {
+            "id": 25,
+            "query": "Lexotan",
+            "registration_number": "164250010",
+            "product_name": "LEXOTAN",
+            "expected_ingredients": [
+                "bromazepam"
+            ]
+        },
+        {
+            "id": 26,
+            "query": "Haldol",
+            "registration_number": "164250009",
+            "product_name": "HALDOL",
+            "expected_ingredients": [
+                "haloperidol"
+            ]
+        },
+        {
+            "id": 27,
+            "query": "Tegretol",
+            "registration_number": "100680085",
+            "product_name": "TEGRETOL",
+            "expected_ingredients": [
+                "carbamazepine"
+            ]
+        },
+        {
+            "id": 28,
+            "query": "Gardenal",
+            "registration_number": "141070658",
+            "product_name": "GARDENAL",
+            "expected_ingredients": [
+                "phenobarbital"
+            ]
+        },
+        {
+            "id": 29,
+            "query": "Lamictal",
+            "registration_number": "101070006",
+            "product_name": "LAMICTAL",
+            "expected_ingredients": [
+                "lamotrigine"
+            ]
+        },
+        {
+            "id": 30,
+            "query": "Neurontin",
+            "registration_number": "188300107",
+            "product_name": "NEURONTIN",
+            "expected_ingredients": [
+                "gabapentin"
+            ]
+        },
+        {
+            "id": 31,
+            "query": "Prednisona",
+            "registration_number": "102350633",
+            "product_name": "PREDNISONA",
+            "expected_ingredients": [
+                "prednisone"
+            ]
+        },
+        {
+            "id": 32,
+            "query": "Dexametasona",
+            "registration_number": "102350515",
+            "product_name": "DEXAMETASONA",
+            "expected_ingredients": [
+                "dexamethasone"
+            ]
+        },
+        {
+            "id": 33,
+            "query": "Digoxina",
+            "registration_number": "141070059",
+            "product_name": "DIGOXINA",
+            "expected_ingredients": [
+                "digoxin"
+            ]
+        },
+        {
+            "id": 34,
+            "query": "Amiodarona",
+            "registration_number": "100410206",
+            "product_name": "CLORIDRATO DE AMIODARONA",
+            "expected_ingredients": [
+                "amiodarone"
+            ]
+        },
+        {
+            "id": 35,
+            "query": "Clopidogrel",
+            "registration_number": "151670046",
+            "product_name": "BISSULFATO DE CLOPIDOGREL",
+            "expected_ingredients": [
+                "clopidogrel"
+            ]
+        },
+        {
+            "id": 36,
+            "query": "Xarelto",
+            "registration_number": "170560048",
+            "product_name": "XARELTO",
+            "expected_ingredients": [
+                "rivaroxaban"
+            ]
+        },
+        {
+            "id": 37,
+            "query": "Rosuvastatina",
+            "registration_number": "154230294",
+            "product_name": "ROSUVASTATINA CALCICA",
+            "expected_ingredients": [
+                "rosuvastatin"
+            ]
+        },
+        {
+            "id": 38,
+            "query": "Atorvastatina",
+            "registration_number": "118190468",
+            "product_name": "ATORVASTATINA CÁLCICA",
+            "expected_ingredients": [
+                "atorvastatin"
+            ]
+        },
+        {
+            "id": 39,
+            "query": "Viagra",
+            "registration_number": "188300077",
+            "product_name": "VIAGRA",
+            "expected_ingredients": [
+                "sildenafil"
+            ]
+        },
+        {
+            "id": 40,
+            "query": "Fluconazol",
+            "registration_number": "183260210",
+            "product_name": "FLUCONAZOL",
+            "expected_ingredients": [
+                "fluconazole"
+            ]
+        },
+        {
+            "id": 41,
+            "query": "Cetoconazol",
+            "registration_number": "154230254",
+            "product_name": "CETOCONAZOL",
+            "expected_ingredients": [
+                "ketoconazole"
+            ]
+        },
+        {
+            "id": 42,
+            "query": "Itraconazol",
+            "registration_number": "167730588",
+            "product_name": "ITRACONAZOL",
+            "expected_ingredients": [
+                "itraconazole"
+            ]
+        },
+        {
+            "id": 43,
+            "query": "Metronidazol",
+            "registration_number": "103460020",
+            "product_name": "METRONIDAZOL",
+            "expected_ingredients": [
+                "metronidazole"
+            ]
+        },
+        {
+            "id": 44,
+            "query": "Claritromicina",
+            "registration_number": "102350482",
+            "product_name": "CLARITROMICINA",
+            "expected_ingredients": [
+                "clarithromycin"
+            ]
+        },
+        {
+            "id": 45,
+            "query": "Eritromicina",
+            "registration_number": "125680208",
+            "product_name": "ESTOLATO DE ERITROMICINA",
+            "expected_ingredients": [
+                "erythromycin"
+            ]
+        },
+        {
+            "id": 46,
+            "query": "Ibuprofeno",
+            "registration_number": "115600267",
+            "product_name": "IBUPROFENO",
+            "expected_ingredients": [
+                "ibuprofen"
+            ]
+        },
+        {
+            "id": 47,
+            "query": "Naproxeno",
+            "registration_number": "104971545",
+            "product_name": "NAPROXENO",
+            "expected_ingredients": [
+                "naproxen"
+            ]
+        },
+        {
+            "id": 48,
+            "query": "Meloxicam",
+            "registration_number": "141070633",
+            "product_name": "MELOXICAM",
+            "expected_ingredients": [
+                "meloxicam"
+            ]
+        },
+        {
+            "id": 49,
+            "query": "Tramadol",
+            "registration_number": "102351410",
+            "product_name": "CLORIDRATO DE TRAMADOL",
+            "expected_ingredients": [
+                "tramadol"
+            ]
+        },
+        {
+            "id": 50,
+            "query": "Amitriptilina",
+            "registration_number": "118190304",
+            "product_name": "CLORIDRATO DE AMITRIPTILINA",
+            "expected_ingredients": [
+                "amitriptyline"
+            ]
+        },
+        {
+            "id": 51,
+            "query": "Carvedilol",
+            "registration_number": "105830841",
+            "product_name": "CARVEDILOL",
+            "expected_ingredients": [
+                "carvedilol"
+            ]
+        },
+        {
+            "id": 52,
+            "query": "Propranolol",
+            "registration_number": "135690710",
+            "product_name": "PROPRANOLOL",
+            "expected_ingredients": [
+                "propranolol"
+            ]
+        },
+        {
+            "id": 53,
+            "query": "Espironolactona",
+            "registration_number": "100430952",
+            "product_name": "ESPIRONOLACTONA",
+            "expected_ingredients": [
+                "spironolactone"
+            ]
+        },
+        {
+            "id": 54,
+            "query": "Metoclopramida",
+            "registration_number": "105710165",
+            "product_name": "CLORIDRATO DE METOCLOPRAMIDA",
+            "expected_ingredients": [
+                "metoclopramide"
+            ]
+        },
+        {
+            "id": 55,
+            "query": "Ondansetrona",
+            "registration_number": "151430097",
+            "product_name": "ONDANSETRONA",
+            "expected_ingredients": [
+                "ondansetron"
+            ]
+        },
+        {
+            "id": 56,
+            "query": "Loratadina",
+            "registration_number": "143810090",
+            "product_name": "LORATADINA",
+            "expected_ingredients": [
+                "loratadine"
+            ]
+        },
+        {
+            "id": 57,
+            "query": "Dorflex",
+            "registration_number": "186200008",
+            "product_name": "DORFLEX",
+            "expected_ingredients": [
+                "orphenadrine",
+                "caffeine",
+                "metamizole"
+            ]
+        },
+        {
+            "id": 58,
+            "query": "Novalgina",
+            "registration_number": "186200018",
+            "product_name": "NOVALGINA",
+            "expected_ingredients": [
+                "metamizole"
+            ]
+        },
+        {
+            "id": 59,
+            "query": "Benegrip",
+            "registration_number": "178170092",
+            "product_name": "BENEGRIP",
+            "expected_ingredients": [
+                "metamizole",
+                "chlorpheniramine",
+                "caffeine"
+            ]
+        }
+    ],
+    "dropped_not_in_catalog": [
+        "Zocor"
+    ],
+    "expected_names_absent_from_reference": [
+        "bromazepam",
+        "metamizole"
+    ]
+}

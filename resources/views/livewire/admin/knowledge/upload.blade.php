@@ -1,4 +1,4 @@
-<x-knowledge-admin.shell title="Adicionar documentos" :subtitle="'Selecione a origem e envie PDFs com até '.$maxBatchMegabytes.' MB no total. Os arquivos associados serão processados em segundo plano.'">
+<x-knowledge-admin.shell title="Adicionar documentos" :subtitle="'Envie PDFs de bulas (até '.$maxBatchMegabytes.' MB por envio). Depois do envio, cada arquivo é lido e identificado sozinho; o que não for reconhecido vai para Pendências.'">
     @if ($feedback)
         <x-knowledge-admin.alert :tone="$errorId ? 'danger' : 'success'">
             <p class="font-medium">{{ $feedback }}</p>
@@ -6,8 +6,8 @@
         </x-knowledge-admin.alert>
     @endif
 
-    <form class="max-w-3xl" wire:submit="ingest" x-data="{ uploading: false, progress: 0 }" x-on:livewire-upload-start="uploading = true" x-on:livewire-upload-finish="uploading = false; progress = 100" x-on:livewire-upload-error="uploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
-        <x-knowledge-admin.section title="Nova importação">
+    <form class="max-w-2xl" wire:submit="ingest" x-data="{ uploading: false, progress: 0, dragging: false }" x-on:livewire-upload-start="uploading = true" x-on:livewire-upload-finish="uploading = false; progress = 100" x-on:livewire-upload-error="uploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
+        <x-knowledge-admin.section title="Novo envio">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <x-knowledge-admin.select label="Origem dos documentos" required wire:model="sourceId" hint="Instituição ou base de onde os documentos foram obtidos." wrapper-class="flex-1">
                     <option value="">Selecione a origem dos PDFs…</option>
@@ -16,16 +16,20 @@
                 <x-knowledge-admin.button variant="secondary" wire:click="openSourceModal">+ Nova origem</x-knowledge-admin.button>
             </div>
 
-            <label class="grid min-h-40 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-brand-600 hover:bg-brand-50">
-                <span><span class="block text-sm font-semibold text-slate-900">Arraste os PDFs aqui</span><span class="mt-1 block text-sm text-slate-500">ou clique para selecionar · até {{ $maxBatchMegabytes }} MB somando todos os arquivos</span></span>
-                <input class="sr-only" type="file" accept="application/pdf,.pdf" multiple wire:model="files">
+            <label class="grid min-h-40 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/40 p-6 text-center transition hover:border-brand-600 hover:bg-brand-50 focus-within:ring-2 focus-within:ring-brand-600" x-bind:class="dragging ? 'border-brand-600 bg-brand-50' : ''" x-on:dragover.prevent="dragging = true" x-on:dragleave.prevent="dragging = false" x-on:drop.prevent="dragging = false; $refs.files.files = $event.dataTransfer.files; $refs.files.dispatchEvent(new Event('change'))">
+                <span>
+                    <svg class="mx-auto size-8 text-brand-600 stroke-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" /></svg>
+                    <span class="mt-2 block text-sm font-semibold text-slate-900">Arraste os PDFs aqui ou toque para escolher</span>
+                    <span class="mt-1 block text-sm text-slate-500">Vários arquivos de uma vez · até {{ $maxBatchMegabytes }} MB no total</span>
+                </span>
+                <input class="sr-only" type="file" accept="application/pdf,.pdf" multiple wire:model="files" x-ref="files">
             </label>
             @error('files')<span class="text-sm text-rose-700">{{ $message }}</span>@enderror
             @error('files.*')<span class="text-sm text-rose-700">{{ $message }}</span>@enderror
 
             <div x-show="uploading" x-cloak class="grid gap-2" aria-live="polite">
                 <div class="flex justify-between text-sm text-slate-600"><span>Enviando arquivos</span><span x-text="progress + '%'">0%</span></div>
-                <div class="h-2 overflow-hidden rounded-full bg-slate-200"><div class="h-full rounded-full bg-brand-600 transition-all" x-bind:style="`width: ${progress}%`"></div></div>
+                <div class="h-2 overflow-hidden rounded-full bg-slate-200"><div class="h-full rounded-full bg-brand-600 transition-all" x-bind:class="progress >= 100 ? 'w-full' : (progress >= 75 ? 'w-3/4' : (progress >= 50 ? 'w-1/2' : (progress >= 25 ? 'w-1/4' : 'w-1/12')))"></div></div>
             </div>
 
             @if ($files !== [])
@@ -50,12 +54,15 @@
                 </div>
             @endif
 
-            <div><x-knowledge-admin.button type="submit" loading-target="ingest,files" loading="Importando…">Iniciar importação</x-knowledge-admin.button></div>
+            <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
+                <x-knowledge-admin.button type="submit" loading-target="ingest,files" loading="Enviando…" :disabled="$files === []">Enviar {{ count($files) > 0 ? count($files).' '.(count($files) === 1 ? 'arquivo' : 'arquivos') : 'arquivos' }}</x-knowledge-admin.button>
+                <p class="text-sm text-slate-500">Depois do envio, acompanhe em Importações; arquivos não reconhecidos aparecem em Pendências.</p>
+            </div>
         </x-knowledge-admin.section>
     </form>
 
     @if ($completedBatchId)
-        <x-knowledge-admin.section :title="'Importação #'.$completedBatchId">
+        <x-knowledge-admin.section :title="'Importação concluída (#'.$completedBatchId.')'">
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">@foreach ($summary as $status => $count)<div class="rounded-lg bg-slate-50 p-3"><x-knowledge-admin.status-badge :status="$status" /><p class="mt-2 text-2xl font-semibold text-slate-900">{{ $count }}</p></div>@endforeach</div>
             <div class="flex flex-wrap gap-2">
                 <x-knowledge-admin.button :href="route('admin.knowledge.batches.show', $completedBatchId)">Ver importação</x-knowledge-admin.button>

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable(['source_id', 'catalog_import_id', 'record_key', 'registration_number_original', 'registration_number', 'process_number', 'product_name', 'normalized_product_name', 'regulatory_category', 'active_ingredient', 'normalized_active_ingredient', 'therapeutic_class', 'registration_holder', 'normalized_registration_holder', 'registration_status', 'process_completed_on', 'registration_expires_on', 'metadata'])]
 class AnvisaMedicine extends Model
@@ -27,5 +28,12 @@ class AnvisaMedicine extends Model
     public function catalogImport(): BelongsTo
     {
         return $this->belongsTo(AnvisaCatalogImport::class, 'catalog_import_id');
+    }
+
+    public function ingredients(): BelongsToMany
+    {
+        return $this->belongsToMany(ActiveIngredient::class, 'anvisa_medicine_ingredients', 'medicine_id', 'ingredient_id')
+            ->withPivot(['component_text', 'method', 'confidence'])
+            ->withTimestamps();
     }
 }

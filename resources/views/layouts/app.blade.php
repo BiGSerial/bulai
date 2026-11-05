@@ -3,12 +3,14 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#0f766e">
+    <meta name="theme-color" content="#12344d">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="BULA-IA">
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="icon" href="/brand/bulai-icone-app.svg" type="image/svg+xml">
+    <link rel="icon" href="/brand/bulai-icone-192.png" type="image/png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/brand/bulai-icone-180.png" sizes="180x180">
 
     <title>{{ $title ?? config('app.name') }}</title>
 

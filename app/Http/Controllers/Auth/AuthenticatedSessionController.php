@@ -23,7 +23,9 @@ class AuthenticatedSessionController extends Controller
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
+            'remember' => ['nullable', 'boolean'],
         ]);
+        unset($credentials['remember']);
         $credentials['email'] = Str::lower(trim($credentials['email']));
 
         // O callback só roda depois que a senha confere: a mensagem de acesso desativado
@@ -45,7 +47,7 @@ class AuthenticatedSessionController extends Controller
 
         /** @var User $user */
         $user = $request->user();
-        $user->forceFill(['last_login_at' => now()])->save();
+        $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
 
         // Só o ADMIN sem troca pendente segue para a página que tentou abrir; os demais vão ao destino do perfil
         // (primeiro acesso, se houver troca de senha pendente; senão, Minha conta).

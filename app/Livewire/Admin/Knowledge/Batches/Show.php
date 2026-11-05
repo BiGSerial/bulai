@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Knowledge\Batches;
 
 use App\Jobs\ReanalyzePendingKnowledgeBatch;
 use App\Models\Knowledge\IngestionBatch;
+use App\Models\Knowledge\IngestionBatchItem;
 use App\Services\Knowledge\KnowledgePendingItemReanalysisService;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
@@ -38,7 +39,11 @@ class Show extends Component
             ->with('knowledgeDocument')
             ->orderByDesc('created_at')->orderByDesc('id')->paginate(20);
 
-        return view('livewire.admin.knowledge.batches.show', ['items' => $items])
+        $firstPending = $this->batch->pending_items > 0
+            ? $this->batch->items()->where('status', IngestionBatchItem::STATUS_PENDING)->orderBy('id')->first()
+            : null;
+
+        return view('livewire.admin.knowledge.batches.show', ['items' => $items, 'firstPending' => $firstPending])
             ->title("Importação #{$this->batch->id} · BULAI");
     }
 }

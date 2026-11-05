@@ -16,6 +16,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'token_count',
     'metadata',
     'embedding',
+    'embedding_model',
+    'embedding_dimensions',
+    'embedding_content_hash',
+    'embedded_at',
 ])]
 class KnowledgeChunk extends Model
 {

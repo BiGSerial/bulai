@@ -34,9 +34,9 @@ class ConfirmModalAdminTest extends TestCase
 
         $dialogs = $this->confirmDialogs(Livewire::actingAs($admin)->test(UserShow::class, ['user' => $user])->html());
 
-        $this->assertSame(['Gerar nova senha provisória?', 'Desativar acesso?'], array_column($dialogs, 'title'));
-        $this->assertSame(['Gerar nova senha', 'Desativar acesso'], array_column($dialogs, 'confirm'));
-        $this->assertSame(['issueTemporaryPassword()', 'toggleActive()'], array_column($dialogs, 'action'));
+        $this->assertSame(['Gerar nova senha provisória?', 'Exigir troca de senha?', 'Encerrar as sessões?', 'Desativar acesso?'], array_column($dialogs, 'title'));
+        $this->assertSame(['Gerar nova senha', 'Exigir troca', 'Encerrar sessões', 'Desativar acesso'], array_column($dialogs, 'confirm'));
+        $this->assertSame(['issueTemporaryPassword()', 'forcePasswordChange()', 'terminateSessions()', 'toggleActive()'], array_column($dialogs, 'action'));
         $this->assertStringContainsString('Bruno Lima', $dialogs[0]['message']);
         $this->assertStringContainsString('Bruno Lima', $dialogs[1]['message']);
     }

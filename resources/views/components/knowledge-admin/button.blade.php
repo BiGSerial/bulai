@@ -2,6 +2,7 @@
 @php
     $classes = 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 '.match ($variant) {
         'primary' => 'bg-brand-700 text-white shadow-sm hover:bg-brand-800',
+        'accent' => 'bg-accent-600 text-white shadow-sm hover:bg-accent-700',
         'danger' => 'bg-rose-700 text-white shadow-sm hover:bg-rose-800',
         'quiet' => 'text-slate-700 hover:bg-slate-100',
         default => 'border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-50',

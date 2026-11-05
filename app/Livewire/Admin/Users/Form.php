@@ -25,6 +25,9 @@ class Form extends Component
 
     public string $role = UserRole::User->value;
 
+    /** No cadastro: além de exibir a senha provisória uma vez, enviá-la por e-mail à pessoa. */
+    public bool $sendByEmail = false;
+
     /**
      * Senha provisória do cadastro recém-feito. Não é propriedade pública: não vai para o snapshot
      * do Livewire nem para a sessão, e some na requisição seguinte (exibida uma única vez).
@@ -60,11 +63,15 @@ class Form extends Component
 
         $this->email = trim($this->email);
         $validated = $this->validate($this->rules(), messages: $this->messages(), attributes: $this->validationAttributes());
+        unset($validated['sendByEmail']);
 
         if ($this->userId === null) {
             [$user, $temporaryPassword] = $service->create($validated, auth()->user());
             $this->createdUserId = $user->id;
             $this->temporaryPassword = $temporaryPassword;
+            if ($this->sendByEmail) {
+                $service->emailTemporaryPassword($user, $temporaryPassword, true, auth()->user());
+            }
 
             return null;
         }
@@ -81,7 +88,7 @@ class Form extends Component
             return null;
         }
 
-        session()->flash('userFeedback', 'Usuário cadastrado com sucesso. No primeiro acesso, a pessoa precisará definir uma senha própria.');
+        session()->flash('userFeedback', 'Usuário cadastrado com sucesso. No primeiro acesso, a pessoa precisará definir uma senha própria.'.($this->sendByEmail ? ' A senha provisória também foi enviada por e-mail.' : ''));
 
         return $this->redirectRoute('admin.users.show', $this->createdUserId, navigate: true);
     }
@@ -91,6 +98,7 @@ class Form extends Component
         return view('livewire.admin.users.form', [
             'roleOptions' => UserRole::options(),
             'temporaryPassword' => $this->temporaryPassword,
+            'mailConfigured' => config('mail.default') !== null && config('mail.default') !== 'array',
         ])->title(($this->userId === null ? 'Novo usuário' : 'Editar usuário').' · BULAI');
     }
 
@@ -101,6 +109,7 @@ class Form extends Component
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'role' => ['required', Rule::in(array_keys(UserRole::options()))],
+            'sendByEmail' => ['boolean'],
         ];
     }
 

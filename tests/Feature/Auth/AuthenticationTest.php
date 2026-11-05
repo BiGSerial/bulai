@@ -140,7 +140,7 @@ class AuthenticationTest extends TestCase
         $this->post('/login', [
             'email' => 'user@example.com',
             'password' => 'secret-password',
-        ])->assertRedirectToRoute('account');
+        ])->assertRedirectToRoute('consulta.inicio');
     }
 
     #[DataProvider('roles')]
@@ -177,5 +177,48 @@ class AuthenticationTest extends TestCase
 
         $response->assertRedirectToRoute('login');
         $this->assertGuest();
+    }
+
+    public function test_remember_me_issues_a_remember_cookie_and_login_records_the_ip(): void
+    {
+        $user = User::factory()->create(['email' => 'ana@example.com', 'password' => 'secret-password']);
+
+        $response = $this->post('/login', ['email' => 'ana@example.com', 'password' => 'secret-password', 'remember' => '1']);
+
+        $response->assertRedirect();
+        $this->assertAuthenticatedAs($user);
+        $this->assertNotNull($user->refresh()->remember_token);
+        $this->assertSame('127.0.0.1', $user->last_login_ip);
+        $cookies = collect($response->headers->getCookies())->map(fn ($cookie) => $cookie->getName());
+        $this->assertTrue($cookies->contains(fn (string $name): bool => str_starts_with($name, 'remember_web_')), 'Esperava o cookie "Manter conectado".');
+
+        $this->post('/logout');
+        $this->post('/login', ['email' => 'ana@example.com', 'password' => 'secret-password'])->assertRedirect();
+        $this->assertFalse(collect($this->post('/logout')->headers->getCookies())->isEmpty());
+    }
+
+    public function test_login_block_escalates_after_twenty_failures_in_fifteen_minutes(): void
+    {
+        $this->freezeTime();
+        User::factory()->create(['email' => 'ana@example.com', 'password' => 'secret-password']);
+
+        // 4 falhas por minuto, em 5 minutos diferentes: nunca passa do limite curto, mas soma 20 no limite longo.
+        foreach (range(1, 5) as $minute) {
+            foreach (range(1, 4) as $attempt) {
+                $this->from('/login')->post('/login', ['email' => 'ana@example.com', 'password' => 'wrong-password'])->assertRedirect('/login');
+            }
+            $this->travel(1)->minutes();
+        }
+
+        $this->followingRedirects()->from('/login')->post('/login', ['email' => 'ana@example.com', 'password' => 'secret-password'])
+            ->assertOk()
+            ->assertSee('Muitas tentativas. Tente novamente em')
+            ->assertSee('minutos');
+        $this->assertGuest();
+
+        // Outro e-mail (ou outro IP) não é afetado pelo bloqueio.
+        $other = User::factory()->create(['email' => 'bruno@example.com', 'password' => 'secret-password']);
+        $this->post('/login', ['email' => 'bruno@example.com', 'password' => 'secret-password'])->assertRedirect();
+        $this->assertAuthenticatedAs($other);
     }
 }

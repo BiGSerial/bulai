@@ -8,7 +8,7 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/** Consulta o estado dos serviços auxiliares (IA local e OCR). Nunca lança: falhas viram UNREACHABLE. */
+/** Consulta o estado dos serviços auxiliares (IA local, OCR e embeddings). Nunca lança: falhas viram UNREACHABLE. */
 final class ServiceHealthChecker
 {
     private const CACHE_SECONDS = 5;
@@ -33,10 +33,21 @@ final class ServiceHealthChecker
         return $this->cached('ocr', fn (): ServiceHealth => $this->probe('ocr', rtrim((string) $url, '/').'/status', false));
     }
 
-    /** @return array{local_ai: ServiceHealth, ocr: ServiceHealth} */
+    /** Serviço de embeddings (API compatível com OpenAI): sondado em /models, sem gerar vetores. */
+    public function embeddings(): ServiceHealth
+    {
+        $url = config('ai.embedding.drivers.openai_compatible.base_url');
+        if (config('ai.embedding.default') !== 'openai_compatible' || blank($url)) {
+            return new ServiceHealth('embeddings', ServiceHealth::DISABLED);
+        }
+
+        return $this->cached('embeddings', fn (): ServiceHealth => $this->probe('embeddings', rtrim((string) $url, '/').'/models', false));
+    }
+
+    /** @return array{local_ai: ServiceHealth, ocr: ServiceHealth, embeddings: ServiceHealth} */
     public function all(): array
     {
-        return ['local_ai' => $this->localAi(), 'ocr' => $this->ocr()];
+        return ['local_ai' => $this->localAi(), 'ocr' => $this->ocr(), 'embeddings' => $this->embeddings()];
     }
 
     private function cached(string $service, callable $resolver): ServiceHealth

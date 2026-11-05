@@ -18,7 +18,9 @@ Internet → Cloudflare → Caddy (host, TLS) → 127.0.0.1:8080 ─┐
    redes `db` e `ai` (internal: sem saída para a internet; OCR/IA NÃO alcançam o banco)
       app (PHP-FPM 8.4, uid 10010) ── worker (queue:work, 1 job por vez, uid 10010)
         │  rede db                          │  rede ai
-        └── postgres (pgvector/PG17)        ├── document-ocr (PaddleOCR, CPU)   └── local-ai (llamafile + Qwen2.5-1.5B, CPU)
+        └── postgres (pgvector/PG17)        ├── document-ocr (PaddleOCR, CPU)   ├── local-ai (llamafile + Qwen2.5-1.5B, CPU)
+        │                                   └── embeddings (llamafiler + bge-m3, CPU; /v1/embeddings do RAG vetorial)
+   rede `egress` (única com saída para a internet; nenhuma porta publicada): app/worker → api.anthropic.com (IA principal do RAG)
 ```
 
 | Serviço | Imagem | Limites (8 GB RAM / 6 vCPU) | Observações |
@@ -26,11 +28,13 @@ Internet → Cloudflare → Caddy (host, TLS) → 127.0.0.1:8080 ─┐
 | `web` | `bulai-web` (Nginx sem root) | 192 MB · 1 CPU | assets copiados da **mesma** imagem `app`; só ele publica porta |
 | `app` | `bulai-app` | 768 MB · 2 CPU | PHP-FPM, 6 workers no máximo, FS somente leitura |
 | `worker` | `bulai-app` | 768 MB · 2 CPU | **um** worker, um job por vez: OCR e IA nunca rodam em paralelo; `stop_grace_period` 480 s |
+| `scheduler` | `bulai-app` | 256 MB · 0,5 CPU | `php artisan schedule:work`: lembretes de dose a cada 5 min e expurgo diário (ver [Agendador e lembretes](#agendador-e-lembretes)) |
 | `postgres` | `pgvector/pgvector:pg17@sha256:…` | 768 MB · 2 CPU | `oom_score_adj -500` (o kernel o preserva por último) |
 | `document-ocr` | `bulai-ocr` (modelos embutidos) | 2 GB · 2 CPU | concorrência 1 (`OCR_MAX_CONCURRENCY`), `oom_score_adj +500` |
 | `local-ai` | `bulai-local-ai` | 2,3 GB · 3 CPU | modelo fora da imagem e do Git; `oom_score_adj +500` |
+| `embeddings` | `bulai-local-ai` (mesma imagem, `LOCAL_AI_MODE=embedding`) | 1,5 GB · 2 CPU | bge-m3 Q8_0 (~635 MB) em `/srv/bulai/shared/models`; só `/v1/embeddings` e `/v1/models`; `oom_score_adj +500` |
 
-Soma dos tetos: ≈ 6,8 GB. O pico real é menor porque OCR e IA rodam **em sequência** (um worker); a folga cobre SO e Caddy.
+Soma dos tetos: ≈ 8,3 GB (com `embeddings`). O pico real é bem menor: OCR e IA local rodam **em sequência** (um worker) e o serviço de embeddings usa ~0,8 GB em regime; se a VPS ficar apertada, reduza `local-ai` para 2 GB ou pare `embeddings` fora da janela de indexação (a recuperação volta ao modo lexical automaticamente quando o provedor falha).
 Os limites usam `mem_limit`/`memswap_limit`/`cpus`, atributos de serviço do Compose Specification (efetivos com
 `docker compose up`; confirmados por `docker inspect` nos testes). `memswap_limit = mem_limit` impede *swap thrashing*.
 
@@ -44,7 +48,7 @@ Decisões de segurança do stack:
 - A rede existente `bulai-internal` **não é usada**: é compartilhada com contêineres que não controlamos e o socket dispensa rede.
   Se quiser anexar algo a ela, faça-o em um override aprovado, nunca expondo PHP-FPM, PostgreSQL, OCR ou IA.
 - O PostgreSQL cria o papel `bulai` **sem superusuário**, dono do banco; a extensão `vector` é criada uma única vez pelo superusuário de manutenção.
-- `app` e `worker` não têm saída para a internet (redes `db` e `ai` internas). Se um dia o RAG usar um provedor externo de IA, isso exigirá uma mudança revisada no compose.
+- `app` e `worker` têm saída para a internet **apenas** pela rede `egress` (não interna, sem portas publicadas), necessária para a API da Anthropic (`AI_TEXT_DRIVER=anthropic`, IA principal do RAG). As redes `db`, `ai` e `cache` continuam internas; OCR, IA local, embeddings, Redis e PostgreSQL seguem sem rota para fora. Para restringir o destino a `api.anthropic.com`, use regras de saída no host (nftables/ufw por UID do container não é possível; filtre pela sub-rede `bulai_egress`).
 - Cabeçalhos: o Caddy envia o IP real (`X-Real-IP` ← `CF-Connecting-IP`, só se a requisição vier do Cloudflare) e `X-Forwarded-Proto`. O Nginx só aceita `X-Real-IP` de redes privadas/loopback
   (`set_real_ip_from`); `X-Forwarded-Proto` é aceito de qualquer origem, o que só é seguro porque a porta está publicada **apenas em 127.0.0.1** (quem alcança 8080 já está no host). O `TRUSTED_PROXIES` do Laravel (`bootstrap/app.php`) existe para outras topologias e fica vazio.
 - Limites de corpo: 2 MB por padrão; 110 MB somente em `/livewire-<hash>/upload-file` e `/api/internal/knowledge/` (verificado: 413 nas demais rotas).
@@ -216,7 +220,7 @@ O workflow `deploy.yml` foi organizado para que **nada seja publicado nem nenhum
    `docker ps -a --filter label=com.docker.compose.project=bulai` deve vir vazio.
 1. Mescle o PR de infraestrutura na `main` (CI verde) e rode **Actions → Deploy (KingHost) → Run workflow**: `action = deploy`, `commit = <SHA completo da main>`.
    O workflow valida o commit (ancestral da `main`, CI verde), **espera a aprovação do Environment**, publica as 4 imagens e aciona `check` e `activate` na VPS usando os digests recém-publicados.
-2. A VPS: confere o hash do compose, os arquivos de ambiente, o modelo, o espaço; baixa e verifica as imagens; faz backup (se o banco já existe);
+2. A VPS: confere o hash do compose, os arquivos de ambiente, os modelos (IA local **e** embeddings, se declarado em `model.env`), o espaço; baixa e verifica as imagens; faz backup (se o banco já existe);
    sobe o PostgreSQL; roda `php artisan migrate --force`; recria os containers aguardando os *healthchecks*; roda o *smoke test*; grava a release como ativa.
    Falha **antes** de aplicar: nada muda. Falha **depois**: restaura a release anterior (se existir) e termina com código 30.
 3. Crie o administrador e **remova a senha do arquivo**:
@@ -245,7 +249,18 @@ O workflow `deploy.yml` foi organizado para que **nada seja publicado nem nenhum
    valide e recarregue: `caddy validate --config /etc/caddy/Caddyfile && sudo systemctl reload caddy`. Para voltar atrás, restaure o bloco anterior e recarregue.
    O Caddy só atende tráfego vindo do Cloudflare (o restante recebe 403) e envia ao Nginx o IP real e o esquema.
 6. Defina a variable `PUBLIC_HEALTHCHECK_URL=https://bulai.vixforge.com.br/up` para os próximos deploys.
-7. Importe o catálogo ANVISA em **Admin → Catálogo ANVISA** (upload do CSV; roda na fila).
+7. Importe o catálogo ANVISA em **Admin → Catálogo ANVISA** (upload do CSV; roda na fila) e as interações DDInter em **Admin → Interações**; depois gere o catálogo de princípios ativos: `sudo bulai-deploy artisan knowledge:build-ingredients`.
+8. **IA e RAG (uma vez por ambiente):** preencha `AI_TEXT_DRIVER=anthropic`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` e os orçamentos em `app.env` (ver `docker/production/env/app.env.example`); confirme que `AI_EMBEDDING_DRIVER=openai_compatible`, `AI_EMBEDDING_MODEL=bge-m3` e `BULAI_RETRIEVAL_MODE=hybrid` estão lá; rode `sudo bulai-deploy ensure-model` (baixa e valida o bge-m3 por SHA-256) e, com as bulas já processadas, `sudo bulai-deploy artisan knowledge:index-embeddings` (incremental; repita após novas ingestões ou agende). Verifique com `sudo bulai-deploy artisan bulai:pipeline-check`.
+9. **Pós-deploy (toda release):** `php artisan migrate --force` já roda no deploy (migrations novas: `patient_care_and_answer_logs`, `interaction_consultations`, `patient_profile`, `active_ingredients`, `ai_usage_logs`); confira `sudo bulai-deploy status`, `sudo bulai-deploy artisan bulai:pipeline-check` (bulas READY, ingredientes ligados, DDInter, embeddings, provedores) e o agendador (serviço `scheduler`, ver [Agendador e lembretes](#agendador-e-lembretes): `treatment:send-reminders` a cada 5 min e `consultations:purge-expired` às 03:30).
+
+### Agendador e lembretes
+
+O serviço `scheduler` (mesma imagem `bulai-app`, comando `php artisan schedule:work`) executa o agendador do Laravel a cada minuto dentro do container; `onOneServer()` usa o lock do Redis, então um segundo agendador não duplica envios. Ele é obrigatório desde a release com lembretes de dose (`docs/notificacoes.md`): sem ele, os avisos de horário e o aviso de fim de tratamento nunca são gravados.
+
+- **Esta release exige rebuild e novo deploy da imagem `bulai-app`** (código novo + migrations `treatment_schedule_tables` e `notifications`) e a cópia do `compose.prod.yaml` atualizado para `/opt/bulai/trusted` (novo serviço `scheduler`). `php artisan migrate --force` roda no deploy.
+- Variáveis em `app.env` (ver `docker/production/env/app.env.example`): `BULAI_TREATMENT_TIMEZONE`, `BULAI_REMINDER_LEAD_MINUTES`, `BULAI_DOSE_LATE_AFTER_MINUTES`, `BULAI_REMINDER_QUEUE`. Para o lembrete **por e-mail** (opcional, escolhido pelo paciente em Avisos) `MAIL_MAILER`/`MAIL_*` precisam estar configurados; sem isso só o aviso no aplicativo é gravado.
+- Conferir: `sudo bulai-deploy logs scheduler 50` deve mostrar `Running ['artisan' treatment:send-reminders]` a cada 5 minutos; `sudo bulai-deploy artisan treatment:send-reminders` executa uma rodada na hora e imprime os totais.
+- Os avisos no navegador só aparecem com o aplicativo aberto (sem Web Push); não há nada a configurar no servidor para isso.
 
 ## 6. Deploy de rotina, rollback e status
 
@@ -271,7 +286,7 @@ Para restaurar o banco a um ponto anterior (último recurso, causa perda dos dad
 
 ```bash
 sudo bulai-deploy status                       # release ativa e saúde dos containers
-sudo bulai-deploy logs worker 200              # últimas linhas (web|app|worker|postgres|document-ocr|local-ai)
+sudo bulai-deploy logs worker 200              # últimas linhas (web|app|worker|scheduler|postgres|document-ocr|local-ai|embeddings)
 sudo bulai-deploy artisan queue:failed         # artisan na release ativa
 sudo docker stats --no-stream                  # uso de CPU/RAM por container (compare com os limites)
 sudo journalctl -u docker --since today        # eventos do daemon (OOM kills aparecem aqui e em `dmesg`)
@@ -283,7 +298,9 @@ sudo journalctl -u docker --since today        # eventos do daemon (OOM kills ap
 - **Atualizar containers:** é o deploy normal (imagens novas por digest). Imagens-base (PHP, Nginx, Node, Composer, PostgreSQL) ficam fixadas por digest nos Dockerfiles/compose (PHP em `php:8.4.27-fpm-bookworm`; o build da imagem `app` roda `apt-get upgrade` para aplicar correções do Debian publicadas depois da imagem-base);
   atualize-as por PR (compose → reinstalar o conjunto confiável com `install-on-vps.sh`).
 - **Alterar o compose, o init do PostgreSQL, `model.env` ou o próprio script:** PR revisado → mesclar → administrador roda `install-on-vps.sh` (mostra o que mudou) → o próximo deploy passa a usar o novo arquivo.
-- **Trocar o modelo da IA:** altere `docker/production/env/model.env` (URL, SHA-256, arquivo) via PR → reinstalar → `sudo bulai-deploy ensure-model`.
+- **Trocar o modelo da IA local ou de embeddings:** altere `docker/production/env/model.env` (URL, SHA-256, arquivo; chaves `LOCAL_AI_*` e `EMBEDDINGS_*`) via PR → reinstalar → `sudo bulai-deploy ensure-model`. Trocar o modelo de embeddings exige reindexar: `sudo bulai-deploy artisan knowledge:index-embeddings --model=<novo nome>` (os chunks guardam modelo e dimensão; a busca vetorial só usa vetores do modelo configurado).
+- **Reindexar embeddings após ingestões:** `sudo bulai-deploy artisan knowledge:index-embeddings` (incremental: só chunks novos/alterados). Não há agendamento automático; agende no cron do host se a base mudar com frequência.
+- **Custo da IA externa:** `ANTHROPIC_DAILY_USD_BUDGET`/`ANTHROPIC_MONTHLY_USD_BUDGET` em `app.env` bloqueiam chamadas acima do orçamento (`AI_BUDGET_EXCEEDED`, a interface mostra só os trechos de bula). Consumo em **Admin → Analytics** e na tabela `ai_usage_logs`.
 - **Rotação de segredos:** `APP_KEY` (invalida sessões e dados cifrados); `OCR_API_TOKEN` e `DOCUMENT_OCR_TOKEN` (alterar **nos dois** arquivos);
   senha do banco: `sudo docker exec -it bulai-postgres-1 sh -c 'psql -U "$POSTGRES_USER" -d bulai'` → `ALTER ROLE bulai PASSWORD '<nova>';`, e atualize `DB_PASSWORD` (app.env)
   e `BULAI_DB_PASSWORD` (postgres.env). Depois rode um deploy (ou `rollback`/reaplicação) para recriar os containers com os valores novos.
@@ -351,7 +368,8 @@ Executadas **localmente** (Docker 28 / Compose 2.38, não na VPS):
 
 - **Nada foi executado na VPS.** Valide: versão real do Docker/Compose (29.x / v5), cgroup v2 + *swap accounting* (`memswap_limit`), `tmpfs` com `uid/gid`, política de IP da bridge do Docker (o Nginx confia em `172.16/12`, `10/8`, `192.168/16`).
 - O deploy exige que o **GHCR** esteja acessível à VPS e que o pacote `bulai-*` aceite *pull* com o token configurado. A primeira execução baixará ~3 GB (OCR 1,8 GB) e o modelo (~1,1 GB).
-- `app` e `worker` não têm saída para a internet; um provedor de IA externo (futuro RAG) exigirá mudança revisada no compose.
+- `app` e `worker` agora têm saída para a internet pela rede `egress` (API da Anthropic). Não há filtro de destino no compose: um comprometimento do PHP poderia falar com qualquer host; mitigue no firewall do host (permitir apenas `api.anthropic.com` a partir da sub-rede `bulai_egress`).
+- O serviço `embeddings` não foi executado na VPS; foi validado localmente (compose de dev, imagem idêntica) com indexação de 782 chunks e os experimentos de `docs/evaluation.md`.
 - Durante um OCR longo o `/health` do OCR continua respondendo, mas o Laravel marca “IA/OCR indisponível” se o próprio serviço estiver reiniciando. O *healthcheck* do worker só confirma que o processo `queue:work` existe, não que consome a fila.
 - O allowlist de IPs do Cloudflare no Caddy não impede que **outro cliente do Cloudflare** aponte o próprio domínio para o IP de origem. Para fechar isso, use *Authenticated Origin Pulls* (mTLS), Cloudflare Tunnel ou um segredo de cabeçalho conferido no Caddy (não implementado).
 - O CI varre com Trivy apenas a imagem `app` (severidade CRÍTICA, sem pendências sem correção); `web`, `ocr` e `local-ai` e os digests publicados pelo deploy não são varridos. O build não é bit a bit reprodutível (`apt` e `pip` sem versões/hashes fixos; modelos do PaddleOCR baixados no build sem checksum).
@@ -371,10 +389,20 @@ Executadas **localmente** (Docker 28 / Compose 2.38, não na VPS):
 | GitHub *variable* (Environment) | `PRODUCTION_PROTECTION` | `reviewers` (aprovação configurada) ou `actors` (controle compensatório); sem ela o deploy não inicia |
 | GitHub *variable* (repositório) | `DEPLOY_ALLOWED_ACTORS` | usuários autorizados a executar o workflow (obrigatória no modo `actors`) |
 | GitHub *variable* (opcional) | `KINGHOST_SSH_PORT`, `KINGHOST_SSH_USER`, `PUBLIC_HEALTHCHECK_URL` | porta, usuário (padrão `bulai-ci`), URL pública de verificação |
-| VPS `/srv/bulai/shared/env/app.env` | `APP_KEY`, `DB_PASSWORD`, `DOCUMENT_OCR_TOKEN`, `BULAI_ADMIN_*`, … | ver `docker/production/env/app.env.example` |
+| VPS `/srv/bulai/shared/env/app.env` | `APP_KEY`, `DB_PASSWORD`, `DOCUMENT_OCR_TOKEN`, `BULAI_ADMIN_*`, `ANTHROPIC_API_KEY`, `AI_*`, `BULAI_RETRIEVAL_MODE`, … | ver `docker/production/env/app.env.example` |
+| `/opt/bulai/trusted/model.env` | `LOCAL_AI_MODEL_*`, `EMBEDDINGS_MODEL_*` | modelos GGUF (nome, URL, SHA-256) instalados por `bulai-deploy ensure-model` |
 | VPS `/srv/bulai/shared/env/postgres.env` | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `BULAI_DB_PASSWORD` | superusuário de manutenção e senha do papel `bulai` |
 | VPS `/srv/bulai/shared/env/ocr.env` | `OCR_API_TOKEN` | igual a `DOCUMENT_OCR_TOKEN` |
 | VPS `/root/.docker/config.json` | credencial do GHCR | token de leitura de pacotes (somente root) |
 
 Arquivos do repositório: `compose.prod.yaml`, `docker/production/{php,nginx,postgres,caddy,env}/`, `scripts/deploy/{bulai-deploy,bulai-ci-entry,install-on-vps.sh,sudoers-bulai-ci,tests/run.sh}`,
 `.github/workflows/{ci,deploy}.yml`, `.github/CODEOWNERS`, `.dockerignore`, `.gitleaks.toml`.
+
+## Autenticação: hash Argon2id e redefinição de senha por e-mail
+
+No `app.env` (ver `docker/production/env/app.env.example`):
+
+- `HASH_DRIVER=argon2id` (padrão do código). Parâmetros opcionais `HASH_ARGON_MEMORY` (KiB, 65536), `HASH_ARGON_THREADS` (1), `HASH_ARGON_TIME` (4). Hashes bcrypt existentes migram no próximo login; quando não restar nenhum, `HASH_ARGON_VERIFY=true` passa a recusar hashes que não sejam argon2id. Custo por hash: ~60 ms com 64 MiB (ajuste `HASH_ARGON_MEMORY` se o PHP-FPM tiver pouca memória; `memory_limit` precisa comportar o valor).
+- "Esqueci minha senha" e envio opcional da senha provisória exigem um remetente real: `MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME`. Sem isso os e-mails caem no log (`MAIL_MAILER=log`) e o usuário nunca recebe o link.
+- A política de senha em produção consulta o serviço Have I Been Pwned (k-anonimidade) para recusar senhas vazadas; app/worker precisam da rede `egress` já prevista para a API da Anthropic.
+- Verifique após o deploy: `php artisan tinker --execute 'echo config("hashing.driver");'` e um login real (o hash do usuário passa a começar com `$argon2id$`).

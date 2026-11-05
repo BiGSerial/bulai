@@ -19,9 +19,9 @@ class AdminDesignSystemTest extends TestCase
         'Loading', 'Submit', 'Back', 'Next', 'Previous', 'Showing', 'results',
     ];
 
-    private const ALLOWED_COLORS = ['slate', 'brand', 'emerald', 'amber', 'rose', 'sky', 'white', 'transparent', 'current'];
+    private const ALLOWED_COLORS = ['slate', 'brand', 'accent', 'surface', 'emerald', 'amber', 'rose', 'sky', 'white', 'transparent', 'current'];
 
-    private const ALLOWED_TEXT_SIZES = ['xs', 'sm', 'base', 'xl', '2xl', '3xl'];
+    private const ALLOWED_TEXT_SIZES = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl'];
 
     private const ALLOWED_ROUNDED = ['rounded', 'rounded-lg', 'rounded-xl', 'rounded-full'];
 

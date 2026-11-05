@@ -29,7 +29,7 @@ class FirstAccessTest extends TestCase
 
     public function test_person_without_pending_password_change_is_sent_to_their_home(): void
     {
-        $this->actingAs(User::factory()->create())->get('/first-access')->assertRedirectToRoute('account');
+        $this->actingAs(User::factory()->create())->get('/first-access')->assertRedirectToRoute('consulta.inicio');
         $this->actingAs(User::factory()->admin()->create())->get('/first-access')->assertRedirectToRoute('admin.documents.index');
     }
 
@@ -40,7 +40,7 @@ class FirstAccessTest extends TestCase
         $this->actingAs($user)->put('/first-access/password', [
             'password' => 'my-own-test-pass-2',
             'password_confirmation' => 'my-own-test-pass-2',
-        ])->assertRedirectToRoute('account');
+        ])->assertRedirectToRoute('consulta.inicio');
 
         $this->assertTrue(Hash::check('current-test-pass-1', $user->refresh()->password));
         $this->assertSame(0, $user->auditEvents()->count());
@@ -73,9 +73,9 @@ class FirstAccessTest extends TestCase
         $this->actingAs($user)->get('/first-access')
             ->assertOk()
             ->assertSee('Boas-vindas ao BULAI, Bruno &lt;i&gt;Lima&lt;/i&gt;', false)
-            ->assertSee('Ver os seus dados de acesso (nome, e-mail e perfil) em Minha conta.')
-            ->assertSee('Trocar a sua senha sempre que quiser')
-            ->assertSee('A consulta de bulas ainda está em preparação')
+            ->assertSee('Entender seus medicamentos com a bula humanizada')
+            ->assertSee('trocar a sua senha em Minha conta')
+            ->assertDontSee('A consulta de bulas ainda está em preparação')
             ->assertDontSee('O que você encontra na área administrativa')
             ->assertDontSee('Arquivos que precisam da sua decisão antes de entrar na base');
     }
@@ -162,7 +162,7 @@ class FirstAccessTest extends TestCase
     {
         return [
             'administrador vai à área administrativa' => [UserRole::Admin, 'admin.documents.index', '/admin/documents'],
-            'usuário vai à Minha conta' => [UserRole::User, 'account', '/account'],
+            'usuário vai à consulta de medicamentos' => [UserRole::User, 'consulta.inicio', '/inicio'],
         ];
     }
 }

@@ -23,8 +23,17 @@ final class AiProviderException extends RuntimeException
 
     public const INVALID_RESPONSE = 'AI_INVALID_RESPONSE';
 
-    public function __construct(public readonly string $errorCode, public readonly ?string $correlationId = null)
-    {
+    public const BUDGET_EXCEEDED = 'AI_BUDGET_EXCEEDED';
+
+    public const INPUT_LIMIT_EXCEEDED = 'AI_INPUT_LIMIT_EXCEEDED';
+
+    /** O status HTTP e o request-id do provedor são opcionais e servem apenas à observabilidade (nunca conteúdo). */
+    public function __construct(
+        public readonly string $errorCode,
+        public readonly ?string $correlationId = null,
+        public readonly ?int $httpStatus = null,
+        public readonly ?string $providerRequestId = null,
+    ) {
         parent::__construct($errorCode);
     }
 }

@@ -16,10 +16,10 @@
 #   bulai-deploy rollback                                                       volta à release anterior (sem reverter migrations)
 #   bulai-deploy status
 #   bulai-deploy backup                                                         dump do PostgreSQL sob demanda
-#   bulai-deploy ensure-model                                                   instala/valida o modelo da IA local (SHA-256)
+#   bulai-deploy ensure-model                                                   instala/valida os modelos da IA local e de embeddings (SHA-256)
 #   bulai-deploy init-secrets                                                   cria arquivos de ambiente ausentes com segredos aleatórios
 #   bulai-deploy seed-admin                                                     cria/atualiza o administrador (BULAI_ADMIN_* de app.env); idempotente
-#   bulai-deploy logs <serviço> [linhas]                                        últimas linhas de logs (web|app|worker|postgres|document-ocr|local-ai)
+#   bulai-deploy logs <serviço> [linhas]                                        últimas linhas de logs (web|app|worker|postgres|document-ocr|local-ai|embeddings)
 #   bulai-deploy artisan <args…>                                                executa `php artisan` na release ativa (somente root/administrador)
 #   bulai-deploy prune                                                          remove imagens antigas
 # <app|web|ocr|local_ai> são digests no formato sha256:<64 hex>.
@@ -238,6 +238,9 @@ preflight() { # <compose_sha256>
     local model
     model=$(sed -n 's/^LOCAL_AI_MODEL_FILENAME=//p' "$TRUSTED_DIR/model.env" 2>/dev/null | head -1)
     [[ -n $model && -s "$SHARED_DIR/models/$model" ]] || { log "modelo da IA local ausente (rode: bulai-deploy ensure-model)"; return 1; }
+    # Modelo de embeddings (RAG vetorial/híbrido): obrigatório quando declarado em model.env.
+    model=$(sed -n 's/^EMBEDDINGS_MODEL_FILENAME=//p' "$TRUSTED_DIR/model.env" 2>/dev/null | head -1)
+    [[ -z $model || -s "$SHARED_DIR/models/$model" ]] || { log "modelo de embeddings ausente (rode: bulai-deploy ensure-model)"; return 1; }
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -293,7 +296,7 @@ smoke_test() {
     compose exec -T app php -r '$p=new PDO("pgsql:host=".getenv("DB_HOST").";dbname=".getenv("DB_DATABASE"),getenv("DB_USERNAME"),getenv("DB_PASSWORD")); exit($p->query("select 1")->fetchColumn()==1?0:1);' \
         || { log "smoke: aplicação sem acesso ao banco"; return 1; }
     local svc id health
-    for svc in app web worker postgres document-ocr local-ai; do
+    for svc in app web worker postgres document-ocr local-ai embeddings; do
         id=$(compose ps -q "$svc" 2>/dev/null | head -1)
         [[ -n $id ]] || { log "smoke: serviço $svc não está em execução"; return 1; }
         health=$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$id")
@@ -446,6 +449,15 @@ cmd_ensure_model() {
         set -a; . "$TRUSTED_DIR/model.env"; set +a
         LOCAL_AI_MODEL_DIR="$SHARED_DIR/models" "$installer"
     )
+    # Modelo de embeddings (serviço `embeddings`), quando declarado em model.env.
+    local embedding_installer="$TRUSTED_DIR/install-embedding-model.sh"
+    if grep -q '^EMBEDDINGS_MODEL_FILENAME=' "$TRUSTED_DIR/model.env"; then
+        [[ -x $embedding_installer ]] || die 10 "instalador do modelo de embeddings ausente: $embedding_installer"
+        (
+            set -a; . "$TRUSTED_DIR/model.env"; set +a
+            EMBEDDINGS_MODEL_DIR="$SHARED_DIR/models" "$embedding_installer"
+        )
+    fi
     chmod -R a+rX "$SHARED_DIR/models"
 }
 
@@ -537,7 +549,7 @@ cmd_seed_admin() {
 
 cmd_logs() {
     local svc=${1:-} lines=${2:-100}
-    [[ $svc =~ ^(web|app|worker|postgres|document-ocr|local-ai)$ ]] || die 2 "serviço inválido (web|app|worker|postgres|document-ocr|local-ai)"
+    [[ $svc =~ ^(web|app|worker|postgres|document-ocr|local-ai|embeddings)$ ]] || die 2 "serviço inválido (web|app|worker|postgres|document-ocr|local-ai|embeddings)"
     [[ $lines =~ ^[0-9]{1,5}$ ]] || die 2 "número de linhas inválido"
     need_root; load_state
     [[ -n ${ST[CURRENT_SHA]:-} ]] || die 10 "nenhuma release ativa."

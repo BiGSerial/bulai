@@ -273,3 +273,94 @@ def test_config_reads_admin_token_and_hang_timeout():
     assert (config.admin_token, config.hang_timeout) == ("t", 30)
     default = Config.from_env({})
     assert (default.admin_token, default.hang_timeout) == (None, 240)
+
+
+def test_embedding_mode_runs_llamafiler_probes_v1_models_and_restricts_proxy(tmp_path):
+    calls = []
+
+    def probe(method, path, body):
+        calls.append((method, path, body))
+        return 200, b"{}"
+
+    supervisor, processes, _ = make(tmp_path, probe, mode="embedding")
+    command = supervisor.command()
+    assert "--v2" in command and "-l" in command and "--nobrowser" not in command
+    assert "--pooling" not in command  # o llamafiler rejeita a flag; o pooling vem do GGUF
+    assert "--embedding" not in command  # dispararia a CLI de embeddings, não um servidor
+
+    supervisor.tick(0)
+    assert supervisor.tick(1).state == READY
+    assert ("GET", "/v1/models", None) in calls
+    assert any(m == "POST" and p == "/v1/embeddings" and b["input"] == "ok" for m, p, b in calls)
+    assert all(p != "/health" for _, p, _ in calls)
+    assert supervisor.config.allowed_proxy == {("POST", "/v1/embeddings"), ("GET", "/v1/models")}
+    assert ("POST", "/v1/chat/completions") not in supervisor.config.allowed_proxy
+    assert len(processes) == 1
+
+
+def test_embedding_mode_reports_its_own_installer_when_model_is_missing(tmp_path):
+    supervisor, _, _ = make(tmp_path, lambda *a: (200, b""), installed=False, mode="embedding")
+    assert supervisor.tick().detail == "run scripts/install-embedding-model.sh"
+
+
+def test_config_from_env_reads_mode_and_rejects_unknown_mode():
+    config = Config.from_env({"LOCAL_AI_MODE": "embedding"})
+    assert config.is_embedding and config.max_body_bytes == 1048576
+    assert Config.from_env({}).mode == "chat" and Config.from_env({}).max_body_bytes == 262144
+    import pytest
+    with pytest.raises(ValueError):
+        Config.from_env({"LOCAL_AI_MODE": "vision"})
+
+
+def test_embed_batch_fans_out_list_inputs_and_merges_openai_response(tmp_path):
+    from app.supervisor import embed_batch
+
+    config = Config(model_path=tmp_path / "m.gguf", model_name="bge-m3", mode="embedding")
+    seen = []
+
+    def upstream(body):
+        payload = json.loads(body)
+        assert isinstance(payload["input"], str)
+        seen.append(payload["input"])
+        return 200, json.dumps({"model": "bge-m3-Q8_0", "data": [{"index": 0, "embedding": [len(payload["input"]), 1.0]}],
+                                "usage": {"prompt_tokens": 3}}).encode()
+
+    status, raw = embed_batch(config, json.dumps({"model": "bge-m3", "input": ["ab", "abcd"]}).encode(), upstream)
+    body = json.loads(raw)
+    assert status == 200 and seen == ["ab", "abcd"]
+    assert [d["index"] for d in body["data"]] == [0, 1] and body["data"][1]["embedding"] == [4, 1.0]
+    assert body["model"] == "bge-m3" and body["upstream_model"] == "bge-m3-Q8_0" and body["usage"]["prompt_tokens"] == 6
+
+    status, raw = embed_batch(config, json.dumps({"input": "solo"}).encode(), upstream)
+    assert status == 200 and len(json.loads(raw)["data"]) == 1
+    assert embed_batch(config, b"{}", upstream)[0] == 400
+    assert embed_batch(config, json.dumps({"input": ["ok", ""]}).encode(), upstream)[0] == 400
+    assert embed_batch(config, b"not json", upstream)[0] == 400
+    assert embed_batch(config, json.dumps({"input": "x"}).encode(), lambda b: (500, b"boom"))[0] == 502
+    assert embed_batch(config, json.dumps({"input": "x"}).encode(), lambda b: (200, b"{}"))[0] == 502
+
+
+def test_embedding_proxy_merges_batches_and_counts_requests(tmp_path):
+    from unittest import mock
+
+    supervisor, _ = ready_supervisor(tmp_path, mode="embedding")
+    server = ThreadingHTTPServer(("127.0.0.1", 0), make_handler(supervisor))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        def request(method, path, body=None):
+            conn = HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+            conn.request(method, path, body=body)
+            response = conn.getresponse()
+            return response.status, json.loads(response.read())
+
+        def fake_embed_batch(config, body, upstream=None):
+            count = len(json.loads(body)["input"])
+            return 200, json.dumps({"object": "list", "data": [{"index": i, "embedding": [0.5]} for i in range(count)]}).encode()
+
+        with mock.patch("app.supervisor.embed_batch", side_effect=fake_embed_batch):
+            status, body = request("POST", "/v1/embeddings", json.dumps({"input": ["a", "b", "c"]}))
+        assert status == 200 and len(body["data"]) == 3
+        assert request("POST", "/v1/chat/completions", "{}")[0] == 404
+        assert supervisor.status_dict()["completed"] == 1
+    finally:
+        server.shutdown()

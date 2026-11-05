@@ -34,6 +34,10 @@ class ImportDrugInteractions implements ShouldQueue
     public function handle(DrugInteractionCsvImporter $importer): void
     {
         $import = DrugInteractionImport::query()->findOrFail($this->importId);
+        // Um reenvio do mesmo arquivo pode enfileirar um segundo job para o mesmo registro: só o primeiro a chegar processa.
+        if ($import->status !== 'QUEUED') {
+            return;
+        }
         $disk = Storage::disk(config('knowledge.filesystem_disk'));
         if ($import->stored_path === null || ! $disk->exists($import->stored_path)) {
             throw new RuntimeException('INTERACTIONS_FILE_NOT_READABLE');

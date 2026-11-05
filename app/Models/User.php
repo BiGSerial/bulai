@@ -3,6 +3,9 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Consultation\InteractionConsultation;
+use App\Models\Consultation\MedicationQuestion;
+use App\Notifications\ResetPasswordNotification;
 use App\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -10,6 +13,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -49,7 +53,7 @@ class User extends Authenticatable
 
     /**
      * Rota de destino após o login e em "/": quem tem troca de senha pendente vai ao primeiro acesso;
-     * depois disso, ADMIN vai ao admin e USER, à Minha conta.
+     * depois disso, ADMIN vai ao admin e USER, ao Início do app do paciente.
      */
     public function homeRouteName(): string
     {
@@ -57,7 +61,7 @@ class User extends Authenticatable
             return 'first-access';
         }
 
-        return $this->isAdmin() ? 'admin.documents.index' : 'account';
+        return $this->isAdmin() ? 'admin.documents.index' : 'consulta.inicio';
     }
 
     /**
@@ -79,5 +83,64 @@ class User extends Authenticatable
     public function auditEvents(): HasMany
     {
         return $this->hasMany(UserAuditEvent::class);
+    }
+
+    public function patientProfile(): HasOne
+    {
+        return $this->hasOne(PatientProfile::class);
+    }
+
+    public function allergies(): HasMany
+    {
+        return $this->hasMany(PatientAllergy::class);
+    }
+
+    public function currentMedications(): HasMany
+    {
+        return $this->hasMany(PatientMedication::class);
+    }
+
+    public function prescriptions(): HasMany
+    {
+        return $this->hasMany(PatientPrescription::class);
+    }
+
+    public function consultations(): HasMany
+    {
+        return $this->hasMany(InteractionConsultation::class);
+    }
+
+    /** E-mail de redefinição em português (substitui a notificação padrão do framework). */
+    public function sendPasswordResetNotification(mixed $token): void
+    {
+        $this->notify(new ResetPasswordNotification($token));
+    }
+
+    public function medicationQuestions(): HasMany
+    {
+        return $this->hasMany(MedicationQuestion::class);
+    }
+
+    public function hasHealthConsent(): bool
+    {
+        return $this->patientProfile?->health_consent_at !== null;
+    }
+
+    public function doseEvents(): HasMany
+    {
+        return $this->hasMany(MedicationDoseEvent::class);
+    }
+
+    public function unmatchedMedicineReports(): HasMany
+    {
+        return $this->hasMany(UnmatchedMedicineReport::class);
+    }
+
+    /** Fuso horário do paciente para a agenda de doses (padrão em `config('bulai.treatment.default_timezone')`). */
+    public function treatmentTimezone(): string
+    {
+        $timezone = (string) ($this->patientProfile?->timezone ?? '');
+
+        return in_array($timezone, timezone_identifiers_list(), true) ? $timezone : (string) config('bulai.treatment.default_timezone');
     }
 }

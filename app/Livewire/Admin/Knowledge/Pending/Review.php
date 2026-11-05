@@ -88,6 +88,7 @@ class Review extends Component
         ClassifyPendingDocument::dispatch($this->batch->id, $this->item->id, true, auth()->id());
         $this->refreshItem();
         [$this->feedbackType, $this->feedbackMessage] = ['info', 'Análise da IA enfileirada. Esta tela atualiza sozinha quando terminar.'];
+        $this->notify();
     }
 
     public function applyAiSuggestion(KnowledgeAiSuggestionReviewService $reviews, bool $all = false): void
@@ -102,6 +103,7 @@ class Review extends Component
             'NOTHING_SELECTED' => ['warning', 'Marque ao menos um campo da IA para aplicar.'],
             default => ['info', 'Este item já foi resolvido por outra operação.'],
         };
+        $this->notify();
     }
 
     public function rejectAiSuggestion(KnowledgeAiSuggestionReviewService $reviews): void
@@ -112,6 +114,7 @@ class Review extends Component
         [$this->feedbackType, $this->feedbackMessage] = $result['status'] === KnowledgeAiSuggestionReviewService::REJECTED
             ? ['success', 'Análise da IA rejeitada. Os valores da heurística foram mantidos.']
             : ['info', 'Este item já foi resolvido por outra operação.'];
+        $this->notify();
     }
 
     public function revertAiDecision(KnowledgeAiSuggestionReviewService $reviews): void
@@ -120,6 +123,7 @@ class Review extends Component
         $this->refreshItem();
         $this->prefillNewDocument();
         [$this->feedbackType, $this->feedbackMessage] = $reverted ? ['success', 'Decisão sobre a IA desfeita.'] : ['info', 'Não há decisão para desfazer.'];
+        $this->notify();
     }
 
     public function selectDocument(int $documentId): void
@@ -173,6 +177,7 @@ class Review extends Component
         ClassifyPendingDocument::dispatch($this->batch->id, $this->item->id, false, auth()->id());
         $this->refreshItem();
         [$this->feedbackType, $this->feedbackMessage] = ['info', 'Reanálise enfileirada. Esta tela atualiza sozinha quando terminar.'];
+        $this->notify();
     }
 
     public function ignore(KnowledgeIngestionAuditService $audit): void
@@ -186,6 +191,7 @@ class Review extends Component
         $this->feedbackType = $status === IngestionBatchItem::STATUS_IGNORED ? 'success' : 'info';
         $this->feedbackMessage = $status === IngestionBatchItem::STATUS_IGNORED ? 'Item resolvido sem incorporação; o arquivo e a evidência foram preservados.' : 'Este item já foi resolvido por outra operação.';
         $this->showIgnoreForm = false;
+        $this->notify();
     }
 
     /** Atualiza o item enquanto a análise automática roda na fila (usado pelo polling da tela). */
@@ -229,7 +235,7 @@ class Review extends Component
             'nextPending' => $this->nextPending(),
             'pendingRemaining' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->whereKeyNot($this->item->id)->count(),
             'history' => collect(data_get($this->item->metadata, 'audit_history', []))->filter(fn (mixed $event): bool => is_array($event))->reverse()->values(),
-        ])->title("Revisar pendência #{$this->item->id} · BULAI");
+        ])->title('Revisar '.($this->identificationFields()['product_name'] ?? $this->item->original_filename).' · BULAI');
     }
 
     /** Próxima pendência a revisar (da mesma importação primeiro), para o fluxo contínuo depois de concluir um item. */
@@ -259,6 +265,17 @@ class Review extends Component
 
         if ($result['status'] !== 'CONFLICT') {
             $this->selectedDocumentId = null;
+        }
+        $this->notify();
+    }
+
+    /** Avisa o usuário (toast) além da mensagem na tela; chamado pelos métodos que definem o feedback. */
+    private function notify(): void
+    {
+        if ($this->feedbackMessage !== null) {
+            $this->dispatch('notify', message: $this->feedbackMessage, tone: match ($this->feedbackType) {
+                'success' => 'success', 'error' => 'danger', 'info' => 'info', default => 'warning'
+            });
         }
     }
 

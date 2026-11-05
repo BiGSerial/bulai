@@ -5,6 +5,7 @@ namespace App\Models\Knowledge;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
@@ -80,5 +81,12 @@ class KnowledgeDocument extends Model
     public function chunks(): HasMany
     {
         return $this->hasMany(KnowledgeChunk::class, 'document_id')->orderBy('chunk_index');
+    }
+
+    public function ingredients(): BelongsToMany
+    {
+        return $this->belongsToMany(ActiveIngredient::class, 'knowledge_document_ingredients', 'document_id', 'ingredient_id')
+            ->withPivot(['method', 'confidence'])
+            ->withTimestamps();
     }
 }
