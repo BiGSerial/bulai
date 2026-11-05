@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Notifications\Channels\DedupedDatabaseChannel;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\DocumentClassificationProvider;
 use App\Services\Ai\EmbeddingProvider;
@@ -27,6 +28,7 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -54,11 +56,24 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AnvisaRegulatoryCatalog::class, EloquentAnvisaRegulatoryCatalog::class);
     }
 
+    /** Mensagem de bloqueio com o tempo restante em segundos ou minutos. */
+    public static function throttleMessage(int $seconds): string
+    {
+        if ($seconds >= 120) {
+            return __('auth.throttle_minutes', ['minutes' => (int) ceil($seconds / 60)]);
+        }
+
+        return __('auth.throttle', ['seconds' => $seconds]);
+    }
+
     /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
+        // Avisos no aplicativo com chave de deduplicação (lembretes de dose nunca duplicam).
+        Notification::extend('database', fn (): DedupedDatabaseChannel => new DedupedDatabaseChannel);
+
         Event::listen(Looping::class, fn () => app(WorkerHeartbeat::class)->beat());
         Event::listen(JobProcessing::class, fn () => app(WorkerHeartbeat::class)->beat(busy: true));
         Event::listen([JobProcessed::class, JobFailed::class], fn () => app(WorkerHeartbeat::class)->beat(force: true));
@@ -67,19 +82,38 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($request->ip());
         });
 
-        // Ao exceder, volta ao formulário de login com a mensagem no campo de e-mail (em vez da página 429).
-        RateLimiter::for('login', function (Request $request): Limit {
+        // Bloqueio progressivo do login por e-mail + IP: 5 tentativas por minuto e 20 por 15 minutos. Ao exceder,
+        // volta ao formulário com a mensagem (e o tempo restante) no campo de e-mail, em vez da página 429.
+        RateLimiter::for('login', function (Request $request): array {
             $email = $request->input('email');
+            $key = (is_string($email) ? Str::lower(trim($email)) : '').'|'.$request->ip();
+            $response = fn (Request $request, array $headers): RedirectResponse => redirect()
+                ->route('login')
+                ->withInput($request->only('email'))
+                ->withErrors(['email' => self::throttleMessage((int) ($headers['Retry-After'] ?? 60))]);
 
-            return Limit::perMinute(5)
-                ->by((is_string($email) ? Str::lower(trim($email)) : '').'|'.$request->ip())
-                ->response(fn (Request $request, array $headers): RedirectResponse => redirect()
-                    ->route('login')
-                    ->withInput($request->only('email'))
-                    ->withErrors(['email' => __('auth.throttle', ['seconds' => $headers['Retry-After'] ?? 60])]));
+            return [
+                Limit::perMinute(5)->by($key)->response($response),
+                Limit::perMinutes(15, 20)->by($key)->response($response),
+            ];
         });
 
-        Password::defaults(fn (): Password => Password::min(12)->letters()->numbers());
+        // Pedidos de link de redefinição: 3 por minuto por e-mail + IP (além do throttle do broker).
+        RateLimiter::for('password-reset', function (Request $request): Limit {
+            $email = $request->input('email');
+
+            return Limit::perMinute(3)
+                ->by((is_string($email) ? Str::lower(trim($email)) : '').'|'.$request->ip())
+                ->response(fn (Request $request, array $headers): RedirectResponse => redirect()
+                    ->route('password.request')
+                    ->withInput($request->only('email'))
+                    ->withErrors(['email' => self::throttleMessage((int) ($headers['Retry-After'] ?? 60))]));
+        });
+
+        // Política de senha: 12+ caracteres com letras e números; em produção, também não constar em vazamentos conhecidos.
+        Password::defaults(fn (): Password => $this->app->isProduction()
+            ? Password::min(12)->letters()->numbers()->uncompromised()
+            : Password::min(12)->letters()->numbers());
 
         // Ações Livewire (POST no endpoint de update) reaplicam estes middlewares da rota original:
         // um ADMIN rebaixado, desativado ou com troca de senha pendente não age numa tela já aberta.

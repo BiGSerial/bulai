@@ -4,7 +4,7 @@
 
 Esta pasta reúne a base técnica do BULA-IA para uso no Trabalho de Conclusão de Curso de Sistemas de Informação. O conteúdo foi separado por tema para facilitar sua adaptação aos capítulos de especificação, desenvolvimento, validação e resultados.
 
-Os textos descrevem o estado implementado do sistema em 1º de outubro de 2026. O projeto de pesquisa inicial é usado como referência de contexto, não como especificação técnica obrigatória. Eles não substituem a redação acadêmica final: decisões precisam ser relacionadas ao problema de pesquisa, citações devem vir de fontes bibliográficas e resultados quantitativos somente podem ser apresentados após medição reproduzível.
+Os textos 00–06 descrevem o estado do sistema em 1º de outubro de 2026; os textos 17–23 descrevem o MVP de consulta, RAG e avaliação em 4 de novembro de 2026; o texto 24 descreve a segunda iteração do MVP (bula humanizada, contexto de tratamento, registro analítico das respostas, embeddings reais) do mesmo dia. O projeto de pesquisa inicial é usado como referência de contexto, não como especificação técnica obrigatória. Eles não substituem a redação acadêmica final: decisões precisam ser relacionadas ao problema de pesquisa, citações devem vir de fontes bibliográficas e resultados quantitativos somente podem ser apresentados após medição reproduzível.
 
 ## Estrutura sugerida
 
@@ -23,7 +23,7 @@ Os textos descrevem o estado implementado do sistema em 1º de outubro de 2026. 
 - Converta as descrições de implementação em argumentos relacionados aos objetivos específicos do trabalho.
 - Inclua referências bibliográficas para RAG, recuperação de informação, segurança, qualidade de software e arquitetura; esta pasta não inventa nem antecipa referências.
 - Diferencie claramente funcionalidade implementada, decisão de projeto, limitação e trabalho futuro.
-- Não apresente embeddings, busca vetorial, RAG ou geração de respostas como resultados prontos: não existem no sistema (apenas a infraestrutura de provedores de IA foi preparada). O OCR existe como fallback, mas sua acurácia ainda não foi avaliada.
+- A recuperação lexical, a análise de interações e a geração validada **existem** (`17`–`19`); embeddings/busca vetorial/híbrida foram **medidos na iteração 2** com `bge-m3` local (amostra pequena; `23`, seção 3) e o provedor Anthropic foi **validado com chamadas reais** (`23`, seção 3a; `20` descreve a integração). A bula humanizada, o contexto de tratamento, a pergunta livre com guarda de entrada, a receita por foto e o registro analítico estão em `24`. Resultados e suas limitações estão em `23`; validação clínica e SUS **não foram feitas** (`22`). A acurácia do OCR continua não avaliada.
 - Use capturas de tela sem dados pessoais, segredos, tokens, caminhos internos ou conteúdo farmacêutico restrito.
 - Identifique versão do código, ambiente, massa de teste e procedimento sempre que apresentar uma medição.
 - Descreva a arquitetura efetivamente construída e justifique suas decisões pelos requisitos do sistema. Linguagens, bancos e frameworks citados no projeto preliminar eram possibilidades iniciais, não compromissos técnicos.
@@ -54,3 +54,19 @@ Notas redigidas em 18/10/2026 a partir do código e da documentação técnica, 
 | [14-comunicacao-em-tempo-real-sse-websocket.md](14-comunicacao-em-tempo-real-sse-websocket.md) | 3.3.2 (etapa 6), 3.3.3 |
 | [15-ameacas-a-validade-e-limitacoes.md](15-ameacas-a-validade-e-limitacoes.md) | 3.5.1, 3.5.3 |
 | [16-trabalhos-futuros.md](16-trabalhos-futuros.md) | 3.4, Cap. 4 |
+
+## Notas do MVP, RAG e avaliação (17 a 23)
+
+Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registradas. Não editam o `.docx`.
+
+| Documento | Seções do docx relacionadas |
+| --- | --- |
+| [17-pipeline-implementado-e-desvios-do-projeto.md](17-pipeline-implementado-e-desvios-do-projeto.md) | 3.3.2, 3.3.3, 3.4 |
+| [18-catalogo-farmacologico-e-resolucao-de-ingredientes.md](18-catalogo-farmacologico-e-resolucao-de-ingredientes.md) | 3.2.2, 3.3.2 |
+| [19-recuperacao-rag-e-controle-de-alucinacao.md](19-recuperacao-rag-e-controle-de-alucinacao.md) | 2.7.1, 2.7.2, 3.3.1, 3.3.2 |
+| [20-integracao-anthropic.md](20-integracao-anthropic.md) | 2.6.3, 3.3.1, 3.3.3 |
+| [21-pwa-privacidade-e-seguranca-do-usuario-final.md](21-pwa-privacidade-e-seguranca-do-usuario-final.md) | 3.3.2 (etapa 4), 3.4 (Fase 4), 3.5.3 |
+| [22-protocolos-de-validacao-profissional-e-usabilidade.md](22-protocolos-de-validacao-profissional-e-usabilidade.md) | 3.5.1, 3.5.2 (protocolos; **não executados**) |
+| [23-resultados-experimentais.md](23-resultados-experimentais.md) | 3.5.1, 3.5.3 |
+| [24-bula-humanizada-contexto-de-tratamento-e-analytics.md](24-bula-humanizada-contexto-de-tratamento-e-analytics.md) | 2.7.1, 2.7.2, 3.3.1, 3.3.2 (etapas 3–5), 3.5.1, 3.5.3 |
+| [25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md](25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |

@@ -1,0 +1,448 @@
+{
+    "version": "heldout",
+    "seed_sha256": "8df48714527b66152099df4028737871f2addc8927dac024fe1601adfe37601d",
+    "reference_imports": {
+        "ddinter_downloads_code_A.csv": "a22ca451d2b755ca2331886f7e00540c86f555f9f55704a59a19c691251f52e0",
+        "ddinter_downloads_code_B.csv": "76de5115a55587f0e822e1096b684fd3ddde058fbefcbb19896df58820ace130",
+        "ddinter_downloads_code_D.csv": "c0627ec39965dbe27829e4934cd20d71eb079f4e373287678737bba9423a306a",
+        "ddinter_downloads_code_H.csv": "f0f925f0ba1ee68c4668d3e7a6732719b34623b22a0f5d017f9090e59f63c88e",
+        "ddinter_downloads_code_L.csv": "f54f4486cc00344f8c86508c31c2ca3fad6d1d37ec3af5bcf609b4bbda5507ef",
+        "ddinter_downloads_code_P.csv": "83f8c0edb20d09ef29b8500b48f9623e208379525688ade9e70a7df2d8749d55",
+        "ddinter_downloads_code_R.csv": "1c39c3d4a6e41659b7a988538d7f363867592abc6f41a815de8746f6e2150574",
+        "ddinter_downloads_code_V.csv": "353973fb300453946aea95733e8fb52338e4b59426d2ce6ca318363d4f84f10a"
+    },
+    "description": "Gabarito held-out de identificação (fármacos distintos do conjunto v1; escrito ANTES de medir e NUNCA usado para ajustar normalizador ou aliases). Elaborado pelo autor; não validado por profissional de saúde.",
+    "items": [
+        {
+            "id": 1,
+            "query": "Ranitidina",
+            "registration_number": "108840309",
+            "product_name": "IQUEGO - RANITIDINA",
+            "expected_ingredients": [
+                "ranitidine"
+            ]
+        },
+        {
+            "id": 2,
+            "query": "Cefalexina",
+            "registration_number": "102351370",
+            "product_name": "CEFALEXINA",
+            "expected_ingredients": [
+                "cephalexin"
+            ]
+        },
+        {
+            "id": 3,
+            "query": "Lisinopril",
+            "registration_number": "103700391",
+            "product_name": "LISINOPRIL",
+            "expected_ingredients": [
+                "lisinopril"
+            ]
+        },
+        {
+            "id": 4,
+            "query": "Metformina",
+            "registration_number": "116180289",
+            "product_name": "DAPAGLIFLOZINA PROPANODIOL + CLORIDRATO DE METFORMINA",
+            "expected_ingredients": [
+                "metformin"
+            ]
+        },
+        {
+            "id": 5,
+            "query": "Glibenclamida",
+            "registration_number": "183260028",
+            "product_name": "GLIBENCLAMIDA",
+            "expected_ingredients": [
+                "glyburide"
+            ]
+        },
+        {
+            "id": 6,
+            "query": "Glimepirida",
+            "registration_number": "100431143",
+            "product_name": "GLIMEPIRIDA",
+            "expected_ingredients": [
+                "glimepiride"
+            ]
+        },
+        {
+            "id": 7,
+            "query": "Pioglitazona",
+            "registration_number": "103700782",
+            "product_name": "CLORIDRATO DE PIOGLITAZONA",
+            "expected_ingredients": [
+                "pioglitazone"
+            ]
+        },
+        {
+            "id": 8,
+            "query": "Prednisolona",
+            "registration_number": "155840630",
+            "product_name": "PREDNISOLONA",
+            "expected_ingredients": [
+                "prednisolone"
+            ]
+        },
+        {
+            "id": 9,
+            "query": "Budesonida",
+            "registration_number": "105730092",
+            "product_name": "BUDESONIDA",
+            "expected_ingredients": [
+                "budesonide"
+            ]
+        },
+        {
+            "id": 10,
+            "query": "Fenitoína",
+            "registration_number": "107150171",
+            "product_name": "FENITOÍNA",
+            "expected_ingredients": [
+                "phenytoin"
+            ]
+        },
+        {
+            "id": 11,
+            "query": "Topiramato",
+            "registration_number": "167730642",
+            "product_name": "TOPIRAMATO",
+            "expected_ingredients": [
+                "topiramate"
+            ]
+        },
+        {
+            "id": 12,
+            "query": "Risperidona",
+            "registration_number": "155370027",
+            "product_name": "RISPERIDONA",
+            "expected_ingredients": [
+                "risperidone"
+            ]
+        },
+        {
+            "id": 13,
+            "query": "Quetiapina",
+            "registration_number": "105730611",
+            "product_name": "HEMIFUMARATO DE QUETIAPINA",
+            "expected_ingredients": [
+                "quetiapine"
+            ]
+        },
+        {
+            "id": 14,
+            "query": "Olanzapina",
+            "registration_number": "155840515",
+            "product_name": "OLANZAPINA",
+            "expected_ingredients": [
+                "olanzapine"
+            ]
+        },
+        {
+            "id": 15,
+            "query": "Paroxetina",
+            "registration_number": "167730696",
+            "product_name": "CLORIDRATO DE PAROXETINA",
+            "expected_ingredients": [
+                "paroxetine"
+            ]
+        },
+        {
+            "id": 16,
+            "query": "Citalopram",
+            "registration_number": "123520101",
+            "product_name": "CITALOPRAM",
+            "expected_ingredients": [
+                "citalopram"
+            ]
+        },
+        {
+            "id": 17,
+            "query": "Venlafaxina",
+            "registration_number": "105250068",
+            "product_name": "CLORIDRATO DE VENLAFAXINA",
+            "expected_ingredients": [
+                "venlafaxine"
+            ]
+        },
+        {
+            "id": 18,
+            "query": "Bupropiona",
+            "registration_number": "118190280",
+            "product_name": "CLORIDRATO DE BUPROPIONA",
+            "expected_ingredients": [
+                "bupropion"
+            ]
+        },
+        {
+            "id": 19,
+            "query": "Zolpidem",
+            "registration_number": "155840554",
+            "product_name": "HEMITARTARATO DE ZOLPIDEM",
+            "expected_ingredients": [
+                "zolpidem"
+            ]
+        },
+        {
+            "id": 20,
+            "query": "Alprazolam",
+            "registration_number": "118190290",
+            "product_name": "ALPRAZOLAM",
+            "expected_ingredients": [
+                "alprazolam"
+            ]
+        },
+        {
+            "id": 21,
+            "query": "Clonidina",
+            "registration_number": "100410228",
+            "product_name": "CLORIDRATO DE CLONIDINA",
+            "expected_ingredients": [
+                "clonidine"
+            ]
+        },
+        {
+            "id": 22,
+            "query": "Verapamil",
+            "registration_number": "135690199",
+            "product_name": "CLORIDRATO DE VERAPAMIL",
+            "expected_ingredients": [
+                "verapamil"
+            ]
+        },
+        {
+            "id": 23,
+            "query": "Diltiazem",
+            "registration_number": "102350740",
+            "product_name": "CLORIDRATO DE DILTIAZEM",
+            "expected_ingredients": [
+                "diltiazem"
+            ]
+        },
+        {
+            "id": 24,
+            "query": "Levofloxacino",
+            "registration_number": "155840617",
+            "product_name": "LEVOFLOXACINO",
+            "expected_ingredients": [
+                "levofloxacin"
+            ]
+        },
+        {
+            "id": 25,
+            "query": "Doxiciclina",
+            "registration_number": "100470330",
+            "product_name": "DOXICICLINA",
+            "expected_ingredients": [
+                "doxycycline"
+            ]
+        },
+        {
+            "id": 26,
+            "query": "Cetirizina",
+            "registration_number": "125680069",
+            "product_name": "DICLORIDRATO DE CETIRIZINA",
+            "expected_ingredients": [
+                "cetirizine"
+            ]
+        },
+        {
+            "id": 27,
+            "query": "Fexofenadina",
+            "registration_number": "102351361",
+            "product_name": "CLORIDRATO DE FEXOFENADINA",
+            "expected_ingredients": [
+                "fexofenadine"
+            ]
+        },
+        {
+            "id": 28,
+            "query": "Desloratadina",
+            "registration_number": "105730616",
+            "product_name": "DESLORATADINA",
+            "expected_ingredients": [
+                "desloratadine"
+            ]
+        },
+        {
+            "id": 29,
+            "query": "Lansoprazol",
+            "registration_number": "118190344",
+            "product_name": "LANSOPRAZOL",
+            "expected_ingredients": [
+                "lansoprazole"
+            ]
+        },
+        {
+            "id": 30,
+            "query": "Esomeprazol",
+            "registration_number": "123520219",
+            "product_name": "ESOMEPRAZOL MAGNÉSICO",
+            "expected_ingredients": [
+                "esomeprazole"
+            ]
+        },
+        {
+            "id": 31,
+            "query": "Domperidona",
+            "registration_number": "167730458",
+            "product_name": "DOMPERIDONA",
+            "expected_ingredients": [
+                "domperidone"
+            ]
+        },
+        {
+            "id": 32,
+            "query": "Colchicina",
+            "registration_number": "154230203",
+            "product_name": "COLCHICINA",
+            "expected_ingredients": [
+                "colchicine"
+            ]
+        },
+        {
+            "id": 33,
+            "query": "Alopurinol",
+            "registration_number": "100470331",
+            "product_name": "ALOPURINOL",
+            "expected_ingredients": [
+                "allopurinol"
+            ]
+        },
+        {
+            "id": 34,
+            "query": "Tansulosina",
+            "registration_number": "156510085",
+            "product_name": "CLORIDRATO DE TANSULOSINA",
+            "expected_ingredients": [
+                "tamsulosin"
+            ]
+        },
+        {
+            "id": 35,
+            "query": "Finasterida",
+            "registration_number": "110390196",
+            "product_name": "FINASTERIDA",
+            "expected_ingredients": [
+                "finasteride"
+            ]
+        },
+        {
+            "id": 36,
+            "query": "Anastrozol",
+            "registration_number": "116370191",
+            "product_name": "ANASTROZOL",
+            "expected_ingredients": [
+                "anastrozole"
+            ]
+        },
+        {
+            "id": 37,
+            "query": "Tamoxifeno",
+            "registration_number": "118190332",
+            "product_name": "CITRATO DE TAMOXIFENO",
+            "expected_ingredients": [
+                "tamoxifen"
+            ]
+        },
+        {
+            "id": 38,
+            "query": "Metotrexato",
+            "registration_number": "116370142",
+            "product_name": "METOTREXATO",
+            "expected_ingredients": [
+                "methotrexate"
+            ]
+        },
+        {
+            "id": 39,
+            "query": "Hidroxicloroquina",
+            "registration_number": "155840645",
+            "product_name": "SULFATO DE HIDROXICLOROQUINA",
+            "expected_ingredients": [
+                "hydroxychloroquine"
+            ]
+        },
+        {
+            "id": 40,
+            "query": "Azatioprina",
+            "registration_number": "100630306",
+            "product_name": "AZATIOPRINA",
+            "expected_ingredients": [
+                "azathioprine"
+            ]
+        },
+        {
+            "id": 41,
+            "query": "Ciclosporina",
+            "registration_number": "105830234",
+            "product_name": "CICLOSPORINA",
+            "expected_ingredients": [
+                "cyclosporine"
+            ]
+        },
+        {
+            "id": 42,
+            "query": "Cloranfenicol",
+            "registration_number": "102980505",
+            "product_name": "KOLLAGENASE COM CLORANFENICOL",
+            "expected_ingredients": [
+                "chloramphenicol"
+            ]
+        },
+        {
+            "id": 43,
+            "query": "Gentamicina",
+            "registration_number": "154230150",
+            "product_name": "DIPROPIONATO DE BETAMETASONA + SULFATO DE GENTAMICINA",
+            "expected_ingredients": [
+                "gentamicin"
+            ]
+        },
+        {
+            "id": 44,
+            "query": "Vancomicina",
+            "registration_number": "100410202",
+            "product_name": "CLORIDRATO DE VANCOMICINA",
+            "expected_ingredients": [
+                "vancomycin"
+            ]
+        },
+        {
+            "id": 45,
+            "query": "Aciclovir",
+            "registration_number": "183260160",
+            "product_name": "ACICLOVIR",
+            "expected_ingredients": [
+                "acyclovir"
+            ]
+        },
+        {
+            "id": 46,
+            "query": "Ivermectina",
+            "registration_number": "103920167",
+            "product_name": "IVERMECTINA",
+            "expected_ingredients": [
+                "ivermectin"
+            ]
+        },
+        {
+            "id": 47,
+            "query": "Albendazol",
+            "registration_number": "112130396",
+            "product_name": "ALBENDAZOL",
+            "expected_ingredients": [
+                "albendazole"
+            ]
+        }
+    ],
+    "dropped_not_in_catalog": [
+        "Nifedipino",
+        "Enoxaparina",
+        "Famotidina"
+    ],
+    "expected_names_absent_from_reference": [
+        "domperidone"
+    ]
+}

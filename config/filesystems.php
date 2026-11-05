@@ -46,6 +46,15 @@ return [
             'report' => false,
         ],
 
+        // Relatórios gerados pela administração (App\Services\Reports\ReportGenerator); baixados por rota protegida.
+        'reports' => [
+            'driver' => 'local',
+            'root' => storage_path('app/reports'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

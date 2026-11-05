@@ -1,18 +1,60 @@
 {
     "name": "BULA-IA",
     "short_name": "BULA-IA",
-    "description": "Base documental administrativa do BULA-IA.",
-    "start_url": "/",
+    "description": "Aplicativo do paciente: bula em linguagem simples, interações entre seus remédios, alergias, receitas e dúvidas respondidas com base em bulas.",
+    "start_url": "/inicio",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#f8fafc",
-    "theme_color": "#0f766e",
+    "background_color": "#f7f4ee",
+    "theme_color": "#12344d",
     "icons": [
         {
             "src": "/brand/bulai-icone-app.svg",
             "sizes": "any",
             "type": "image/svg+xml",
             "purpose": "any maskable"
+        },
+        {
+            "src": "/brand/bulai-icone-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/brand/bulai-icone-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/brand/bulai-icone-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "id": "/",
+    "lang": "pt-BR",
+    "categories": [
+        "health",
+        "medical"
+    ],
+    "shortcuts": [
+        {
+            "name": "Perguntar sobre um medicamento",
+            "url": "/perguntar"
+        },
+        {
+            "name": "Fotografar receita",
+            "url": "/receitas/nova"
+        },
+        {
+            "name": "Meus remédios",
+            "url": "/perfil"
+        },
+        {
+            "name": "Verificar interações",
+            "url": "/consulta"
         }
     ]
 }

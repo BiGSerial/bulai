@@ -30,7 +30,7 @@ class Show extends Component
 
     public function render(): View
     {
-        $this->document->load(['source', 'ingestionBatch'])->loadCount('chunks');
+        $this->document->load(['source', 'ingestionBatch', 'ingredients'])->loadCount('chunks');
 
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),

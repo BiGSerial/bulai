@@ -48,6 +48,7 @@ x-php-app: &php-app
     DOCUMENT_OCR_URL: http://document-ocr:8000
     DOCUMENT_CLASSIFIER_DRIVER: llamafile
     LOCAL_AI_URL: http://local-ai:8080
+    AI_EMBEDDING_BASE_URL: http://embeddings:8080/v1
   <<: *hardening
   read_only: true
   logging: *default-logging
@@ -56,6 +57,8 @@ x-php-app: &php-app
     - db
     - ai
     - cache
+    # Saída para a internet SOMENTE para a API da Anthropic (IA principal do RAG). As demais redes continuam internas.
+    - egress
   tmpfs:
     - /tmp:size=64m,mode=1777
     - /var/www/html/bootstrap/cache:size=16m,uid=10010,gid=10010,mode=0700
@@ -132,6 +135,28 @@ services:
     # Deixa o job em andamento terminar antes de substituir o container.
     stop_grace_period: 480s
     stop_signal: SIGTERM
+
+  scheduler:
+    <<: *php-app
+    # Agendador do Laravel (routes/console.php): lembretes de dose a cada 5 min (`treatment:send-reminders`) e expurgo diário.
+    # `schedule:work` dispara `schedule:run` a cada minuto dentro do container; `onOneServer` usa o lock no Redis.
+    command: ["php", "artisan", "schedule:work"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "grep -lE 'schedule[:]work' /proc/[0-9]*/cmdline >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    mem_limit: 256m
+    memswap_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    stop_grace_period: 60s
 
   redis:
     # Fila, cache e sessões. Rede interna `cache` (só app/worker), sem porta publicada e sem saída para a internet.
@@ -263,6 +288,38 @@ services:
     oom_score_adj: 500
     stop_grace_period: 30s
 
+  embeddings:
+    # Embeddings do RAG vetorial/híbrido (bge-m3 Q8_0 via llamafiler, CPU). Mesma imagem do local-ai, em LOCAL_AI_MODE=embedding.
+    # Só app/worker chegam aqui (rede `ai`); o modelo é instalado por `bulai-deploy ensure-model` em /srv/bulai/shared/models.
+    image: ${EMBEDDINGS_IMAGE:-${LOCAL_AI_IMAGE:?LOCAL_AI_IMAGE é obrigatório}}
+    <<: *hardening
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      LOCAL_AI_MODE: embedding
+      LOCAL_AI_MODEL_PATH: /models
+      LOCAL_AI_MODEL_FILENAME: ${EMBEDDINGS_MODEL_FILENAME:-bge-m3-Q8_0.gguf}
+      LOCAL_AI_MODEL_NAME: ${EMBEDDINGS_MODEL_NAME:-bge-m3}
+      LOCAL_AI_THREADS: "2"
+      LOCAL_AI_CONTEXT: "2048"
+      LOCAL_AI_REQUEST_TIMEOUT: "120"
+    volumes:
+      - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/models:/models:ro
+    networks:
+      - ai
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+    mem_limit: 1500m
+    memswap_limit: 1500m
+    cpus: 2.0
+    pids_limit: 256
+    oom_score_adj: 500
+    stop_grace_period: 30s
+
 networks:
   # Publicação da porta 127.0.0.1:8080 (somente o Nginx está aqui).
   edge: {}
@@ -275,4 +332,6 @@ networks:
   # Redis (fila/cache/sessão): só app/worker e redis; sem saída para a internet.
   cache:
     internal: true
+  # Saída para a internet de app/worker (API da Anthropic). Nenhuma porta é publicada nesta rede.
+  egress: {}
 

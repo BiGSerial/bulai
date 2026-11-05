@@ -75,6 +75,36 @@ services:
           memory: 4g
     restart: unless-stopped
 
+  embeddings:
+    # Embeddings do RAG vetorial/híbrido (bge-m3 via llamafiler, CPU). Mesma imagem do local-ai em LOCAL_AI_MODE=embedding;
+    # expõe /v1/embeddings (OpenAI-compatível) para AI_EMBEDDING_DRIVER=openai_compatible. Modelo: scripts/install-embedding-model.sh.
+    build: ./services/local-ai
+    environment:
+      LOCAL_AI_MODE: embedding
+      LOCAL_AI_MODEL_PATH: /models
+      LOCAL_AI_MODEL_FILENAME: ${EMBEDDINGS_MODEL_FILENAME:-bge-m3-Q8_0.gguf}
+      LOCAL_AI_MODEL_NAME: ${EMBEDDINGS_MODEL_NAME:-bge-m3}
+      LOCAL_AI_THREADS: ${EMBEDDINGS_THREADS:-2}
+      # bge-m3 aceita 8192 tokens; os chunks têm no máximo ~2.600 caracteres, 2048 basta e economiza RAM.
+      LOCAL_AI_CONTEXT: ${EMBEDDINGS_CONTEXT:-2048}
+      LOCAL_AI_REQUEST_TIMEOUT: ${EMBEDDINGS_REQUEST_TIMEOUT:-120}
+    volumes:
+      - ./services/local-ai/models:/models:ro
+    ports:
+      - "127.0.0.1:${EMBEDDINGS_HOST_PORT:-8089}:8080"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1500m
+    restart: unless-stopped
+
 volumes:
   redis-data:
   postgres-data:

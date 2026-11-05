@@ -26,11 +26,20 @@ final class DrugInteractionCsvImporter
             throw new RuntimeException('INTERACTIONS_FILE_NOT_READABLE');
         }
         $sha256 = hash_file('sha256', $path);
-        $existing = DrugInteractionImport::query()->where('sha256', $sha256)->where('status', 'COMPLETED')->first();
+        // O sha256 é único: um registro anterior do mesmo arquivo é sempre reaproveitado (concluído => devolve;
+        // em andamento => recusa; falho/abandonado => reutiliza), em vez de violar a restrição ao inserir outro.
+        $existing = DrugInteractionImport::query()->where('sha256', $sha256)->first();
         if ($existing !== null && $existing->isNot($tracking)) {
-            $tracking?->delete();
+            if ($existing->status === 'COMPLETED') {
+                $tracking?->delete();
 
-            return $existing;
+                return $existing;
+            }
+            if (DrugInteractionImport::query()->active()->whereKey($existing->id)->exists()) {
+                throw new RuntimeException('INTERACTIONS_IMPORT_IN_PROGRESS');
+            }
+            $tracking?->delete();
+            $tracking = $existing;
         }
 
         $import = $tracking ?? new DrugInteractionImport;

@@ -1,79 +1,56 @@
 <x-knowledge-admin.shell title="Interações medicamentosas" subtitle="Base DDInter de interações entre fármacos, usada como informação complementar à bula.">
-    @if ($feedback)
-        <x-knowledge-admin.alert :tone="$feedbackTone"><p class="font-medium">{{ $feedback }}</p></x-knowledge-admin.alert>
-    @endif
-
+    @if ($feedback)<x-knowledge-admin.alert :tone="$feedbackTone">{{ $feedback }}</x-knowledge-admin.alert>@endif
     @if ($total === 0)
-        <x-knowledge-admin.alert tone="warning">
-            <p class="font-medium">A base de interações está vazia.</p>
-            <p class="mt-1">Envie os arquivos CSV do DDInter abaixo para começar.</p>
-        </x-knowledge-admin.alert>
+        <x-knowledge-admin.alert tone="warning">A base de interações está vazia. Envie os arquivos CSV do DDInter para começar.</x-knowledge-admin.alert>
     @endif
 
-    <x-knowledge-admin.section title="Situação da base">
-        <x-knowledge-admin.facts>
-            <x-knowledge-admin.fact label="Pares de fármacos">{{ number_format($total, 0, ',', '.') }}</x-knowledge-admin.fact>
-            <x-knowledge-admin.fact label="Fármacos distintos">{{ number_format($drugs, 0, ',', '.') }}</x-knowledge-admin.fact>
-            <x-knowledge-admin.fact label="Graves">{{ number_format($bySeverity['major'] ?? 0, 0, ',', '.') }}</x-knowledge-admin.fact>
-            <x-knowledge-admin.fact label="Moderadas">{{ number_format($bySeverity['moderate'] ?? 0, 0, ',', '.') }}</x-knowledge-admin.fact>
-            <x-knowledge-admin.fact label="Leves">{{ number_format($bySeverity['minor'] ?? 0, 0, ',', '.') }}</x-knowledge-admin.fact>
-            <x-knowledge-admin.fact label="Sem classificação">{{ number_format($bySeverity['unknown'] ?? 0, 0, ',', '.') }}</x-knowledge-admin.fact>
-        </x-knowledge-admin.facts>
-    </x-knowledge-admin.section>
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <x-knowledge-admin.kpi label="Pares de fármacos" :value="number_format($total, 0, ',', '.')" :hint="number_format($drugs, 0, ',', '.').' fármacos distintos'" />
+        <x-knowledge-admin.kpi label="Graves · moderadas · leves" :value="number_format($bySeverity['major'] ?? 0, 0, ',', '.').' · '.number_format($bySeverity['moderate'] ?? 0, 0, ',', '.').' · '.number_format($bySeverity['minor'] ?? 0, 0, ',', '.')" :hint="number_format($bySeverity['unknown'] ?? 0, 0, ',', '.').' sem classificação'" />
+        <x-knowledge-admin.kpi label="Última importação concluída" :value="$history->firstWhere('status', 'COMPLETED')?->completed_at?->format('d/m/Y') ?? 'Nenhuma'" :hint="$history->firstWhere('status', 'COMPLETED')?->original_filename" />
+    </div>
 
     @if ($activeImports->isNotEmpty())
         <div wire:poll.3s>
             <x-knowledge-admin.section title="Importações em andamento">
-                @foreach ($activeImports as $active)
-                    <div class="flex flex-wrap items-center gap-3" wire:key="active-{{ $active->id }}">
-                        <x-knowledge-admin.status-badge :status="$active->status" />
-                        <span class="text-sm text-slate-600">{{ $active->original_filename }}</span>
-                        <span class="text-sm text-slate-500" aria-live="polite">{{ $active->status === 'QUEUED' ? 'Aguardando a vez na fila.' : number_format($active->rows_read, 0, ',', '.').' linhas lidas' }}</span>
-                    </div>
-                @endforeach
+                <ul class="grid gap-2">
+                    @foreach ($activeImports as $active)
+                        <x-knowledge-admin.ops-row :title="$active->original_filename" :support="$active->status === 'QUEUED' ? 'Aguardando a vez na fila.' : number_format($active->rows_read, 0, ',', '.').' linhas lidas'" wire:key="active-{{ $active->id }}">
+                            <x-knowledge-admin.status-badge :status="$active->status" />
+                        </x-knowledge-admin.ops-row>
+                    @endforeach
+                </ul>
             </x-knowledge-admin.section>
         </div>
     @endif
 
-    <form class="max-w-3xl" wire:submit="import">
-        <x-knowledge-admin.section title="Importar interações" description="Envie os arquivos ddinter_downloads_code_*.csv. Pode enviar vários de uma vez; o mesmo par que aparece em mais de um arquivo é guardado uma única vez.">
-            <x-knowledge-admin.alert tone="info">
-                Origem dos dados: DDInter. Confirme os termos de uso da base (uso acadêmico/não comercial) e cite a fonte ao exibir os dados. As interações complementam a bula e não a substituem.
-            </x-knowledge-admin.alert>
-
-            <label class="grid min-h-32 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center transition hover:border-brand-600 hover:bg-brand-50">
+    <x-knowledge-admin.ops-disclosure title="Importar arquivos" summary="Envie os arquivos ddinter_downloads_code_*.csv (vários de uma vez). O mesmo par em mais de um arquivo é guardado uma única vez." :open="$total === 0">
+        <form class="grid gap-3" wire:submit="import">
+            <label class="grid min-h-28 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-brand-600 hover:bg-brand-50">
                 <span>
                     <span class="block text-sm font-semibold text-slate-900">{{ count($files) > 0 ? count($files).' arquivo(s) selecionado(s)' : 'Selecione os arquivos CSV' }}</span>
-                    <span class="mt-1 block text-sm text-slate-500">Formatos .csv ou .txt · até {{ $maxMegabytes }} MB cada · até {{ $maxFiles }} arquivos</span>
+                    <span class="mt-1 block text-sm text-slate-500">.csv ou .txt · até {{ $maxMegabytes }} MB cada · até {{ $maxFiles }} arquivos</span>
                 </span>
                 <input class="sr-only" type="file" multiple accept=".csv,.txt,text/csv,text/plain" wire:model="files">
             </label>
-            @error('files')<span class="text-sm text-rose-700">{{ $message }}</span>@enderror
-            @error('files.*')<span class="text-sm text-rose-700">{{ $message }}</span>@enderror
-
+            @error('files')<span class="text-sm text-rose-700" role="alert">{{ $message }}</span>@enderror
+            @error('files.*')<span class="text-sm text-rose-700" role="alert">{{ $message }}</span>@enderror
+            <p class="text-xs text-slate-500">Origem dos dados: DDInter (uso acadêmico/não comercial; cite a origem ao exibir). As interações complementam a bula, não a substituem.</p>
             <div><x-knowledge-admin.button type="submit" loading-target="import,files" loading="Enviando…">Importar interações</x-knowledge-admin.button></div>
-        </x-knowledge-admin.section>
-    </form>
+        </form>
+    </x-knowledge-admin.ops-disclosure>
 
     <x-knowledge-admin.section title="Últimas importações">
         @if ($history->isEmpty())
             <x-knowledge-admin.empty-state>Nenhuma importação de interações foi feita ainda.</x-knowledge-admin.empty-state>
         @else
-            <x-knowledge-admin.table :columns="['Data', 'Arquivo', 'Situação', 'Lidas', 'Novas', 'Atualizadas', 'Duplicadas', 'Rejeitadas', 'Enviado por']">
+            <ul class="grid gap-2">
                 @foreach ($history as $item)
-                    <tr wire:key="import-{{ $item->id }}">
-                        <td>{{ ($item->completed_at ?? $item->started_at)?->format('d/m/Y H:i') }}</td>
-                        <td class="break-all">{{ $item->original_filename }}</td>
-                        <td><x-knowledge-admin.status-badge :status="$item->status" /></td>
-                        <td>{{ number_format($item->rows_read, 0, ',', '.') }}</td>
-                        <td>{{ number_format($item->rows_inserted, 0, ',', '.') }}</td>
-                        <td>{{ number_format($item->rows_updated, 0, ',', '.') }}</td>
-                        <td>{{ number_format($item->rows_skipped, 0, ',', '.') }}</td>
-                        <td>{{ number_format($item->rows_rejected, 0, ',', '.') }}</td>
-                        <td>{{ $item->uploader?->name ?? '—' }}</td>
-                    </tr>
+                    <x-knowledge-admin.ops-row :title="$item->original_filename" :support="(($item->completed_at ?? $item->started_at)?->format('d/m/Y H:i') ?? '—').' · '.number_format($item->rows_read, 0, ',', '.').' lidas · '.number_format($item->rows_inserted, 0, ',', '.').' novas · '.number_format($item->rows_updated, 0, ',', '.').' atualizadas · '.number_format($item->rows_rejected, 0, ',', '.').' rejeitadas'.($item->uploader ? ' · '.$item->uploader->name : '')" wire:key="import-{{ $item->id }}">
+                        <x-knowledge-admin.status-badge :status="$item->status" />
+                    </x-knowledge-admin.ops-row>
                 @endforeach
-            </x-knowledge-admin.table>
+            </ul>
         @endif
     </x-knowledge-admin.section>
 </x-knowledge-admin.shell>

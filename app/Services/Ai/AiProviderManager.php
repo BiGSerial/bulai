@@ -2,6 +2,10 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\Anthropic\AnthropicClient;
+use App\Services\Ai\Anthropic\AnthropicTextGenerationProvider;
+use App\Services\Ai\Anthropic\AnthropicUsageTracker;
+use App\Services\Ai\Anthropic\AnthropicVisionProvider;
 use App\Services\Ai\Fake\FakeDocumentClassificationProvider;
 use App\Services\Ai\Fake\FakeEmbeddingProvider;
 use App\Services\Ai\Fake\FakeTextGenerationProvider;
@@ -43,6 +47,14 @@ final class AiProviderManager
         $this->extend(self::CLASSIFIER, 'llamafile', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider(new OpenAiCompatibleClient('llamafile', self::CLASSIFIER, $config)));
         $this->extend(self::CLASSIFIER, 'openai_compatible', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider($client($config, self::CLASSIFIER)));
         $this->extend(self::CLASSIFIER, 'fake', fn () => new FakeDocumentClassificationProvider);
+        $this->extend(self::TEXT, 'anthropic', fn (array $config) => new AnthropicTextGenerationProvider(
+            new AnthropicClient($config),
+            new AnthropicUsageTracker(app(AiUsageRecorder::class), $config),
+        ));
+        $this->extend(self::VISION, 'anthropic', fn (array $config) => new AnthropicVisionProvider(
+            new AnthropicClient($config),
+            new AnthropicUsageTracker(app(AiUsageRecorder::class), $config),
+        ));
         $this->extend(self::TEXT, 'fake', fn () => new FakeTextGenerationProvider);
         $this->extend(self::EMBEDDING, 'fake', fn () => new FakeEmbeddingProvider);
         $this->extend(self::VISION, 'fake', fn () => new FakeVisionProvider);

@@ -1,0 +1,56 @@
+# Princípios de UX do BULA-IA (contrato aplicado a todas as telas)
+
+Complementa `docs/design/identidade-visual.md` (cores, tipografia, componentes) e `docs/admin-design-system.md` (componentes do admin). Toda tela, administrativa ou do paciente, deve passar no checklist do fim deste documento antes de ser considerada pronta.
+
+## 1. Uma tela, uma tarefa
+
+- Cada tela responde a uma pergunta do usuário ("o que preciso decidir aqui?") e tem **uma ação primária**, visível sem rolar: no desktop à direita do título, no celular fixa acima da barra inferior.
+- Ações secundárias ficam em um menu "Mais" ou abaixo da primária, nunca lado a lado com o mesmo peso.
+- Nada aparece duas vezes. Um fato (nome do medicamento, registro, status) é mostrado uma única vez, no lugar onde a decisão é tomada. Detalhes vão para seções recolhidas (`details`/abas), não para blocos repetidos.
+
+## 2. Hierarquia em três níveis
+
+1. **Cabeçalho**: título curto, um selo de situação e no máximo dois metadados (origem · data).
+2. **Resumo decisório**: até quatro fatos essenciais em uma linha de "fatos" (rótulo pequeno + valor), seguidos da ação primária e de uma frase que explica a consequência.
+3. **Detalhe sob demanda**: abas ou acordeões com o restante (análise da IA, texto extraído, histórico, arquivo). A primeira aba é a mais usada; nunca mais de quatro abas.
+
+## 3. Listas
+
+- Uma linha por item; título em negrito, uma linha de apoio em cinza, **um** selo de situação, uma ação de linha ("Abrir"). Sem três selos por linha.
+- Filtros em uma linha acima da lista (busca + no máximo dois seletores), contagem de resultados e "Limpar".
+- Abaixo de `md` a tabela vira cartões com os mesmos dados.
+- Estado vazio com uma frase e uma ação. Paginação sempre que houver mais de 20 itens.
+
+## 4. Formulários
+
+- Uma coluna; campos agrupados por tema com título curto; rótulo sempre visível; ajuda em uma linha abaixo do campo; erro ligado ao campo (`aria-describedby`).
+- Botão de envio com o verbo da ação e estado de carregamento (`wire:loading`); confirmação só para ações destrutivas (janela `confirm-modal`).
+
+## 5. Reatividade perceptível e leve
+
+- Toda ação mostra feedback em até 100 ms (`wire:loading`, texto do botão muda) e, ao terminar, um aviso breve (`x-knowledge-admin.toast`, 4 s, `role="status"`).
+- Polling (`wire:poll`) só no fragmento que muda (fila, progresso), nunca na página inteira; use os eventos `bulai-realtime` já existentes.
+- Sem bibliotecas novas; Alpine só para abrir/fechar, abas e menus. Evite consultas pesadas em `render()`: calcule contadores com cache e evite N+1.
+
+## 6. Linguagem
+
+- Português simples; verbos nos botões ("Criar documento", "Associar", "Descartar"); sem jargão exposto (em vez de "chunks", "trechos"; em vez de "OCR", "leitura do PDF").
+- Mensagens de erro dizem o que aconteceu e o que fazer. Sem textos de rodapé repetindo o que o botão já diz.
+
+## 7. Acessibilidade e toque
+
+- Alvos ≥ 44 px, foco visível (`ring-brand-600`), cor sempre acompanhada de texto, `aria-current` na navegação, `aria-live` nos estados que mudam sozinhos.
+
+## 8. Checklist por tela (preencher no relatório de cada frente)
+
+| Critério | Pergunta de verificação |
+| --- | --- |
+| Ação primária única | Dá para dizer qual é o botão principal em 2 s? Está visível sem rolar? |
+| Sem duplicação | Algum fato aparece duas vezes na tela? |
+| Três níveis | Cabeçalho → resumo decisório → detalhe recolhido? |
+| Lista enxuta | Uma linha por item, um selo, uma ação? |
+| Feedback | Toda ação tem `wire:loading` e aviso ao concluir? |
+| Polling restrito | `wire:poll` só no fragmento que muda? |
+| Mobile | Funciona a 400 px sem rolagem horizontal, com CTA fixo? |
+| Linguagem | Botões com verbo, sem jargão, erros com próximo passo? |
+| Acessibilidade | Rótulos, foco, `aria-*`, contraste AA? |

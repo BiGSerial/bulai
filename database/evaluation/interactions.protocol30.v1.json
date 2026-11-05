@@ -1,0 +1,296 @@
+{
+    "version": "v1",
+    "seed_sha256": "8ce7b805acfa223a8199fc6241e17a97a935b90591644ff9181541ef4d2ae8a4",
+    "reference_imports": {
+        "ddinter_downloads_code_A.csv": "a22ca451d2b755ca2331886f7e00540c86f555f9f55704a59a19c691251f52e0",
+        "ddinter_downloads_code_B.csv": "76de5115a55587f0e822e1096b684fd3ddde058fbefcbb19896df58820ace130",
+        "ddinter_downloads_code_D.csv": "c0627ec39965dbe27829e4934cd20d71eb079f4e373287678737bba9423a306a",
+        "ddinter_downloads_code_H.csv": "f0f925f0ba1ee68c4668d3e7a6732719b34623b22a0f5d017f9090e59f63c88e",
+        "ddinter_downloads_code_L.csv": "f54f4486cc00344f8c86508c31c2ca3fad6d1d37ec3af5bcf609b4bbda5507ef",
+        "ddinter_downloads_code_P.csv": "83f8c0edb20d09ef29b8500b48f9623e208379525688ade9e70a7df2d8749d55",
+        "ddinter_downloads_code_R.csv": "1c39c3d4a6e41659b7a988538d7f363867592abc6f41a815de8746f6e2150574",
+        "ddinter_downloads_code_V.csv": "353973fb300453946aea95733e8fb52338e4b59426d2ce6ca318363d4f84f10a"
+    },
+    "description": "Reprodução do protocolo da seção 3.5.1 do projeto: 30 pares estratificados (10 graves, 5 moderadas, 5 leves, 10 sem interação), amostra determinística (semente 42) do conjunto completo. Mesmo rótulo e mesmas limitações do conjunto completo.",
+    "sampling": {
+        "seed": 42,
+        "strata": {
+            "major": 10,
+            "moderate": 5,
+            "minor": 5,
+            "none": 10
+        }
+    },
+    "items": [
+        {
+            "id": 1,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "103460020",
+            "b_name": "METRONIDAZOL",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 2,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "183260210",
+            "b_name": "FLUCONAZOL",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 3,
+            "a_registration": "170560048",
+            "a_name": "XARELTO",
+            "b_registration": "115600267",
+            "b_name": "IBUPROFENO",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 4,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "104971545",
+            "b_name": "NAPROXENO",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 5,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "141070658",
+            "b_name": "GARDENAL",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 6,
+            "a_registration": "100410206",
+            "a_name": "CLORIDRATO DE AMIODARONA",
+            "b_registration": "154230254",
+            "b_name": "CETOCONAZOL",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 7,
+            "a_registration": "151670046",
+            "a_name": "BISSULFATO DE CLOPIDOGREL",
+            "b_registration": "170560048",
+            "b_name": "XARELTO",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 8,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "178170936",
+            "b_name": "AAS",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 9,
+            "a_registration": "178170936",
+            "a_name": "AAS",
+            "b_registration": "170560048",
+            "b_name": "XARELTO",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 10,
+            "a_registration": "170560048",
+            "a_name": "XARELTO",
+            "b_registration": "141070633",
+            "b_name": "MELOXICAM",
+            "gold_interaction": true,
+            "gold_severity": "major"
+        },
+        {
+            "id": 11,
+            "a_registration": "141070059",
+            "a_name": "DIGOXINA",
+            "b_registration": "125680208",
+            "b_name": "ESTOLATO DE ERITROMICINA",
+            "gold_interaction": true,
+            "gold_severity": "moderate"
+        },
+        {
+            "id": 12,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "102350515",
+            "b_name": "DEXAMETASONA",
+            "gold_interaction": true,
+            "gold_severity": "moderate"
+        },
+        {
+            "id": 13,
+            "a_registration": "100890193",
+            "a_name": "GLIFAGE",
+            "b_registration": "183260356",
+            "b_name": "LASIX",
+            "gold_interaction": true,
+            "gold_severity": "moderate"
+        },
+        {
+            "id": 14,
+            "a_registration": "103900147",
+            "a_name": "MAREVAN",
+            "b_registration": "102350633",
+            "b_name": "PREDNISONA",
+            "gold_interaction": true,
+            "gold_severity": "moderate"
+        },
+        {
+            "id": 15,
+            "a_registration": "103110155",
+            "a_name": "CIPROFLOXACINO",
+            "b_registration": "115600267",
+            "b_name": "IBUPROFENO",
+            "gold_interaction": true,
+            "gold_severity": "moderate"
+        },
+        {
+            "id": 16,
+            "a_registration": "170560020",
+            "a_name": "ASPIRINA",
+            "b_registration": "135690710",
+            "b_name": "PROPRANOLOL",
+            "gold_interaction": true,
+            "gold_severity": "minor"
+        },
+        {
+            "id": 17,
+            "a_registration": "170560020",
+            "a_name": "ASPIRINA",
+            "b_registration": "105830841",
+            "b_name": "CARVEDILOL",
+            "gold_interaction": true,
+            "gold_severity": "minor"
+        },
+        {
+            "id": 18,
+            "a_registration": "154230254",
+            "a_name": "CETOCONAZOL",
+            "b_registration": "103460020",
+            "b_name": "METRONIDAZOL",
+            "gold_interaction": true,
+            "gold_severity": "minor"
+        },
+        {
+            "id": 19,
+            "a_registration": "178170936",
+            "a_name": "AAS",
+            "b_registration": "100681129",
+            "b_name": "PANTOPRAZOL",
+            "gold_interaction": true,
+            "gold_severity": "minor"
+        },
+        {
+            "id": 20,
+            "a_registration": "170560020",
+            "a_name": "ASPIRINA",
+            "b_registration": "105730544",
+            "b_name": "OMEPRAZOL",
+            "gold_interaction": true,
+            "gold_severity": "minor"
+        },
+        {
+            "id": 21,
+            "a_registration": "141070130",
+            "a_name": "CLORIDRATO DE FLUOXETINA",
+            "b_registration": "188300077",
+            "b_name": "VIAGRA",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 22,
+            "a_registration": "100630288",
+            "a_name": "CAPTOPRIL",
+            "b_registration": "100430952",
+            "b_name": "ESPIRONOLACTONA",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 23,
+            "a_registration": "170560048",
+            "a_name": "XARELTO",
+            "b_registration": "118190468",
+            "b_name": "ATORVASTATINA CÁLCICA",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 24,
+            "a_registration": "157211214",
+            "a_name": "TYLENOL",
+            "b_registration": "110390191",
+            "b_name": "CLORIDRATO DE SERTRALINA",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 25,
+            "a_registration": "141070658",
+            "a_name": "GARDENAL",
+            "b_registration": "135690710",
+            "b_name": "PROPRANOLOL",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 26,
+            "a_registration": "100680065",
+            "a_name": "DIOVAN",
+            "b_registration": "183260430",
+            "b_name": "HIDROCLOROTIAZIDA",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 27,
+            "a_registration": "141070633",
+            "a_name": "MELOXICAM",
+            "b_registration": "135690710",
+            "b_name": "PROPRANOLOL",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 28,
+            "a_registration": "157211214",
+            "a_name": "TYLENOL",
+            "b_registration": "183260430",
+            "b_name": "HIDROCLOROTIAZIDA",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 29,
+            "a_registration": "102351410",
+            "a_name": "CLORIDRATO DE TRAMADOL",
+            "b_registration": "135690710",
+            "b_name": "PROPRANOLOL",
+            "gold_interaction": false,
+            "gold_severity": null
+        },
+        {
+            "id": 30,
+            "a_registration": "100680065",
+            "a_name": "DIOVAN",
+            "b_registration": "103700396",
+            "b_name": "ATENOLOL",
+            "gold_interaction": false,
+            "gold_severity": null
+        }
+    ]
+}

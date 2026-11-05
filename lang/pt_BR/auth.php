@@ -5,4 +5,5 @@ return [
     'inactive' => 'Este acesso está desativado. Procure um administrador.',
     'password' => 'A senha informada está incorreta.',
     'throttle' => 'Muitas tentativas. Tente novamente em :seconds segundos.',
+    'throttle_minutes' => 'Muitas tentativas. Tente novamente em :minutes minutos.',
 ];

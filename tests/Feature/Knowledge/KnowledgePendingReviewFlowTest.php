@@ -22,10 +22,10 @@ final class KnowledgePendingReviewFlowTest extends TestCase
 
         Livewire::actingAs(User::factory()->admin()->create())->test(Review::class, ['batch' => $batch, 'item' => $item])
             ->assertSee('Próximo passo')
-            ->assertSee('Criar documento com estes dados e finalizar')
+            ->assertSee('Criar documento e processar')
             ->assertSee('Associar a documento existente')
             ->assertSee('Não incorporar')
-            ->assertSee('Conferir os dados')
+            ->assertSee('Análise automática')
             ->assertSee('Princípio ativo');
     }
 
@@ -52,7 +52,7 @@ final class KnowledgePendingReviewFlowTest extends TestCase
             ->set('ignoreReason', 'not_leaflet')
             ->call('ignore')
             ->assertSee('não será incorporado à base')
-            ->assertSee('Voltar à fila')
+            ->assertSee('Voltar às pendências')
             ->assertDontSee('Próxima pendência');
     }
 

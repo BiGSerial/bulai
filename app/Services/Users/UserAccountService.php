@@ -4,6 +4,7 @@ namespace App\Services\Users;
 
 use App\Models\User;
 use App\Models\UserAuditEvent;
+use App\Notifications\TemporaryPasswordNotification;
 use App\UserRole;
 use Closure;
 use Illuminate\Database\QueryException;
@@ -104,11 +105,11 @@ final class UserAccountService
     }
 
     /**
-     * Ativa ou desativa o acesso. Desativar derruba as sessões da pessoa.
+     * Ativa ou desativa o acesso. Desativar derruba as sessões da pessoa; o motivo (opcional) vai para a auditoria.
      */
-    public function setActive(User $user, bool $active, User $actor): User
+    public function setActive(User $user, bool $active, User $actor, ?string $reason = null): User
     {
-        return DB::transaction(function () use ($user, $active, $actor): User {
+        return DB::transaction(function () use ($user, $active, $actor, $reason): User {
             $activeAdministratorIds = $this->lockActiveAdministratorIds();
             $user = $this->lock($user);
 
@@ -132,9 +133,75 @@ final class UserAccountService
                 $this->revokeAccess($user);
             }
 
-            $this->record($user, $active ? UserAuditEvent::EVENT_REACTIVATED : UserAuditEvent::EVENT_DEACTIVATED, $actor);
+            $reason = $reason !== null ? Str::limit(Str::squish($reason), 255, '') : null;
+            $this->record($user, $active ? UserAuditEvent::EVENT_REACTIVATED : UserAuditEvent::EVENT_DEACTIVATED, $actor, $reason !== null && $reason !== '' ? ['reason' => $reason] : []);
 
             return $user->refresh();
+        });
+    }
+
+    /**
+     * Exige que a pessoa defina uma nova senha no próximo acesso (a senha atual continua valendo para entrar)
+     * e derruba as sessões abertas. Não se aplica ao próprio administrador.
+     */
+    public function forcePasswordChange(User $user, User $actor): User
+    {
+        if ($actor->is($user)) {
+            throw ValidationException::withMessages(['mustChangePassword' => 'Para trocar a sua própria senha, use Minha conta.']);
+        }
+
+        return DB::transaction(function () use ($user, $actor): User {
+            $user = $this->lock($user);
+            if (! $user->must_change_password) {
+                $user->forceFill(['must_change_password' => true])->save();
+                $this->revokeAccess($user);
+                $this->record($user, UserAuditEvent::EVENT_PASSWORD_CHANGE_FORCED, $actor);
+            }
+
+            return $user->refresh();
+        });
+    }
+
+    /**
+     * Encerra as sessões da pessoa (todas, ou todas menos a indicada quando é a própria pessoa fazendo isso):
+     * gira o remember_token e apaga as sessões gravadas no banco. Limitação: com sessões em Redis/arquivo não há
+     * índice por usuário; nesse caso só o "Manter conectado" é invalidado e o perfil relido a cada requisição
+     * continua barrando acessos desativados.
+     */
+    public function terminateSessions(User $user, User $actor, ?string $exceptSessionId = null): void
+    {
+        DB::transaction(function () use ($user, $actor, $exceptSessionId): void {
+            $user = $this->lock($user);
+            $this->revokeAccess($user, $exceptSessionId);
+            $this->record($user, UserAuditEvent::EVENT_SESSIONS_TERMINATED, $actor, ['scope' => $exceptSessionId === null ? 'all' : 'others']);
+        });
+    }
+
+    /**
+     * Envia a senha provisória por e-mail (opção do administrador). A senha não é gravada; só o envio é auditado.
+     */
+    public function emailTemporaryPassword(User $user, string $temporaryPassword, bool $isNewAccount, User $actor): void
+    {
+        $user->notify(new TemporaryPasswordNotification($temporaryPassword, $isNewAccount));
+        $this->record($user, UserAuditEvent::EVENT_TEMPORARY_PASSWORD_EMAILED, $actor);
+    }
+
+    /** Registra o pedido de link de redefinição ("Esqueci minha senha"); a existência do e-mail nunca é revelada ao solicitante. */
+    public function recordPasswordResetRequested(User $user): void
+    {
+        $this->record($user, UserAuditEvent::EVENT_PASSWORD_RESET_REQUESTED, null);
+    }
+
+    /**
+     * Senha redefinida pelo link de e-mail: vale como senha própria (limpa a troca obrigatória) e derruba todas as sessões.
+     */
+    public function resetPassword(User $user, string $newPassword): void
+    {
+        DB::transaction(function () use ($user, $newPassword): void {
+            $user = $this->lock($user);
+            $user->forceFill(['password' => $newPassword, 'must_change_password' => false])->save();
+            $this->revokeAccess($user);
+            $this->record($user, UserAuditEvent::EVENT_PASSWORD_RESET, $user, ['via' => UserAuditEvent::VIA_RESET]);
         });
     }
 

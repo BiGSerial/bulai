@@ -1,0 +1,60 @@
+# Quadro de execução
+
+Estados: BACKLOG · READY · IN_PROGRESS · BLOCKED · IN_REVIEW · DONE. `DONE` exige evidência.
+
+| ID | Agente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| A-1 | A | Auditoria + docs de arquitetura | — | DONE | `docs/architecture/*`; baseline 354/354 testes |
+| I-1 | I | Adaptador Anthropic + testes mock + custos | — | DONE (mocks) | 26 testes unit (25 ok, 1 skip live); NÃO validado contra API real; `docs/ai/anthropic-provider.md` |
+| B-1 | B | `active_ingredients`, aliases, vínculo medicamento↔ativo | A-1 | DONE | 4 testes; dev: 1806 ingredientes, 21.605/39.416 medicamentos ligados |
+| B-2 | B | Vínculo `drug_interactions`→ingrediente + comando de backfill | B-1 | DONE | `knowledge:build-ingredients`; 160.235/160.235 pares ligados |
+| C-1 | C | Colunas de modelo de embedding + `KnowledgeIndexer` | A-1 | DONE | `knowledge:index-embeddings`; 7 testes (`tests/Feature/Retrieval`) |
+| C-2 | C | `KnowledgeRetriever` lexical (FTS pt) | A-1 | DONE | idem; filtros por documento/seção, só READY e fonte ativa |
+| C-3 | C | Recuperação vetorial/híbrida | C-1 | IN_REVIEW | implementada (RRF k=60) e testada com embeddings fake; sem modelo real não há resultado científico |
+| D-1 | D | Resolver de medicamentos + lookup estruturado | B-2 | DONE | `InteractionLookup`, `PairEvidenceRetriever` |
+| D-2 | D | Orquestração RAG + validação + persistência | C-2, D-1 | DONE | 8 testes (`tests/Feature/Interactions`); falta smoke real |
+| E-1 | E | Rotas/UX PWA (busca, seleção, resultados, evidências) | D-2 | DONE | 9 testes `tests/Feature/Consulta`; NÃO verificado visualmente em navegador |
+| E-2 | E | Histórico, privacidade, SW/offline | E-1 | DONE | histórico com exclusão+retenção+auditoria; SW v2 com atualização controlada e `/offline`; ícones só SVG |
+| F-1 | F | Rate limit, validação, anti-injection, retenção | D-2 | IN_REVIEW | rate limit por usuário, lock anti-duplicação, tags escapadas, validador, purge diário; falta revisão de segurança dedicada |
+| G-1 | G | Datasets, métricas, comandos `evaluation:*` | D-2 | DONE | `evaluation:build-datasets`, `evaluation:run`; 9 testes (Metrics, pipeline) |
+| G-2 | G | Execução dos experimentos reais | G-1, integração | DONE (parcial) | 9 registros em `storage/app/evaluation/runs`; vetorial/híbrido NÃO executados (sem embeddings); Claude NÃO validado; sem profissional/SUS |
+| H-1 | H | Health check do pipeline e tempos por etapa | D-2 | DONE | `bulai:pipeline-check`; timings por etapa em `interaction_pair_results.timings`; purge agendado |
+| T-1 | — | Documentos TCC (`docs/tcc`) | G-2 | DONE | `docs/tcc/17`–`23`, README e registro atualizados; .docx não editado |
+| X-1 | — | Serviço de embeddings (decisão do usuário) | — | DONE (iteração 2) | serviço `embeddings` + `bge-m3`; C-3 medido |
+| X-2 | — | Teste real Anthropic (chave + autorização de custo) | — | DONE (iteração 2) | 4 chamadas reais, US$ 0,024 |
+| X-3 | — | Revisão por profissional de saúde e SUS | — | BLOCKED | protocolos em `docs/tcc/22`; depende de pessoas e do comitê de ética |
+| X-4 | — | Commit das alterações e repetição dos experimentos com código limpo | — | BLOCKED | aguarda autorização para commitar; registros atuais têm `dirty: true` |
+
+## Iteração 2 (04/11/2026): bula humanizada, contexto de tratamento, analytics, embeddings
+
+| ID | Frente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| F-0 | Arquiteto | Fundação: migração `2026_11_04_120000` (receitas, posologia, `medication_questions`, `medicine_leaflet_summaries`), modelos, `config('bulai.guidelines/questions/leaflet')`, `TreatmentContextService`, diretriz no shell e na página inicial | — | DONE | migração aplicada em dev; `docs/diretrizes-do-produto.md` |
+| F-A | A | Pergunta com contexto de tratamento (risco classificado), registro de perguntas, receitas/posologia, histórico de perguntas, expurgo | F-0 | DONE |  `PerfilEPerguntasTest` |
+| F-B | B | Bula humanizada (RAG por seção, validação, cache, "Para você") em `/bula/{medicine}` | F-0 | DONE |  `BulaHumanizadaTest` (6 testes) |
+| F-C | C | Analytics/auditoria admin (`/admin/analytics`, detalhes, `analytics:export`) | F-0 | DONE |  `AnalyticsAdminTest` (6), `docs/analytics.md` |
+| F-D | D | Embeddings locais + modo híbrido, smoke real Anthropic, ícones PNG do PWA, docs de deploy | — | DONE | `bge-m3` 782/782 chunks; `…025153-retrieval-modes-bge-m3`; 4 chamadas reais (US$ 0,024); `PwaAssetTest` (4); deploy tests 81/81 |
+| F-R | Arquiteto | Achados do ultrareview: reaproveitamento de importação por sha256, job idempotente, recarga indevida do SW na primeira visita, aviso de atualização no admin | — | DONE | `DrugInteractionImportTest` (10 testes) |
+| F-T | Arquiteto | Capítulo `docs/tcc/24`, README/registro, `atividades-implementadas`, `technical-foundation`, `23` seções 3/3a | F-A..F-D | DONE | ver arquivos |
+| F-0b | Arquiteto | Fundação da 2ª onda: `InputGuard`/`GuardVerdict` (19 testes), migração `2026_11_04_150000` (perguntas com vários medicamentos e triagem; receita por foto), `config('bulai.guard/prescription')` | — | DONE | `InputGuardTest` |
+| F-E | E | Pergunta livre sem seleção (detector de medicamentos, guarda em três camadas, vários medicamentos por pergunta) | F-0b | DONE |  `PerguntaLivreTest` (6), `PerfilEPerguntasTest` |
+| F-F | F | Receita por foto (provedor de visão Anthropic, extração JSON validada, revisão e confirmação pelo usuário, perfil com segmentos) | F-0b | DONE |  `ReceitaPorFotoTest` (6), `AnthropicVisionProviderTest` (4) |
+| F-G | G | Redesign mobile: Início, navegação em 4 destinos, CTAs fixos, polimento das telas | — | DONE |  `ConsultaPwaTest`, `PwaAssetTest`, `npm run build` ok |
+| F-0c | Arquiteto | Fundação da 3ª onda: tokens de identidade visual derivados do logotipo (`brand` azul-marinho, `accent` laranja, `surface` creme) em `resources/css/app.css` | — | DONE | `npm run build` ok |
+| F-H | H | Redesign da administração: barra lateral em grupos, visão geral com toda a informação da aplicação, relatórios gerados sob demanda (`admin_reports`, `reports:generate`), polimento das listas | F-0c | DONE |  `ReportsAdminTest` (4), `KnowledgeAdminTest`, `docs/relatorios.md`, `docs/admin-design-system.md` |
+| F-I | I | Gerenciamento de usuários finalizado, scaffold de login (esqueci/redefinir senha, lembrar-me, bloqueio progressivo, sair de outros dispositivos), Argon2id com re-hash no login | — | DONE |  `PasswordHashingTest` (2), `PasswordResetTest` (5), `UserManagementAdminTest`, `docs/usuarios-e-autenticacao.md` |
+| F-J | J | Identidade visual no app do paciente, página pública, offline, manifesto; guia `docs/design/identidade-visual.md` com contraste AA | F-0c | DONE |  `docs/design/identidade-visual.md`; contraste AA verificado; CSS 67,6 kB (12,1 kB gzip) |
+| F-0d | Arquiteto | Contrato de UX (`docs/design/principios-de-ux.md`): uma tela/uma ação, sem duplicação, três níveis, listas enxutas, feedback e polling restrito, checklist por tela | — | DONE | documento |
+| F-K | K | Redesign do fluxo de ingestão do admin (revisão de pendência, pendências, importações, adicionar documentos, documentos, origens) + componentes `toast`/`page-header` | F-0d | DONE |  168/168 em `tests/Feature/Knowledge*`; revisão com uma ação primária, comparativo só do que diverge, cartão de conclusão com próxima pendência |
+| F-L | L | Redesign de operação, análises e pessoas (visão geral, fila, catálogo, interações, analytics, relatórios, usuários, conta, primeiro acesso) + cache dos agregados de interações | F-0d | DONE |  99/100 no escopo; cache dos agregados de interações; componentes `ops-*` |
+| F-M | M | Redesign sênior-primeiro do app do paciente (texto 18px+, alvos ≥56px, 3 destinos, 4 botões na Início, fluxos em ≤3 toques, falar/ouvir progressivo, vocabulário simples, página /sobre) e telas de entrada | F-0d | DONE |  65 testes; Início com 4 botões, 3 destinos, Falar/Ouvir, `/sobre`; checklist e toques por tarefa em `docs/consulta-pwa.md` |
+
+## Iteração 3 (05/11/2026): programação do tratamento, avisos e remédios fora do catálogo
+
+| ID | Frente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| F-0e | Arquiteto | Fundação: migrações `2026_11_05_114448` (remédio sem catálogo, horários de dose, pendências, eventos de dose, fuso/lembretes no perfil) e `2026_11_05_114449` (avisos com `dedupe_key`), modelos, `DoseScheduleParser`, `TreatmentScheduleService`, `config('bulai.treatment')`, rotas e stubs de `/hoje`, `/avisos` e `/admin/knowledge/unmatched-medicines` | — | DONE | `DoseScheduleParserTest` (20), `ProgramacaoDoTratamentoTest` (4) |
+| F-N | N | Paciente: receita/perfil aceitam remédio fora do catálogo (sinalizado), tela "Remédios de hoje" com Tomei/Pular, horários editáveis, Início com próxima dose, contexto de tratamento com remédios sem catálogo | F-0e | DONE | `ReceitaPorFotoTest` (7), `RemediosDeHojeTest` (3); toques por tarefa em `docs/consulta-pwa.md`; `docs/tratamento.md` |
+| F-O | O | Avisos: lembretes de dose (comando agendado, canal `database` + e-mail opcional, dedupe), fim de tratamento, sino no shell, tela `/avisos`, notificação no navegador com o app aberto, preferências | F-0e | DONE | `AvisosTest` (8); serviço `scheduler` no `compose.prod.yaml`; `docs/notificacoes.md` |
+| F-P | P | Admin: pendência "Remédios não encontrados" (listar, ligar ao catálogo, descartar), aviso ao paciente ao resolver, contagem na visão geral e no menu | F-0e | DONE | `UnmatchedMedicinesAdminTest` (5); `docs/admin-remedios-nao-encontrados.md` |
+| F-Q | Arquiteto | Integração: aba "Remédios" da barra inferior → `/hoje`, suíte completa, capítulo `docs/tcc/25`, instruções de release, commit e PR | F-N..F-P | DONE | 546 testes, 545 aprovados, 1 ignorado, 8.111 asserções (05/11/2026) |

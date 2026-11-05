@@ -7,11 +7,13 @@ use App\Livewire\Admin\Users\Index;
 use App\Livewire\Admin\Users\Show;
 use App\Models\User;
 use App\Models\UserAuditEvent;
+use App\Notifications\TemporaryPasswordNotification;
 use App\Services\Users\UserAccountService;
 use App\UserRole;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -269,6 +271,78 @@ class UserManagementAdminTest extends TestCase
             ->assertSee('Ao substituir a senha provisória.')
             ->assertSee('Cadastrado por')
             ->assertSee('Ana Administradora');
+    }
+
+    public function test_admin_can_email_the_temporary_password_when_creating_and_when_reissuing(): void
+    {
+        Notification::fake();
+        $admin = User::factory()->admin()->create();
+
+        $component = Livewire::actingAs($admin)->test(Form::class)
+            ->set('name', 'Maria Souza')->set('email', 'maria@example.com')->set('role', UserRole::User->value)->set('sendByEmail', true)
+            ->call('save')->assertHasNoErrors();
+        $password = $this->shownTemporaryPassword($component);
+        $user = User::query()->where('email', 'maria@example.com')->sole();
+        Notification::assertSentTo($user, TemporaryPasswordNotification::class, fn (TemporaryPasswordNotification $n): bool => str_contains(implode(' ', $n->toMail($user)->introLines), $password));
+        $this->assertSame([UserAuditEvent::EVENT_CREATED, UserAuditEvent::EVENT_TEMPORARY_PASSWORD_EMAILED], $user->auditEvents()->orderBy('id')->pluck('event')->all());
+
+        Livewire::actingAs($admin)->test(Show::class, ['user' => $user])->set('sendByEmail', true)->call('issueTemporaryPassword')->assertHasNoErrors();
+        Notification::assertSentToTimes($user, TemporaryPasswordNotification::class, 2);
+        $this->assertStringNotContainsString($password, json_encode(UserAuditEvent::query()->get()));
+    }
+
+    public function test_deactivation_with_a_reason_forced_password_change_and_session_termination_are_audited(): void
+    {
+        config(['session.driver' => 'database']);
+        $admin = User::factory()->admin()->create();
+        $user = User::factory()->create(['remember_token' => 'old-remember-token']);
+        $this->insertSession('target-session', $user);
+
+        $component = Livewire::actingAs($admin)->test(Show::class, ['user' => $user]);
+
+        $component->call('forcePasswordChange')->assertHasNoErrors()->assertSee('precisará definir uma nova senha');
+        $this->assertTrue($user->refresh()->must_change_password);
+        $this->assertDatabaseMissing('sessions', ['id' => 'target-session']);
+
+        $this->insertSession('target-session-2', $user);
+        $component->call('terminateSessions')->assertHasNoErrors()->assertSee('As sessões foram encerradas.');
+        $this->assertDatabaseMissing('sessions', ['id' => 'target-session-2']);
+
+        $component->set('reason', '  Desligamento   da equipe ')->call('toggleActive')->assertHasNoErrors()->assertSee('Motivo: Desligamento da equipe');
+        $this->assertFalse($user->refresh()->isActive());
+        $this->assertSame('', $component->get('reason'));
+
+        $this->assertSame(
+            [UserAuditEvent::EVENT_PASSWORD_CHANGE_FORCED, UserAuditEvent::EVENT_SESSIONS_TERMINATED, UserAuditEvent::EVENT_DEACTIVATED],
+            $user->auditEvents()->orderBy('id')->pluck('event')->all(),
+        );
+        $this->assertSame(['reason' => 'Desligamento da equipe'], $user->auditEvents()->orderByDesc('id')->first()->details);
+        $this->assertSame(['scope' => 'all'], $user->auditEvents()->where('event', UserAuditEvent::EVENT_SESSIONS_TERMINATED)->sole()->details);
+
+        $component->assertSee('Troca de senha exigida no próximo acesso')->assertSee('Sessões encerradas')->assertSee('Acesso desativado');
+    }
+
+    public function test_admin_cannot_force_their_own_password_change_and_the_detail_shows_usage_counts_without_health_content(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $component = Livewire::actingAs($admin)->test(Show::class, ['user' => $admin]);
+
+        $this->assertValidationMessage('mustChangePassword', 'Para trocar a sua própria senha, use Minha conta.', fn () => app(UserAccountService::class)->forcePasswordChange($admin, $admin));
+        $component->assertSee('Uso do aplicativo')->assertSee('Consultas de interação')->assertSee('Sem consentimento')->assertDontSee('Exigir troca de senha');
+    }
+
+    public function test_users_list_sorts_filters_pending_password_changes_and_shows_totals(): void
+    {
+        $admin = User::factory()->admin()->create(['name' => 'Zelia Admin', 'last_login_at' => now()->subDay()]);
+        User::factory()->mustChangePassword()->create(['name' => 'Ana Pendente', 'last_login_at' => null]);
+        User::factory()->create(['name' => 'Bruno Recente', 'last_login_at' => now()]);
+
+        Livewire::actingAs($admin)->test(Index::class)
+            ->assertSee('3 usuários encontrados')
+            ->assertSeeInOrder(['Ana Pendente', 'Bruno Recente', 'Zelia Admin'])
+            ->set('sort', 'recent_login')->assertSeeInOrder(['Bruno Recente', 'Zelia Admin', 'Ana Pendente'])
+            ->set('status', 'pending')->assertSee('1 usuário encontrado')->assertSee('Ana Pendente')->assertDontSee('Bruno Recente')
+            ->assertSee('Só um administrador');
     }
 
     private function shownTemporaryPassword(Testable $component): string

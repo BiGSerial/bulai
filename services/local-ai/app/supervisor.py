@@ -24,7 +24,13 @@ MODEL_LOADING = "MODEL_LOADING"
 READY = "READY"
 ERROR = "ERROR"
 
+MODE_CHAT = "chat"
+MODE_EMBEDDING = "embedding"
+
 ALLOWED_PROXY = {("POST", "/v1/chat/completions"), ("GET", "/v1/models")}
+# Modo embedding: o llamafile roda como `llamafiler` (--v2), que só expõe /v1/embeddings (+ /v1/models) e não tem /health.
+ALLOWED_PROXY_EMBEDDING = {("POST", "/v1/embeddings"), ("GET", "/v1/models")}
+TRACKED_PATHS = {"/v1/chat/completions", "/v1/embeddings"}
 
 
 @dataclass(frozen=True)
@@ -44,12 +50,19 @@ class Config:
     admin_token: str | None = None
     # Segundos que uma requisição ao llamafile pode ficar em voo antes de o watchdog reiniciá-lo; 0 desativa.
     hang_timeout: int = 240
+    # chat (classificador, servidor clássico) ou embedding (llamafiler --v2 servindo /v1/embeddings para o RAG vetorial).
+    # O pooling dos embeddings vem dos metadados do GGUF (bge-m3: CLS); o llamafiler não aceita --pooling.
+    mode: str = MODE_CHAT
 
     @staticmethod
     def from_env(env: dict[str, str] | None = None) -> "Config":
         env = env if env is not None else dict(os.environ)
         directory = env.get("LOCAL_AI_MODEL_PATH", "/models")
         filename = env.get("LOCAL_AI_MODEL_FILENAME", "model.gguf")
+        mode = env.get("LOCAL_AI_MODE", MODE_CHAT).strip().lower()
+        if mode not in (MODE_CHAT, MODE_EMBEDDING):
+            raise ValueError(f"LOCAL_AI_MODE inválido: {mode!r} (use chat ou embedding)")
+        default_body = "1048576" if mode == MODE_EMBEDDING else "262144"
         return Config(
             model_path=Path(directory) / filename,
             model_name=env.get("LOCAL_AI_MODEL_NAME", "local"),
@@ -60,9 +73,23 @@ class Config:
             context=int(env.get("LOCAL_AI_CONTEXT", "8192")),
             load_timeout=int(env.get("LOCAL_AI_LOAD_TIMEOUT", "600")),
             request_timeout=int(env.get("LOCAL_AI_REQUEST_TIMEOUT", "120")),
+            max_body_bytes=int(env.get("LOCAL_AI_MAX_BODY_BYTES", default_body)),
             admin_token=env.get("LOCAL_AI_ADMIN_TOKEN") or None,
             hang_timeout=max(0, int(env.get("LOCAL_AI_HANG_TIMEOUT", "240"))),
+            mode=mode,
         )
+
+    @property
+    def is_embedding(self) -> bool:
+        return self.mode == MODE_EMBEDDING
+
+    @property
+    def allowed_proxy(self) -> set[tuple[str, str]]:
+        return ALLOWED_PROXY_EMBEDDING if self.is_embedding else ALLOWED_PROXY
+
+    @property
+    def installer_hint(self) -> str:
+        return "run scripts/install-embedding-model.sh" if self.is_embedding else "run scripts/install-local-model.sh"
 
 
 @dataclass
@@ -118,6 +145,11 @@ class Supervisor:
 
     def command(self) -> list[str]:
         c = self.config
+        if c.is_embedding:
+            # `--embedding` no servidor clássico dispara a CLI de embeddings (não um servidor); o llamafiler (--v2) é o
+            # servidor HTTP de embeddings do llamafile 0.9.x e escuta por `-l host:porta`.
+            return ["sh", c.llamafile_bin, "--server", "--v2", "-l", f"127.0.0.1:{c.upstream_port}",
+                    "-m", str(c.model_path), "-c", str(c.context), "-t", str(c.threads)]
         return ["sh", c.llamafile_bin, "--server", "--nobrowser", "--host", "127.0.0.1", "--port", str(c.upstream_port),
                 "-m", str(c.model_path), "-c", str(c.context), "-t", str(c.threads)]
 
@@ -179,7 +211,7 @@ class Supervisor:
             self._probe_ok = False
             self._next_restart_at = 0.0
             if not self.config.model_path.is_file():
-                self._set(MODEL_NOT_INSTALLED, "run scripts/install-local-model.sh")
+                self._set(MODEL_NOT_INSTALLED, self.config.installer_hint)
                 return
             self._process = self._spawn(self.command())
             self._started_at = now
@@ -197,7 +229,7 @@ class Supervisor:
             if not self.config.model_path.is_file():
                 self._terminate()
                 self._probe_ok = False
-                self._set(MODEL_NOT_INSTALLED, "run scripts/install-local-model.sh")
+                self._set(MODEL_NOT_INSTALLED, self.config.installer_hint)
                 return self._status
 
             if self._process is not None and self._process.poll() is not None:
@@ -224,7 +256,8 @@ class Supervisor:
 
     def _check_upstream(self, now: float) -> None:
         try:
-            code, _ = self._probe("GET", "/health", None)
+            # O llamafiler não tem /health; /v1/models responde 200 assim que o modelo está carregado.
+            code, _ = self._probe("GET", "/v1/models" if self.config.is_embedding else "/health", None)
         except OSError:
             code = None
 
@@ -246,6 +279,9 @@ class Supervisor:
 
     def _inference_probe(self) -> bool:
         try:
+            if self.config.is_embedding:
+                code, _ = self._probe("POST", "/v1/embeddings", {"model": self.config.model_name, "input": "ok"})
+                return code == 200
             code, _ = self._probe("POST", "/v1/chat/completions", {
                 "model": self.config.model_name, "max_tokens": 1, "temperature": 0,
                 "messages": [{"role": "user", "content": "ok"}],
@@ -283,6 +319,60 @@ class Supervisor:
     def shutdown(self) -> None:
         with self._lock:
             self._terminate()
+
+
+def embed_batch(config: Config, body: bytes | None, upstream: Callable[[bytes], tuple[int, bytes]] | None = None) -> tuple[int, bytes]:
+    """Adapta POST /v1/embeddings ao llamafiler, que só aceita `input` como string: um `input` em lista (formato OpenAI,
+    usado pelo app em lote) vira N chamadas sequenciais, devolvidas como um único objeto OpenAI com `index` e `usage` somados."""
+    try:
+        payload = json.loads(body or b"")
+    except ValueError:
+        return 400, json.dumps({"error": "invalid_json"}).encode()
+    if not isinstance(payload, dict) or "input" not in payload:
+        return 400, json.dumps({"error": "missing_input"}).encode()
+    inputs = payload["input"]
+    single = isinstance(inputs, str)
+    if single:
+        inputs = [inputs]
+    if not isinstance(inputs, list) or not inputs or any(not isinstance(item, str) or item == "" for item in inputs):
+        return 400, json.dumps({"error": "input_must_be_non_empty_string_or_list_of_strings"}).encode()
+
+    def call(request_body: bytes) -> tuple[int, bytes]:
+        conn = http.client.HTTPConnection("127.0.0.1", config.upstream_port, timeout=config.request_timeout)
+        try:
+            conn.request("POST", "/v1/embeddings", body=request_body, headers={"Content-Type": "application/json"})
+            response = conn.getresponse()
+            return response.status, response.read()
+        finally:
+            conn.close()
+
+    upstream = upstream or call
+    data = []
+    prompt_tokens = 0
+    model = config.model_name
+    for index, text in enumerate(inputs):
+        request_body = json.dumps({"model": payload.get("model") or config.model_name, "input": text}).encode()
+        try:
+            status, raw = upstream(request_body)
+        except (OSError, http.client.HTTPException):
+            return 504, json.dumps({"error": "upstream_timeout_or_unavailable", "index": index}).encode()
+        if status != 200:
+            return (status if status < 500 else 502), json.dumps({"error": "upstream_error", "status": status, "index": index}).encode()
+        try:
+            parsed = json.loads(raw)
+            item = parsed["data"][0]
+            vector = item["embedding"]
+        except (ValueError, KeyError, IndexError, TypeError):
+            return 502, json.dumps({"error": "upstream_invalid_response", "index": index}).encode()
+        usage = parsed.get("usage") or {}
+        prompt_tokens += int(usage.get("prompt_tokens") or 0)
+        model = parsed.get("model") or model
+        data.append({"object": "embedding", "index": index, "embedding": vector})
+
+    # O nome configurado (LOCAL_AI_MODEL_NAME) é o que o app grava em cada chunk; o nome interno do llamafiler fica em `upstream_model`.
+    result = {"object": "list", "model": config.model_name, "upstream_model": model, "data": data,
+              "usage": {"prompt_tokens": prompt_tokens, "total_tokens": prompt_tokens}}
+    return 200, json.dumps(result).encode()
 
 
 def make_handler(supervisor: Supervisor) -> type[BaseHTTPRequestHandler]:
@@ -333,7 +423,7 @@ def make_handler(supervisor: Supervisor) -> type[BaseHTTPRequestHandler]:
             self._json(202, {"status": "restarting"})
 
         def _proxy(self, method: str, path: str) -> None:
-            if (method, path) not in ALLOWED_PROXY:
+            if (method, path) not in config.allowed_proxy:
                 return self._json(404, {"error": "not_found"})
             status = supervisor.status()
             if status.state != READY:
@@ -342,10 +432,14 @@ def make_handler(supervisor: Supervisor) -> type[BaseHTTPRequestHandler]:
             if length > config.max_body_bytes:
                 return self._json(413, {"error": "payload_too_large"})
             body = self.rfile.read(length) if length else None
-            tracked = (method, path) == ("POST", "/v1/chat/completions")
+            tracked = method == "POST" and path in TRACKED_PATHS
             token = supervisor.begin_request() if tracked else None
             success = False
             try:
+                if path == "/v1/embeddings":
+                    status_code, payload = embed_batch(config, body)
+                    success = status_code < 500
+                    return self._send(status_code, payload)
                 conn = http.client.HTTPConnection("127.0.0.1", config.upstream_port, timeout=config.request_timeout)
                 conn.request(method, path, body=body, headers={"Content-Type": "application/json"})
                 response = conn.getresponse()

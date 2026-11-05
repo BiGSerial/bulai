@@ -56,7 +56,7 @@ class AccountStateMiddlewareTest extends TestCase
 
     public function test_root_redirect_depends_on_role_and_pending_password_change(): void
     {
-        $this->actingAs(User::factory()->create())->get('/')->assertRedirectToRoute('account');
+        $this->actingAs(User::factory()->create())->get('/')->assertRedirectToRoute('consulta.inicio');
         $this->actingAs(User::factory()->mustChangePassword()->create())->get('/')->assertRedirectToRoute('first-access');
         $this->actingAs(User::factory()->admin()->mustChangePassword()->create())->get('/')->assertRedirectToRoute('first-access');
         $this->actingAs(User::factory()->admin()->create())->get('/')->assertRedirectToRoute('admin.documents.index');

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Livewire\Admin\Documents\Index as DocumentsIndex;
+use App\Livewire\Admin\Knowledge\Batches\Progress;
 use App\Livewire\Admin\Knowledge\Batches\Show as BatchShow;
 use App\Livewire\Admin\Knowledge\Pending\Index as PendingIndex;
 use App\Livewire\Admin\Knowledge\Pending\Review;
@@ -41,7 +42,8 @@ class KnowledgeAdminTest extends TestCase
 
         $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge')
             ->assertOk()->assertSee('1 com PDF · 1 sem PDF')
-            ->assertSee('Pendências')->assertSee('Arquivos com erro')->assertSee('Revisar pendências');
+            ->assertSee('Precisa de atenção')->assertSee('arquivos aguardando sua revisão')->assertSee('arquivos com erro nas importações')
+            ->assertSee('Operação')->assertSee('Uso do aplicativo')->assertSee('Inteligência artificial')->assertSee('Pessoas');
     }
 
     public function test_document_search_supports_title_and_external_key_and_uses_pagination(): void
@@ -145,6 +147,38 @@ class KnowledgeAdminTest extends TestCase
             'missing pending file' => ['CONFLICT', 'PENDING_FILE_MISSING', 'não está disponível'],
             'invalid pending file' => ['CONFLICT', 'PENDING_FILE_INVALID', 'não corresponde mais'],
         ];
+    }
+
+    public function test_review_has_one_primary_action_and_offers_the_next_pending_item_after_a_decision(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->admin()->create();
+        $source = $this->source();
+        $batch = $this->batch($source, ['total_items' => 2, 'pending_items' => 2]);
+        $content = '%PDF-1.4 primeiro';
+        $item = $this->item($batch, ['original_filename' => 'primeiro.pdf', 'sha256' => hash('sha256', $content), 'file_size' => strlen($content), 'metadata' => ['preliminary_identification' => ['fields' => ['product_name' => 'Sinvastatina', 'active_ingredient' => 'SINVASTATINA', 'title' => 'Sinvastatina — Bula', 'document_type' => 'bula_paciente']]]]);
+        Storage::disk('local')->put($item->storage_path, $content);
+        $next = $this->item($batch, ['original_filename' => 'segundo.pdf']);
+
+        $pending = Livewire::actingAs($admin)->test(Review::class, ['batch' => $batch, 'item' => $item]);
+        $html = $pending->html();
+        $this->assertSame(1, substr_count($html, 'Criar documento e processar</span>') + substr_count($html, '>Criar documento e processar</button>'), 'A ação primária aparece uma única vez fora do menu.');
+        $pending->assertSee('Sinvastatina')->assertSee('primeiro.pdf')->assertSee('Mais')->assertSee('Associar a documento existente')->assertSee('Não incorporar');
+
+        $pending->call('createDocument')->assertSee('Documento associado com sucesso.')->assertSee('Próxima pendência (1 restante)')->assertSee('Ficar aqui')->assertDontSee('Associar documento');
+        $this->assertSame('ASSOCIATED', $item->refresh()->status);
+        $this->assertSame('PENDING', $next->refresh()->status);
+    }
+
+    public function test_batch_page_shows_progress_in_its_own_polled_fragment(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $batch = $this->batch($this->source(), ['status' => 'PROCESSING', 'total_items' => 4, 'associated_items' => 1, 'pending_items' => 1]);
+        $this->item($batch, ['original_filename' => 'em-revisao.pdf']);
+
+        $page = Livewire::actingAs($admin)->test(BatchShow::class, ['batch' => $batch])->assertSee('em-revisao.pdf')->assertSee('Revisar pendências')->assertSee('Incorporados');
+        $this->assertSame(1, substr_count($page->html(), 'wire:poll.4s'), 'Só o fragmento de andamento da importação faz polling nesta tela.');
+        Livewire::actingAs($admin)->test(Progress::class, ['batch' => $batch])->assertSee('Processando os arquivos… 50%')->assertSeeHtml('wire:poll.4s');
     }
 
     private function source(): KnowledgeSource

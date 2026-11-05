@@ -115,4 +115,42 @@ class AccountTest extends TestCase
         $this->assertSame($user->id, $event->actor_id);
         $this->assertSame([], $event->details);
     }
+
+    public function test_logging_out_other_devices_requires_the_current_password_keeps_this_session_and_is_audited(): void
+    {
+        config(['session.driver' => 'database']);
+        $user = User::factory()->create(['password' => 'current-test-pass-1', 'remember_token' => 'old-remember-token']);
+        DB::table('sessions')->insert(['id' => 'other-device-session', 'user_id' => $user->id, 'ip_address' => '10.0.0.2', 'user_agent' => 'PHPUnit', 'payload' => base64_encode(serialize([])), 'last_activity' => now()->getTimestamp()]);
+
+        $this->actingAs($user)->from('/account')->post('/account/sessions/terminate', ['current_password' => 'wrong-pass-1'])
+            ->assertRedirect('/account')->assertSessionHasErrors('current_password');
+        $this->assertDatabaseHas('sessions', ['id' => 'other-device-session']);
+
+        $this->actingAs($user)->post('/account/sessions/terminate', ['current_password' => 'current-test-pass-1'])
+            ->assertRedirectToRoute('account')->assertSessionHasNoErrors();
+
+        $this->assertDatabaseMissing('sessions', ['id' => 'other-device-session']);
+        $this->assertNotSame('old-remember-token', $user->refresh()->remember_token);
+        $this->assertAuthenticatedAs($user);
+        $this->get('/account')->assertOk()->assertSee('As outras sessões abertas com a sua conta foram encerradas.')->assertSee('Sair de outros dispositivos');
+        $event = $user->auditEvents()->sole();
+        $this->assertSame(UserAuditEvent::EVENT_SESSIONS_TERMINATED, $event->event);
+        $this->assertSame(['scope' => 'others'], $event->details);
+    }
+
+    public function test_account_history_lists_the_persons_own_security_events_in_portuguese(): void
+    {
+        $user = User::factory()->create();
+        $admin = User::factory()->admin()->create(['name' => 'Gestora']);
+        UserAuditEvent::query()->create(['user_id' => $user->id, 'actor_id' => $admin->id, 'event' => UserAuditEvent::EVENT_DEACTIVATED, 'details' => ['reason' => 'Desligamento'], 'ip' => '10.0.0.9']);
+        UserAuditEvent::query()->create(['user_id' => $user->id, 'actor_id' => $user->id, 'event' => UserAuditEvent::EVENT_PASSWORD_CHANGED, 'details' => [], 'ip' => '10.0.0.1']);
+        UserAuditEvent::query()->create(['user_id' => $admin->id, 'actor_id' => $admin->id, 'event' => UserAuditEvent::EVENT_PASSWORD_CHANGED, 'details' => [], 'ip' => '10.0.0.3']);
+
+        $this->get('/account/history')->assertRedirectToRoute('login');
+        $this->actingAs($user)->get('/account/history')->assertOk()
+            ->assertSee('Histórico da conta')
+            ->assertSee('Acesso desativado')->assertSee('Motivo: Desligamento')->assertSee('por Gestora')
+            ->assertSee('Senha trocada pela própria pessoa')
+            ->assertDontSee('10.0.0.3');
+    }
 }

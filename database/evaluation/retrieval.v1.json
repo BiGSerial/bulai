@@ -1,0 +1,15 @@
+{
+    "version": "v1",
+    "description": "Julgamentos de relevância PRELIMINARES (binários, estritos) feitos pelo autor do sistema lendo o pool dos trechos que citam o outro fármaco nas 17 bulas cadastradas em 04/11/2026. Relevante = o trecho trata de interação (existência, ausência ou conduta) entre os dois fármacos; trechos que só citam o outro fármaco (eficácia, esquema terapêutico, bibliografia, hipersensibilidade cruzada) NÃO são relevantes. Limitações: pool formado só por candidatos lexicais (viés a favor do modo lexical e recall relativo ao pool); 4 consultas, 3 trechos relevantes; sem julgamento por profissional de saúde.",
+    "items": [
+        {"id": 1, "owner": "ibuprofen", "other": "acetaminophen", "relevant": [
+            "source:1:560c354f7f387b9cdefe51faaad6e203fedfc5ca2ac8aa217467a3aef3d5ed00#7",
+            "source:1:560c354f7f387b9cdefe51faaad6e203fedfc5ca2ac8aa217467a3aef3d5ed00#26"
+        ]},
+        {"id": 2, "owner": "pantoprazole", "other": "amoxicillin", "relevant": [
+            "source:1:7b33097ef38d67d969dd7dfb2f1ee56811920e8554e3e524c90a37d86f3d40ba#18"
+        ]},
+        {"id": 3, "owner": "omeprazole", "other": "amoxicillin", "relevant": []},
+        {"id": 4, "owner": "omeprazole", "other": "pantoprazole", "relevant": []}
+    ]
+}
