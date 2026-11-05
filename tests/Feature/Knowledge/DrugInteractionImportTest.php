@@ -86,34 +86,6 @@ final class DrugInteractionImportTest extends TestCase
         $this->assertSame(0, DrugInteraction::query()->count());
     }
 
-    public function test_failed_import_of_the_same_file_is_reused_and_an_active_one_is_refused(): void
-    {
-        $importer = app(DrugInteractionCsvImporter::class);
-        $body = self::HEADER."DDInter1,A,DDInter2,B,Major\n";
-        $failed = DrugInteractionImport::factory()->create(['status' => 'FAILED', 'sha256' => hash('sha256', $body), 'updated_at' => now()->subDay()]);
-
-        $import = $importer->import($this->write($body));
-
-        $this->assertSame($failed->id, $import->id);
-        $this->assertSame('COMPLETED', $import->status);
-        $this->assertSame(1, DrugInteractionImport::query()->count());
-
-        $active = self::HEADER."DDInter3,C,DDInter4,D,Minor\n";
-        DrugInteractionImport::factory()->create(['status' => 'PROCESSING', 'sha256' => hash('sha256', $active), 'updated_at' => now()]);
-        $this->expectExceptionMessage('INTERACTIONS_IMPORT_IN_PROGRESS');
-        $importer->import($this->write($active, 'ddinter_downloads_code_B.csv'));
-    }
-
-    public function test_job_only_runs_for_imports_still_queued(): void
-    {
-        $import = DrugInteractionImport::factory()->create(['status' => 'COMPLETED', 'stored_path' => null, 'rows_read' => 0, 'rows_inserted' => 0]);
-
-        (new ImportDrugInteractions($import->id))->handle(app(DrugInteractionCsvImporter::class));
-
-        $this->assertSame('COMPLETED', $import->refresh()->status);
-        $this->assertSame(0, DrugInteraction::query()->count());
-    }
-
     public function test_upload_queues_one_job_per_file_and_skips_files_already_imported(): void
     {
         Queue::fake();

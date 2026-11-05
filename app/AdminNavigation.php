@@ -37,27 +37,16 @@ final class AdminNavigation
     public static function groups(): array
     {
         return [
-            ['label' => 'Base de conhecimento', 'items' => [
-                self::item('admin.knowledge.dashboard', 'Visão geral', 'admin.knowledge.dashboard', 'home', 'Resumo de tudo o que está na base, da operação e do uso do aplicativo'),
-                self::item('admin.knowledge.upload', 'Adicionar documentos', 'admin.knowledge.upload', 'plus', 'Enviar PDFs de bulas para a base'),
-                self::item('admin.knowledge.batches.index', 'Importações', 'admin.knowledge.batches.*', 'inbox', 'Acompanhar cada envio e o que aconteceu com os arquivos'),
-                self::item('admin.knowledge.pending.index', 'Pendências', 'admin.knowledge.pending.*', 'alert', 'Arquivos que precisam da sua decisão antes de entrar na base'),
-                self::item('admin.knowledge.unmatched.index', 'Remédios não encontrados', 'admin.knowledge.unmatched.*', 'flag', 'Remédios que pacientes cadastraram e o catálogo não reconheceu: ligar ao medicamento certo'),
-                self::item('admin.knowledge.documents.index', 'Documentos', 'admin.*documents.*', 'document', 'Documentos já incorporados à base'),
-                self::item('admin.knowledge.sources.index', 'Origens', 'admin.knowledge.sources.*', 'library', 'De onde vêm os documentos (ex.: ANVISA)'),
-                self::item('admin.knowledge.catalog.index', 'Catálogo ANVISA', 'admin.knowledge.catalog.*', 'beaker', 'Lista oficial de medicamentos usada para validar bulas'),
-                self::item('admin.knowledge.interactions.index', 'Interações', 'admin.knowledge.interactions.*', 'link', 'Interações medicamentosas (DDInter) usadas como informação complementar'),
-            ]],
-            ['label' => 'Operação', 'items' => [
-                self::item('admin.knowledge.queue', 'Fila e serviços', 'admin.knowledge.queue', 'queue', 'Fila de análises, OCR e IA local: ver o que está rodando e reiniciar se travar'),
-            ]],
-            ['label' => 'Análises', 'items' => [
-                self::item('admin.analytics.index', 'Analytics', 'admin.analytics.*', 'chart', 'Métricas das respostas da IA, evidências, custos e auditoria'),
-                self::item('admin.reports.index', 'Relatórios', 'admin.reports.*', 'report', 'Gerar e baixar relatórios da base, do uso, dos custos e da auditoria'),
-            ]],
-            ['label' => 'Pessoas', 'items' => [
-                self::item('admin.users.index', 'Usuários', 'admin.users.*', 'users', 'Quem acessa o BULAI e com qual perfil'),
-            ]],
+            self::item('admin.knowledge.dashboard', 'Visão geral', 'admin.knowledge.dashboard', 'home', 'Resumo do que está na base e do que precisa de atenção'),
+            self::item('admin.knowledge.upload', 'Adicionar documentos', 'admin.knowledge.upload', 'plus', 'Enviar PDFs de bulas para a base'),
+            self::item('admin.knowledge.batches.index', 'Importações', 'admin.knowledge.batches.*', 'inbox', 'Acompanhar cada envio e o que aconteceu com os arquivos'),
+            self::item('admin.knowledge.pending.index', 'Pendências', 'admin.knowledge.pending.*', 'alert', 'Arquivos que precisam da sua decisão antes de entrar na base'),
+            self::item('admin.knowledge.documents.index', 'Documentos', 'admin.*documents.*', 'document', 'Documentos já incorporados à base'),
+            self::item('admin.knowledge.sources.index', 'Origens', 'admin.knowledge.sources.*', 'library', 'De onde vêm os documentos (ex.: ANVISA)'),
+            self::item('admin.knowledge.catalog.index', 'Catálogo ANVISA', 'admin.knowledge.catalog.*', 'beaker', 'Lista oficial de medicamentos usada para validar bulas'),
+            self::item('admin.knowledge.interactions.index', 'Interações', 'admin.knowledge.interactions.*', 'beaker', 'Interações medicamentosas (DDInter) usadas como informação complementar'),
+            self::item('admin.knowledge.queue', 'Fila e serviços', 'admin.knowledge.queue', 'queue', 'Fila de análises, OCR e IA local: ver o que está rodando e reiniciar se travar'),
+            self::item('admin.users.index', 'Usuários', 'admin.users.*', 'users', 'Quem acessa o BULAI e com qual perfil'),
         ];
     }
 

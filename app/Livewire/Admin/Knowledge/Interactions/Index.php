@@ -7,8 +7,6 @@ use App\Models\Knowledge\DrugInteraction;
 use App\Models\Knowledge\DrugInteractionImport;
 use App\Services\Knowledge\DrugInteractionCsvImporter;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -47,13 +45,10 @@ class Index extends Component
         foreach ($this->files as $file) {
             $sha256 = hash_file('sha256', $file->getRealPath());
             $previous = DrugInteractionImport::query()->where('sha256', $sha256)->first();
-            if ($previous?->status === 'COMPLETED' || ($previous !== null && DrugInteractionImport::query()->active()->whereKey($previous->id)->exists())) {
+            if ($previous?->status === 'COMPLETED' || $previous?->updated_at?->gt(now()->subHours(2)) && in_array($previous->status, DrugInteractionImport::ACTIVE_STATUSES, true)) {
                 $repeated++;
 
                 continue;
-            }
-            if ($previous?->stored_path !== null) {
-                Storage::disk($disk)->delete($previous->stored_path);
             }
             $import = $previous ?? new DrugInteractionImport;
             $import->forceFill([
@@ -80,32 +75,17 @@ class Index extends Component
     public function render(): View
     {
         return view('livewire.admin.knowledge.interactions.index', [
-            ...self::totals(),
+            'total' => DrugInteraction::query()->count(),
+            'bySeverity' => DrugInteraction::query()->selectRaw('severity, count(*) as total')->groupBy('severity')->pluck('total', 'severity')->all(),
+            'drugs' => DrugInteraction::query()->selectRaw('count(distinct drug_id) as total')->fromSub(
+                DrugInteraction::query()->select('drug_a_external_id as drug_id')->union(DrugInteraction::query()->select('drug_b_external_id as drug_id')),
+                'ids',
+            )->value('total') ?? 0,
             'activeImports' => DrugInteractionImport::query()->active()->latest('id')->get(),
             'history' => DrugInteractionImport::query()->with('uploader:id,name')->latest('id')->limit(15)->get(),
             'maxMegabytes' => (int) round((int) config('knowledge.drug_interactions.max_kilobytes') / 1024),
             'maxFiles' => (int) config('knowledge.drug_interactions.max_files'),
         ])->title('Interações · BULAI');
-    }
-
-    /**
-     * Totais da base (três varreduras completas da tabela): em cache por 60 s, com chave ligada à última importação concluída,
-     * para a tela não repetir as agregações a cada atualização enquanto um envio roda na fila.
-     *
-     * @return array{total: int, bySeverity: array<string, int>, drugs: int}
-     */
-    public static function totals(): array
-    {
-        $version = (string) (DrugInteractionImport::query()->where('status', 'COMPLETED')->max('completed_at') ?? 'none');
-
-        return Cache::remember('drug-interactions:totals:'.md5($version), 60, fn (): array => [
-            'total' => DrugInteraction::query()->count(),
-            'bySeverity' => DrugInteraction::query()->selectRaw('severity, count(*) as total')->groupBy('severity')->pluck('total', 'severity')->map(fn ($value): int => (int) $value)->all(),
-            'drugs' => (int) (DrugInteraction::query()->selectRaw('count(distinct drug_id) as total')->fromSub(
-                DrugInteraction::query()->select('drug_a_external_id as drug_id')->union(DrugInteraction::query()->select('drug_b_external_id as drug_id')),
-                'ids',
-            )->value('total') ?? 0),
-        ]);
     }
 
     private function notify(string $message, string $tone): void
