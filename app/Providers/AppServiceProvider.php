@@ -19,6 +19,7 @@ use App\Services\Knowledge\HeuristicExtractionQualityEvaluator;
 use App\Services\Knowledge\HttpDocumentOcrClient;
 use App\Services\Knowledge\PdfTextExtractor;
 use App\Services\Knowledge\PrinsFrankPdfTextExtractor;
+use App\Services\Mail\KingHostSmtpTransport;
 use App\Services\Queue\WorkerHeartbeat;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +29,7 @@ use Illuminate\Queue\Events\JobProcessed;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -73,6 +75,13 @@ class AppServiceProvider extends ServiceProvider
     {
         // Avisos no aplicativo com chave de deduplicação (lembretes de dose nunca duplicam).
         Notification::extend('database', fn (): DedupedDatabaseChannel => new DedupedDatabaseChannel);
+
+        // E-mail transacional pela API da KingHost (MAIL_MAILER=kinghost).
+        Mail::extend('kinghost', fn (): KingHostSmtpTransport => new KingHostSmtpTransport(
+            token: (string) config('services.kinghost_smtp.token'),
+            baseUrl: (string) config('services.kinghost_smtp.url'),
+            timeoutSeconds: (int) config('services.kinghost_smtp.timeout'),
+        ));
 
         Event::listen(Looping::class, fn () => app(WorkerHeartbeat::class)->beat());
         Event::listen(JobProcessing::class, fn () => app(WorkerHeartbeat::class)->beat(busy: true));

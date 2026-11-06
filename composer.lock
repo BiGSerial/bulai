@@ -2785,16 +2785,16 @@
         },
         {
             "name": "prinsfrank/pdfparser",
-            "version": "v3.4.0",
+            "version": "v3.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/PrinsFrank/pdfparser.git",
-                "reference": "590cbcd5d24c5b7fe748c1c0b8bd185653f26976"
+                "reference": "cba10951659b81d09237afac7298206fac1edeab"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/PrinsFrank/pdfparser/zipball/590cbcd5d24c5b7fe748c1c0b8bd185653f26976",
-                "reference": "590cbcd5d24c5b7fe748c1c0b8bd185653f26976",
+                "url": "https://api.github.com/repos/PrinsFrank/pdfparser/zipball/cba10951659b81d09237afac7298206fac1edeab",
+                "reference": "cba10951659b81d09237afac7298206fac1edeab",
                 "shasum": ""
             },
             "require": {
@@ -2807,11 +2807,11 @@
             },
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.65",
-                "phpstan/phpstan": "2.2.12",
+                "phpstan/phpstan": "2.2.6",
                 "phpstan/phpstan-deprecation-rules": "^2.0",
                 "phpstan/phpstan-strict-rules": "^2",
                 "phpunit/phpunit": "^11.5",
-                "symfony/yaml": "^7.3"
+                "symfony/yaml": "7.4.18"
             },
             "type": "library",
             "autoload": {
@@ -2826,7 +2826,7 @@
             "description": "PHP library to Read and extract text & images from PDFs - Fast & Low memory - Built from scratch",
             "support": {
                 "issues": "https://github.com/PrinsFrank/pdfparser/issues",
-                "source": "https://github.com/PrinsFrank/pdfparser/tree/v3.4.0"
+                "source": "https://github.com/PrinsFrank/pdfparser/tree/v3.9.0"
             },
             "funding": [
                 {
@@ -2834,7 +2834,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-09-09T18:40:17+00:00"
+            "time": "2026-11-05T14:54:39+00:00"
         },
         {
             "name": "psr/clock",

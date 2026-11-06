@@ -14,6 +14,12 @@ return [
     |
     */
 
+    'kinghost_smtp' => [
+        'token' => env('KINGHOST_SMTP_TOKEN'),
+        'url' => env('KINGHOST_SMTP_URL', 'https://api.smtplw.com.br/v1'),
+        'timeout' => (int) env('KINGHOST_SMTP_TIMEOUT', 15),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
