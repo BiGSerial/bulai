@@ -84,18 +84,21 @@ final class RemediosDeHojeTest extends TestCase
         $user = $this->patient();
         $this->get(route('consulta.hoje'))->assertRedirectToRoute('login');
 
-        Livewire::actingAs($user)->test(Hoje::class)->assertSee('Você ainda não tem remédios programados')->assertSee('Fotografar receita')->assertSee('Meus remédios');
+        Livewire::actingAs($user)->test(Hoje::class)->assertSee('Você ainda não tem remédios programados')->assertSee('Adicionar remédio')->assertSee('Fotografar receita')->assertSee('Meus remédios')->assertDontSee('horários marcados');
         Livewire::actingAs($user)->test(Inicio::class)->assertSee('Remédios de hoje')->assertSee('Veja os horários e marque o que já tomou')->assertSee('Meus remédios')->assertSee(route('consulta.hoje'));
 
         $medication = app(TreatmentScheduleService::class)->register($user, ['name_as_written' => 'Remédio Azul', 'frequency' => '2x ao dia']);
-        Livewire::actingAs($user)->test(Inicio::class)->assertSee('Atrasado: 08:00 · Remédio Azul');
+        // Cartão do dia na Início: progresso das doses e "Marcar como tomado" quando a próxima está na janela.
+        Livewire::actingAs($user)->test(Inicio::class)->assertSee('Atrasado: 08:00 · Remédio Azul')->assertSee('0 de 2 doses tomadas')->assertSee('Marcar como tomado')->assertSeeHtml('aria-label="0 de 2 doses"');
         $iso = CarbonImmutable::parse('2026-11-05 08:00', 'America/Sao_Paulo')->utc()->toIso8601String();
-        Livewire::actingAs($user)->test(Hoje::class)->call('tomei', $medication->id, $iso);
-        Livewire::actingAs($user)->test(Inicio::class)->assertSee('Próximo: 20:00 · Remédio Azul');
+        Livewire::actingAs($user)->test(Inicio::class)->call('tomei', $medication->id, $iso)->assertSee('1 de 2 doses tomadas')->assertSee('Próximo: 20:00 · Remédio Azul')->assertDontSee('Marcar como tomado');
+        $this->assertSame(1, MedicationDoseEvent::query()->count());
+        Livewire::actingAs($user)->test(Hoje::class)->assertSee('1 de 2 horários marcados')->call('irPara', 1)->assertSee('Remédios de amanhã')->call('irPara', 0)->assertSee('Remédios de hoje');
 
         // Outro paciente não vê nem marca as doses deste.
         $other = $this->patient();
         Livewire::actingAs($other)->test(Hoje::class)->assertDontSee('Remédio Azul')->call('tomei', $medication->id, $iso);
+        Livewire::actingAs($other)->test(Inicio::class)->assertDontSee('Remédio Azul')->call('tomei', $medication->id, $iso);
         $this->assertSame(1, MedicationDoseEvent::query()->count());
 
         Livewire::actingAs(User::factory()->create())->test(Hoje::class)->assertSee('autorize guardar seus dados de saúde');

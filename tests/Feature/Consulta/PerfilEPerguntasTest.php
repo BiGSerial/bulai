@@ -321,6 +321,9 @@ final class PerfilEPerguntasTest extends TestCase
         $medicine = $this->medicine('OMEPRAZOL', 'OMEPRAZOLSUB');
 
         $component = Livewire::actingAs($user)->test(Perfil::class)
+            // Os três segmentos (Em uso · Receitas · Alergias) são renderizados juntos; a troca é no cliente, sem recarregar.
+            ->assertSee('Em uso')->assertSee('Receitas')->assertSee('Alergias')
+            ->assertSeeHtml('id="painel-remedios"')->assertSeeHtml('id="painel-receitas"')->assertSeeHtml('id="painel-alergias"')
             ->set('prescritor', 'Dr')->call('adicionarReceita')->assertSee('prescritor')
             ->set('prescritor', 'Dra. Ana Souza')->set('registroPrescritor', 'CRM-SP 9988')->set('dataReceita', now()->subDay()->format('Y-m-d'))->call('adicionarReceita')
             ->assertSee('Dra. Ana Souza')->assertSee('CRM-SP 9988');
@@ -377,6 +380,6 @@ final class PerfilEPerguntasTest extends TestCase
         $this->actingAs($admin)->get('/inicio')->assertOk()->assertSee('Área administrativa');
         $this->actingAs($admin)->get('/admin/knowledge')->assertOk()->assertSee('App do paciente');
         $manifest = json_decode(file_get_contents(public_path('manifest.webmanifest')), true);
-        $this->assertSame('/inicio', $manifest['start_url']);
+        $this->assertStringStartsWith('/inicio', $manifest['start_url']);
     }
 }

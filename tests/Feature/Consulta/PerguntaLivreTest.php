@@ -206,6 +206,69 @@ final class PerguntaLivreTest extends TestCase
         $this->assertSame(1, MedicationQuestion::count(), 'texto curto só pré-preenche');
     }
 
+    public function test_a_follow_up_without_a_medicine_name_reuses_the_previous_medicines_and_gives_the_model_the_conversation(): void
+    {
+        $user = User::factory()->create();
+        $medicine = $this->medicine('OMEPRAZOL', 'OMEPRAZOL');
+        $this->leaflet($medicine, 'Deve ser tomado pela manhã, em jejum. Café não altera a absorção.');
+        $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que deve ser tomado pela manhã, em jejum.', 'evidence_ids' => ['E1']]]]);
+
+        $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
+            ->assertSee('A bula diz que deve ser tomado pela manhã, em jejum.')->assertDontSee('Perguntas anteriores');
+        $this->assertStringNotContainsString(MedicationQuestionService::CONVERSATION_LABEL, (string) $this->lastPrompt);
+        $this->assertSame('', $component->get('pergunta'), 'a caixa esvazia para a próxima pergunta');
+
+        $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que café não altera a absorção.', 'evidence_ids' => ['E1']]]]);
+        $component->set('pergunta', 'e com café?')->call('perguntar')
+            ->assertSee('Perguntas anteriores (1)')->assertSee('omeprazol em jejum?')->assertSee('A bula diz que café não altera a absorção.')
+            ->assertSee('Leva em conta o que você perguntou antes')->assertSee('Entendemos que você perguntou sobre: OMEPRAZOL');
+
+        $this->assertStringContainsString(MedicationQuestionService::CONVERSATION_LABEL, (string) $this->lastPrompt);
+        $this->assertStringContainsString('Paciente perguntou: "omeprazol em jejum?" Resposta dada: "A bula diz que deve ser tomado pela manhã, em jejum."', (string) $this->lastPrompt);
+        $this->assertStringContainsString('<pergunta>e com café?</pergunta>', (string) $this->lastPrompt, 'a conversa não entra na pergunta, só no bloco de fatos');
+        $record = MedicationQuestion::query()->latest('id')->first();
+        $this->assertSame([['OMEPRAZOL', 'conversa']], array_map(fn (array $m): array => [$m['name'], $m['matched_text']], $record->medicines));
+        $this->assertSame([1, true], [$record->generation['conversation_turns'], $record->generation['conversation_context']]);
+        $this->assertSame(MedicationQuestionService::CONVERSATION_LABEL.' (esta sessão)', collect($record->evidences)->firstWhere('document_type', 'conversation_context')['document_title']);
+        $this->assertSame(2, MedicationQuestion::count());
+
+        $component->call('novaPergunta')->assertDontSee('Perguntas anteriores')->assertSee('Qual é a sua dúvida sobre um remédio?');
+        $this->assertSame([], $component->get('conversa'));
+    }
+
+    public function test_misspelled_medicines_are_understood_shown_as_a_correction_and_can_be_removed(): void
+    {
+        $user = User::factory()->create();
+        $losartana = $this->medicine('LOSARTANA POTASSICA', 'LOSARTANA POTASSICA');
+        $ibu = $this->medicine('ALIVIUM', 'IBUPROFENO');
+        $this->leaflet($losartana, 'Pode causar tontura, principalmente no início do tratamento.');
+        $this->leaflet($ibu, 'Pode causar dor de estômago.');
+        $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que pode causar tontura no início do tratamento.', 'evidence_ids' => ['E1']]]]);
+
+        $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'lozartana dá tontura?')->call('perguntar')
+            ->assertSee('Entendemos “lozartana” como LOSARTANA POTASSICA.')->assertSee('Não é isso?')->assertSee('Não era esse remédio')
+            ->assertSee('A bula diz que pode causar tontura no início do tratamento.');
+        $record = MedicationQuestion::query()->sole();
+        $this->assertSame(['lozartana', true, 'losartana'], [$record->medicines[0]['matched_text'], $record->medicines[0]['fuzzy'], $record->medicines[0]['corrected']]);
+
+        // "Não era esse remédio": a mesma pergunta é repetida sem o remédio detectado por engano.
+        $component->call('remover', $losartana->id)->assertSee('Não encontramos o nome de um medicamento')->assertDontSee('Entendemos “lozartana”');
+        $this->assertSame(MedicationQuestionService::NO_MEDICINE, MedicationQuestion::query()->latest('id')->first()->status);
+
+        // Com dois remédios, "Tirar" mantém só o outro.
+        $this->scripted = json_encode(['claims' => [['text' => 'A bula do ibuprofeno fala em dor de estômago.', 'evidence_ids' => ['E1']]]]);
+        $component->call('novaPergunta')->set('pergunta', 'alivium com lozartana faz mal?')->call('perguntar')->assertSee('Tirar')
+            ->call('remover', $losartana->id)->assertSee('Entendemos que você perguntou sobre: ALIVIUM')->assertDontSee('Tirar');
+        $this->assertSame(['ALIVIUM'], array_column(MedicationQuestion::query()->latest('id')->first()->medicines, 'name'));
+        $this->assertSame([$losartana->id], $component->get('removidos'));
+    }
+
+    public function test_the_question_screen_offers_dictation_with_a_keyboard_fallback_hint(): void
+    {
+        Livewire::actingAs(User::factory()->create())->test(Perguntar::class)
+            ->assertSeeHtml('x-data="ditado(')->assertSee('Falar')->assertSee('use o microfone do teclado do celular')->assertSee('Qual é a sua dúvida sobre um remédio?');
+    }
+
     public function test_partially_covered_questions_explain_which_medicines_lack_a_leaflet(): void
     {
         $user = User::factory()->create();

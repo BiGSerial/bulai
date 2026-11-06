@@ -1,10 +1,12 @@
-@props(['resposta', 'titulo' => null])
+@props(['resposta', 'titulo' => null, 'mostrarPergunta' => true])
 @php
     use App\Services\Patient\MedicationQuestionService as Q;
     $status = $resposta['status'];
     $evidencias = $resposta['evidences'] ?? [];
-    $fontes = collect($evidencias)->filter(fn ($e) => ($e['document_type'] ?? null) !== 'treatment_context');
+    // Fontes = trechos de bula; o contexto do tratamento e a conversa anterior não são "fontes" para o paciente.
+    $fontes = collect($evidencias)->filter(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true));
     $usouTratamento = collect($evidencias)->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']));
+    $usouConversa = (bool) ($resposta['generation']['conversation_context'] ?? false);
     $texto = match ($status) {
         Q::ANSWERED => $resposta['answer'],
         Q::EXCERPTS_ONLY => 'Não conseguimos montar uma resposta simples com segurança. Abaixo estão os trechos da bula mais próximos da sua pergunta. Na dúvida, fale com seu médico ou farmacêutico.',
@@ -15,7 +17,7 @@
 @endphp
 <section {{ $attributes->class('grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm') }} aria-live="polite" aria-labelledby="resp-titulo" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">
     <h2 id="resp-titulo" class="text-base font-semibold uppercase tracking-wide text-slate-600">{{ $titulo ?? 'Resposta' }}</h2>
-    @if (! empty($resposta['pergunta']))<p class="text-base italic text-slate-600">“{{ $resposta['pergunta'] }}”</p>@endif
+    @if ($mostrarPergunta && ! empty($resposta['pergunta']))<p class="text-base italic text-slate-600">“{{ $resposta['pergunta'] }}”</p>@endif
 
     {{-- 1. A resposta em letras grandes vem primeiro. --}}
     <p class="text-xl leading-relaxed text-slate-900 sm:text-2xl" x-ref="texto">{{ $texto }}</p>
@@ -28,7 +30,7 @@
     </button>
 
     @if ($status === Q::ANSWERED)
-        <p class="text-base text-slate-700">Baseado na bula oficial, conferido automaticamente.@if ($usouTratamento) Considera os medicamentos e alergias do seu perfil.@endif</p>
+        <p class="text-base text-slate-700">Baseado na bula oficial, conferido automaticamente.@if ($usouTratamento) Considera os medicamentos e alergias do seu perfil.@endif @if ($usouConversa) Leva em conta o que você perguntou antes nesta conversa.@endif</p>
     @endif
 
     @if ($status === Q::EXCERPTS_ONLY && $fontes->isNotEmpty())

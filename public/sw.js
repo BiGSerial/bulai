@@ -1,8 +1,9 @@
-const CACHE_NAME = 'bulai-static-v4';
-const PRECACHE = ['/offline', '/manifest.webmanifest', '/brand/bulai-icone-192.png', '/brand/bulai-icone-512.png'];
+const CACHE_NAME = 'bulai-static-v5';
+const PRECACHE = ['/offline', '/manifest.webmanifest', '/brand/bulai-icone-app.svg', '/brand/bulai-icone-192.png', '/brand/bulai-icone-512.png'];
 const OFFLINE_URL = '/offline';
 
 // Sem skipWaiting automático: a nova versão só assume quando o usuário aceita atualizar (mensagem SKIP_WAITING).
+// O handler de `fetch` abaixo é obrigatório para o Chrome considerar o app instalável (critério de PWA).
 self.addEventListener('install', (event) => {
     event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE)));
 });
@@ -47,6 +48,7 @@ self.addEventListener('fetch', (event) => {
     }
 
     // Páginas (inclusive /admin, /login, /consulta, /historico, /hoje e /avisos) nunca vão para o cache: só a tela offline pública.
+    // Navegação: sempre rede; sem rede, a tela offline pré-cacheada (inclusive para a start_url do app instalado).
     if (request.mode === 'navigate' || url.pathname.startsWith('/admin') || url.pathname.startsWith('/login') || url.pathname.startsWith('/consulta') || url.pathname.startsWith('/historico') || url.pathname.startsWith('/perguntar') || url.pathname.startsWith('/perfil') || url.pathname.startsWith('/hoje') || url.pathname.startsWith('/avisos') || url.pathname.startsWith('/livewire')) {
         event.respondWith(fetch(request).catch(() => (request.mode === 'navigate' ? caches.match(OFFLINE_URL) : Response.error())));
 

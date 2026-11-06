@@ -51,9 +51,9 @@ Cadastro à mão (`Perfil`): a busca que não encontra mostra "Não achei meu re
 ## Telas
 | Tela | O que mostra | Ação primária |
 | --- | --- | --- |
-| Início (`/inicio`) | 5 botões: Perguntar, **Remédios de hoje** (apoio = próxima dose: "Próximo: 14:00 · Losartana", "Atrasado: 08:00 · …" em vermelho, "Amanhã: …" ou "Veja os horários…"), Fotografar receita, Meus remédios, Ver o que já perguntei | Perguntar |
-| Remédios de hoje (`/hoje`, `Consulta\Tratamento\Hoje`) | Ontem/Hoje/Amanhã; "N de M horários marcados"; grupos Manhã/Tarde/Noite; por horário: hora em 30 px, nome, dose, selo de estado (A tomar / Agora / Atrasado / Tomei / Pulei, cor + texto); botões empilhados "✓ Tomei" (verde, 64 px) e "Pular este horário"; "Desfazer" quando marcado; `wire:poll.60s` só na lista; estado vazio com Fotografar receita e Meus remédios | Tomei |
-| Meus remédios (`/perfil`) | lista com `displayName()`, selo "Não encontrado no catálogo: vamos conferir", "às 08:00, 20:00" ou "só quando precisar"; "Ver a bula simples" só com catálogo; posologia com horários (`type=time`, Tirar/Adicionar), "Só quando precisar", "Lembrar nos horários"; botão "Ver remédios de hoje" | Adicionar remédio |
+| Início (`/inicio`) | Saudação + data por extenso; chip "N avisos novos"; **cartão do dia** (fundo azul-marinho): anel de progresso "tomadas/total", frase "N de M doses tomadas" ou "Tudo tomado por hoje!", próxima dose ("Próximo: 14:00 · Losartana", "Atrasado: 08:00 · …", "Amanhã: …") e botão **"Marcar como tomado"** quando a próxima está na janela (Agora/Atrasado; ação `tomei` do próprio componente, só do dono); depois 5 cartões com ícone em círculo: Perguntar (laranja), Remédios de hoje (apoio = próxima dose; vermelho se atrasada), Fotografar receita, Meus remédios, Ver o que já perguntei; cartão `<x-consulta.instalar />` | Perguntar / Marcar como tomado |
+| Remédios de hoje (`/hoje`, `Consulta\Tratamento\Hoje`) | Segmentos Ontem/Hoje/Amanhã (`irPara(dia)`), data por extenso; resumo com anel "tomadas" e "N de M horários marcados"; banner vermelho se há atrasados; grupos Manhã/Tarde/Noite (ícones sol/relógio/lua) em **linha do tempo vertical** (bolinha cinza = a tomar, laranja pulsando = agora, vermelha = atrasado, verde = tomei, cinza + nome riscado = pulei); por horário: hora em caixa, nome, dose, selo de estado (cor + texto), botões "Tomei" (verde) e "Pular" lado a lado com `flex-wrap`, "Desfazer" discreto quando marcado; seção "Só quando precisar" com os remédios `as_needed`; `wire:poll.60s` só na lista; estado vazio ilustrado com "Adicionar remédio", "Fotografar receita" e "Meus remédios" | Tomei |
+| Meus remédios (`/perfil`) | Segmentos "Em uso · Receitas · Alergias" (Alpine, sem recarregar; `?aba=`); cartão por remédio com ícone, nome, posologia, horários como chips, selos "Sem horário fixo"/"Sem bula no catálogo"/"Tratamento encerrado"; botão "⋯" abre a **folha de ações** (`x-consulta.folha-acoes`): Ver a bula simples (só com catálogo), Informar dose e horários, Tirar da minha lista (com confirmação dentro da folha); formulário de posologia inline (dose, quando tomar → horários sugeridos, horários `type=time`, "Só quando precisar", "Lembrar nos horários") com "Mais detalhes" recolhido (datas, receita, observações); busca com "Você quis dizer…?" e "Não achei meu remédio: cadastrar assim mesmo" | Adicionar remédio |
 | Conferir a receita (`/receitas/{id}/revisar`) | por item: candidato do catálogo ou selo "Não encontrado…", horários sugeridos editáveis, correção de dose/frequência | Confirmar e salvar |
 
 Contexto de tratamento nas respostas (`TreatmentContextService`): remédios sem catálogo entram em `unresolved` como "Nome (sem bula cadastrada no BULA-IA)" e contam em `medications_count`; a IA recebe o fato "Não foi possível verificar interações com: …" e a tela mostra o mesmo. `Pesquisa` (verificar interações) e o detector de menções consideram só remédios ligados ao catálogo (`scopeMatched`).
@@ -61,19 +61,19 @@ Contexto de tratamento nas respostas (`TreatmentContextService`): remédios sem 
 ## Toques por tarefa (a partir da Início)
 | Tarefa | Toques |
 | --- | --- |
-| Marcar que tomou o remédio | Remédios de hoje → Tomei (2) |
+| Marcar que tomou o remédio | Início → Marcar como tomado (1, quando a próxima dose está na janela) ou Remédios de hoje → Tomei (2) |
 | Pular um horário | Remédios de hoje → Pular (2) |
 | Desfazer | +1 |
 | Ver o que tomar amanhã | Remédios de hoje → Amanhã (2) |
 | Receita por foto até o programa pronto | Fotografar → Tirar foto → Ler esta receita → Confirmar (4; item fora do catálogo não acrescenta toque) |
 | Cadastrar remédio que não está no catálogo | Meus remédios → Adicionar remédio → digitar → Cadastrar assim mesmo (4) → Salvar posologia (+1) |
-| Ajustar um horário | Meus remédios → Opções → Informar dose e horários → mudar a hora → Salvar (5) |
+| Ajustar um horário | Meus remédios → ⋯ → Informar dose e horários → mudar a hora → Salvar (5) |
 
 ## Testes
-`tests/Unit/Services/Treatment/DoseScheduleParserTest` (20), `tests/Feature/Consulta/ProgramacaoDoTratamentoTest` (4: registro sem catálogo e pendência, resolução/fusão pelo admin, agenda no fuso do paciente, privacidade), `tests/Feature/Consulta/ReceitaPorFotoTest` (7: confirmação com item fora do catálogo, manter pelo nome, pular), `tests/Feature/Consulta/RemediosDeHojeTest` (3: agenda por período e marcações, privacidade/vazios/Início, cadastro pelo nome no perfil e contexto). Rodar: `php artisan test --compact tests/Feature/Consulta tests/Unit/Services/Treatment`.
+`tests/Unit/Services/Treatment/DoseScheduleParserTest` (20), `tests/Feature/Consulta/ProgramacaoDoTratamentoTest` (4: registro sem catálogo e pendência, resolução/fusão pelo admin, agenda no fuso do paciente, privacidade), `tests/Feature/Consulta/ReceitaPorFotoTest` (7: confirmação com item fora do catálogo, manter pelo nome, pular), `tests/Feature/Consulta/RemediosDeHojeTest` (3: agenda por período e marcações, privacidade/vazios/Início com cartão do dia e "Marcar como tomado", cadastro pelo nome no perfil e contexto). Rodar: `php artisan test --compact tests/Feature/Consulta tests/Unit/Services/Treatment`.
 
 ## Limitações
 - Sem teste com usuários idosos nem em aparelhos reais; o relógio do estado "Agora/Atrasado" é o do servidor convertido ao fuso do perfil (o paciente não edita o fuso pela interface ainda).
 - Frequências semanais, dias alternados ou "conforme orientação" não geram horários: o paciente define à mão.
-- Horários de "Remédios de hoje" só existem para remédios com `dose_times`; remédio "só quando precisar" não aparece na agenda.
+- Horários de "Remédios de hoje" só existem para remédios com `dose_times`; remédio "só quando precisar" aparece numa seção à parte, sem marcação de dose.
 - A agenda não considera a hora exata de `started_at` (dia inteiro) nem pausas de tratamento.

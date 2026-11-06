@@ -48,6 +48,79 @@
     --color-surface-200: #ece6da;
 }
 
+/*
+ * Sensação nativa (app do paciente instalado ou no navegador do celular), sem bibliotecas:
+ * sem realce azul ao tocar, sem "elástico" ao rolar além do fim, sem zoom por duplo toque,
+ * transição curta entre telas (wire:navigate + View Transitions) e respeito às áreas seguras do aparelho.
+ */
+@layer base {
+    html {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior-y: none;
+    }
+
+    body {
+        touch-action: manipulation;
+    }
+
+    /* Guardas de layout: nada pode empurrar a tela para o lado (ver docs/design/principios-de-ux.md, seção 9). */
+    img,
+    svg,
+    video,
+    canvas {
+        max-width: 100%;
+        height: auto;
+    }
+
+    pre,
+    code {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    li,
+    td,
+    th,
+    dt,
+    dd,
+    summary,
+    label {
+        overflow-wrap: anywhere;
+    }
+
+    @view-transition {
+        navigation: auto;
+    }
+
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+        animation-duration: 150ms;
+        animation-timing-function: ease-out;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation: none;
+        }
+    }
+
+    /* Barra de progresso do wire:navigate na cor de destaque da marca. */
+    html #nprogress .bar {
+        background: var(--color-accent-500);
+        height: 3px;
+    }
+
+    html #nprogress .peg {
+        box-shadow: 0 0 10px var(--color-accent-500), 0 0 5px var(--color-accent-500);
+    }
+}
+
 @layer components {
     .ui-control {
         @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-600/20 disabled:bg-slate-100 disabled:text-slate-500;
@@ -63,5 +136,55 @@
 
     .ui-table td {
         @apply px-4 py-3 align-top text-slate-700;
+    }
+
+    /*
+     * Tela do app do paciente: ocupa a altura real da janela (100dvh, sem a barra do navegador),
+     * corta qualquer excesso horizontal (guarda final contra rolagem lateral) e dá a todo filho direto
+     * do conteúdo `min-width: 0`, para que grids/flex encolham em vez de estourar.
+     */
+    .app-screen {
+        min-height: 100dvh;
+        overflow-x: clip;
+    }
+
+    .app-screen main > *,
+    .app-screen main section > *,
+    .app-screen main form > *,
+    .app-screen nav ul > li {
+        min-width: 0;
+    }
+
+    /* Resposta tátil: botões e links "afundam" levemente ao toque, como em um app nativo. */
+    .press,
+    .app-screen :is(button, [role='button'], a[href], summary):not([disabled]) {
+        transition:
+            transform 120ms ease-out,
+            background-color 150ms ease-out,
+            opacity 150ms ease-out;
+    }
+
+    .press:active,
+    .app-screen :is(button, [role='button'], a[href], summary):not([disabled]):active {
+        transform: scale(0.98);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .press:active,
+        .app-screen :is(button, [role='button'], a[href], summary):active {
+            transform: none;
+        }
+    }
+
+    /* Instalado (tela cheia): o cabeçalho fixo respeita a barra de status e o texto dos botões não é selecionável. */
+    @media (display-mode: standalone) {
+        .app-screen .app-header {
+            padding-top: env(safe-area-inset-top, 0px);
+        }
+
+        .app-screen :is(button, [role='button'], a[href]) {
+            user-select: none;
+            -webkit-user-select: none;
+        }
     }
 }

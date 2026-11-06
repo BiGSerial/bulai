@@ -54,3 +54,20 @@ Complementa `docs/design/identidade-visual.md` (cores, tipografia, componentes) 
 | Mobile | Funciona a 400 px sem rolagem horizontal, com CTA fixo? |
 | Linguagem | Botões com verbo, sem jargão, erros com próximo passo? |
 | Acessibilidade | Rótulos, foco, `aria-*`, contraste AA? |
+
+## 9. Regras de layout mobile (fiscalizadas por `tests/Feature/Consulta/ConsultaDesignSystemTest.php`)
+
+A tela do paciente é usada a 360–400 px de largura, muitas vezes instalada em tela cheia. Nada pode causar rolagem horizontal.
+
+| Regra | Por quê | Como fazer |
+| --- | --- | --- |
+| Sem `style=` inline nas telas do paciente | o fiscal não enxerga larguras em CSS inline | classes do Tailwind; exceções em `resources/css/app.css` |
+| `whitespace-nowrap` só com `truncate` ou `overflow-hidden` | um nome de remédio longo empurra a linha para fora | `truncate` + `min-w-0` no contêiner |
+| `grid-cols-3` ou mais só com prefixo (`sm:`, `md:`) | 3+ colunas não cabem a 360 px | `grid-cols-1 sm:grid-cols-3`; seletor de 3 opções curtas: `data-mobile-ok="motivo"` |
+| Largura fixa (`w-64+`, `w-[…]`, `min-w-[…]`) só com `max-w-…` | passa da tela | `w-64 max-w-[calc(100vw-1rem)]` |
+| `text-[…]` acima de 2rem só em `h1`/`h2` | palavras grandes não quebram | escala do Tailwind (`text-2xl`, `text-3xl`) |
+| `fixed inset-x-0` precisa de um filho `mx-auto max-w-…` | estica no tablet/desktop | ver barra inferior e CTA fixo do shell |
+| `<table>` dentro de `overflow-x-auto` | tabelas não encolhem | ou cartões abaixo de `md` (seção 3) |
+| Sem jargão (chunk, OCR, embedding, LLM, token, prompt) | linguagem do paciente | "trechos da bula", "leitura da foto", "resposta" |
+
+Guardas globais (já aplicadas por `.app-screen` em `app.css`): `img/svg/video { max-width: 100% }`, `overflow-wrap: anywhere` em títulos, parágrafos e células, `min-width: 0` nos filhos diretos do conteúdo e `overflow-x: clip` na casca. Elas evitam o estouro, mas não substituem as regras acima: um grid de 3 colunas "cabe" cortado, não legível.

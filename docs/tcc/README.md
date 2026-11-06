@@ -70,3 +70,4 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 | [23-resultados-experimentais.md](23-resultados-experimentais.md) | 3.5.1, 3.5.3 |
 | [24-bula-humanizada-contexto-de-tratamento-e-analytics.md](24-bula-humanizada-contexto-de-tratamento-e-analytics.md) | 2.7.1, 2.7.2, 3.3.1, 3.3.2 (etapas 3–5), 3.5.1, 3.5.3 |
 | [25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md](25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |
+| [26-experiencia-nativa-conversa-com-contexto-e-tolerancia-a-erros.md](26-experiencia-nativa-conversa-com-contexto-e-tolerancia-a-erros.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |
