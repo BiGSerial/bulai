@@ -43,6 +43,15 @@ final class MedicationQuestionService
 
     private const MAX_EVIDENCES = 8;
 
+    /** Trocas anteriores consideradas e tamanho máximo do resumo entregue ao modelo. */
+    public const CONVERSATION_TURNS = 3;
+
+    private const CONVERSATION_MAX_CHARS = 600;
+
+    private const CONVERSATION_TURN_CHARS = 180;
+
+    public const CONVERSATION_LABEL = 'Conversa anterior';
+
     public function __construct(
         private readonly KnowledgeRetriever $retriever,
         private readonly ExplanationGenerator $generator,
@@ -73,23 +82,35 @@ final class MedicationQuestionService
      * Pergunta livre: triagem, detecção dos medicamentos citados, evidências de todas as bulas envolvidas, fatos do
      * tratamento de cada um e entre eles, geração validada e registro.
      *
+     * Conversa: quando a nova pergunta não cita remédio ("e com café?"), os medicamentos da última troca são reaproveitados
+     * (marcados com `matched_text = 'conversa'`) e um resumo curto das últimas trocas entra como contexto rotulado
+     * "Conversa anterior" junto aos fatos do tratamento (evidência T1), nunca como instrução.
+     *
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos pelo usuário (correção ou link), além dos detectados
-     * @return array{status: string, message: string|null, question: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, treatment: array<string, mixed>|null, treatments: list<array{medicine: string, context: array<string, mixed>}>, medicines: list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string}>, suggestions: list<array{id: int, name: string}>, limitations: list<string>, guard: array{category: string, flags: list<string>}, uuid: string|null}
+     * @param  list<array{question: string, answer: string|null, medicine_ids: list<int>}>  $conversation  últimas trocas desta sessão, da mais antiga para a mais nova
+     * @param  list<int>  $excludedMedicineIds  medicamentos que o usuário mandou remover da pergunta (detecção errada)
+     * @return array{status: string, message: string|null, question: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, treatment: array<string, mixed>|null, treatments: list<array{medicine: string, context: array<string, mixed>}>, medicines: list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>, suggestions: list<array{id: int, name: string}>, limitations: list<string>, guard: array{category: string, flags: list<string>}, uuid: string|null}
      */
-    public function askFreeform(User $user, string $question, array $forcedMedicineIds = []): array
+    public function askFreeform(User $user, string $question, array $forcedMedicineIds = [], array $conversation = [], array $excludedMedicineIds = []): array
     {
         $started = hrtime(true);
         $verdict = $this->guard->screen($question);
+        $conversation = array_slice(array_values($conversation), -self::CONVERSATION_TURNS);
         $base = [
             'message' => null, 'question' => $verdict->sanitized, 'answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'treatment' => null,
-            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'limitations' => [], 'guard' => $verdict->toArray(), 'uuid' => null,
+            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
         ];
 
         if (! $verdict->allowed()) {
             return $this->finish($user, ['status' => self::BLOCKED, 'message' => $verdict->userMessage()] + $base, $started);
         }
 
-        $medicines = $this->detector->detect($verdict->sanitized, $user, $forcedMedicineIds);
+        $excluded = fn (array $items): array => array_values(array_filter($items, fn (array $m): bool => ! in_array($m['id'], $excludedMedicineIds, true)));
+        $medicines = $excluded($this->detector->detect($verdict->sanitized, $user, $forcedMedicineIds));
+        $previousIds = array_values(array_diff(array_map('intval', $conversation !== [] ? ($conversation[array_key_last($conversation)]['medicine_ids'] ?? []) : []), $excludedMedicineIds));
+        if ($medicines === [] && $previousIds !== []) {
+            $medicines = array_map(fn (array $m): array => in_array($m['id'], $previousIds, true) && ! in_array($m['id'], $forcedMedicineIds, true) ? ['matched_text' => 'conversa'] + $m : $m, $excluded($this->detector->detect($verdict->sanitized, $user, $previousIds)));
+        }
         if ($medicines === []) {
             $suggestions = $user->hasHealthConsent()
                 ? PatientMedication::query()->with('medicine:id,product_name')->where('user_id', $user->id)->get()
@@ -109,12 +130,38 @@ final class MedicationQuestionService
         }
         $facts = $this->freeformFacts($ordered, $treatments);
 
-        $result = $this->answerMany($ordered, $verdict->sanitized, $facts) + [
+        $result = $this->answerMany($ordered, $verdict->sanitized, $facts, $this->conversationText($conversation)) + [
             'treatment' => $treatments[0]['context'] + ['others' => array_slice($treatments, 1)],
             'treatments' => $treatments, 'medicines' => $medicines,
         ] + $base;
+        $result['generation'] += ['conversation_turns' => count($conversation)];
 
         return $this->finish($user, $result, $started);
+    }
+
+    /**
+     * Resumo das últimas trocas, da mais antiga para a mais nova, limitado em tamanho. As perguntas anteriores são texto do
+     * usuário (não são fatos); as respostas anteriores já foram validadas contra as bulas.
+     *
+     * @param  list<array{question: string, answer: string|null, medicine_ids: list<int>}>  $conversation
+     */
+    public function conversationText(array $conversation): ?string
+    {
+        $turns = [];
+        foreach ($conversation as $turn) {
+            $question = Str::limit(trim(preg_replace('/\s+/', ' ', (string) ($turn['question'] ?? ''))), self::CONVERSATION_TURN_CHARS, '…');
+            $answer = Str::limit(trim(preg_replace('/\s+/', ' ', (string) ($turn['answer'] ?? ''))), self::CONVERSATION_TURN_CHARS, '…');
+            if ($question === '') {
+                continue;
+            }
+            $turns[] = 'Paciente perguntou: "'.$question.'"'.($answer !== '' ? ' Resposta dada: "'.$answer.'"' : ' (sem resposta)');
+        }
+        if ($turns === []) {
+            return null;
+        }
+        $text = self::CONVERSATION_LABEL.' (apenas para entender a pergunta atual; não é fonte de fatos sobre o remédio): '.implode(' ', $turns);
+
+        return Str::limit($text, self::CONVERSATION_MAX_CHARS, '…');
     }
 
     /**
@@ -158,7 +205,7 @@ final class MedicationQuestionService
      * @param  list<AnvisaMedicine>  $medicines
      * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, limitations: list<string>}
      */
-    private function answerMany(array $medicines, string $question, ?string $facts): array
+    private function answerMany(array $medicines, string $question, ?string $facts, ?string $conversation = null): array
     {
         $empty = ['answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'limitations' => []];
         $mode = (string) config('bulai.retrieval.mode');
@@ -195,6 +242,8 @@ final class MedicationQuestionService
         }
 
         $limitations = [];
+        // Nomes em falta, para a tela falar com o paciente em vez de listar limitações técnicas.
+        $empty['missing'] = ['unidentified' => $unidentified, 'without_leaflet' => $withoutLeaflet];
         if ($unidentified !== []) {
             $limitations[] = 'Princípio ativo não identificado no catálogo para: '.implode(', ', $unidentified).'.';
         }
@@ -217,7 +266,7 @@ final class MedicationQuestionService
 
         $label = implode(' + ', array_map(fn (AnvisaMedicine $m): string => $m->product_name, $medicines));
 
-        return $this->generate($label, $question, $references, $facts, $retrieval) + ['limitations' => $limitations];
+        return $this->generate($label, $question, $references, $facts, $retrieval, $conversation) + ['limitations' => $limitations, 'missing' => $empty['missing']];
     }
 
     /**
@@ -253,15 +302,24 @@ final class MedicationQuestionService
      * @param  array<string, mixed>  $retrieval
      * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>}
      */
-    private function generate(string $label, string $question, array $references, ?string $facts, array $retrieval): array
+    private function generate(string $label, string $question, array $references, ?string $facts, array $retrieval, ?string $conversation = null): array
     {
-        $generated = $this->generator->answer($label, $question, $references, (string) Str::uuid(), $facts);
+        // O modelo recebe tratamento e conversa no mesmo bloco de fatos (T1); no registro ficam separados.
+        $modelFacts = trim(implode("\n", array_filter([$facts, $conversation]))) ?: null;
+        $generated = $this->generator->answer($label, $question, $references, (string) Str::uuid(), $modelFacts);
         $evidences = array_map(fn (EvidenceReference $reference): array => $reference->toArray(), $references);
         if ($facts !== null) {
             $evidences[] = [
                 'chunk_id' => 0, 'document_id' => null, 'document_title' => 'Contexto do tratamento (base DDInter e perfil)', 'document_type' => 'treatment_context',
                 'source' => 'DDInter + perfil do paciente', 'section' => 'tratamento', 'page_start' => null, 'page_end' => null, 'excerpt' => $facts,
                 'score' => 1.0, 'method' => 'structured', 'document_version' => null,
+            ];
+        }
+        if ($conversation !== null) {
+            $evidences[] = [
+                'chunk_id' => -1, 'document_id' => null, 'document_title' => self::CONVERSATION_LABEL.' (esta sessão)', 'document_type' => 'conversation_context',
+                'source' => 'perguntas e respostas anteriores do próprio paciente', 'section' => 'conversa', 'page_start' => null, 'page_end' => null, 'excerpt' => $conversation,
+                'score' => 1.0, 'method' => 'conversation', 'document_version' => null,
             ];
         }
         foreach ($evidences as &$evidence) {
@@ -272,7 +330,7 @@ final class MedicationQuestionService
             'status' => $generated['explanation'] !== null ? self::ANSWERED : self::EXCERPTS_ONLY,
             'answer' => $generated['explanation'],
             'evidences' => $evidences,
-            'generation' => $generated['generation'] + ['status' => $generated['status']],
+            'generation' => $generated['generation'] + ['status' => $generated['status'], 'conversation_context' => $conversation !== null],
             'retrieval' => $retrieval,
         ];
     }
@@ -315,7 +373,7 @@ final class MedicationQuestionService
             'user_id' => $user->id,
             'medicine_id' => $medicine->id,
             'medicine_name' => $medicine->product_name,
-            'medicines' => [['id' => $medicine->id, 'name' => $medicine->product_name, 'ingredients' => (string) $medicine->active_ingredient, 'identified' => $medicine->ingredients()->exists(), 'matched_text' => 'escolhido']],
+            'medicines' => [['id' => $medicine->id, 'name' => $medicine->product_name, 'ingredients' => (string) $medicine->active_ingredient, 'identified' => $medicine->ingredients()->exists(), 'matched_text' => 'escolhido', 'fuzzy' => false, 'corrected' => null]],
             'question' => $question,
             'status' => $result['status'],
             'answer' => $result['answer'],

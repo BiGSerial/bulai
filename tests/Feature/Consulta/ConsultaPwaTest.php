@@ -61,7 +61,7 @@ final class ConsultaPwaTest extends TestCase
             ->assertSee('O BULA-IA não substitui seu médico ou farmacêutico.')->assertSee(route('consulta.sobre'))
             ->assertDontSee('Recentes')->assertDontSee('remédios em uso');
         $barra = explode('aria-label="Principal (celular)"', $page->getContent())[1];
-        $this->assertSame(3, preg_match_all('/<li><a href="[^"]+" wire:navigate/', $barra));
+        $this->assertSame(3, preg_match_all('/<li[^>]*><a href="[^"]+" wire:navigate/', $barra));
         $this->assertStringNotContainsString('>Conta<', $barra);
         $this->assertStringNotContainsString('>Histórico<', $barra);
         $this->assertStringContainsString('text-lg leading-relaxed', $page->getContent());
@@ -87,8 +87,11 @@ final class ConsultaPwaTest extends TestCase
         Livewire::actingAs(User::factory()->create())->test(Pesquisa::class)
             ->set('busca', 'marev')->assertSee('MAREVAN')->assertDontSee('PROFEN')
             ->set('busca', 'ibupro')->assertSee('PROFEN')
-            ->set('busca', 'xyzxyz')->assertSee('Nenhum medicamento encontrado')
-            ->set('busca', 'ma')->assertDontSee('Nenhum medicamento encontrado');
+            ->set('busca', 'xyzxyz')->assertSee('Nenhum medicamento encontrado')->assertDontSee('Você quis dizer')
+            ->set('busca', 'ma')->assertDontSee('Nenhum medicamento encontrado')
+            // Erro de digitação: a busca tolerante sugere o parecido e a tela pergunta "Você quis dizer…?".
+            ->set('busca', 'marevam')->assertSee('Você quis dizer')->assertSee('MAREVAN')->assertDontSee('Nenhum medicamento encontrado')
+            ->set('busca', 'marev')->assertDontSee('Você quis dizer');
     }
 
     public function test_selection_prevents_duplicates_enforces_limits_and_flags_unidentified_ingredients(): void

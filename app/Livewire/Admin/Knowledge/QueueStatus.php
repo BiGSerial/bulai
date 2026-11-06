@@ -69,6 +69,8 @@ class QueueStatus extends Component
             'queue' => $queue->snapshot(),
             'services' => $health->all(),
             'restartable' => ['local_ai' => $restarter->canRestart('local_ai'), 'ocr' => $restarter->canRestart('ocr')],
+            // Arquivos que deixaram de estar pendentes hoje (associados, ignorados, duplicados ou com erro).
+            'resolvedToday' => IngestionBatchItem::query()->whereNot('status', IngestionBatchItem::STATUS_PENDING)->whereDate('updated_at', now()->timezone(config('app.timezone'))->toDateString())->count(),
         ])->title('Fila e serviços · BULAI');
     }
 

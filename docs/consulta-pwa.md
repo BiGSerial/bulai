@@ -154,3 +154,125 @@ Tela `/hoje` (`App\Livewire\Consulta\Tratamento\Hoje`): cada horário programado
 **Toques por tarefa** (a partir da Início): perguntar = Perguntar → digitar/falar → Perguntar (3); ouvir a resposta = +1; fotografar receita = Fotografar → Tirar foto → Ler esta receita → Confirmar (4, sendo um a câmera do aparelho); adicionar remédio à mão = Meus remédios → Adicionar remédio → digitar → Adicionar (4; fora do catálogo: Cadastrar assim mesmo, 4); marcar que tomou = Remédios de hoje → Tomei (2); ver uma pergunta anterior = Ver o que já perguntei → item (2); apagar um item = +2 (Apagar → Sim, apagar).
 
 **Limitações**: Falar/Ouvir dependem do suporte do navegador (Chrome/Android e Safari/iOS modernos; sem suporte os botões não aparecem); nenhuma verificação em dispositivo real nem com usuários idosos; o conteúdo das respostas (até 4 frases) vem do validador existente, sem reescrita para leitura fácil.
+
+## Conversa com contexto, correção de digitação e ditado por voz (iteração 5)
+
+**Propósito.** Três reclamações de uso: o sistema não entendia a pergunta seguinte ("e com café?"), não entendia nomes digitados errado e o ditado por voz "hora funcionava, hora não".
+
+**Arquivos.** `app/Livewire/Consulta/Perguntar.php`, `resources/views/livewire/consulta/perguntar.blade.php`, `app/Services/Patient/MedicationQuestionService.php`, `resources/views/components/consulta/resposta.blade.php`, `resources/js/voz.js` (importado por `app.js`). Fundação da tolerância a erros: `App\Services\Interactions\FuzzyMedicineMatcher` (pg_trgm), `MedicationSearchService` e `MedicationMentionDetector` (`fuzzy`, `corrected`).
+
+**Conversa.**
+- A tela guarda as trocas desta sessão em `$conversa` (até 6, versão enxuta: pergunta, resposta validada, remédios, uuid). As anteriores ficam recolhidas em "Perguntas anteriores (N)"; a atual aparece como balão (pergunta à direita, resposta à esquerda). "Começar outra conversa" limpa tudo. A conversa vive só na tela (estado Livewire); cada troca continua registrada em `medication_questions`.
+- `MedicationQuestionService::askFreeform(User, string, array $forcedMedicineIds = [], array $conversation = [], array $excludedMedicineIds = [])`. `conversation` = últimas 3 trocas `{question, answer, medicine_ids}`. Quando a nova pergunta não cita remédio, os `medicine_ids` da última troca são reaproveitados e marcados `matched_text = 'conversa'`.
+- `conversationText()` monta o resumo ("Conversa anterior (apenas para entender a pergunta atual; não é fonte de fatos sobre o remédio): Paciente perguntou: "…" Resposta dada: "…"", 180 caracteres por campo, 600 no total). Ele entra junto aos fatos do tratamento na evidência **T1** do prompt (`ExplanationGenerator::answer()`), nunca no system prompt nem dentro de `<pergunta>`. No registro, vira uma evidência à parte (`document_type = conversation_context`, `chunk_id = -1`, não citável) e `generation.conversation_turns` / `generation.conversation_context` dizem quantas trocas foram usadas. A tela mostra "Leva em conta o que você perguntou antes nesta conversa".
+
+**Correção de digitação.** Cada remédio detectado por semelhança aparece como "Entendemos “lozartana” como LOSARTANA. Não é isso?" com "Trocar o remédio" (busca no catálogo, fluxo `corrigir`) e "Não era esse remédio" (`remover`: repete a mesma pergunta excluindo o id; com dois remédios, "Tirar" mantém só o outro). A busca da correção também mostra "parecido com “…”" nos resultados tolerantes.
+
+**Ditado por voz (`voz.js`).** Componente Alpine global `ditado({ aplicar, confirmar, texto })`: `continuous`, `interimResults` (texto parcial em cinza), `pt-BR`; acrescenta ao que já está escrito; reinicia sozinho quando o navegador encerra por silêncio (até 6 vezes) enquanto o usuário não tocar em "Parar"; mensagens por erro (`not-allowed`, `no-speech`, `network`, `audio-capture`, `language-not-supported`); para ao navegar (`livewire:navigating`) ou ao esconder a aba; sincroniza com o Livewire uma vez, 700 ms depois do último trecho (`$wire.set`), não a cada palavra. Sem API (Firefox, alguns WebViews): botão oculto e dica "use o microfone do teclado do celular". Enter envia a pergunta.
+
+**Testes.** `tests/Feature/Consulta/PerguntaLivreTest.php`: `test_a_follow_up_without_a_medicine_name_reuses_the_previous_medicines_and_gives_the_model_the_conversation`, `test_misspelled_medicines_are_understood_shown_as_a_correction_and_can_be_removed`, `test_the_question_screen_offers_dictation_with_a_keyboard_fallback_hint`; fundação em `BuscaToleranteAErrosTest`.
+
+**Limitações.** O resumo da conversa entra na mesma evidência T1 do tratamento: uma afirmação do modelo pode ficar "ancorada" no texto de uma pergunta anterior do paciente (texto do usuário), por isso o rótulo deixa explícito que não é fonte de fatos e as respostas anteriores já passaram pelo validador. A conversa não sobrevive a recarregar a página (o histórico completo continua em "Ver o que já perguntei"). Tolerância a erros cobre trocas/omissões de letras (semelhança ≥ 0,5); letras trocadas de lugar ("dipirnoa") ficam abaixo do limite. O ditado depende do suporte do navegador e não foi testado em aparelhos reais.
+
+## Instalação do PWA, sensação nativa e regras de layout mobile (iteração 5)
+
+**Problema relatado**: a opção de instalar não aparecia; telas estouravam a largura do celular; a navegação não parecia um aplicativo.
+
+### Instalação
+
+- `resources/js/pwa.js` captura `beforeinstallprompt` (Chrome/Edge, Android e desktop), guarda o evento e avisa a interface pelo evento `bulai-pode-instalar` com o estado `{installed, prompt, ios, dismissed}`. `window.bulaiInstalar()` abre o diálogo nativo e registra a escolha; `appinstalled` esconde tudo e mostra um aviso. "Agora não" é lembrado por 14 dias (`localStorage`, com `try/catch`).
+- Safari no iPhone/iPad **nunca** dispara o evento: o cartão mostra o passo a passo "Compartilhar → Adicionar à Tela de Início → Adicionar", com ícones. Chrome/Firefox para iOS não instalam PWA (o cartão não aparece neles).
+- Componente `<x-consulta.instalar />` (cartão sênior-primeiro, sem props): aparece na Início quando instalável e não instalado. No menu da conta do shell há "Instalar o aplicativo" (`window.bulaiInstalarAgora()`): instala na hora ou, no iPhone, limpa a dispensa e leva à Início para ver o passo a passo.
+- `public/manifest.webmanifest`: `id`, `start_url` `/inicio?source=pwa` (permite medir aberturas pelo ícone), `display_override`, `orientation: portrait`, `prefer_related_applications: false`, ícones PNG 192/512 `any` e 512 `maskable`, atalhos com ícone (Remédios de hoje, Perguntar, Fotografar receita, Meus remédios).
+- `public/sw.js` (`bulai-static-v5`): handler de `fetch` (critério de instalabilidade do Chrome), ícone SVG pré-cacheado, navegação sempre pela rede com `/offline` como reserva. Política de cache e atualização controlada (`SKIP_WAITING`) mantidas.
+- `layouts/app.blade.php`: `theme-color` claro/escuro, `apple-mobile-web-app-status-bar-style=default`, `application-name`, `format-detection=telephone=no`.
+
+**O que ainda depende do navegador**: o Chrome só oferece a instalação em HTTPS, com manifesto e service worker válidos **e** após algum engajamento (segunda visita ou 30 s de uso); em teste local (`http://localhost`) o prompt aparece, mas em IP da rede não. O iOS não tem prompt. Sem o evento, o cartão não aparece no Android (não há como forçar).
+
+### Sensação nativa (sem bibliotecas)
+
+`resources/css/app.css`: sem realce azul ao tocar, sem "elástico" na rolagem (`overscroll-behavior-y`), sem zoom por duplo toque (`touch-action: manipulation`), transição de 150 ms entre telas com View Transitions + `wire:navigate` (desligada com `prefers-reduced-motion`), barra de progresso da navegação na cor de destaque, `.app-screen` com `100dvh`, resposta tátil (botões e links "afundam" 2% ao toque), `user-select: none` em botões e cabeçalho respeitando `safe-area-inset-top` quando instalado. `resources/js/pwa.js` fecha menus ao navegar (`bulai-navegando`) e volta ao topo da nova tela.
+
+### Regras de layout mobile (fiscal `tests/Feature/Consulta/ConsultaDesignSystemTest.php`)
+
+Varre `resources/views/livewire/consulta/**`, `resources/views/components/consulta/**` e `welcome.blade.php`. Falha com: `style=` inline; `whitespace-nowrap` sem `truncate`/`overflow-hidden`; `grid-cols-3+` sem prefixo responsivo; `w-64+`, `w-[…]`, `min-w-[…]` sem `max-w-…`; `text-[…]` acima de 2rem fora de `h1`/`h2`; `fixed inset-x-0` sem filho com `max-w-…`; `<table>` fora de `overflow-x-auto`; jargão (chunk, OCR, embedding, LLM, token, prompt…). Exceção consciente: atributo `data-mobile-ok="motivo"` na linha (ex.: seletor de 3 abas curtas). Guardas globais em `app.css`: `img/svg/video { max-width: 100% }`, `overflow-wrap: anywhere` em textos, `min-width: 0` nos filhos diretos do conteúdo e `overflow-x: clip` na casca.
+
+**Testes**: `tests/Feature/PwaAssetTest.php` (manifesto instalável, metas, fluxo de instalação, service worker, página offline, marca) e `ConsultaDesignSystemTest` (3 testes). **Limitações**: sem teste em aparelho real; o prompt do Chrome não é controlável pelo site; splash screen do iOS não configurada (usa fundo + ícone).
+
+## Telas do paciente redesenhadas (iteração 5)
+
+**Problema relatado**: "as páginas estão muito pobres e pouco intuitivas na versão aplicação e ela quebra o tamanho do mobile". Todas as telas do paciente (exceto Perguntar, tratada na seção de conversa) foram refeitas com uma mesma linguagem visual de aplicativo nativo, mantendo o contrato sênior-primeiro (`docs/design/principios-de-ux.md`) e passando no fiscal de layout `ConsultaDesignSystemTest`.
+
+### Componentes novos (`resources/views/components/consulta/`)
+
+| Componente | Uso |
+| --- | --- |
+| `x-consulta.botao` | Botão/link grande (`size` sm/md/lg = 48/56/64 px; `variant` primary/accent/secondary/soft/success/danger/quiet; `loadingTarget`/`loading`). Texto quebra em vez de estourar (sem `whitespace-nowrap`). Substitui `x-knowledge-admin.button` nas telas do paciente. |
+| `x-consulta.cartao` | Cartão com `tone` (neutral/brand/accent/warning/danger/success), `min-w-0`. |
+| `x-consulta.icone` | Ícone de linha (Heroicons) em círculo colorido (`name`, `tone`, `size`; `plain` = só o SVG). Mapa de ~30 nomes (pergunta, relogio, camera, remedios, historico, bula, sino, alerta, check, mais, lupa, pilula, coracao, receita, apagar, seta, fechar, editar, ouvir, escudo, info, sol, lua, calendario, desfazer, usuario). |
+| `x-consulta.selo` | Selo de situação (cor + texto, `break-words`). |
+| `x-consulta.vazio` | Estado vazio ilustrado (SVG inline) com título, texto e ações no slot. |
+| `x-consulta.anel-progresso` | Anel SVG "feitos/total" com `aria-label`; cor acompanha o avanço. |
+| `x-consulta.secao` | Acordeão (`details`) com ícone, título, resumo e seta animada; `open` por padrão opcional. |
+| `x-consulta.folha-acoes` | Bottom sheet (Alpine): sobe do rodapé no celular, centralizado no desktop; Esc/toque fora/Fechar; `x-trap.noscroll`. O pai declara `x-data="{ folha: false }"`. |
+| `x-consulta.segmentos` | Controle segmentado (2 ou 3 opções) em modo Alpine (`modelo`) ou servidor (`acao` + `ativo`). |
+
+`x-consulta.severity` ganhou `size="lg"` (selo grande), `x-consulta.risco` e `x-consulta.tratamento` ganharam ícone e `break-words`.
+
+### Por tela
+
+| Tela | O que mudou |
+| --- | --- |
+| Início | Data por extenso; chip de avisos não lidos; cartão do dia (anel de progresso, próxima dose, "Marcar como tomado" em 1 toque quando na janela); ações como cartões com ícone em círculo (Perguntar em laranja); `<x-consulta.instalar />`. |
+| Remédios de hoje | Segmentos Ontem/Hoje/Amanhã; resumo com anel; banner de atrasados; linha do tempo vertical por período com bolinhas de estado; Tomei/Pular lado a lado com `flex-wrap`; seção "Só quando precisar"; vazio ilustrado com "Adicionar remédio". |
+| Meus remédios | Segmentos Em uso/Receitas/Alergias; cartões com chips de horários e selos; folha de ações "⋯" (bula, horários, tirar com confirmação); posologia com "Mais detalhes" recolhido; "Você quis dizer…?" na busca; vazios ilustrados; consentimento com lista de garantias. |
+| Bula simples | Capa azul-marinho com nome, substância e "Para que serve" em destaque; botão "Ouvir a bula simples" (`speechSynthesis`, pt-BR; para ao navegar); demais seções em acordeão com ícone e cor por tipo (duas primeiras abertas); "Perguntar sobre este remédio" fixo embaixo. |
+| Verificar interações | Campo com ícone de busca; selecionados como chips removíveis (nome leva à bula); "Você quis dizer…?" quando a busca tolerante entrou em ação; resultados como cartões; CTA fixo. |
+| Resultado | Remédios como chips; alergia em cartão com ícone; progresso com `<progress>` durante a análise; gravidade como selo grande; "O que a bula diz" e "Entenda esta análise" em acordeão. |
+| O que já perguntei | Segmentos Perguntas/Interações; cartões com ícone, data relativa ("Hoje, 14:00", "Ontem, …"), selo de situação; confirmação de apagar inline; vazios ilustrados. |
+| Pergunta anterior | Mesmo padrão; "Sobre" em acordeão com botões para a bula. |
+| Avisos | Ícone por tipo (lembrete/fim de tratamento/remédio reconhecido), destaque dos não lidos, ações lado a lado com `flex-wrap`, preferências em cartão. |
+| Fotografar / Conferir a receita | Barra de etapas 1 Foto → 2 Conferir → 3 Pronto (a etapa concluída fica verde); itens numerados; selo "Leitura incerta"; "Você quis dizer…?" na busca de correção; tela de confirmação com "Pronto!". |
+| Sobre | Capa azul-marinho com o aviso e lista com ícones. |
+
+### Checklist de UX (seção 8 dos princípios), por tela
+
+| Critério | Início | Hoje | Meus remédios | Bula | Interações/Resultado | Histórico/Pergunta | Avisos | Receita | Sobre |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Ação primária única, visível sem rolar | Perguntar (ou Marcar como tomado) | Tomei | Adicionar remédio | Perguntar (fixo) | Verificar (fixo) / Repetir | Perguntar de novo (fixo) | Marcar todos como lidos | Ler / Confirmar (fixo) | Voltar (fixo) |
+| Sem duplicação | ✓ | ✓ (estado = selo + bolinha, mesma cor) | ✓ | ✓ ("Para que serve" só na capa) | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Três níveis (cabeçalho → resumo → detalhe recolhido) | ✓ | ✓ | ✓ ("Mais detalhes") | ✓ (acordeões) | ✓ (acordeões) | ✓ | ✓ | ✓ ("Quem receitou") | ✓ |
+| Lista enxuta (1 linha, 1 selo, 1 ação) | ✓ | ✓ | ✓ (ações na folha) | n/a | ✓ | ✓ | ✓ | ✓ | n/a |
+| Feedback (`wire:loading`, toast) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | n/a |
+| Polling restrito | n/a | lista (60 s) | n/a | n/a | bloco da análise (2 s) | n/a | n/a | bloco da leitura (2 s) | n/a |
+| Mobile 360–400 px sem rolagem horizontal | ✓ (`min-w-0`, `break-words`, `flex-wrap`; fiscal verde) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Linguagem (verbos, sem jargão) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Acessibilidade (rótulos, foco, `aria-*`, contraste AA) | ✓ (`aria-label` no anel) | ✓ (`aria-label` por dose, `aria-live`) | ✓ (`role=dialog` na folha, `x-trap`) | ✓ (`aria-pressed` no Ouvir) | ✓ | ✓ | ✓ | ✓ (`aria-current="step"`) | ✓ |
+
+**Testes** (`DB_DATABASE=… php artisan test tests/Feature/Consulta`): `ConsultaPwaTest` (Início com 3 destinos e ações grandes; busca com "Você quis dizer…?"), `RemediosDeHojeTest` (cartão do dia com progresso, "Marcar como tomado" só do dono, `irPara`, estado vazio com "Adicionar remédio"), `PerfilEPerguntasTest` (três segmentos renderizados, posologia, receitas), `ReceitaPorFotoTest`, `AvisosTest`, `BulaHumanizadaTest`, `ConsultaDesignSystemTest` (fiscal de layout). **Limitações**: sem teste em aparelhos reais nem com pessoas idosas; "Ouvir a bula" depende de `speechSynthesis` do navegador (voz pt-BR nem sempre instalada); a folha de ações usa `x-trap` do Alpine Focus embutido no Livewire.
+
+### Programação dinâmica por intervalo (06/11/2026)
+
+Remédios "de tantas em tantas horas" deixam de ter horários fixos: depois de "Tomei", a próxima dose é contada a partir do horário real da marcação (regra, exemplos e limitações em `docs/tratamento.md`). Na interface: Remédios de hoje mostra o intervalo, "Tomou às HH:MM" e o selo "Ajustado" com a explicação; a Início acrescenta "· ajustado" à próxima dose; Meus remédios e Revisar receita oferecem a escolha "Contar a partir de quando eu tomar (recomendado)" / "Horários fixos todos os dias" e, no modo dinâmico, pedem só o primeiro horário do dia. Testes: `RemediosDeHojeTest::test_interval_medicines_show_the_real_time_and_the_recalculated_doses_and_the_mode_can_be_chosen`, `ReceitaPorFotoTest` (item "de 8 em 8 horas" confirma em modo dinâmico).
+
+## Perguntar: chat amigável (iteração 5)
+
+**Propósito.** Quando a bula não responde, a tela fala com a pessoa em vez de mostrar um relatório ("Limitações", "evidências", "seção · página"). A conversa é feita de balões: a pergunta à direita, o BULA-IA à esquerda com avatar e nome; "digitando…" enquanto procura; rolagem automática para o último balão; a caixa de texto, o ditado e o botão Perguntar ficam fixos embaixo.
+
+**Arquivos.** `app/Livewire/Consulta/Perguntar.php` (`fala()`, `falaCurta()`, `listar()`, `reformulacoes()` — texto por situação, determinístico, sem IA), `resources/views/livewire/consulta/perguntar.blade.php`, componente novo `resources/views/components/consulta/balao.blade.php`; `resources/views/components/consulta/resposta.blade.php` (página do histórico) alinhado ao mesmo tom; `MedicationQuestionService::askFreeform()` passou a devolver `missing` (`unidentified`, `without_leaflet`) com os nomes em falta, sem mudar os campos existentes (`limitations`/`evidences` continuam no registro e no Analytics).
+
+**O que o balão diz.**
+
+| Situação | Texto | Próximo passo |
+| --- | --- | --- |
+| Respondida | a resposta; "Li isso na bula de X." (+ perfil, + conversa anterior) | Ouvir; "Ver na bula" recolhido com as partes usadas |
+| Só partes da bula | "Não consegui montar uma resposta curta com segurança, mas achei na bula de X estas partes que falam disso:" + até 2 partes de ~300 caracteres | 3 reformulações em chips ("X dá sono?", "Como devo tomar X?", "X pode ser tomado com comida?", "Quais os efeitos mais comuns de X?", sem repetir a pergunta atual) |
+| Nada na bula | "Procurei na bula de X e não achei nada sobre isso. Isso não quer dizer que seja “não”…" | reformulações + "pergunte ao seu farmacêutico" |
+| Sem bula | "Ainda não tenho a bula de X comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa." | chips com outros remédios em uso; "Não é esse remédio?" |
+| Nome sem bula ligada | "Encontrei o nome X, mas ainda não consigo ligar ele a uma bula…" | busca "Não é esse remédio?" |
+| Sem remédio na pergunta | "Sobre qual remédio você quer saber? Escreva o nome como está na caixa…" | chips dos remédios em uso |
+| Bloqueada | mensagem de segurança (e 188 quando há risco) | — |
+
+Correção de digitação ("Entendemos 'lozartana' como Losartana. Não é isso?") é uma linha dentro do balão com "Trocar" / "Não era esse remédio". Remédios sem bula numa pergunta com vários viram uma frase ("Ainda não tenho a bula de Y comigo."). O contexto do tratamento (alergia, interação) continua como uma única frase de risco (`x-consulta.risco`) abaixo do balão; os detalhes (partes da bula, o que foi considerado, link do histórico) ficam em "Ver na bula" / "Mais detalhes".
+
+**Testes.** `PerguntaLivreTest` (+4: só partes da bula, nada na bula, sem bula, falas determinísticas; nenhum balão mostra "Limitações", "seção", "página", "catálogo", "evidência" ou "Princípio ativo") e `PerfilEPerguntasTest` (textos). **Limitações.** As reformulações são modelos fixos por nome de remédio; a rolagem automática e o "digitando…" não foram verificados em aparelho real.

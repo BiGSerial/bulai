@@ -13,7 +13,10 @@ use Illuminate\Support\Str;
 final class DoseScheduleParser
 {
     /**
-     * @return array{times: list<string>, as_needed: bool, rule: string}|null
+     * `interval_hours` vem preenchido só na regra `interval` ("de 8 em 8 horas"): é o que permite a programação
+     * dinâmica, recalculada a partir do horário real em que o paciente tomou a dose anterior.
+     *
+     * @return array{times: list<string>, as_needed: bool, rule: string, interval_hours: int|null}|null
      */
     public function parse(?string $frequency): ?array
     {
@@ -22,7 +25,7 @@ final class DoseScheduleParser
             return null;
         }
         if (preg_match('/\b(se necessario|se precisar|quando (tiver|sentir|houver)|sos|em caso de|caso (tenha|sinta))\b/', $text) === 1) {
-            return ['times' => [], 'as_needed' => true, 'rule' => 'as_needed'];
+            return ['times' => [], 'as_needed' => true, 'rule' => 'as_needed', 'interval_hours' => null];
         }
         if (preg_match('/\b(semana|semanal|semanalmente|mes|mensal|mensalmente|quinzen)/', $text) === 1) {
             return null;
@@ -36,7 +39,7 @@ final class DoseScheduleParser
         $periods = $this->periods($text);
         $count = $this->timesPerDay($text);
         if ($count === null && $periods !== []) {
-            return ['times' => $periods, 'as_needed' => false, 'rule' => 'periods'];
+            return ['times' => $periods, 'as_needed' => false, 'rule' => 'periods', 'interval_hours' => null];
         }
         if ($count === null && preg_match('/\b(diariamente|todo dia|todos os dias|ao dia|por dia|dia)\b/', $text) === 1) {
             $count = 1;
@@ -45,10 +48,10 @@ final class DoseScheduleParser
             return null;
         }
         if ($count === 1 && $periods !== []) {
-            return ['times' => [$periods[0]], 'as_needed' => false, 'rule' => 'periods'];
+            return ['times' => [$periods[0]], 'as_needed' => false, 'rule' => 'periods', 'interval_hours' => null];
         }
         if ($count === count($periods)) {
-            return ['times' => $periods, 'as_needed' => false, 'rule' => 'periods'];
+            return ['times' => $periods, 'as_needed' => false, 'rule' => 'periods', 'interval_hours' => null];
         }
 
         return $this->timesFor($count, 'count');
@@ -79,7 +82,7 @@ final class DoseScheduleParser
             return null;
         }
         if (24 % $hours === 0) {
-            return $this->timesFor(intdiv(24, $hours), 'interval');
+            return ['interval_hours' => $hours] + $this->timesFor(intdiv(24, $hours), 'interval');
         }
         $times = [];
         for ($minutes = 8 * 60; $minutes < 8 * 60 + 24 * 60; $minutes += $hours * 60) {
@@ -88,16 +91,16 @@ final class DoseScheduleParser
         }
         sort($times);
 
-        return ['times' => $times, 'as_needed' => false, 'rule' => 'interval'];
+        return ['times' => $times, 'as_needed' => false, 'rule' => 'interval', 'interval_hours' => $hours];
     }
 
-    /** @return array{times: list<string>, as_needed: bool, rule: string} */
+    /** @return array{times: list<string>, as_needed: bool, rule: string, interval_hours: int|null} */
     private function timesFor(int $count, string $rule): array
     {
         $times = $this->defaultTimes($count);
         sort($times);
 
-        return ['times' => $times, 'as_needed' => false, 'rule' => $rule];
+        return ['times' => $times, 'as_needed' => false, 'rule' => $rule, 'interval_hours' => null];
     }
 
     private function timesPerDay(string $text): ?int

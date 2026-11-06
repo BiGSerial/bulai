@@ -17,16 +17,39 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * cadastra pelo nome como está na receita, o remédio aparece no tratamento e os administradores recebem a pendência
  * (`UnmatchedMedicineReport`) para ligá-lo ao catálogo depois.
  */
-#[Fillable(['user_id', 'medicine_id', 'name_as_written', 'catalog_status', 'prescription_id', 'dosage', 'frequency', 'dose_times', 'as_needed', 'reminders_enabled', 'started_at', 'ends_at', 'notes'])]
+#[Fillable(['user_id', 'medicine_id', 'name_as_written', 'catalog_status', 'prescription_id', 'dosage', 'frequency', 'dose_times', 'interval_minutes', 'schedule_mode', 'as_needed', 'reminders_enabled', 'started_at', 'ends_at', 'notes'])]
 class PatientMedication extends Model
 {
     public const CATALOG_MATCHED = 'matched';
 
     public const CATALOG_UNMATCHED = 'unmatched';
 
+    /** Horários fixos do dia (`dose_times`). */
+    public const MODE_FIXED = 'fixed';
+
+    /** Intervalo contado a partir do horário real da última dose tomada ("de 8 em 8 horas"). */
+    public const MODE_INTERVAL = 'interval';
+
     protected function casts(): array
     {
-        return ['started_at' => 'date', 'ends_at' => 'date', 'dose_times' => 'array', 'as_needed' => 'boolean', 'reminders_enabled' => 'boolean'];
+        return ['started_at' => 'date', 'ends_at' => 'date', 'dose_times' => 'array', 'interval_minutes' => 'integer', 'as_needed' => 'boolean', 'reminders_enabled' => 'boolean'];
+    }
+
+    /** Programação dinâmica: há intervalo definido, o modo é `interval` e não é "se precisar". */
+    public function isDynamic(): bool
+    {
+        return ! $this->as_needed && $this->schedule_mode === self::MODE_INTERVAL && (int) $this->interval_minutes > 0;
+    }
+
+    /** "a cada 8 h", "a cada 90 min"; null sem intervalo. */
+    public function intervalLabel(): ?string
+    {
+        $minutes = (int) $this->interval_minutes;
+        if ($minutes <= 0) {
+            return null;
+        }
+
+        return $minutes % 60 === 0 ? 'a cada '.intdiv($minutes, 60).' h' : 'a cada '.$minutes.' min';
     }
 
     public function medicine(): BelongsTo

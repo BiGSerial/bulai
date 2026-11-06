@@ -193,10 +193,10 @@ final class PerfilEPerguntasTest extends TestCase
         Livewire::actingAs($user)->test(Perguntar::class)
             ->call('perguntar')->assertSee('Escreva sua pergunta')
             ->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
-            ->assertSee('Entendemos que você perguntou sobre')->assertSee('OMEPRAZOL')
-            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('página 3')->assertSee('Baseado na bula oficial, conferido automaticamente.')
-            ->assertDontSee('O comprimido deve ser tomado em jejum.')
-            ->assertSee('Guardada no seu');
+            ->assertSee('Falando de:')->assertSee('OMEPRAZOL')
+            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('Ver na bula')->assertSee('Li isso na bula de OMEPRAZOL.')
+            ->assertDontSee('página 3')->assertDontSee('Limitações')
+            ->assertSee('Guardei esta conversa no seu');
 
         $question = MedicationQuestion::query()->sole();
         $this->assertSame([$user->id, $medicine->id, 'OMEPRAZOL', 'omeprazol em jejum?', MedicationQuestionService::ANSWERED], [$question->user_id, $question->medicine_id, $question->medicine_name, $question->question, $question->status]);
@@ -311,7 +311,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame('major', $record->treatment_context['highest_severity']);
         $this->assertSame('ZOCOR', $record->treatment_context['interactions'][0]['medicine']);
 
-        $this->actingAs($user)->get(route('consulta.pergunta', $record))->assertOk()->assertSee('posso tomar com sinvastatina?')->assertSee('Com ZOCOR')->assertSee('Considera os medicamentos e alergias do seu perfil');
+        $this->actingAs($user)->get(route('consulta.pergunta', $record))->assertOk()->assertSee('posso tomar com sinvastatina?')->assertSee('Com ZOCOR')->assertSee('Também olhei os remédios e as alergias do seu perfil');
         $this->actingAs(User::factory()->create())->get(route('consulta.pergunta', $record))->assertNotFound();
     }
 
@@ -321,6 +321,9 @@ final class PerfilEPerguntasTest extends TestCase
         $medicine = $this->medicine('OMEPRAZOL', 'OMEPRAZOLSUB');
 
         $component = Livewire::actingAs($user)->test(Perfil::class)
+            // Os três segmentos (Em uso · Receitas · Alergias) são renderizados juntos; a troca é no cliente, sem recarregar.
+            ->assertSee('Em uso')->assertSee('Receitas')->assertSee('Alergias')
+            ->assertSeeHtml('id="painel-remedios"')->assertSeeHtml('id="painel-receitas"')->assertSeeHtml('id="painel-alergias"')
             ->set('prescritor', 'Dr')->call('adicionarReceita')->assertSee('prescritor')
             ->set('prescritor', 'Dra. Ana Souza')->set('registroPrescritor', 'CRM-SP 9988')->set('dataReceita', now()->subDay()->format('Y-m-d'))->call('adicionarReceita')
             ->assertSee('Dra. Ana Souza')->assertSee('CRM-SP 9988');
@@ -377,6 +380,6 @@ final class PerfilEPerguntasTest extends TestCase
         $this->actingAs($admin)->get('/inicio')->assertOk()->assertSee('Área administrativa');
         $this->actingAs($admin)->get('/admin/knowledge')->assertOk()->assertSee('App do paciente');
         $manifest = json_decode(file_get_contents(public_path('manifest.webmanifest')), true);
-        $this->assertSame('/inicio', $manifest['start_url']);
+        $this->assertStringStartsWith('/inicio', $manifest['start_url']);
     }
 }

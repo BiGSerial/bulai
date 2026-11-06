@@ -19,37 +19,48 @@
     <livewire:admin.knowledge.batches.progress :batch="$batch" :key="'progress-'.$batch->id" />
 
     <section class="grid gap-2" aria-label="Arquivos desta importação">
-        @forelse ($items as $item)
-            @php
-                $found = (array) data_get($item->metadata, 'preliminary_identification.fields', []);
-                $title = $item->knowledgeDocument?->title ?? (filled($found['product_name'] ?? null) ? $found['product_name'] : $item->original_filename);
-                $support = match ($item->status) {
-                    'PENDING' => match ($item->reason) { 'no_match_found' => 'Sem documento correspondente', 'document_already_has_different_file' => 'O documento identificado já tem outro PDF', 'ambiguous_source_document_id', 'ambiguous_normalized_filename' => 'Mais de um destino possível', default => 'Aguardando sua decisão' },
-                    'IGNORED' => 'Resolvido sem incorporação',
-                    'DUPLICATE' => 'Já existia na base',
-                    'ERROR' => 'Falha ao processar o arquivo',
-                    default => 'Incorporado à base',
-                };
-            @endphp
-            <article wire:key="item-{{ $item->id }}" class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <div class="min-w-0 flex-1">
-                    <h2 class="truncate text-base font-semibold text-slate-900" title="{{ $title }}">{{ $title }}</h2>
-                    <p class="truncate text-sm text-slate-500">{{ $title !== $item->original_filename ? $item->original_filename.' · ' : '' }}{{ $support }}</p>
-                </div>
-                <div class="flex shrink-0 flex-wrap items-center gap-2">
-                    <x-knowledge-admin.status-badge :status="$item->status" />
-                    @if ($item->status === \App\Models\Knowledge\IngestionBatchItem::STATUS_PENDING)
-                        <x-knowledge-admin.button :href="route('admin.knowledge.pending.review', [$batch, $item])">Revisar</x-knowledge-admin.button>
-                    @elseif ($item->knowledge_document_id)
-                        <x-knowledge-admin.button variant="secondary" :href="route('admin.knowledge.documents.show', $item->knowledge_document_id)">Abrir</x-knowledge-admin.button>
-                    @else
-                        <x-knowledge-admin.button variant="secondary" :href="route('admin.knowledge.pending.review', [$batch, $item])">Detalhes</x-knowledge-admin.button>
-                    @endif
-                </div>
-            </article>
-        @empty
+        @if ($items->isEmpty())
             <x-knowledge-admin.empty-state>Esta importação não possui arquivos.</x-knowledge-admin.empty-state>
-        @endforelse
+        @else
+            <x-knowledge-admin.data-table :columns="[['label' => 'Arquivo'], ['label' => 'Documento identificado'], ['label' => 'Resultado'], ['label' => 'Situação'], ['label' => '', 'class' => 'w-px']]">
+                @foreach ($items as $item)
+                    @php
+                        $found = (array) data_get($item->metadata, 'preliminary_identification.fields', []);
+                        $title = $item->knowledgeDocument?->title ?? (filled($found['product_name'] ?? null) ? $found['product_name'] : null);
+                        $support = match ($item->status) {
+                            'PENDING' => match ($item->reason) { 'no_match_found' => 'Sem documento correspondente', 'document_already_has_different_file' => 'O documento identificado já tem outro PDF', 'ambiguous_source_document_id', 'ambiguous_normalized_filename' => 'Mais de um destino possível', default => 'Aguardando sua decisão' },
+                            'IGNORED' => 'Resolvido sem incorporação',
+                            'DUPLICATE' => 'Já existia na base',
+                            'ERROR' => 'Falha ao processar o arquivo',
+                            default => 'Incorporado à base',
+                        };
+                    @endphp
+                    <tr wire:key="item-{{ $item->id }}" class="hover:bg-brand-50/40">
+                        <td class="max-w-xs px-3 py-2"><span class="block truncate font-semibold text-slate-900" title="{{ $item->original_filename }}">{{ $item->original_filename }}</span></td>
+                        <td class="max-w-sm px-3 py-2">
+                            @if ($item->knowledge_document_id)
+                                <a class="block truncate text-slate-900 hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.knowledge.documents.show', $item->knowledge_document_id) }}" wire:navigate title="{{ $title }}">{{ $title }}</a>
+                            @else
+                                <span class="block truncate text-slate-700" title="{{ $title ?? '' }}">{{ $title ?? '—' }}</span>
+                            @endif
+                        </td>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ $support }}</td>
+                        <td class="whitespace-nowrap px-3 py-2"><x-knowledge-admin.status-badge :status="$item->status" /></td>
+                        <td class="px-2 py-1">
+                            <x-knowledge-admin.row-actions>
+                                @if ($item->status === \App\Models\Knowledge\IngestionBatchItem::STATUS_PENDING)
+                                    <x-knowledge-admin.button variant="secondary" size="sm" :href="route('admin.knowledge.pending.review', [$batch, $item])">Revisar</x-knowledge-admin.button>
+                                @elseif ($item->knowledge_document_id)
+                                    <x-knowledge-admin.button variant="quiet" size="sm" :href="route('admin.knowledge.documents.show', $item->knowledge_document_id)">Abrir</x-knowledge-admin.button>
+                                @else
+                                    <x-knowledge-admin.button variant="quiet" size="sm" :href="route('admin.knowledge.pending.review', [$batch, $item])">Detalhes</x-knowledge-admin.button>
+                                @endif
+                            </x-knowledge-admin.row-actions>
+                        </td>
+                    </tr>
+                @endforeach
+            </x-knowledge-admin.data-table>
+        @endif
     </section>
     {{ $items->links() }}
 </x-knowledge-admin.shell>

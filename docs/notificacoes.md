@@ -49,3 +49,4 @@ Serviço `scheduler` novo em `compose.prod.yaml` (`php artisan schedule:work`, 2
 - O e-mail depende de `MAIL_MAILER` configurado no ambiente; em desenvolvimento (`log`) o conteúdo vai para o log.
 - `BULAI_REMINDER_QUEUE` está reservada: hoje a entrega é síncrona dentro do agendador (volume pequeno, sem dependência do worker).
 - A janela de lembrete é avaliada a cada 5 minutos; um lembrete pode chegar até 5 minutos depois do início da janela.
+- Remédios com programação dinâmica ("de 8 em 8 horas"): o lembrete segue a agenda recalculada a partir do horário real da última dose tomada (ver `docs/tratamento.md`, "Programação dinâmica por intervalo").

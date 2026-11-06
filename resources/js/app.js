@@ -83,3 +83,6 @@ function connectRealtime() {
 document.addEventListener('livewire:navigated', connectRealtime);
 document.addEventListener('DOMContentLoaded', connectRealtime);
 window.addEventListener('pagehide', () => realtimeSource?.close());
+
+import './voz.js';
+import './pwa.js';

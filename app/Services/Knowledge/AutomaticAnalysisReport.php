@@ -47,6 +47,16 @@ final class AutomaticAnalysisReport
 
     private const FIELDS = ['product_name' => 'Medicamento', 'active_ingredient' => 'Princípio ativo', 'document_type' => 'Tipo de bula'];
 
+    /** Motivo, em frase curta, de a IA local ter sido substituída pela retaguarda ("A IA local …"). */
+    private const FALLBACK_ERRORS = [
+        'AI_INVALID_RESPONSE' => 'respondeu fora do formato esperado',
+        'AI_TIMEOUT' => 'demorou mais que o limite',
+        'AI_UNAVAILABLE' => 'não conseguiu conectar',
+        'AI_RATE_LIMITED' => 'recusou por excesso de requisições',
+        'AI_INVALID_REQUEST' => 'recebeu um pedido acima dos limites de tamanho',
+        'AI_NOT_CONFIGURED' => 'não está configurada',
+    ];
+
     /**
      * @return array{
      *     analyzed: bool,
@@ -211,7 +221,33 @@ final class AutomaticAnalysisReport
             'comparison' => $this->comparison($classification, $heuristicFallback, $catalog, $current),
             'gap_fill' => (bool) ($classification['gap_fill'] ?? false),
             'gap_fill_outcome' => $classification['gap_fill_outcome'] ?? null,
+            'provider' => is_string($classification['provider'] ?? null) ? $classification['provider'] : null,
+            'fallback' => $this->fallback($classification),
         ];
+    }
+
+    /**
+     * Frase simples sobre a retaguarda: só existe quando a IA local foi substituída pelo Claude.
+     *
+     * @param  array<string, mixed>  $classification
+     * @return array{used: bool, text: string}|null
+     */
+    private function fallback(array $classification): ?array
+    {
+        $fallback = $classification['fallback'] ?? null;
+        if (! is_array($fallback) || ! ($fallback['used'] ?? false)) {
+            return null;
+        }
+        $reason = (string) ($fallback['reason'] ?? '');
+        $why = match (true) {
+            $reason === 'low_confidence' => sprintf('respondeu com confiança baixa (%s%%)', number_format((float) ($fallback['primary_confidence'] ?? 0) * 100, 0)),
+            $reason === 'missing_active_ingredient' => 'não encontrou o princípio ativo',
+            str_starts_with($reason, 'exception:') => self::FALLBACK_ERRORS[substr($reason, 10)] ?? 'não respondeu ('.substr($reason, 10).')',
+            default => 'não conseguiu responder',
+        };
+        $model = is_string($classification['model'] ?? null) ? $classification['model'] : null;
+
+        return ['used' => true, 'text' => sprintf('A IA local %s; a resposta veio do Claude%s.', rtrim($why, '.'), $model !== null ? " ({$model})" : '')];
     }
 
     /** @return array<string, mixed>|null */

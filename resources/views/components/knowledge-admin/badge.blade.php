@@ -5,7 +5,8 @@
         'warning' => 'bg-amber-50 text-amber-900 ring-amber-600/20',
         'danger' => 'bg-rose-50 text-rose-800 ring-rose-600/20',
         'info' => 'bg-sky-50 text-sky-800 ring-sky-600/20',
+        'brand' => 'bg-brand-50 text-brand-800 ring-brand-600/20',
         default => 'bg-slate-100 text-slate-700 ring-slate-500/20',
     };
 @endphp
-<span {{ $attributes->class("inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset {$classes}") }}>{{ $slot }}</span>
+<span {{ $attributes->class("inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium leading-5 ring-1 ring-inset {$classes}") }}>{{ $slot }}</span>

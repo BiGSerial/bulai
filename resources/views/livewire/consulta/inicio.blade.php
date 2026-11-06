@@ -1,22 +1,49 @@
 @php
-    // Cinco ações grandes, uma por linha. Nada mais na tela (sênior-primeiro).
+    // Cartão do dia + ações grandes, uma por linha. Nada mais na tela (sênior-primeiro).
     $acoes = array_values(array_filter([
-        ['route' => route('consulta.perguntar'), 'title' => 'Perguntar sobre um remédio', 'text' => 'Escreva ou fale sua dúvida', 'tone' => 'bg-accent-600 text-white hover:bg-accent-700', 'icon' => 'M8.625 9.75a3.375 3.375 0 1 1 6.75 0c0 1.5-1.125 2.25-2.25 3-.75.5-1.125 1-1.125 1.875M12 18h.008M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
-        ['route' => route('consulta.hoje'), 'title' => 'Remédios de hoje', 'text' => $proximaDose, 'tone' => $doseAtrasada ? 'bg-rose-700 text-white hover:bg-rose-800' : 'bg-brand-700 text-white hover:bg-brand-800', 'icon' => 'M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z'],
-        $receitaPorFoto ? ['route' => route('consulta.receita.nova'), 'title' => 'Fotografar minha receita', 'text' => 'O app lê os remédios para você conferir', 'tone' => 'bg-white text-brand-900 ring-1 ring-slate-300 hover:bg-brand-50', 'icon' => 'M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18A2.25 2.25 0 0 0 4.5 20.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316ZM16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Z'] : null,
-        ['route' => route('consulta.perfil'), 'title' => 'Meus remédios', 'text' => 'Receitas, alergias e o que você toma', 'tone' => 'bg-white text-brand-900 ring-1 ring-slate-300 hover:bg-brand-50', 'icon' => 'M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z'],
-        ['route' => route('consulta.historico'), 'title' => 'Ver o que já perguntei', 'text' => 'Suas perguntas e consultas anteriores', 'tone' => 'bg-white text-brand-900 ring-1 ring-slate-300 hover:bg-brand-50', 'icon' => 'M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z'],
+        ['route' => route('consulta.perguntar'), 'title' => 'Perguntar sobre um remédio', 'text' => 'Escreva ou fale sua dúvida', 'icon' => 'pergunta', 'tone' => 'accent', 'destaque' => true],
+        ['route' => route('consulta.hoje'), 'title' => 'Remédios de hoje', 'text' => $proximaDose, 'icon' => 'relogio', 'tone' => $doseAtrasada ? 'danger' : 'brand'],
+        $receitaPorFoto ? ['route' => route('consulta.receita.nova'), 'title' => 'Fotografar minha receita', 'text' => 'O app lê os remédios para você conferir', 'icon' => 'camera', 'tone' => 'success'] : null,
+        ['route' => route('consulta.perfil'), 'title' => 'Meus remédios', 'text' => 'Receitas, alergias e o que você toma', 'icon' => 'remedios', 'tone' => 'brand'],
+        ['route' => route('consulta.historico'), 'title' => 'Ver o que já perguntei', 'text' => 'Suas perguntas e consultas anteriores', 'icon' => 'historico', 'tone' => 'neutral'],
     ]));
 @endphp
 <x-consulta.shell title="Olá{{ $nome !== '' ? ', '.$nome : '' }}" :conta="true">
-    <p class="-mt-1 px-1 text-xl text-slate-800">O que você quer fazer?</p>
+    <div class="-mt-1 flex flex-wrap items-center justify-between gap-2 px-1">
+        <p class="text-lg text-slate-700">{{ $dataHoje }}</p>
+        @if ($naoLidos > 0)
+            <a href="{{ route('consulta.avisos') }}" wire:navigate class="inline-flex min-h-11 items-center gap-2 rounded-full bg-accent-100 px-4 text-base font-semibold text-accent-800 ring-1 ring-inset ring-accent-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"><x-consulta.icone name="sino" plain class="size-5" />{{ $naoLidos }} {{ $naoLidos === 1 ? 'aviso novo' : 'avisos novos' }}</a>
+        @endif
+    </div>
+
+    {{-- Cartão do dia: quantas doses já foram, qual é a próxima e "Tomei" em um toque (só quando está na hora). --}}
+    @if ($consentido && $total > 0)
+        <section class="grid gap-4 rounded-3xl bg-brand-700 p-5 text-white shadow-md" aria-labelledby="dia-titulo">
+            <div class="flex items-center gap-4">
+                <x-consulta.anel-progresso :feitos="$tomadas" :total="$total" rotulo="doses" tone="text-accent-400" class="rounded-full bg-white/95" />
+                <div class="min-w-0 flex-1">
+                    <h2 id="dia-titulo" class="text-base font-semibold uppercase tracking-wide text-brand-100">Hoje</h2>
+                    <p class="break-words text-2xl font-semibold leading-tight">{{ $tomadas === $total ? 'Tudo tomado por hoje!' : $tomadas.' de '.$total.' '.($total === 1 ? 'dose tomada' : 'doses tomadas') }}</p>
+                    @if ($proxima !== null)
+                        <p class="mt-1 break-words text-lg {{ $doseAtrasada ? 'font-semibold text-accent-200' : 'text-brand-100' }}">{{ $proximaDose }}</p>
+                    @endif
+                </div>
+            </div>
+            @if ($podeMarcar)
+                <x-consulta.botao variant="accent" wire:click="tomei({{ $proxima['medication']->id }}, '{{ $proxima['scheduled_for']->utc()->toIso8601String() }}')" loadingTarget="tomei" loading="Anotando…"><x-consulta.icone name="check" plain class="size-7" />Marcar como tomado</x-consulta.botao>
+            @endif
+        </section>
+    @endif
+
     <nav class="grid gap-3" aria-label="Ações principais">
         @foreach ($acoes as $acao)
-            <a href="{{ $acao['route'] }}" wire:navigate class="flex min-h-20 items-center gap-4 rounded-2xl px-5 py-4 shadow-sm transition focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40 {{ $acao['tone'] }}">
-                <svg class="size-10 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $acao['icon'] }}" /></svg>
-                <span class="min-w-0"><span class="block text-xl font-semibold leading-tight">{{ $acao['title'] }}</span><span class="block text-base opacity-90">{{ $acao['text'] }}</span></span>
-                <svg class="ml-auto size-7 shrink-0 opacity-70" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+            <a href="{{ $acao['route'] }}" wire:navigate class="flex min-h-20 min-w-0 items-center gap-4 rounded-2xl px-4 py-4 shadow-sm ring-1 transition active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40 {{ ($acao['destaque'] ?? false) ? 'bg-accent-600 text-white ring-accent-700 hover:bg-accent-700' : 'bg-white text-slate-900 ring-slate-200 hover:bg-brand-50' }}">
+                <x-consulta.icone :name="$acao['icon']" :tone="($acao['destaque'] ?? false) ? 'white' : $acao['tone']" size="lg" />
+                <span class="min-w-0 flex-1"><span class="block break-words text-xl font-semibold leading-tight">{{ $acao['title'] }}</span><span class="block break-words text-base {{ ($acao['destaque'] ?? false) ? 'text-white/90' : ($acao['tone'] === 'danger' ? 'font-semibold text-rose-800' : 'text-slate-600') }}">{{ $acao['text'] }}</span></span>
+                <x-consulta.icone name="seta" plain class="size-6 shrink-0 opacity-60" />
             </a>
         @endforeach
     </nav>
+
+    <x-consulta.instalar />
 </x-consulta.shell>

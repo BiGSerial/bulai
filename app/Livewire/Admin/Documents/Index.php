@@ -13,11 +13,20 @@ class Index extends Component
 {
     use WithPagination;
 
+    /** Colunas ordenáveis (lista branca): rótulo da URL => expressão da consulta. */
+    private const SORTABLE = ['title' => 'title', 'type' => 'document_type', 'trechos' => 'chunks_count', 'updated' => 'updated_at', 'created' => 'created_at'];
+
     #[Url(as: 'q', except: '')]
     public string $search = '';
 
     #[Url(as: 'file', except: '')]
     public string $fileStatus = '';
+
+    #[Url(except: 'updated')]
+    public string $sort = 'updated';
+
+    #[Url(as: 'dir', except: 'desc')]
+    public string $direction = 'desc';
 
     public function updatedSearch(): void
     {
@@ -35,8 +44,21 @@ class Index extends Component
         $this->resetPage();
     }
 
+    /** Ordena pela coluna; clicar de novo inverte o sentido. */
+    public function sortBy(string $field): void
+    {
+        if (! isset(self::SORTABLE[$field])) {
+            return;
+        }
+        $this->direction = $this->sort === $field && $this->direction === 'asc' ? 'desc' : 'asc';
+        $this->sort = $field;
+        $this->resetPage();
+    }
+
     public function render(): View
     {
+        $column = self::SORTABLE[$this->sort] ?? 'updated_at';
+        $direction = $this->direction === 'asc' ? 'asc' : 'desc';
         $documents = KnowledgeDocument::query()
             ->with('source')
             ->withCount('chunks')
@@ -55,9 +77,9 @@ class Index extends Component
             ->when($this->fileStatus !== '', function (Builder $query): void {
                 $query->where('file_status', $this->fileStatus);
             })
-            ->orderByDesc('created_at')
+            ->orderBy($column, $direction)
             ->orderByDesc('id')
-            ->paginate(20);
+            ->paginate(25);
 
         return view('livewire.admin.documents.index', [
             'documents' => $documents,

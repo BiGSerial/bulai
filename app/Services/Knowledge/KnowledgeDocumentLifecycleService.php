@@ -43,7 +43,8 @@ final class KnowledgeDocumentLifecycleService
             KnowledgeSource::query()->whereKey($sourceId)->lockForUpdate()->firstOrFail();
             $externalKey = $this->string($attributes['external_key'] ?? null);
             $sourceDocumentId = $this->string($attributes['source_document_id'] ?? null);
-            $existing = $this->findExisting($sourceId, $externalKey, $sourceDocumentId);
+            $documentType = $this->string($attributes['document_type'] ?? null);
+            $existing = $this->findExisting($sourceId, $externalKey, $sourceDocumentId, $documentType);
             if ($existing !== null) {
                 if ($automatic) {
                     return $existing;
@@ -65,7 +66,7 @@ final class KnowledgeDocumentLifecycleService
 
             $externalKey ??= $sourceDocumentId === null
                 ? 'manual:'.$sourceId.':'.Str::uuid()->toString()
-                : 'source:'.$sourceId.':'.hash('sha256', Str::lower($sourceDocumentId));
+                : $this->sourceExternalKey($sourceId, $sourceDocumentId, $documentType);
 
             return KnowledgeDocument::query()->create([
                 'source_id' => $sourceId, 'ingestion_batch_id' => $attributes['ingestion_batch_id'] ?? null,
@@ -78,13 +79,30 @@ final class KnowledgeDocumentLifecycleService
         });
     }
 
-    private function findExisting(int $sourceId, ?string $externalKey, ?string $sourceDocumentId): ?KnowledgeDocument
+    /**
+     * O mesmo registro ANVISA tem bula do paciente e do profissional: são documentos distintos.
+     */
+    private function findExisting(int $sourceId, ?string $externalKey, ?string $sourceDocumentId, ?string $documentType): ?KnowledgeDocument
     {
         if ($externalKey !== null && ($document = KnowledgeDocument::query()->where('external_key', $externalKey)->first()) !== null) {
             return $document;
         }
 
-        return $sourceDocumentId === null ? null : KnowledgeDocument::query()->where('source_id', $sourceId)->where('source_document_id', $sourceDocumentId)->first();
+        return $sourceDocumentId === null ? null : KnowledgeDocument::query()
+            ->where('source_id', $sourceId)
+            ->where('source_document_id', $sourceDocumentId)
+            ->when($documentType !== null, fn ($query) => $query->where('document_type', $documentType))
+            ->first();
+    }
+
+    /** Chave base por registro; se já pertence a outro tipo de bula, acrescenta o tipo para não colidir. */
+    private function sourceExternalKey(int $sourceId, string $sourceDocumentId, ?string $documentType): string
+    {
+        $key = 'source:'.$sourceId.':'.hash('sha256', Str::lower($sourceDocumentId));
+
+        return $documentType !== null && KnowledgeDocument::query()->where('external_key', $key)->exists()
+            ? $key.':'.$documentType
+            : $key;
     }
 
     private function string(mixed $value): ?string

@@ -8,6 +8,7 @@ use App\Livewire\Admin\Knowledge\Pending\Review;
 use App\Livewire\Admin\Knowledge\QueueStatus;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
+use App\Models\Knowledge\KnowledgeProcessingEvent;
 use App\Models\Knowledge\KnowledgeSource;
 use App\Models\User;
 use App\Services\Health\ServiceHealthChecker;
@@ -171,6 +172,60 @@ final class QueueStatusTest extends TestCase
         $this->assertTrue(app(ServiceHealthChecker::class)->ocr()->isWorking());
     }
 
+    public function test_snapshot_lists_documents_in_processing_and_matches_the_ocr_page_by_correlation_id(): void
+    {
+        Http::swap(new Factory);
+        Http::fake([
+            'http://document-ocr:8000/status' => Http::response(['status' => 'ok', 'busy' => true, 'active' => 1, 'current' => ['correlation_id' => 'corr-ocr-1', 'page' => 7, 'total_pages' => 12, 'elapsed_seconds' => 65.4]]),
+            '*' => Http::response(['status' => 'READY', 'busy' => false]),
+        ]);
+        $ocr = KnowledgeProcessingEvent::factory()->running()->create(['step' => KnowledgeProcessingEvent::STEP_OCR, 'detail' => ['correlation_id' => 'corr-ocr-1', 'reason' => 'low_quality']]);
+        $otherOcr = KnowledgeProcessingEvent::factory()->running()->create(['step' => KnowledgeProcessingEvent::STEP_OCR, 'detail' => ['correlation_id' => 'corr-ocr-2']]);
+        $embed = KnowledgeProcessingEvent::factory()->running()->create(['step' => KnowledgeProcessingEvent::STEP_EMBED, 'detail' => ['batch' => 2, 'batches' => 5, 'chunks_done' => 32, 'chunks' => 80]]);
+        KnowledgeProcessingEvent::query()->whereKey($otherOcr->id)->update(['started_at' => now()->subMinutes(30), 'updated_at' => now()->subMinutes(30)]);
+        KnowledgeProcessingEvent::factory()->create(['step' => KnowledgeProcessingEvent::STEP_CHUNK]);
+
+        $documents = collect(app(QueueStatusService::class)->snapshot()['documents']);
+
+        $this->assertCount(3, $documents, 'só etapas em andamento entram');
+        $matched = $documents->firstWhere('id', $ocr->document_id);
+        $this->assertSame(['page' => 7, 'total' => 12], $matched['progress']);
+        $this->assertSame(['Leitura por imagem (OCR)', 'página 7 de 12 · 65 s', false], [$matched['step_label'], $matched['summary'], $matched['stale']]);
+        $unmatched = $documents->firstWhere('id', $otherOcr->document_id);
+        $this->assertSame([null, true], [$unmatched['progress'], $unmatched['stale']], 'outro correlation_id não ganha a página e sem sinal há 30 min fica parado');
+        $this->assertSame([null, '32 de 80 trechos · lote 2 de 5'], [$documents->firstWhere('id', $embed->document_id)['progress'], $documents->firstWhere('id', $embed->document_id)['summary']]);
+
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/queue')->assertOk()
+            ->assertSee('Bulas em processamento')->assertSee('3 bulas em processamento · 1 sem sinal')
+            ->assertSee('Página 7 de 12')->assertSee('Sem sinal há mais de')->assertSee('32 de 80 trechos · lote 2 de 5')
+            ->assertSee(route('admin.documents.show', $ocr->document_id), false);
+    }
+
+    public function test_queue_page_without_documents_in_processing_shows_a_compact_empty_state(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'ok', 'busy' => false])]);
+
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/queue')->assertOk()
+            ->assertSee('Nenhuma bula sendo processada agora.');
+    }
+
+    public function test_stream_carries_documents_in_processing_and_service_hints(): void
+    {
+        config()->set('knowledge.stream.seconds', 0);
+        Http::fake([
+            'http://document-ocr:8000/status' => Http::response(['status' => 'ok', 'busy' => true, 'current' => ['correlation_id' => 'corr-stream', 'page' => 3, 'total_pages' => 9, 'elapsed_seconds' => 12]]),
+            '*' => Http::response(['status' => 'READY', 'busy' => false]),
+        ]);
+        $event = KnowledgeProcessingEvent::factory()->running()->create(['step' => KnowledgeProcessingEvent::STEP_OCR, 'detail' => ['correlation_id' => 'corr-stream']]);
+
+        $body = $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/stream')->assertOk()->streamedContent();
+
+        preg_match('/event: changed\ndata: (.+)\n/', $body, $match);
+        $payload = json_decode($match[1] ?? '{}', true);
+        $this->assertSame([['id' => $event->document_id, 'title' => 'Bula de teste', 'step' => 'ocr', 'summary' => 'página 3 de 9 · 12 s', 'progress' => ['page' => 3, 'total' => 9]]], $payload['documents']);
+        $this->assertSame(['state' => 'READY', 'busy' => true, 'progress' => ['page' => 3, 'total' => 9], 'hint' => 'Página 3 de 9 · 12 s'], $payload['services']['ocr']);
+    }
+
     public function test_stream_emits_changes_requires_admin_and_limits_connections(): void
     {
         config()->set('knowledge.stream.seconds', 0);
@@ -208,5 +263,16 @@ final class QueueStatusTest extends TestCase
         }
 
         return $batch->items()->create(['original_filename' => $name, 'normalized_filename' => $name, 'sha256' => hash('sha256', $name), 'mime_type' => 'application/pdf', 'file_size' => 10, 'storage_disk' => 'knowledge', 'storage_key' => "k/{$name}", 'storage_path' => "k/{$name}", 'status' => 'PENDING', 'reason' => 'no_match_found', 'metadata' => $metadata]);
+    }
+
+    public function test_queue_page_shows_kpis_including_items_resolved_today(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'ok', 'busy' => false])]);
+        [$batch] = $this->pendingItem('a.pdf', 'queued');
+        $this->addItem($batch, 'b.pdf', 'queued')->update(['status' => IngestionBatchItem::STATUS_IGNORED]);
+
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/queue')->assertOk()
+            ->assertSeeInOrder(['Na fila', 'Processando', 'Com falha', 'Resolvidos hoje'])
+            ->assertSee('Arquivos que saíram da fila hoje')->assertSee('a.pdf')->assertDontSee('b.pdf');
     }
 }

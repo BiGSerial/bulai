@@ -12,9 +12,16 @@ class Index extends Component
 {
     use WithPagination;
 
+    /** Colunas ordenáveis (lista branca). */
+    private const SORTABLE = ['name' => 'name', 'documents' => 'documents_count', 'batches' => 'batches_count', 'country' => 'country'];
+
     public string $search = '';
 
     public string $status = 'all';
+
+    public string $sort = 'name';
+
+    public string $direction = 'asc';
 
     public function updatedSearch(): void
     {
@@ -23,6 +30,22 @@ class Index extends Component
 
     public function updatedStatus(): void
     {
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'status']);
+        $this->resetPage();
+    }
+
+    public function sortBy(string $field): void
+    {
+        if (! isset(self::SORTABLE[$field])) {
+            return;
+        }
+        $this->direction = $this->sort === $field && $this->direction === 'asc' ? 'desc' : 'asc';
+        $this->sort = $field;
         $this->resetPage();
     }
 
@@ -47,10 +70,10 @@ class Index extends Component
                 }))
                 ->when($this->status === 'active', fn ($query) => $query->where('active', true))
                 ->when($this->status === 'inactive', fn ($query) => $query->where('active', false))
-                ->orderBy('name')
+                ->orderBy(self::SORTABLE[$this->sort] ?? 'name', $this->direction === 'desc' ? 'desc' : 'asc')
                 ->orderBy('collection')
                 ->orderBy('id')
-                ->paginate(15),
+                ->paginate(25),
         ])->title('Origens · BULAI');
     }
 }

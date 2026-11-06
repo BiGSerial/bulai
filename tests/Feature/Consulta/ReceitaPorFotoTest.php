@@ -132,7 +132,7 @@ final class ReceitaPorFotoTest extends TestCase
         $component = Livewire::actingAs($user)->test(Revisar::class, ['prescription' => $prescription])
             ->assertSee('Amoxil 500mg')->assertSee('confira')->assertSee('Xarope ilegível')->assertSet('cabecalho.prescritor', 'Dra. Ana Souza')
             ->assertSet('itens.0.times', ['06:00', '14:00', '22:00'])->assertSet('itens.1.times', ['08:00'])->assertSet('itens.2.times', [])
-            ->assertSee('Não encontrado no catálogo: vamos conferir')
+            ->assertSee('Não encontrado no catálogo: vamos conferir')->assertSet('itens.0.schedule_mode', PatientMedication::MODE_INTERVAL)->assertSee('Contar a partir de quando eu tomar')
             ->set('cabecalho.prescritor', 'Dr')->call('confirmar')->assertSee('pelo menos 3 letras');
         $this->assertSame(0, PatientMedication::count());
 
@@ -151,6 +151,8 @@ final class ReceitaPorFotoTest extends TestCase
         [$am, $lo, $xa] = $meds->all();
         $this->assertSame([$amoxil->id, '1 cápsula de 500 mg', 'de 8 em 8 horas', ['06:00', '14:00', '21:30'], '2026-11-01', '2026-11-08', $prescription->id], [$am->medicine_id, $am->dosage, $am->frequency, $am->dose_times, $am->started_at->format('Y-m-d'), $am->ends_at->format('Y-m-d'), $am->prescription_id]);
         $this->assertSame([$losartana->id, ['08:00'], null, 'Duração: uso contínuo · pela manhã'], [$lo->medicine_id, $lo->dose_times, $lo->ends_at, $lo->notes]);
+        // "de 8 em 8 horas" entra como programação dinâmica (conta a partir de quando o paciente toma); "1x ao dia" fica fixa.
+        $this->assertSame([PatientMedication::MODE_INTERVAL, 480, PatientMedication::MODE_FIXED, null], [$am->schedule_mode, $am->interval_minutes, $lo->schedule_mode, $lo->interval_minutes]);
         $this->assertSame([null, PatientMedication::CATALOG_UNMATCHED, 'Xarope ilegível', ['08:00', '20:00'], $prescription->id], [$xa->medicine_id, $xa->catalog_status, $xa->displayName(), $xa->dose_times, $xa->prescription_id]);
         $report = UnmatchedMedicineReport::query()->sole();
         $this->assertSame([UnmatchedMedicineReport::STATUS_OPEN, $xa->id, $user->id, 'Xarope ilegível'], [$report->status, $report->patient_medication_id, $report->user_id, $report->name_as_written]);

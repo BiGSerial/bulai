@@ -5,9 +5,12 @@ namespace Tests\Feature\Knowledge;
 use App\Models\Knowledge\ActiveIngredient;
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\Knowledge\DrugInteraction;
+use App\Models\Knowledge\KnowledgeDocument;
+use App\Models\Knowledge\KnowledgeSource;
 use App\Services\Knowledge\ActiveIngredientCatalogBuilder;
 use App\Services\Knowledge\ActiveIngredientResolver;
 use App\Services\Knowledge\IngredientNameNormalizer;
+use App\Services\Knowledge\KnowledgeDocumentIngredientLinker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -96,5 +99,20 @@ final class ActiveIngredientCatalogTest extends TestCase
 
         $this->assertSame(2, ActiveIngredient::count());
         $this->assertSame(1, DB::table('anvisa_medicine_ingredients')->count());
+    }
+
+    public function test_a_leaflet_for_an_ingredient_outside_ddinter_creates_it_and_links_document_and_medicines(): void
+    {
+        $medicine = AnvisaMedicine::factory()->create(['product_name' => 'NIMESULIDA', 'active_ingredient' => 'NIMESULIDA']);
+        $source = KnowledgeSource::query()->create(['name' => 'ANVISA', 'type' => 'document', 'active' => true]);
+        $document = KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => 'doc-nimesulida', 'title' => 'NIMESULIDA — Bula do profissional de saúde', 'document_type' => 'bula_profissional', 'language' => 'pt-BR', 'metadata' => ['active_ingredient' => 'nimesulida'], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'PENDING']);
+
+        $linker = app(KnowledgeDocumentIngredientLinker::class);
+        $this->assertSame(1, $linker->link($document));
+        $this->assertSame(1, $linker->link($document));
+
+        $ingredient = ActiveIngredient::query()->where('normalized_name', 'nimesulida')->sole();
+        $this->assertSame([$ingredient->id], DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->pluck('ingredient_id')->all());
+        $this->assertSame([$ingredient->id], $medicine->fresh()->ingredients->pluck('id')->all());
     }
 }

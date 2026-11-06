@@ -5,6 +5,7 @@ namespace App\Services\Patient;
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\PatientMedication;
 use App\Models\User;
+use App\Services\Interactions\FuzzyMedicineMatcher;
 use App\Services\Knowledge\AnvisaCatalogNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -44,13 +45,29 @@ final class MedicationMentionDetector
         'problema', 'problemas', 'coracao', 'figado', 'rins', 'diabetes', 'diabetico', 'hipertensao', 'ansiedade', 'depressao', 'infeccao', 'cirurgia',
         'exame', 'exames', 'medico', 'medica', 'farmaceutico', 'receita', 'receitou', 'passou', 'esqueci', 'esquecer', 'atrasar', 'parar', 'engordar',
         'emagrecer', 'dirigir', 'trabalhar', 'dormir', 'acordar', 'ajuda', 'obrigado', 'obrigada', 'sinto', 'sentindo', 'comecei', 'quero', 'preciso',
+        // Corpo, sintomas, hábitos e formas farmacêuticas: parecem nomes de marca para a tolerância a erros ("muscular" × Musculare).
+        'muscular', 'musculares', 'dores', 'garganta', 'barriga', 'costas', 'perna', 'pernas', 'braco', 'bracos', 'joelho', 'ouvido', 'olhos', 'nariz', 'boca',
+        'dente', 'dentes', 'pele', 'sangue', 'urina', 'intestino', 'pulmao', 'gripe', 'resfriado', 'tosse', 'alergia', 'alergico', 'alergica', 'vomito',
+        'diarreia', 'azia', 'queimacao', 'inchaco', 'coceira', 'mancha', 'manchas', 'cansaco', 'fraqueza', 'formigamento', 'insonia', 'calor', 'frio', 'suor',
+        'peso', 'apetite', 'fome', 'sede', 'agua', 'suco', 'acucar', 'gordura', 'exercicio', 'caminhada', 'academia', 'viagem', 'praia', 'vacina', 'gestante',
+        'lactante', 'marido', 'esposa', 'filho', 'filha', 'senhor', 'senhora', 'doutor', 'doutora', 'hospital', 'farmacia', 'posto', 'consulta', 'retorno',
+        'urgente', 'emergencia', 'normal', 'melhor', 'pior', 'forte', 'fraco', 'grande', 'pequeno', 'rapido', 'devagar', 'sempre', 'nunca', 'agora', 'hoje',
+        'ontem', 'amanha', 'sozinho', 'sozinha', 'generico', 'similar', 'referencia', 'original', 'caixa', 'frasco', 'ampola', 'injecao', 'pomada', 'creme',
+        'spray', 'adesivo', 'supositorio', 'colirio', 'beber', 'comer', 'bastante',
     ];
 
-    public function __construct(private readonly AnvisaCatalogNormalizer $normalizer) {}
+    /** Semelhança mínima para aceitar uma palavra digitada errado como nome de remédio ("lozartana" → Losartana). */
+    private const FUZZY_MIN_SIMILARITY = 0.5;
+
+    private const FUZZY_MIN_TERM_LENGTH = 5;
+
+    private const FUZZY_MAX_TERMS = 6;
+
+    public function __construct(private readonly AnvisaCatalogNormalizer $normalizer, private readonly FuzzyMedicineMatcher $fuzzy) {}
 
     /**
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos explicitamente pelo usuário (entram primeiro)
-     * @return list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string}>
+     * @return list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>
      */
     public function detect(string $text, ?User $user = null, array $forcedMedicineIds = []): array
     {
@@ -62,10 +79,12 @@ final class MedicationMentionDetector
         $normalized = $this->normalizer->text($text);
         $tokens = $normalized === '' ? [] : explode(' ', $normalized);
         $candidates = $this->candidates($tokens);
+        $covered = [];
 
         if ($candidates !== []) {
             $rows = $this->catalogMatches($candidates)->merge($this->ingredientMatches($candidates));
             foreach ($this->groupByTerm($rows, $candidates) as $position => $groups) {
+                $covered = [...$covered, ...range($candidates[$position]['start'], $candidates[$position]['start'] + $candidates[$position]['size'] - 1)];
                 foreach ($groups as $group) {
                     $key = $this->groupKey($group['medicine']);
                     if (! isset($mentions[$key]) && count($mentions) < self::MAX_MENTIONS) {
@@ -73,6 +92,23 @@ final class MedicationMentionDetector
                     }
                 }
             }
+        }
+
+        // Palavras que não casaram com nada: tolerância a erro de digitação, uma por vez e só com correspondência clara.
+        $attempts = 0;
+        foreach ($tokens as $position => $token) {
+            if (in_array($position, $covered, true) || mb_strlen($token) < self::FUZZY_MIN_TERM_LENGTH || ctype_digit($token[0]) || in_array($token, self::STOPWORDS, true)) {
+                continue;
+            }
+            if ($attempts++ >= self::FUZZY_MAX_TERMS || count($mentions) >= self::MAX_MENTIONS) {
+                break;
+            }
+            $best = $this->fuzzy->best($token, self::FUZZY_MIN_SIMILARITY);
+            if ($best === null) {
+                continue;
+            }
+            $key = $this->groupKey($best['medicine']);
+            $mentions[$key] ??= $this->mention($best['medicine'], $token, $best['matched']);
         }
 
         if ($user !== null && preg_match(self::TREATMENT_PATTERN, ' '.$normalized.' ') === 1 && $user->hasHealthConsent()) {
@@ -251,8 +287,11 @@ final class MedicationMentionDetector
         return $ids !== [] ? 'i:'.implode('-', $ids) : 'p:'.$medicine->normalized_product_name.'|'.$medicine->normalized_active_ingredient;
     }
 
-    /** @return array{id: int, name: string, ingredients: string, identified: bool, matched_text: string} */
-    private function mention(AnvisaMedicine $medicine, string $matchedText): array
+    /**
+     * @param  string|null  $corrected  palavra do catálogo que se pareceu com o que foi digitado (só na tolerância a erros)
+     * @return array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}
+     */
+    private function mention(AnvisaMedicine $medicine, string $matchedText, ?string $corrected = null): array
     {
         return [
             'id' => $medicine->id,
@@ -260,6 +299,8 @@ final class MedicationMentionDetector
             'ingredients' => (string) ($medicine->active_ingredient ?: 'Princípio ativo não informado no catálogo'),
             'identified' => $medicine->ingredients->isNotEmpty(),
             'matched_text' => $matchedText,
+            'fuzzy' => $corrected !== null,
+            'corrected' => $corrected,
         ];
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Livewire\Consulta\Receita;
 
 use App\Models\Knowledge\AnvisaMedicine;
+use App\Models\PatientMedication;
 use App\Models\PatientPrescription;
 use App\Services\Interactions\MedicationSearchService;
 use App\Services\Treatment\DoseScheduleParser;
@@ -30,7 +31,7 @@ class Revisar extends Component
     public array $cabecalho = ['prescritor' => '', 'registro' => '', 'data' => null];
 
     /**
-     * @var list<array{name_as_written: string, medicine_id: int|null, medicine_name: string|null, dosage: string, frequency: string, duration: string, notes: string, confidence: float, candidates: list<array{id: int, name: string, ingredients: string, holder: string, identified: bool}>, skip: bool, busca: string, times: list<string>, as_needed: bool}>
+     * @var list<array{name_as_written: string, medicine_id: int|null, medicine_name: string|null, dosage: string, frequency: string, duration: string, notes: string, confidence: float, candidates: list<array{id: int, name: string, ingredients: string, holder: string, identified: bool}>, skip: bool, busca: string, times: list<string>, as_needed: bool, interval_hours: int|null, schedule_mode: string}>
      */
     public array $itens = [];
 
@@ -74,6 +75,8 @@ class Revisar extends Component
                 'busca' => '',
                 'times' => $schedule['times'] ?? [],
                 'as_needed' => (bool) ($schedule['as_needed'] ?? false),
+                'interval_hours' => $schedule['interval_hours'] ?? null,
+                'schedule_mode' => ($schedule['interval_hours'] ?? null) !== null ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED,
             ];
         }, $this->prescription->extraction['items'] ?? []);
     }
@@ -87,6 +90,8 @@ class Revisar extends Component
         $schedule = app(DoseScheduleParser::class)->parse((string) $value);
         $this->itens[(int) $m[1]]['times'] = $schedule['times'] ?? [];
         $this->itens[(int) $m[1]]['as_needed'] = (bool) ($schedule['as_needed'] ?? false);
+        $this->itens[(int) $m[1]]['interval_hours'] = $schedule['interval_hours'] ?? null;
+        $this->itens[(int) $m[1]]['schedule_mode'] = ($schedule['interval_hours'] ?? null) !== null ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED;
     }
 
     public function escolher(int $index, int $medicineId): void
@@ -162,6 +167,7 @@ class Revisar extends Component
                 'itens.*.notes' => ['nullable', 'string', 'max:255'],
                 'itens.*.times' => ['array', 'max:12'],
                 'itens.*.times.*' => ['nullable', 'string', 'max:5'],
+                'itens.*.schedule_mode' => ['required', 'in:'.PatientMedication::MODE_FIXED.','.PatientMedication::MODE_INTERVAL],
             ], ['cabecalho.prescritor.required' => 'Informe quem prescreveu a receita.', 'cabecalho.prescritor.min' => 'O nome de quem prescreveu precisa ter pelo menos 3 letras.']);
         } catch (ValidationException $exception) {
             $this->aviso = $exception->validator->errors()->first();
@@ -193,6 +199,8 @@ class Revisar extends Component
                 'frequency' => $item['frequency'],
                 'duration' => $item['duration'],
                 'dose_times' => $item['as_needed'] ? [] : TreatmentScheduleService::cleanTimes($item['times']),
+                'interval_minutes' => $item['interval_hours'] !== null && ! $item['as_needed'] ? (int) $item['interval_hours'] * 60 : null,
+                'schedule_mode' => $item['schedule_mode'],
                 'started_at' => $start,
                 'notes' => trim(implode(' · ', array_filter([filled($item['duration']) ? 'Duração: '.trim($item['duration']) : null, filled($item['notes']) ? trim($item['notes']) : null]))) ?: null,
             ]);

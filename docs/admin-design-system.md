@@ -13,48 +13,68 @@ Quem cria ou altera uma tela (pessoa ou agente) deve seguir este documento. O te
 
 ## Estrutura de página
 
-Toda view em `resources/views/livewire/admin/**` começa com `<x-knowledge-admin.shell>`, que fornece a barra lateral, o cabeçalho, o menu da conta, o título (`h1`), o subtítulo, o link de voltar, o slot `actions` e o alerta `accountFeedback` (mensagem de sucesso da conta, por exemplo ao concluir o primeiro acesso).
+Toda view em `resources/views/livewire/admin/**` começa com `<x-knowledge-admin.shell>`, que fornece a barra lateral, o cabeçalho, o menu da conta, o título (`h1`), o subtítulo, o link de voltar, o slot `actions` e o alerta `accountFeedback`.
 
-**Shell (redesenho de 05/11/2026).** Barra lateral fixa à esquerda em telas grandes (`lg`), na cor da marca (`bg-brand-800`), com o menu em **grupos** e o item ativo marcado em laranja (`accent-400`). Ela recolhe para só ícones pelo botão "Recolher menu" (preferência guardada em `localStorage`, chave `bulai-admin-collapsed`). Em telas menores vira uma gaveta aberta pelo botão "Abrir menu" do cabeçalho, com foco preso (`x-trap.noscroll`) e fechamento por Esc, toque fora ou navegação. O cabeçalho fino mostra o título da tela, a saúde dos serviços (`livewire:admin.knowledge.service-health`, só em `md+`) e o avatar com o menu da conta (App do paciente, Minha conta, Sair). Partes de tela com polling próprio (ex.: o bloco "Operação" da Visão geral) são componentes Livewire com view em `resources/views/livewire/shared/`, fora da fiscalização do `shell`.
+**Shell (reformulação de 06/11/2026, "admin profissional").** Barra lateral fixa à esquerda em telas grandes (`lg`), na cor da marca (`bg-brand-800`), com o menu em **grupos**; cada item tem ícone, rótulo e uma **descrição curta** na segunda linha (`AdminNavigation::groups()[...]['description']`), para que se saiba o que cada tela faz antes de abrir. Recolhe para só ícones (preferência em `localStorage`, chave `bulai-admin-collapsed`); em telas menores vira uma gaveta com foco preso. O cabeçalho fino traz, da esquerda para a direita: a **trilha** "Grupo › Tela" (automática, a partir de `AdminNavigation::find(rota)`; em telas de detalhe aparece "Grupo › Lista › Detalhe"), a **busca global** (`<livewire:admin.global-search />`, atalho Ctrl/⌘+K), a saúde dos serviços (`xl+`), o botão **"Ajuda desta tela"** (ícone ?) e o avatar com o menu da conta.
 
-Menu em grupos (ordem do fluxo de trabalho): **Base de conhecimento** (Visão geral → Adicionar documentos → Importações → Pendências → Documentos → Origens → Catálogo ANVISA → Interações), **Operação** (Fila e serviços), **Análises** (Analytics, Relatórios), **Pessoas** (Usuários). Cada item tem ícone e dica. Rota, rótulo, padrão de rota ativa, ícone e dica ficam em **`app/AdminNavigation.php`**: `AdminNavigation::groups()` alimenta a barra lateral e `AdminNavigation::items()` (lista plana) o resumo de áreas do primeiro acesso. Para mudar o menu, altere só esse arquivo (a contagem de pendências continua no `shell`).
+**Ajuda contextual.** O botão "?" abre um painel à direita com o conteúdo de `App\AdminHelp::for(rota)`: *Para que serve*, *Quando usar*, *Passo a passo* e *Telas relacionadas* (links), mais o fluxo das bulas (Adicionar → Importações → Pendências → Documentos, `AdminHelp::workflow()`). Toda rota do admin com tela própria tem uma entrada; o teste `AdminHelpAndSearchTest` reprova rotas sem ajuda ou fora do menu. Para uma tela nova: acrescente o item em `AdminNavigation` (rótulo, descrição, dica) e a entrada em `AdminHelp` (texto operacional, em português simples).
 
-Páginas fora do admin (`auth/login.blade.php`, `auth/account.blade.php` e `auth/first-access.blade.php`) não usam o `shell`: são páginas autônomas com os mesmos componentes e tokens, e também são fiscalizadas pelo teste. O primeiro acesso mostra ao ADMIN o resumo das áreas a partir de `AdminNavigation::items()` (ícone, rótulo e dica), sem links, porque a navegação só libera depois da troca de senha.
+**Busca global** (`App\Livewire\Admin\GlobalSearch`, view em `resources/views/livewire/shared/global-search.blade.php`): a partir de 2 letras, até cinco resultados por grupo em *Telas* (rótulo, descrição e propósito), *Documentos* (título e chave externa), *Catálogo ANVISA* (`MedicationSearchService`, com tolerância a erros de digitação) e *Usuários* (nome e e-mail). Setas percorrem, Enter abre, Esc fecha; limite de 120 buscas por minuto por administrador; só administradores (403 para os demais).
+
+**Sem áreas vazias.** O `main` é uma grade `content-start`: sem isso a altura sobrando da tela era distribuída entre as linhas e abria espaços em branco entre o título e os filtros (defeito visto na tela Documentos). O cabeçalho de página é compacto (título 2xl, subtítulo em uma linha, ações à direita) e o espaçamento entre blocos é `gap-4`. O teste de design reprova `grid` com `flex-1` sem `content-start`, blocos `py-10`+ e itens de lista em cartão alto.
+
+Menu em grupos (ordem do fluxo de trabalho): **Base de conhecimento** (Visão geral → Adicionar documentos → Importações → Pendências → Remédios não encontrados → Documentos → Origens → Catálogo ANVISA → Interações), **Operação** (Fila e serviços), **Análises** (Analytics, Relatórios), **Pessoas** (Usuários). Rota, rótulo, padrão de rota ativa, ícone, dica e descrição ficam em **`app/AdminNavigation.php`**; `AdminNavigation::items()` (lista plana) alimenta o resumo do primeiro acesso e `AdminNavigation::icon(nome)` expõe os ícones a outros componentes.
+
+Páginas fora do admin (`auth/login.blade.php`, `auth/account.blade.php` e `auth/first-access.blade.php`) não usam o `shell`: são páginas autônomas com os mesmos componentes e tokens, e também são fiscalizadas pelo teste.
 
 ```blade
 <x-knowledge-admin.shell title="Importações" subtitle="Histórico dos envios." :back="route('...')" back-label="Início">
     <x-slot:actions><x-knowledge-admin.button :href="route('...')">Adicionar documentos</x-knowledge-admin.button></x-slot:actions>
-    ...
+    <x-knowledge-admin.toolbar count="17 importações">
+        <x-knowledge-admin.search compact wire:model.live.debounce.300ms="search" placeholder="Nome ou origem" />
+        <x-knowledge-admin.select compact label="Situação" wire:model.live="status">…</x-knowledge-admin.select>
+    </x-knowledge-admin.toolbar>
+    <x-knowledge-admin.data-table :columns="[['label' => 'Nome', 'sort' => 'name'], ['label' => 'Arquivos', 'align' => 'right'], ['label' => 'Situação'], ['label' => '']]" :sort="$sort" :direction="$direction">
+        @foreach ($batches as $batch)
+            <tr wire:key="b-{{ $batch->id }}"><td>…</td><td class="tabular">{{ $batch->total_items }}</td><td><x-knowledge-admin.status-badge :status="$batch->status" /></td><td><x-knowledge-admin.row-actions><x-knowledge-admin.button variant="quiet" size="sm" :href="route('...')">Abrir</x-knowledge-admin.button></x-knowledge-admin.row-actions></td></tr>
+        @endforeach
+        <x-slot:empty>Nenhuma importação ainda.</x-slot:empty>
+    </x-knowledge-admin.data-table>
+    {{ $batches->links() }}
 </x-knowledge-admin.shell>
 ```
 
-Ordem do conteúdo: alertas → filtros/busca → conteúdo principal → paginação (`{{ $items->links() }}`).
+Ordem do conteúdo: alertas → `toolbar` (filtros + contagem) → conteúdo principal (`data-table` em listas, `section`/`card` em detalhes) → paginação (`{{ $items->links() }}`).
 Título da aba (`->title()` no componente Livewire): `Nome da tela · BULAI`.
 
 ## Componentes (`resources/views/components/knowledge-admin`)
 
 | Componente | Uso |
 |---|---|
-| `shell` | Estrutura da página (obrigatório) |
-| `button` | Ação ou link (`variant`: primary, secondary, danger, quiet; `href`; `loading-target` + `loading` para estado de carregamento) |
+| `shell` | Estrutura da página (obrigatório): barra lateral, trilha, busca global, ajuda, cabeçalho compacto |
+| `button` | Ação ou link (`variant`: primary, secondary, accent, danger, quiet, link; `size`: md ou `sm` para ações de linha; `href`; `loading-target` + `loading`) |
+| `toolbar` | Barra de filtros em uma linha (`count`, slot `actions`); dentro, `search`/`select`/`input` com `compact` (rótulo oculto, 36px) |
+| `data-table` | Tabela densa para listas: `columns` (`label`, `class`, `sort`, `align`), `sort`, `direction`, `sort-event` (padrão `sortBy`), `dense`, slot `empty`; cabeçalho fixo em `lg+`, zebra, destaque ao passar o mouse; `td.tabular` para números |
+| `row-actions` | Ações de linha alinhadas à direita (`button variant="quiet" size="sm"`) |
+| `tabs` | Abas sublinhadas ligadas a uma propriedade Livewire (`tabs` com `key`/`label`/`count`, `active`, `model`, `alpine`). Com `alpine`, a aba é só do navegador (`x-data` com `tab`, hash na URL) e não chama `$set` no Livewire — usado em Revisão de pendência e Documento (detalhe), que não têm a propriedade `$tab` |
+| `callout` | Aviso compacto de uma linha (`tone`, `title`) |
+| `workflow` | Fluxo em etapas numeradas (`steps` com `label`, `href`, `hint`, `count`, `state` done/current/todo) |
+| `kpis` / `kpi` | Grade de indicadores (2 colunas → 4 em `md`) e indicador compacto (rótulo, valor, complemento, `tone`, `href`) |
 | `card`, `section` | Blocos de conteúdo (`section` = card com título/descrição/`actions`) |
-| `input`, `select`, `textarea` | Campos com rótulo, obrigatório/opcional, dica e erro automático (`wire:model`) |
-| `search` | Campo de busca de listas |
-| `table` | Tabela (`:columns`) para dados comparáveis; cartões para itens com ações |
+| `input`, `select`, `textarea`, `field` | Campos com rótulo, obrigatório/opcional, dica e erro automático (`wire:model`); `compact` em barras de filtro |
+| `search` | Campo de busca de listas (`compact` na `toolbar`) |
+| `table` | Tabela simples (`:columns`) para dados comparáveis em detalhes; para listas use `data-table` |
 | `stat` | Indicador numérico clicável (grande) |
-| `kpi` | Indicador compacto da Visão geral: rótulo, valor, complemento, `tone` (default, success, warning, danger, brand) e `href` opcional |
-| `sidebar-nav`, `sidebar-link` | Menu lateral em grupos e seu item (ícone, rótulo, marcador ativo, selo de pendências); recebem a expressão Alpine `collapsed` |
+| `sidebar-nav`, `sidebar-link` | Menu lateral em grupos e seu item (ícone, rótulo, descrição, marcador ativo, selo de pendências) |
 | `facts` / `fact` | Pares rótulo → valor |
-| `badge`, `status-badge` | Rótulos; `status-badge` traduz os status do sistema |
-| `document-processing-states` | Situação de PDF, texto e índice de busca (`compact` em coluna; `inline` = três selos curtos em uma linha, para listas densas) |
-| `alert` | Mensagens (`success`, `warning`, `danger`, `info`) |
-| `empty-state` | Lista vazia |
-| `modal` | Diálogos |
-| `temporary-password-modal` | Exibição única de senha provisória (botão Copiar, aviso de que não será mostrada novamente); usado na criação de usuário e em "Gerar nova senha provisória" |
-| `confirm-modal` | Confirmação antes de uma ação de risco, no visual do `modal` (ver "Confirmações" abaixo) |
-| `page-header` | Faixa de decisão abaixo do título: `badge`/`badge-tone`, `meta` (até dois metadados), slot `primary` (UMA ação) e slot `more` (secundárias no menu "Mais", com `menu-item`) |
-| `menu-item` | Item do menu "Mais": link (`href`, `target`, `download`) ou ação (`wire:click`/`x-on:click`); `tone="danger"` para risco |
-| `toast` | Aviso breve (4 s) incluído pelo shell; as telas disparam `$this->dispatch('notify', message: '…', tone: 'success|info|warning|danger')` |
+| `badge`, `status-badge` | Rótulos pequenos (`text-xs px-2 py-0.5`; tons neutral, success, warning, danger, info, brand); `status-badge` traduz os status do sistema |
+| `document-processing-states` | Situação de PDF, texto e índice de busca (`compact`/`inline`) |
+| `alert` | Mensagens maiores (`success`, `warning`, `danger`, `info`) |
+| `empty-state` | Lista vazia compacta (ícone, uma frase, uma ação); sem blocos altos |
+| `ops-row`, `ops-disclosure`, `ops-filters` | Linha de lista enxuta, seção recolhível e barra de filtros antiga (prefira `toolbar`) |
+| `modal`, `confirm-modal`, `temporary-password-modal` | Diálogos e confirmações (ver "Confirmações") |
+| `page-header`, `menu-item` | Faixa de decisão das telas de detalhe (selo, metadados, UMA ação primária, "Mais") |
+| `toast` | Aviso breve (4 s) incluído pelo shell; `$this->dispatch('notify', message: '…', tone: '…')` |
 
 Antes de criar HTML novo, procure o componente. Se faltar um, crie-o **na pasta de componentes** e documente aqui; não estilize na view.
 
@@ -126,7 +146,7 @@ Marca: **BULAI** (nunca "BULA-IA" na interface).
 
 ## Fiscalização automática
 
-`AdminDesignSystemTest` verifica: uso do `shell`; ausência de `<button>/<select>/<textarea>/<input>` crus nas telas; paleta, escala de texto, cantos e sombras; ausência de CSS inline; vocabulário proibido (visível em views e strings de `app/Livewire` e `app/AdminNavigation.php`); sufixo `· BULAI` nos títulos; ausência de `wire:confirm` em `resources/views` (confirmação usa `confirm-modal`). Rode: `php artisan test --compact tests/Feature/Admin/AdminDesignSystemTest.php`.
+`AdminDesignSystemTest` verifica: uso do `shell`; ausência de `<button>/<select>/<textarea>/<input>` crus nas telas; paleta, escala de texto, cantos e sombras; ausência de CSS inline; vocabulário proibido (visível em views e strings de `app/Livewire`, `app/AdminNavigation.php` e `app/AdminHelp.php`); sufixo `· BULAI` nos títulos; ausência de `wire:confirm` em `resources/views`; **densidade**: itens de lista em cartão alto (`rounded-xl border … py-3` com `wire:key`) só com `data-list-ok`, nenhum `py-10`+ e toda grade com `flex-1` tem `content-start`. `AdminHelpAndSearchTest` verifica que toda rota do admin tem ajuda contextual e lugar no menu, e que a busca global agrupa telas, documentos, catálogo e usuários só para administradores. Rode: `php artisan test --compact tests/Feature/Admin/AdminDesignSystemTest.php`.
 
 Exceções permitidas e conscientes: `<input type="file">` e `type="checkbox"`, e o cartão selecionável de documento da revisão (`selectDocument`).
 
@@ -141,7 +161,7 @@ Exceções permitidas e conscientes: `<input type="file">` e `type="checkbox"`, 
 
 ## Visão geral e Relatórios
 
-- **Visão geral** (`Livewire\Admin\Knowledge\Dashboard` + `App\Services\Admin\OverviewService`): "Precisa de atenção" (só itens com contagem > 0, cada um com link), "Operação" (componente `admin.knowledge.operation-panel`, `wire:poll.30s` + evento `bulai-realtime`), "Base de conhecimento", "Uso do aplicativo" (7 dias e total), "Inteligência artificial" (mês corrente) e "Pessoas". Os contadores pesados ficam em cache por 60 s (`admin-overview:*`).
+- **Visão geral** (`Livewire\Admin\Knowledge\Dashboard` + `App\Services\Admin\OverviewService`), de cima para baixo: (1) quatro indicadores do dia (bulas prontas, pendências, remédios não encontrados, perguntas em 7 dias com o custo de IA no mês), (2) o fluxo das bulas com as contagens de cada etapa (`workflow`, `OverviewService::summary()['workflow']`), (3) "Precisa de atenção" (uma linha por item > 0, cada uma com link) ao lado de (4) "Atividade recente" (últimas cinco importações e perguntas, `summary()['recent']`), (5) "Operação" (componente `admin.knowledge.operation-panel`, `wire:poll.30s` + evento `bulai-realtime`), "Uso do aplicativo" (7 dias) e, recolhidos, "Base de conhecimento", "Inteligência artificial" (mês corrente) e "Pessoas". Os contadores pesados ficam em cache por 60 s (`admin-overview:*`); fluxo, atenção e atividade são lidos ao vivo.
 - **Relatórios** (`/admin/relatorios`): ver `docs/relatorios.md`.
 - **Remédios não encontrados** (`/admin/knowledge/unmatched-medicines`): uma linha por nome cadastrado por pacientes sem correspondência no catálogo, um selo, ação primária "Ligar ao catálogo" (painel inline com busca e candidatos) e "Descartar" com `confirm-modal`; ver `docs/admin-remedios-nao-encontrados.md`.
 
@@ -156,10 +176,50 @@ Exceções permitidas e conscientes: `<input type="file">` e `type="checkbox"`, 
 Componentes novos (prefixo `ops-`): **`ops-row`** (linha de lista: título com link opcional, uma linha de apoio, um selo e uma ação, dentro de `<ul class="grid gap-2">`), **`ops-disclosure`** (`<details>` com título, resumo de uma linha e "Ver detalhes/Recolher"; o detalhe fica recolhido por padrão) e **`ops-filters`** (busca + até dois seletores em uma linha, com a contagem de resultados). Regras aplicadas:
 
 - **Visão geral**: sem rolar, só "Precisa de atenção" (itens > 0), quatro indicadores de uso em 7 dias e o bloco de operação (`wire:poll.30s` só nele). Base de conhecimento, IA e Pessoas ficam em `ops-disclosure` com um resumo numérico na linha do título.
-- **Fila e serviços**: uma linha de selos (processador da fila, IA local, leitura de PDF) com a hora da verificação, três indicadores da fila, lista de análises com um selo e ações `Reenfileirar`/`Cancelar` em `confirm-modal`; reinício de serviços em seção recolhida. Polling só no bloco que muda; o aviso de ação fica fora dele.
+- **Fila e serviços**: uma linha de selos (processador da fila, IA local, leitura de PDF) com a dica de cada serviço (página do OCR, "processando há N s") e a hora da sondagem, quatro indicadores da fila, tabela "Bulas em processamento" (etapa da linha do tempo, barra de página do OCR, "sem sinal" quando parado, link para o documento), lista de análises com um selo e ações `Reenfileirar`/`Cancelar` em `confirm-modal`; reinício de serviços em seção recolhida. Polling só no bloco que muda; o aviso de ação fica fora dele.
 - **Catálogo ANVISA e Interações**: três indicadores, importação em "Importar arquivo(s)" recolhido (abre sozinho quando a base está vazia ou a última importação falhou), progresso em fragmento próprio (`wire:poll.3s`), histórico em `ops-row`. Os totais de interações (`count`, por gravidade e `distinct`) ficam em cache por 60 s com chave ligada à última importação concluída (`Interactions\Index::totals()`), o que atende ao achado da revisão sobre agregados pesados em cada atualização.
 - **Analytics**: período no cabeçalho (slot `actions`), quatro indicadores, depois seções recolhíveis (Pares, Perguntas, Bulas, Desempenho, Consumo de IA) com barras de uma série (`bars`, rótulo sempre); listas em `ops-row` (uma linha, um selo, "Abrir"); detalhes com cabeçalho → fatos → pares/seções em `ops-disclosure` (só o primeiro par aberto; evidências e métricas recolhidas).
 - **Relatórios**: lista de tipos com descrição de uma linha e "Gerar" (o formulário de formato/período aparece só no tipo escolhido); gerados em `ops-row` com selo, tamanho, Baixar/Apagar; `wire:poll.3s` só enquanto há geração em curso.
 - **Usuários**: filtros em uma linha (busca, situação, perfil, ordenação) com contagem; uma linha por pessoa (apoio: e-mail · perfil · último acesso), **um** selo (Inativo / Troca de senha pendente / Ativo), "Abrir" e, discreto, Desativar/Ativar com confirmação; página da pessoa com cabeçalho (selo + Editar como ação primária), quatro fatos, "Mais ações" recolhido (senha provisória, exigir troca, encerrar sessões, desativar com motivo) e abas `Atividade | Uso do aplicativo` (`role="tablist"`, Alpine). Formulário em uma coluna.
 - **Minha conta, Histórico e Primeiro acesso** já estavam em uma coluna com seções curtas e ação primária clara; não mudaram.
 - Ícones SVG nas views do admin não levam `stroke-width`/`stroke-linecap` (o fiscal os lê como cores); as telas redesenhadas usam apenas texto e selos.
+
+## Telas da base de conhecimento (reformulação de 06/11/2026)
+
+Objetivo: densidade e clareza. Listas viraram tabelas (`data-table`) com ordenação por coluna, paginação de 25 e ações de linha discretas (`row-actions` com botões `quiet`/`sm`); os filtros ficam numa única barra (`toolbar`) logo abaixo do cabeçalho, com a contagem e a ação secundária à direita; detalhes usam `page-header` + `facts` + `tabs`. Nada é repetido: situação em um selo pequeno com o detalhe no `title`, "Abrir" só como ação de linha.
+
+| Tela | Colunas / estrutura | Ordenação | Checklist (princípios §8) |
+| --- | --- | --- | --- |
+| Documentos | Título (+ identificador) · Tipo · Origem · Trechos · Índice de busca · Situação · Atualizado · Abrir | título, tipo, trechos, atualizado (`sortBy`, lista branca em `Documents\Index::SORTABLE`) | ação primária "Adicionar documentos"; "Cadastrar sem PDF" na barra; vazio com ação |
+| Importações | Importação · Origem · Arquivos · Incorporados · Pendentes · Erros · Situação · Enviada em · Abrir; filtro Situação (em processamento / com pendências / com erros) | nome, arquivos, pendentes, erros, data | pendentes e erros em cor só quando > 0 |
+| Pendências | Arquivo (+ princípio ativo, andamento da reanálise) · Importação · Origem · Enviado em · Situação · Reanalisar/Revisar | — (mais recentes primeiro; fragmento com `wire:poll` e `bulai-realtime` mantido) | faixa de andamento só quando há reanálise ativa ou parada |
+| Remédios não encontrados | Nome · Pacientes · Posologias de exemplo · Desde · Situação/Resultado · Ligar ao catálogo/Descartar; painel "Ligar" abre como linha expandida com a busca do catálogo em tabela (Medicamento · Princípio ativo · Detentor · Catálogo · Ligar) e "Você quis dizer…?" quando a busca por prefixo não acha nada | — | fluxo `abrir`/`ligar`/`descartar` inalterado |
+| Origens | Origem · Tipo · País · Documentos · Importações · Situação · Ativar/Desativar · Abrir | nome, país, documentos, importações | detalhe: `facts` (documentos, importações, tipo, endereço) + documentos recentes em tabela com "Ver todos" |
+| Catálogo ANVISA / Interações | resumo em `kpi` → importação em andamento (fragmento com `wire:poll`) → "Importar" recolhido (`ops-disclosure`, área de arquivo compacta) → histórico em tabela (Arquivo · Data · Lidas · Novas · Atualizadas · Rejeitadas · Por · Situação) | — | rejeitadas em âmbar só quando > 0 |
+| Importação (detalhe) | `page-header` → andamento (fragmento próprio) → tabela Arquivo · Documento identificado · Resultado · Situação · Revisar/Abrir/Detalhes | — | uma ação primária contextual (Revisar pendências / Ver documentos) |
+| Documento (detalhe) | `page-header` → `facts` em uma linha (trechos, índice, PDF, processado em, idioma, princípios ativos) → `tabs` Trechos (N) · Arquivo · Processamento; trechos em cartões compactos com `max-h-96 overflow-auto` | — | blocos técnicos só nas abas |
+| Revisão de pendência | estrutura anterior mantida; abas pelo componente `tabs` (contagem de divergências como selo) | — | — |
+| Adicionar documentos / Cadastrar sem PDF / Origem (formulário) | formulário em uma coluna `max-w-2xl`; área de arrastar com ~128 px e instruções em duas linhas curtas; arquivos selecionados em tabela (Arquivo · Tamanho · Remover) | — | botão com verbo e `loading-target`; erros ligados ao campo |
+
+Regras que estas telas seguem (e que valem para as próximas): abaixo de `md` a tabela rola horizontalmente (o admin é desktop-first); células de texto longo usam `max-w-*` + `truncate` + `title`; números alinhados à direita com `tabular-nums`; a coluna de ações tem `class="w-px"` para não roubar largura; `wire:loading.class="opacity-60"` no bloco da tabela com `wire:target` nos filtros e na ordenação.
+
+## Telas de operação, análises e pessoas (reformulação de 06/11/2026)
+
+Objetivo: densidade profissional e clareza de "o que é, onde está e quando usar". Cada tela segue o mesmo esqueleto: título (shell) → `toolbar` (filtros em uma linha + contagem + ações discretas) → `data-table` (uma linha por item, cabeçalho ordenável, ações à direita com `row-actions`) → paginação. Detalhes ficam em `tabs` dentro de um `card`, com os painéis renderizados e só o ativo visível (`hidden`), para que buscas na página e testes vejam tudo.
+
+| Tela | O que mudou | Checklist (princípios de UX §8) |
+| --- | --- | --- |
+| **Fila e serviços** (`/admin/knowledge/queue`) | 4 `kpi` (Na fila · Processando · Com falha · Resolvidos hoje) + serviços em selos na mesma faixa (com `hint()`: "Página 7 de 12 · 65 s"); "Bulas em processamento" em `data-table` (Documento · Etapa · Andamento com `meter` por página do OCR ou resumo da etapa · Situação "Em andamento"/"Sem sinal" · Decorrido), `toolbar` com a contagem; itens da fila em `data-table` (Arquivo · Etapa · Andamento · Situação · Atualizado · Reenfileirar/Cancelar); "Reenfileirar parados" na `toolbar`; reinício de serviços em tabela dentro de `ops-disclosure`; `callout` vermelho quando não há processador. Polling de 5 s só no fragmento + evento `bulai-realtime`. | Ação primária contextual (reenfileirar parados); nenhum fato duplicado; sem blocos vazios (estado vazio em uma linha da tabela); confirmações pelo `confirm-modal`. Na Visão geral, o `kpi` "Em andamento" soma análises e bulas (`OperationPanel`). |
+| **Analytics** (`/admin/analytics`) | Navegação por abas (Visão geral · Consultas · Perguntas · Bulas humanizadas) comum às quatro telas; período na `toolbar`; 4 `kpi`; "Qualidade das respostas" com três `meter` lado a lado; distribuições em duas colunas; Desempenho e consumo de IA em `data-table` densas; série diária recolhida. | Cabeçalho → resumo decisório (KPIs + ancoragem) → detalhe; polling nenhum; sem jargão exposto nas legendas (p50/p95 explicados). |
+| **Consultas / Perguntas / Bulas** (listas) | `toolbar` com um seletor e contagem; `data-table` com colunas fixas (quando, usuário anonimizado, pares/evidências, duração, situação) e ação "Abrir". | Uma linha por item, um selo, uma ação. |
+| **Pergunta / Bula humanizada** (detalhe) | `page-header` com selo e metadados; pergunta e resposta lado a lado; abas Contexto · Geração · Evidências (propriedade `tab`, na URL como `aba`). | Três níveis; detalhe sob demanda. |
+| **Relatórios** | Tipos em `data-table` (Relatório · O que contém · Formatos · Período · Gerar); a linha selecionada expande o formulário (formato, período); relatórios gerados em `data-table` (Gerado em · Período · Por · Linhas · Tamanho · Situação · Baixar/Apagar). | Uma ação por linha; polling de 3 s só enquanto há geração. |
+| **Usuários** (lista) | `toolbar` (busca, situação, perfil, contagem, Limpar); `data-table` ordenável pelos cabeçalhos (`sortBy`: nome, e-mail, perfil, último acesso, cadastro; segundo clique inverte, `sentido` na URL); `callout` quando só há um administrador. | Filtros em uma linha; uma linha por pessoa, um selo (Ativo / Inativo / Troca pendente), ações Abrir e Desativar. |
+| **Usuário** (detalhe) | `page-header` (selo + e-mail · perfil · último acesso); abas Dados (fatos + uso do aplicativo) · Acesso (senha provisória, exigir troca, encerrar sessões, desativar/reativar em tabela) · Histórico (tabela Evento · Detalhe · Quando · Por quem). | Uma ação primária (Editar); ações de risco com confirmação e motivo; histórico paginado. |
+| **Usuário** (formulário) | Uma coluna, `max-w-2xl`. | Rótulos visíveis; erro ligado ao campo. |
+
+Convenções adotadas nestas telas: números em células com a classe `tabular`; texto longo em célula com `!whitespace-normal`; estado vazio sempre pelo slot `empty` da `data-table`; botões de linha `variant="quiet" size="sm"`; a aba ativa vem da propriedade `tab` validada em `updatedTab()` (valores fora da lista voltam para a primeira aba).
+
+### Revisão de pendência: bula do paciente e do profissional
+
+O mesmo registro ANVISA pode ter bula do paciente e do profissional. `KnowledgeDocumentLifecycleService` considera `source_document_id` **e** `document_type` ao procurar documento existente; se a chave `source:{origem}:{hash}` já pertence a outro tipo, a nova usa o sufixo `:{tipo}`. Erros de validação de "Criar documento e processar" também viram aviso (toast), pois o campo fica na aba Resolver. Teste: `KnowledgeAdminTest::test_review_creates_the_professional_leaflet_when_the_patient_leaflet_shares_the_registration`.

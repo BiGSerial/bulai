@@ -376,4 +376,28 @@ class UserManagementAdminTest extends TestCase
 
         $this->fail("Era esperada uma ValidationException em {$field}.");
     }
+
+    public function test_users_list_sorts_by_column_headers_and_the_second_click_inverts_the_direction(): void
+    {
+        $admin = User::factory()->admin()->create(['name' => 'Zelia Admin', 'email' => 'a-zelia@example.com']);
+        User::factory()->create(['name' => 'Ana', 'email' => 'c-ana@example.com']);
+        User::factory()->create(['name' => 'Bruno', 'email' => 'b-bruno@example.com']);
+
+        Livewire::actingAs($admin)->test(Index::class)
+            ->call('sortBy', 'email')->assertSet('sort', 'email')->assertSeeInOrder(['Zelia Admin', 'Bruno', 'Ana'])
+            ->call('sortBy', 'email')->assertSet('direction', 'desc')->assertSeeInOrder(['Ana', 'Bruno', 'Zelia Admin'])
+            ->call('sortBy', 'inexistente')->assertSet('sort', 'email')
+            ->set('search', 'ana')->assertDontSee('Bruno')->call('clearFilters')->assertSet('search', '')->assertSee('Bruno');
+    }
+
+    public function test_user_detail_has_tabs_and_an_unknown_tab_falls_back_to_the_first_one(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $user = User::factory()->create(['name' => 'Carla']);
+
+        Livewire::actingAs($admin)->test(Show::class, ['user' => $user])
+            ->assertSet('tab', 'dados')->assertSeeHtml('id="painel-acesso"')->assertSeeHtml('id="painel-historico"')
+            ->set('tab', 'historico')->assertSet('tab', 'historico')->assertSee('Nenhum evento registrado para este acesso.')
+            ->set('tab', 'qualquer')->assertSet('tab', 'dados');
+    }
 }

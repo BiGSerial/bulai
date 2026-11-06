@@ -3,6 +3,7 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Anthropic\AnthropicClient;
+use App\Services\Ai\Anthropic\AnthropicDocumentClassificationProvider;
 use App\Services\Ai\Anthropic\AnthropicTextGenerationProvider;
 use App\Services\Ai\Anthropic\AnthropicUsageTracker;
 use App\Services\Ai\Anthropic\AnthropicVisionProvider;
@@ -47,6 +48,10 @@ final class AiProviderManager
         $this->extend(self::CLASSIFIER, 'llamafile', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider(new OpenAiCompatibleClient('llamafile', self::CLASSIFIER, $config)));
         $this->extend(self::CLASSIFIER, 'openai_compatible', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider($client($config, self::CLASSIFIER)));
         $this->extend(self::CLASSIFIER, 'fake', fn () => new FakeDocumentClassificationProvider);
+        $this->extend(self::CLASSIFIER, 'anthropic', fn (array $config) => new AnthropicDocumentClassificationProvider(
+            new AnthropicClient($config),
+            new AnthropicUsageTracker(app(AiUsageRecorder::class), $config),
+        ));
         $this->extend(self::TEXT, 'anthropic', fn (array $config) => new AnthropicTextGenerationProvider(
             new AnthropicClient($config),
             new AnthropicUsageTracker(app(AiUsageRecorder::class), $config),
@@ -82,9 +87,33 @@ final class AiProviderManager
         return $this->resolve(self::VISION, $driver, VisionProvider::class);
     }
 
+    /**
+     * Sem driver explícito, encadeia o padrão com a retaguarda de config('ai.classifier.fallback') quando ela está
+     * definida, é diferente do padrão e está registrada (FallbackDocumentClassificationProvider).
+     */
     public function classifier(?string $driver = null): DocumentClassificationProvider
     {
-        return $this->resolve(self::CLASSIFIER, $driver, DocumentClassificationProvider::class);
+        $primary = $this->resolve(self::CLASSIFIER, $driver, DocumentClassificationProvider::class);
+        $default = (string) config('ai.classifier.default');
+        $fallback = config('ai.classifier.fallback');
+        if ($driver !== null || blank($fallback) || $fallback === $default || ! isset($this->creators[self::CLASSIFIER][$fallback])) {
+            return $primary;
+        }
+
+        return new FallbackDocumentClassificationProvider(
+            $primary,
+            $this->resolve(self::CLASSIFIER, (string) $fallback, DocumentClassificationProvider::class),
+            $default,
+            (string) $fallback,
+            (float) config('document_classification.ai_min_confidence'),
+        );
+    }
+
+    public function classifierFallbackDriver(): ?string
+    {
+        $fallback = config('ai.classifier.fallback');
+
+        return filled($fallback) && $fallback !== config('ai.classifier.default') && isset($this->creators[self::CLASSIFIER][$fallback]) ? (string) $fallback : null;
     }
 
     public function isConfigured(string $capability): bool

@@ -52,7 +52,8 @@ class KnowledgeAdminTest extends TestCase
         $source = $this->source();
         $this->document($source, ['title' => 'Dipirona exclusiva', 'external_key' => 'anvisa-dipi']);
         $this->document($source, ['title' => 'Ibuprofeno exclusivo', 'external_key' => 'anvisa-ibu']);
-        foreach (range(1, 20) as $number) {
+        // 25 por página: com 26 documentos a lista tem uma segunda página.
+        foreach (range(1, 24) as $number) {
             $this->document($source, ['external_key' => "page-{$number}", 'title' => "Documento {$number}"]);
         }
 
@@ -168,6 +169,35 @@ class KnowledgeAdminTest extends TestCase
         $pending->call('createDocument')->assertSee('Documento associado com sucesso.')->assertSee('Próxima pendência (1 restante)')->assertSee('Ficar aqui')->assertDontSee('Associar documento');
         $this->assertSame('ASSOCIATED', $item->refresh()->status);
         $this->assertSame('PENDING', $next->refresh()->status);
+    }
+
+    public function test_review_tabs_switch_in_the_browser_without_a_livewire_property(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $batch = $this->batch($this->source(), ['total_items' => 1, 'pending_items' => 1]);
+        $item = $this->item($batch);
+
+        $html = Livewire::actingAs($admin)->test(Review::class, ['batch' => $batch, 'item' => $item])->html();
+
+        $this->assertStringNotContainsString("\$set('tab'", $html);
+        $this->assertStringContainsString("x-on:click=\"tab = 'resolver'\"", $html);
+    }
+
+    public function test_review_creates_the_professional_leaflet_when_the_patient_leaflet_shares_the_registration(): void
+    {
+        Storage::fake('local');
+        $admin = User::factory()->admin()->create();
+        $source = $this->source();
+        $patient = KnowledgeDocument::query()->create(['source_id' => $source->id, 'source_document_id' => '118190190', 'title' => 'Nimesulida — Bula do paciente', 'document_type' => 'bula_paciente', 'external_key' => 'source:'.$source->id.':'.hash('sha256', '118190190'), 'metadata' => [], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'READY']);
+        $batch = $this->batch($source, ['total_items' => 1, 'pending_items' => 1]);
+        $content = '%PDF-1.4 profissional';
+        $item = $this->item($batch, ['sha256' => hash('sha256', $content), 'file_size' => strlen($content), 'metadata' => ['preliminary_identification' => ['fields' => ['title' => 'Nimesulida — Bula do profissional', 'document_type' => 'bula_profissional', 'registration_number_normalized' => '118190190']]]]);
+        Storage::disk('local')->put($item->storage_path, $content);
+
+        Livewire::actingAs($admin)->test(Review::class, ['batch' => $batch, 'item' => $item])->call('createDocument')->assertHasNoErrors();
+
+        $this->assertSame('ASSOCIATED', $item->refresh()->status);
+        $this->assertNotSame($patient->id, $item->knowledge_document_id);
     }
 
     public function test_batch_page_shows_progress_in_its_own_polled_fragment(): void

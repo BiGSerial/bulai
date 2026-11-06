@@ -13,7 +13,7 @@ use App\Services\Ai\DocumentClassificationProvider;
  */
 final class OpenAiCompatibleDocumentClassificationProvider implements DocumentClassificationProvider
 {
-    private const SYSTEM_PROMPT = 'Você identifica bulas de medicamentos. Use SOMENTE os candidatos e trechos fornecidos; '
+    public const SYSTEM_PROMPT = 'Você identifica bulas de medicamentos. Use SOMENTE os candidatos e trechos fornecidos; '
         .'não invente nomes. Responda apenas com um objeto JSON com exatamente as chaves product_name, active_ingredient, '
         .'document_type (bula_paciente, bula_profissional ou null), confidence (número de 0 a 1) e evidence (lista de até 2 trechos literais curtos, cada um com no máximo 120 caracteres). '
         .'Use null quando não houver evidência.';

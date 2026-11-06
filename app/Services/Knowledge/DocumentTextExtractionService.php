@@ -5,6 +5,7 @@ namespace App\Services\Knowledge;
 use App\Data\Knowledge\DocumentExtractionResult;
 use App\Data\Knowledge\ExtractedPage;
 use App\Data\Knowledge\ExtractedPdf;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -20,21 +21,35 @@ final class DocumentTextExtractionService
         private readonly DocumentOcrClient $ocrClient,
     ) {}
 
-    public function extract(string $absolutePath): DocumentExtractionResult
+    /**
+     * `$report` recebe os marcos da extração para a linha do tempo (ProcessingTimeline), sem acoplar este serviço a ela:
+     * `native_done` (quality_score, pages, characters, fallback: bool), `ocr_started` (correlation_id, reason),
+     * `ocr_done` (pages, engine, duration_ms, quality_after, adopted: bool) e `ocr_failed` (error_code, correlation_id).
+     *
+     * @param  ?Closure(string, array<string, mixed>): void  $report
+     */
+    public function extract(string $absolutePath, ?Closure $report = null): DocumentExtractionResult
     {
         $startedAt = hrtime(true);
+        $report ??= static fn (): null => null;
         $document = $this->textExtractor->extract($absolutePath);
         $quality = $this->qualityEvaluator->evaluate($document);
         $extractor = explode("\0", $this->textExtractor::class)[0];
+        $report('native_done', ['quality_score' => $quality->score, 'pages' => count($document->pages), 'characters' => $document->characterCount(), 'fallback' => ! $quality->isAcceptable]);
 
         if ($quality->isAcceptable) {
             return new DocumentExtractionResult($document, DocumentExtractionResult::METHOD_PDF_TEXT, $extractor, $quality, durationMs: $this->elapsed($startedAt));
         }
 
         $fallbackReason = implode(',', $quality->reasons);
+        $correlationId = Str::uuid()->toString();
+        $ocrStartedAt = hrtime(true);
+        $report('ocr_started', ['correlation_id' => $correlationId, 'reason' => $fallbackReason]);
 
         try {
-            $ocrDocument = $this->ocrClient->parse($absolutePath);
+            $ocrDocument = $this->ocrClient instanceof CorrelatedDocumentOcrClient
+                ? $this->ocrClient->parse($absolutePath, $correlationId)
+                : $this->ocrClient->parse($absolutePath);
         } catch (DocumentOcrException $exception) {
             Log::warning('document_extraction_ocr_unavailable', [
                 'error_code' => $exception->errorCode,
@@ -42,12 +57,21 @@ final class DocumentTextExtractionService
                 'quality_score' => $quality->score,
                 'fallback_reason' => $fallbackReason,
             ]);
+            $report('ocr_failed', ['error_code' => $exception->errorCode, 'correlation_id' => $exception->correlationId ?? $correlationId]);
 
             return new DocumentExtractionResult($document, DocumentExtractionResult::METHOD_PDF_TEXT, $extractor, $quality, fallbackReason: $fallbackReason, ocrErrorCode: $exception->errorCode, durationMs: $this->elapsed($startedAt));
         }
 
         $ocrQuality = $this->qualityEvaluator->evaluate($ocrDocument);
-        if ($ocrQuality->score < $quality->score) {
+        $adopted = $ocrQuality->score >= $quality->score;
+        $report('ocr_done', [
+            'pages' => count($ocrDocument->pages),
+            'engine' => is_string($ocrDocument->metadata['engine'] ?? null) ? $ocrDocument->metadata['engine'] : null,
+            'duration_ms' => is_int($ocrDocument->metadata['duration_ms'] ?? null) ? $ocrDocument->metadata['duration_ms'] : $this->elapsed($ocrStartedAt),
+            'quality_after' => $ocrQuality->score,
+            'adopted' => $adopted,
+        ]);
+        if (! $adopted) {
             return new DocumentExtractionResult($document, DocumentExtractionResult::METHOD_PDF_TEXT, $extractor, $quality, $ocrQuality, $fallbackReason, 'OCR_WORSE_THAN_TEXT', $this->elapsed($startedAt));
         }
 

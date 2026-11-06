@@ -4,6 +4,8 @@ namespace App\Livewire\Admin\Documents;
 
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\KnowledgeDocument;
+use App\Models\Knowledge\KnowledgeProcessingEvent;
+use App\Services\Knowledge\ProcessingTimeline;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -28,13 +30,17 @@ class Show extends Component
         $this->document->refresh();
     }
 
-    public function render(): View
+    public function render(ProcessingTimeline $timeline): View
     {
         $this->document->load(['source', 'ingestionBatch', 'ingredients'])->loadCount('chunks');
+        $events = $timeline->for($this->document->id);
 
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),
             'processing' => $this->document->metadata['processing'] ?? [],
+            'timeline' => $events,
+            // Etapa em andamento: a página se atualiza sozinha (wire:poll + evento em tempo real) até concluir.
+            'timelineActive' => $events->first(fn (KnowledgeProcessingEvent $event): bool => $event->isRunning()),
         ])->title($this->document->title.' · BULAI');
     }
 }

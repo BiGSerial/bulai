@@ -3,6 +3,7 @@
 namespace Tests\Feature\Admin;
 
 use App\Livewire\Admin\Analytics\Dashboard;
+use App\Livewire\Admin\Analytics\Questions\Show;
 use App\Models\AiUsageLog;
 use App\Models\Consultation\InteractionConsultation;
 use App\Models\Consultation\MedicationQuestion;
@@ -156,5 +157,16 @@ final class AnalyticsAdminTest extends TestCase
         } finally {
             File::deleteDirectory($directory);
         }
+    }
+
+    public function test_analytics_screens_share_the_tab_navigation_and_detail_tabs_fall_back_safely(): void
+    {
+        $this->seedActivity();
+        $admin = User::factory()->admin()->create();
+        $question = MedicationQuestion::query()->where('status', 'answered')->firstOrFail();
+
+        $this->actingAs($admin)->get('/admin/analytics')->assertOk()->assertSee('Qualidade das respostas')->assertSeeInOrder(['Visão geral', 'Consultas', 'Perguntas', 'Bulas humanizadas']);
+        Livewire::actingAs($admin)->test(Show::class, ['question' => $question])
+            ->assertSet('tab', 'contexto')->set('tab', 'evidencias')->assertSet('tab', 'evidencias')->set('tab', 'x')->assertSet('tab', 'contexto');
     }
 }

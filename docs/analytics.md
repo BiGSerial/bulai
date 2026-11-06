@@ -69,3 +69,5 @@ Cobrem: acesso só de admin (403), agregações (taxa de ancoragem, percentis, v
 - A série diária de IA ignora o filtro de período (sempre 30 dias) e não há gráfico de linha: a tabela é a visualização.
 - O painel consulta o banco a cada renderização (sem cache); com volume grande, considerar materialização diária.
 - Perguntas e consultas são apagadas pela retenção (`consultations:purge-expired`); métricas históricas devem ser exportadas antes da purga.
+
+**Reformulação do admin (06/11/2026):** as quatro telas de Analytics compartilham a navegação por abas (Visão geral · Consultas · Perguntas · Bulas humanizadas); a visão geral mostra KPIs, três medidores de ancoragem, distribuições em duas colunas e tabelas densas de desempenho e consumo de IA; as listas são tabelas com ação "Abrir"; os detalhes de pergunta e bula humanizada usam abas (`aba` na URL): Contexto/Seções · Geração · Evidências.

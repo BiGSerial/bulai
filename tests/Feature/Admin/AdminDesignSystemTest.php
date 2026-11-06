@@ -124,7 +124,7 @@ class AdminDesignSystemTest extends TestCase
     {
         $sources = $this->adminViews();
         // O menu (rótulos e dicas) vem de App\AdminNavigation e aparece no shell e no primeiro acesso.
-        foreach ([...File::allFiles(app_path('Livewire')), new \SplFileInfo(app_path('AdminNavigation.php'))] as $file) {
+        foreach ([...File::allFiles(app_path('Livewire')), new \SplFileInfo(app_path('AdminNavigation.php')), new \SplFileInfo(app_path('AdminHelp.php'))] as $file) {
             preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", File::get($file->getPathname()), $strings);
             $sources[str_replace(base_path().'/', '', $file->getPathname())] = implode("\n", $strings[1]);
         }
@@ -133,6 +133,26 @@ class AdminDesignSystemTest extends TestCase
         foreach ($sources as $path => $content) {
             $text = preg_replace(['/\{\{--.*?--\}\}/s', '/^\s*(use|namespace)\s.*$/m', '/@php.*?@endphp/s'], '', $content);
             $this->assertDoesNotMatchRegularExpression($pattern, $text, "{$path}: termo fora do vocabulário padrão (ver docs/admin-design-system.md).");
+        }
+    }
+
+    /**
+     * Densidade profissional (princípios de UX, §10): listas longas em `data-table`/`ops-row`, nada de blocos altos em
+     * branco e nenhuma grade que estique as linhas para preencher a tela.
+     */
+    public function test_views_are_dense_and_never_open_empty_areas(): void
+    {
+        foreach ($this->adminViews() as $path => $content) {
+            foreach (preg_split('/\R/', $content) as $number => $line) {
+                $where = "{$path}:".($number + 1);
+                if (str_contains($line, 'wire:key=') && preg_match('/<(a|li|div)\b[^>]*\brounded-xl\b[^>]*\bborder\b[^>]*\bpy-3\b/', $line) === 1) {
+                    $this->assertStringContainsString('data-list-ok', $line, "{$where}: item de lista como cartão alto; use <x-knowledge-admin.data-table> ou <x-knowledge-admin.ops-row> (ou marque data-list-ok com o motivo).");
+                }
+                $this->assertDoesNotMatchRegularExpression('/(?<![\w-])(?:[a-z-]+:)*py-(1[0-9]|[2-9][0-9])(?![\w-])/', $line, "{$where}: bloco alto em branco (py-10 ou mais); use empty-state compacto ou menos espaço.");
+                if (preg_match('/class="([^"]*)"/', $line, $m) === 1 && preg_match('/(?<![\w-])grid(?![\w-])/', $m[1]) === 1 && preg_match('/(?<![\w-])flex-1(?![\w-])/', $m[1]) === 1) {
+                    $this->assertStringContainsString('content-start', $m[1], "{$where}: grade com flex-1 precisa de content-start (senão as linhas esticam e abrem espaços em branco).");
+                }
+            }
         }
     }
 

@@ -102,6 +102,7 @@ class ConfirmModalAdminTest extends TestCase
      *
      * @return list<array{title: string, message: string, confirm: string, action: string}>
      */
+    /** Só as janelas do `confirm-modal` (id `confirmacao-*`): o shell também tem diálogos (menu, ajuda, busca) sem `aria-describedby`. */
     private function confirmDialogs(string $html): array
     {
         $document = HTMLDocument::createFromString($html, LIBXML_NOERROR);
@@ -116,6 +117,6 @@ class ConfirmModalAdminTest extends TestCase
                 'confirm' => trim(($confirmButton->querySelector('span') ?? $confirmButton)->textContent),
                 'action' => Str::of($confirmButton->getAttribute('x-on:click'))->after('$wire.')->beforeLast(')')->toString(),
             ];
-        }, iterator_to_array($document->querySelectorAll('[role="dialog"][aria-labelledby]'))));
+        }, iterator_to_array($document->querySelectorAll('[role="dialog"][id^="confirmacao-"][aria-labelledby]'))));
     }
 }

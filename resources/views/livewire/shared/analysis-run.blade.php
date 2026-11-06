@@ -7,7 +7,7 @@
     <ol class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <li class="rounded-lg border border-slate-200 p-3"><p class="text-xs text-slate-500">1. Leitura do texto</p><p class="mt-1 text-sm font-semibold text-slate-900">{{ $extraction['method_label'] ?? 'Sem registro' }}</p></li>
         <li class="rounded-lg border border-slate-200 p-3"><p class="text-xs text-slate-500">2. Heurística</p><p class="mt-1 text-sm font-semibold text-slate-900">{{ $classification ? $classification['heuristic_score'].'/100' : 'Sem registro' }}</p></li>
-        <li class="rounded-lg border border-slate-200 p-3"><p class="text-xs text-slate-500">3. IA local</p><p class="mt-1 text-sm font-semibold text-slate-900">@if ($classification && $classification['ai_used'])Consultada{{ $classification['forced'] ? ' a pedido' : '' }}@if ($classification['confidence'] !== null) · {{ number_format($classification['confidence'] * 100, 0) }}%@endif @else Não consultada @endif</p></li>
+        <li class="rounded-lg border border-slate-200 p-3"><p class="text-xs text-slate-500">3. IA local</p><p class="mt-1 text-sm font-semibold text-slate-900">@if ($classification && $classification['ai_used'])Consultada{{ $classification['forced'] ? ' a pedido' : '' }}@if ($classification['confidence'] !== null) · {{ number_format($classification['confidence'] * 100, 0) }}%@endif @if ($classification['fallback'] ?? null) <span class="block text-xs font-normal text-amber-800">Respondida pelo Claude (retaguarda)</span>@endif @else Não consultada @endif</p></li>
         <li class="rounded-lg border p-3 {{ match ($classification['tone'] ?? 'neutral') { 'success' => 'border-emerald-200 bg-emerald-50', 'danger' => 'border-rose-200 bg-rose-50', 'warning' => 'border-amber-200 bg-amber-50', default => 'border-slate-200' } }}"><p class="text-xs text-slate-500">4. Decisão automática</p><p class="mt-1 text-sm font-semibold text-slate-900">{{ $classification['label'] ?? 'Sem registro' }}</p></li>
     </ol>
 
@@ -51,6 +51,7 @@
             <p class="font-medium">Decisão automática: {{ $classification['label'] }}</p>
             <p class="mt-1">{{ $classification['explanation'] }}@if ($classification['reason']) {{ $classification['reason'] }}@endif @if ($classification['error']) {{ $classification['error'] }}@endif
             @if ($classification['gap_fill'])<p class="mt-1">A IA foi consultada só para completar o princípio ativo, que faltava; isso não altera a decisão pela pontuação.</p>@endif</p>
+            @if ($classification['fallback'] ?? null)<p class="mt-1" data-testid="classifier-fallback">{{ $classification['fallback']['text'] }} As mesmas verificações de respaldo no texto e de conflito com a heurística foram aplicadas.</p>@endif
             @if (in_array($classification['decision'], ['AI_REJECTED', 'AI_SUGGESTED', 'AI_LOW_CONFIDENCE'], true) && $interactive)<p class="mt-1">A regra automática nunca deixa a IA contradizer a heurística. A decisão final é sua: use o quadro acima.</p>@endif
         </x-knowledge-admin.alert>
     @endif

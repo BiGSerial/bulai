@@ -1,21 +1,23 @@
-@props(['resposta', 'titulo' => null])
+@props(['resposta', 'titulo' => null, 'mostrarPergunta' => true])
 @php
     use App\Services\Patient\MedicationQuestionService as Q;
     $status = $resposta['status'];
     $evidencias = $resposta['evidences'] ?? [];
-    $fontes = collect($evidencias)->filter(fn ($e) => ($e['document_type'] ?? null) !== 'treatment_context');
+    // Fontes = trechos de bula; o contexto do tratamento e a conversa anterior não são "fontes" para o paciente.
+    $fontes = collect($evidencias)->filter(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true));
     $usouTratamento = collect($evidencias)->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']));
+    $usouConversa = (bool) ($resposta['generation']['conversation_context'] ?? false);
     $texto = match ($status) {
         Q::ANSWERED => $resposta['answer'],
-        Q::EXCERPTS_ONLY => 'Não conseguimos montar uma resposta simples com segurança. Abaixo estão os trechos da bula mais próximos da sua pergunta. Na dúvida, fale com seu médico ou farmacêutico.',
-        Q::NOT_IDENTIFIED => 'Não encontramos a substância deste remédio no catálogo, então não conseguimos procurar a bula certa.',
-        Q::NO_LEAFLET => 'Ainda não temos a bula deste remédio. Não respondemos “de memória”: veja a bula da embalagem ou pergunte ao farmacêutico.',
-        default => 'A bula cadastrada não responde a essa pergunta. Isso não quer dizer que a resposta seja “não”: veja a bula completa ou fale com um profissional.',
+        Q::EXCERPTS_ONLY => 'Não consegui montar uma resposta curta com segurança, mas achei na bula estas partes que falam disso. Na dúvida, pergunte ao seu farmacêutico.',
+        Q::NOT_IDENTIFIED => 'Encontrei o nome do remédio, mas ainda não consigo ligar ele a uma bula. Tente escrever o nome como está na caixa.',
+        Q::NO_LEAFLET => 'Ainda não tenho a bula deste remédio comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico.',
+        default => 'Procurei na bula e não achei nada sobre isso. Isso não quer dizer que seja “não”: a bula pode simplesmente não falar desse assunto. Na dúvida, pergunte ao seu farmacêutico.',
     };
 @endphp
 <section {{ $attributes->class('grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm') }} aria-live="polite" aria-labelledby="resp-titulo" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">
     <h2 id="resp-titulo" class="text-base font-semibold uppercase tracking-wide text-slate-600">{{ $titulo ?? 'Resposta' }}</h2>
-    @if (! empty($resposta['pergunta']))<p class="text-base italic text-slate-600">“{{ $resposta['pergunta'] }}”</p>@endif
+    @if ($mostrarPergunta && ! empty($resposta['pergunta']))<p class="text-base italic text-slate-600">“{{ $resposta['pergunta'] }}”</p>@endif
 
     {{-- 1. A resposta em letras grandes vem primeiro. --}}
     <p class="text-xl leading-relaxed text-slate-900 sm:text-2xl" x-ref="texto">{{ $texto }}</p>
@@ -28,24 +30,24 @@
     </button>
 
     @if ($status === Q::ANSWERED)
-        <p class="text-base text-slate-700">Baseado na bula oficial, conferido automaticamente.@if ($usouTratamento) Considera os medicamentos e alergias do seu perfil.@endif</p>
+        <p class="text-base text-slate-700">Li isso na bula oficial.@if ($usouTratamento) Também olhei os remédios e as alergias do seu perfil.@endif @if ($usouConversa) Leva em conta o que você perguntou antes nesta conversa.@endif</p>
     @endif
 
     @if ($status === Q::EXCERPTS_ONLY && $fontes->isNotEmpty())
-        <ol class="grid gap-3" aria-label="Trechos das bulas">
-            @foreach ($fontes as $evidence)
+        <ol class="grid gap-3" aria-label="Partes da bula">
+            @foreach ($fontes->take(2) as $evidence)
                 <li class="grid gap-1">
-                    <p class="text-base text-slate-700"><span class="font-semibold text-slate-900">{{ $evidence['document_title'] }}</span> · {{ $evidence['section'] ?? 'seção não identificada' }} · página {{ $evidence['page_start'] ?? '?' }}</p>
+                    <p class="text-base font-semibold text-slate-700">{{ $evidence['document_title'] }}</p>
                     <blockquote class="max-h-72 overflow-y-auto whitespace-pre-line rounded-lg bg-slate-50 px-3 py-2 text-base leading-relaxed text-slate-800">{{ $evidence['excerpt'] }}</blockquote>
                 </li>
             @endforeach
         </ol>
     @elseif ($fontes->isNotEmpty())
         <details class="rounded-xl bg-slate-50 ring-1 ring-slate-200">
-            <summary class="min-h-12 cursor-pointer select-none px-4 py-3 text-base font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">De onde veio esta resposta?</summary>
-            <ul class="grid gap-1 border-t border-slate-200 px-4 py-3 text-base text-slate-700">
+            <summary class="min-h-12 cursor-pointer select-none px-4 py-3 text-base font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">Ver na bula</summary>
+            <ul class="grid gap-3 border-t border-slate-200 px-4 py-3 text-base text-slate-700">
                 @foreach ($fontes as $fonte)
-                    <li>{{ $fonte['document_title'] }} · {{ $fonte['section'] ?? 'seção não identificada' }} · página {{ $fonte['page_start'] ?? '?' }}</li>
+                    <li class="grid gap-1 border-l-4 border-brand-200 pl-3"><span class="font-semibold text-slate-600">{{ $fonte['document_title'] }}</span><span class="max-h-48 overflow-y-auto whitespace-pre-line break-words leading-relaxed text-slate-800">{{ $fonte['excerpt'] ?? '' }}</span></li>
                 @endforeach
             </ul>
         </details>
