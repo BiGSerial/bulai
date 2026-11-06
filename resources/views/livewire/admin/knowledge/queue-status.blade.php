@@ -30,10 +30,41 @@
                 @php($health = $services[$key])
                 <li class="inline-flex items-center gap-2 rounded-full bg-white py-1 pl-3 pr-1 ring-1 ring-slate-200" data-service="{{ $key }}" data-state="{{ $health->state }}" title="{{ $health->isWorking() ? 'Trabalhando agora'.($health->currentSeconds !== null ? ' há '.$health->currentSeconds.' s' : '') : 'Sem trabalho em andamento' }}{{ $health->restarts ? ' · reiniciado '.$health->restarts.'x' : '' }}">
                     {{ $name }} <x-knowledge-admin.badge :tone="$health->tone()">{{ $health->label() }}</x-knowledge-admin.badge>
+                    @if ($health->hint() !== null)<span class="pr-2 text-xs text-slate-500" data-hint>{{ $health->hint() }}</span>@endif
                 </li>
             @endforeach
-            <li class="ml-auto text-xs text-slate-500">Verificado às {{ now()->timezone(config('app.timezone'))->format('H:i:s') }}</li>
+            @php($observed = collect($services)->pluck('observedAt')->filter()->min())
+            <li class="ml-auto text-xs text-slate-500">Sondado às {{ ($observed ? \Illuminate\Support\Carbon::createFromTimestamp($observed) : now())->timezone(config('app.timezone'))->format('H:i:s') }}</li>
         </ul>
+
+        {{-- Só a forma de uma linha daqui em diante: o compilador do Blade engole tudo entre a diretiva de uma linha acima e o próximo fechamento de bloco PHP. --}}
+        @php($documents = $queue['documents'])
+        @php($documentsStale = count(array_filter($documents, fn (array $document): bool => $document['stale'])))
+        <x-knowledge-admin.toolbar :count="count($documents) === 0 ? 'Nenhuma agora' : (count($documents) === 1 ? '1 bula em processamento' : count($documents).' bulas em processamento').($documentsStale > 0 ? ' · '.$documentsStale.' sem sinal' : '')">
+            <p class="text-sm font-semibold text-slate-800">Bulas em processamento</p>
+        </x-knowledge-admin.toolbar>
+
+        <x-knowledge-admin.data-table :columns="[['label' => 'Documento'], ['label' => 'Etapa'], ['label' => 'Andamento'], ['label' => 'Situação'], ['label' => 'Decorrido', 'align' => 'right']]" dense data-testid="processing-documents">
+            @foreach ($documents as $document)
+                @php($elapsed = $document['elapsed_seconds'] < 60 ? $document['elapsed_seconds'].' s' : intdiv($document['elapsed_seconds'], 60).' min '.($document['elapsed_seconds'] % 60).' s')
+                <tr wire:key="processing-document-{{ $document['id'] }}" class="{{ $document['stale'] ? 'bg-amber-50' : '' }}" data-step="{{ $document['step'] }}">
+                    <td class="max-w-xs"><a class="block truncate font-medium text-brand-700 hover:underline" href="{{ route('admin.documents.show', $document['id']) }}" wire:navigate title="{{ $document['title'] }}">{{ $document['title'] }}</a></td>
+                    <td class="text-slate-700">{{ $document['step_label'] }}</td>
+                    <td class="text-slate-700">
+                        @if ($document['progress'] !== null && ($document['progress']['total'] ?? 0) > 0)
+                            <x-knowledge-admin.meter class="w-48" :label="'Página '.$document['progress']['page'].' de '.$document['progress']['total']" :rate="min(1, $document['progress']['page'] / $document['progress']['total'])" />
+                        @else
+                            {{ $document['summary'] !== '' ? $document['summary'] : '—' }}
+                        @endif
+                    </td>
+                    <td><x-knowledge-admin.badge :tone="$document['stale'] ? 'warning' : 'info'">{{ $document['stale'] ? 'Sem sinal há mais de '.config('knowledge.processing.progress_stale_minutes', 5).' min' : 'Em andamento' }}</x-knowledge-admin.badge></td>
+                    <td class="whitespace-nowrap text-right text-xs tabular-nums text-slate-500" title="{{ $document['started_at'] ? 'Começou '.\Illuminate\Support\Carbon::parse($document['started_at'])->diffForHumans() : '' }}">{{ $elapsed }}</td>
+                </tr>
+            @endforeach
+            @if ($documents === [])
+                <x-slot:empty>Nenhuma bula sendo processada agora. A etapa de cada bula aparece aqui assim que o processamento começa.</x-slot:empty>
+            @endif
+        </x-knowledge-admin.data-table>
 
         <x-knowledge-admin.toolbar :count="count($items) === 0 ? 'Nada na fila agora' : (count($items) === 1 ? '1 arquivo esperando ou em análise' : count($items).' arquivos esperando ou em análise').($queue['stale'] > 0 ? ' · '.$queue['stale'].' parado(s)' : '')">
             <p class="text-sm font-semibold text-slate-800">Análises em andamento</p>

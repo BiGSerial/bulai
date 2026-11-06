@@ -11,11 +11,11 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-final class HttpDocumentOcrClient implements PageLimitedDocumentOcrClient
+final class HttpDocumentOcrClient implements CorrelatedDocumentOcrClient, PageLimitedDocumentOcrClient
 {
-    public function parse(string $localFile): ExtractedPdf
+    public function parse(string $localFile, ?string $correlationId = null): ExtractedPdf
     {
-        return $this->send($localFile, null);
+        return $this->send($localFile, null, $correlationId);
     }
 
     public function parseFirstPages(string $localFile, int $pages): ExtractedPdf
@@ -23,9 +23,10 @@ final class HttpDocumentOcrClient implements PageLimitedDocumentOcrClient
         return $this->send($localFile, max(1, $pages));
     }
 
-    private function send(string $localFile, ?int $pageLimit): ExtractedPdf
+    private function send(string $localFile, ?int $pageLimit, ?string $correlationId = null): ExtractedPdf
     {
-        $correlationId = Str::uuid()->toString();
+        // O id vai em X-Correlation-Id; o serviço o devolve no /status com a página atual (progresso por documento).
+        $correlationId = $correlationId ?: Str::uuid()->toString();
         $config = config('document_ocr.drivers.http');
         $startedAt = hrtime(true);
 

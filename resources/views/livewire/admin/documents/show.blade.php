@@ -11,7 +11,7 @@
         };
         $ingredients = $document->relationLoaded('ingredients') ? $document->ingredients : collect();
     @endphp
-    <div x-data="{ tab: ['trechos', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" class="grid gap-5">
+    <div x-data="{ tab: ['trechos', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
         <x-knowledge-admin.page-header :badge="$label" :badge-tone="$tone" :meta="[$document->documentTypeLabel(), $document->source->name]">
             @if ($hasFile)
                 <x-slot:primary>
@@ -36,6 +36,9 @@
         </x-knowledge-admin.page-header>
 
         @if ($processingFeedback)<x-knowledge-admin.alert>{{ $processingFeedback }}</x-knowledge-admin.alert>@endif
+        @if ($timelineActive)
+            <x-knowledge-admin.callout title="Processando agora:" data-testid="timeline-live">{{ $timelineActive->stepLabel() }}@if ($timelineActive->summary() !== '') · {{ $timelineActive->summary() }}@endif · há {{ $timelineActive->durationLabel() }}. <a class="underline" href="#processamento" x-on:click.prevent="tab = 'processamento'">Ver a linha do tempo</a></x-knowledge-admin.callout>
+        @endif
         @if (($processing['error_code'] ?? null) !== null)
             <x-knowledge-admin.alert tone="danger">Falha no processamento: {{ $processing['error_code'] }}@if (($processing['error_id'] ?? null) !== null) · Código de referência: {{ $processing['error_id'] }}@endif</x-knowledge-admin.alert>
         @endif
@@ -85,7 +88,10 @@
                 </x-knowledge-admin.card>
             </div>
 
-            <div x-show="tab === 'processamento'" x-cloak role="tabpanel">
+            <div x-show="tab === 'processamento'" x-cloak role="tabpanel" class="grid gap-4">
+                <x-knowledge-admin.section title="Linha do tempo do processamento" description="Cada etapa da execução atual, com o que foi lido e quanto demorou. Em andamento, a lista se atualiza sozinha.">
+                    <x-knowledge-admin.timeline :events="$timeline" />
+                </x-knowledge-admin.section>
                 <x-knowledge-admin.card class="grid gap-4">
                     <x-knowledge-admin.document-processing-states :document="$document" />
                     @if ($processing !== [])

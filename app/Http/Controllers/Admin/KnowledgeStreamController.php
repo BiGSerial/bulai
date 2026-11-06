@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Server-Sent Events da administração: avisa o navegador quando a fila, o worker ou os serviços mudam.
+ * Server-Sent Events da administração: avisa o navegador quando a fila, o worker, as bulas em processamento ou os serviços mudam.
  * Conexões curtas (o EventSource reconecta sozinho) para não prender workers do PHP-FPM por muito tempo.
  */
 class KnowledgeStreamController extends Controller
@@ -39,14 +39,17 @@ class KnowledgeStreamController extends Controller
                 do {
                     $snapshot = $queue->snapshot();
                     $services = array_map(fn ($service): array => $service->toArray(), $health->all());
-                    $signature = md5(json_encode([$snapshot, $services], JSON_THROW_ON_ERROR));
+                    $signature = md5(json_encode($this->signature($snapshot, $services), JSON_THROW_ON_ERROR));
                     if ($signature !== $lastSignature) {
                         $payload = json_encode([
                             'worker' => $snapshot['worker']['state'],
                             'jobs' => $snapshot['jobs'],
                             'active_items' => count($snapshot['items']),
                             'stale' => $snapshot['stale'],
-                            'services' => array_map(fn (array $service): array => ['state' => $service['state'], 'busy' => $service['busy']], $services),
+                            'documents' => array_map(fn (array $document): array => [
+                                'id' => $document['id'], 'title' => $document['title'], 'step' => $document['step'], 'summary' => $document['summary'], 'progress' => $document['progress'],
+                            ], $snapshot['documents']),
+                            'services' => array_map(fn (array $service): array => ['state' => $service['state'], 'busy' => $service['busy'], 'progress' => $service['progress'], 'hint' => $service['hint']], $services),
                         ], JSON_THROW_ON_ERROR);
                         echo "event: changed\ndata: {$payload}\n\n";
                         $lastSignature = $signature;
@@ -67,6 +70,25 @@ class KnowledgeStreamController extends Controller
             'Cache-Control' => 'no-cache, no-transform',
             'X-Accel-Buffering' => 'no',
         ]);
+    }
+
+    /**
+     * Só o que muda de fato entra na assinatura: tempos decorridos, latências e "lido há N s" mudam a cada segundo e
+     * disparariam um evento a cada ciclo; a página do OCR e a etapa das bulas, sim, devem disparar.
+     *
+     * @param  array<string, mixed>  $snapshot
+     * @param  array<string, array<string, mixed>>  $services
+     * @return array<string, mixed>
+     */
+    private function signature(array $snapshot, array $services): array
+    {
+        return [
+            'worker' => $snapshot['worker']['state'],
+            'jobs' => $snapshot['jobs'],
+            'items' => array_map(fn (array $item): array => [$item['id'], $item['state'], $item['percent'], $item['label'], $item['stale']], $snapshot['items']),
+            'documents' => array_map(fn (array $document): array => [$document['id'], $document['step'], $document['progress'], $document['stale']], $snapshot['documents']),
+            'services' => array_map(fn (array $service): array => [$service['state'], $service['busy'], $service['progress'], $service['correlation_id'], $service['failures']], $services),
+        ];
     }
 
     private function acquireSlot(string $key, int $max): bool

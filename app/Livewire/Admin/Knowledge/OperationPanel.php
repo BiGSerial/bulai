@@ -19,6 +19,7 @@ class OperationPanel extends Component
             'jobs' => $snapshot['jobs'],
             'inProgress' => count($snapshot['items']),
             'stale' => $snapshot['stale'],
+            'documents' => count($snapshot['documents']),
             'services' => $checker->all(),
             'textProvider' => config('ai.text.default') ?: null,
             'visionProvider' => config('ai.vision.default') ?: null,

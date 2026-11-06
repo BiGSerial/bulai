@@ -6,6 +6,7 @@ use App\Data\Knowledge\DocumentExtractionResult;
 use App\Data\Knowledge\ExtractedPdf;
 use App\Data\Knowledge\KnowledgeChunkDraft;
 use App\Models\Knowledge\KnowledgeDocument;
+use App\Models\Knowledge\KnowledgeProcessingEvent;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -20,12 +21,14 @@ final class KnowledgeDocumentProcessor
         private readonly KnowledgeSectionDetector $sectionDetector,
         private readonly KnowledgeChunker $chunker,
         private readonly KnowledgeFileService $fileService,
+        private readonly ProcessingTimeline $timeline,
     ) {}
 
     /** @return array{status: string, chunks: int, error_code: ?string, error_id: ?string} */
     public function process(int $documentId, bool $force = false): array
     {
         $startedAt = hrtime(true);
+        $timeline = $this->timeline;
 
         try {
             $snapshot = DB::transaction(function () use ($documentId, $force): ?array {
@@ -49,26 +52,45 @@ final class KnowledgeDocumentProcessor
             }
 
             Log::info('document_processing_started', ['document_id' => $documentId]);
+            // Nova execução: a linha do tempo mostra só a corrente.
+            $timeline->reset($documentId);
             if ($snapshot['storage'] === null) {
                 throw new RuntimeException('DOCUMENT_FILE_MISSING');
             }
 
             $this->assertStoredObjectIsProcessable($snapshot['storage']['disk'], $snapshot['storage']['key']);
+            $native = $timeline->start($documentId, KnowledgeProcessingEvent::STEP_READ_NATIVE);
+            $ocr = null;
             $extraction = $this->fileService->withLocalCopy(
                 $snapshot['storage']['disk'],
                 $snapshot['storage']['key'],
-                fn (string $path): DocumentExtractionResult => $this->extractor->extract($path),
+                fn (string $path): DocumentExtractionResult => $this->extractor->extract($path, function (string $mark, array $detail) use ($timeline, $documentId, $native, &$ocr): void {
+                    match ($mark) {
+                        'native_done' => $timeline->finish($native, ['quality_score' => $detail['quality_score'], 'pages' => $detail['pages'], 'characters' => $detail['characters'], 'method' => $detail['fallback'] ? 'fallback_ocr' : DocumentExtractionResult::METHOD_PDF_TEXT]),
+                        'ocr_started' => $ocr = $timeline->start($documentId, KnowledgeProcessingEvent::STEP_OCR, $detail),
+                        'ocr_done' => $timeline->finish($ocr, $detail),
+                        // OCR desligado ou sem URL não é falha: a etapa fica "pulada" e o texto nativo segue.
+                        'ocr_failed' => in_array($detail['error_code'], [DocumentOcrException::DISABLED, DocumentOcrException::NOT_CONFIGURED], true)
+                            ? $timeline->skip($ocr, $detail)
+                            : $timeline->fail($ocr, $detail['error_code'], $detail),
+                        default => null,
+                    };
+                }),
             );
             $this->assertOcrFallbackDidNotLeaveUnusableText($extraction);
             $extracted = $extraction->document;
             $this->assertExtractionLimits($extracted);
+            $normalize = $timeline->start($documentId, KnowledgeProcessingEvent::STEP_NORMALIZE);
             $normalized = $this->normalizer->normalize($extracted);
             $this->assertTextIsUsable($normalized->characterCount());
+            $timeline->finish($normalize, ['pages' => count($normalized->pages), 'characters' => $normalized->characterCount()]);
+            $chunking = $timeline->start($documentId, KnowledgeProcessingEvent::STEP_CHUNK);
             $sections = $this->sectionDetector->detect($normalized);
             $chunks = $this->chunker->chunk($sections);
             if ($chunks === []) {
                 throw new RuntimeException('TEXT_EXTRACTION_FAILED');
             }
+            $timeline->finish($chunking, ['sections' => count($sections), 'chunks' => count($chunks)]);
 
             Log::info('text_extracted', [
                 'document_id' => $documentId,
@@ -128,6 +150,7 @@ final class KnowledgeDocumentProcessor
             $errorId = Str::uuid()->toString();
             $errorCode = $this->controlledErrorCode($exception);
             $this->markFailed($documentId, $errorCode, $errorId);
+            $timeline->failRunning($documentId, $errorCode);
 
             Log::error('document_processing_failed', [
                 'document_id' => $documentId,

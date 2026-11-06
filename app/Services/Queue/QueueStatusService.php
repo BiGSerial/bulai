@@ -2,22 +2,36 @@
 
 namespace App\Services\Queue;
 
+use App\Data\Health\ServiceHealth;
 use App\Models\Knowledge\IngestionBatchItem;
+use App\Models\Knowledge\KnowledgeProcessingEvent;
+use App\Services\Health\ServiceHealthChecker;
+use App\Services\Knowledge\ProcessingTimeline;
+use DateTimeInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Schema;
 
-/** Fotografia da fila de análise: worker, jobs no banco e itens em andamento/travados. */
+/** Fotografia da fila de análise: worker, jobs no banco, itens em andamento/travados e bulas em processamento. */
 final class QueueStatusService
 {
-    public function __construct(private readonly WorkerHeartbeat $heartbeat) {}
+    public function __construct(
+        private readonly WorkerHeartbeat $heartbeat,
+        private readonly ProcessingTimeline $timeline,
+        private readonly ServiceHealthChecker $health,
+    ) {}
 
     /**
+     * `documents`: uma linha por bula com etapa em andamento (linha do tempo do processamento). Na etapa de OCR a página
+     * atual vem do `/status` do serviço, casada pelo `correlation_id`; `progress` fica nulo quando não há casamento.
+     *
      * @return array{
      *     worker: array{state: string, last_seen_at: ?int, host: ?string, busy: bool},
      *     jobs: array{waiting: int, running: int, failed: int},
      *     items: list<array{id: int, batch_id: int, filename: string, state: string, percent: int, label: string, updated_at: ?string, stale: bool, has_job: bool}>,
-     *     stale: int
+     *     stale: int,
+     *     documents: list<array{id: int, title: string, step: string, step_label: string, summary: string, started_at: ?string, updated_at: ?string, elapsed_seconds: int, stale: bool, progress: ?array{page: int, total: ?int}}>
      * }
      */
     public function snapshot(): array
@@ -67,7 +81,66 @@ final class QueueStatusService
             'jobs' => $jobs,
             'items' => $items,
             'stale' => count(array_filter($items, fn (array $item): bool => $item['stale'])),
+            'documents' => $this->documents($staleBefore),
         ];
+    }
+
+    /**
+     * Bulas com etapa em andamento. O worker PHP não vê a página do OCR (a chamada é síncrona): ela vem da última leitura
+     * de saúde do serviço, que vale como sinal de vida da etapa enquanto o `correlation_id` for o mesmo.
+     *
+     * @return list<array{id: int, title: string, step: string, step_label: string, summary: string, started_at: ?string, updated_at: ?string, elapsed_seconds: int, stale: bool, progress: ?array{page: int, total: ?int}}>
+     */
+    private function documents(DateTimeInterface $staleBefore): array
+    {
+        $active = $this->timeline->active();
+        if ($active->isEmpty()) {
+            return [];
+        }
+        $ocr = $active->contains(fn (KnowledgeProcessingEvent $event): bool => $event->step === KnowledgeProcessingEvent::STEP_OCR) ? $this->health->ocr() : null;
+        $rows = [];
+        foreach ($active as $event) {
+            if ($event->document === null) {
+                continue;
+            }
+            $matched = $this->ocrProgress($event, $ocr);
+            $lastSignal = $event->updated_at ?? $event->started_at;
+            if ($matched !== null && $ocr?->respondedAt !== null) {
+                $lastSignal = max($lastSignal, Carbon::createFromTimestamp($ocr->respondedAt));
+            }
+            $summary = $event->summary();
+            if ($matched !== null) {
+                $summary = 'página '.$matched['page'].' de '.$matched['total'].($ocr?->currentSeconds !== null ? ' · '.$ocr->currentSeconds.' s' : '');
+            }
+
+            $rows[] = [
+                'id' => $event->document->id,
+                'title' => (string) $event->document->title,
+                'step' => $event->step,
+                'step_label' => $event->stepLabel(),
+                'summary' => $summary,
+                'started_at' => $event->started_at?->toISOString(),
+                'updated_at' => $event->updated_at?->toISOString(),
+                'elapsed_seconds' => max(0, (int) $event->started_at->diffInSeconds(now())),
+                'stale' => $lastSignal !== null && $lastSignal->lt($staleBefore),
+                'progress' => $matched,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /** @return ?array{page: int, total: ?int} */
+    private function ocrProgress(KnowledgeProcessingEvent $event, ?ServiceHealth $ocr): ?array
+    {
+        if ($ocr === null || $event->step !== KnowledgeProcessingEvent::STEP_OCR || $ocr->correlationId === null) {
+            return null;
+        }
+        if (($event->detail['correlation_id'] ?? null) !== $ocr->correlationId || $ocr->progress === null) {
+            return null;
+        }
+
+        return ['page' => $ocr->progress['page'], 'total' => $ocr->progress['total']];
     }
 
     /** Remove da fila os jobs ainda não iniciados deste item (evita análise duplicada ou indesejada). */

@@ -83,6 +83,12 @@ class KnowledgeDocument extends Model
         return $this->hasMany(KnowledgeChunk::class, 'document_id')->orderBy('chunk_index');
     }
 
+    /** Linha do tempo da execução corrente do processamento (ver ProcessingTimeline). */
+    public function processingEvents(): HasMany
+    {
+        return $this->hasMany(KnowledgeProcessingEvent::class, 'document_id')->orderBy('started_at')->orderBy('id');
+    }
+
     public function ingredients(): BelongsToMany
     {
         return $this->belongsToMany(ActiveIngredient::class, 'knowledge_document_ingredients', 'document_id', 'ingredient_id')

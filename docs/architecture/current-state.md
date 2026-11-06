@@ -7,6 +7,7 @@ Auditoria do repositório na branch `feat/interacoes-ddinter` (commit base `9ea4
 | Área | Situação | Onde |
 | --- | --- | --- |
 | Ingestão de bulas (PDF, lote, OCR, classificação heurística + LLM, revisão) | Funcional | `app/Services/Knowledge`, `app/Livewire/Admin/Knowledge` |
+| Linha do tempo do processamento (atualizado em 06/11/2026) | Cada etapa (texto nativo, OCR, normalização, trechos, embeddings, vínculo) em `knowledge_processing_events`, visível na tela do documento; `ProcessingTimeline::active()` para a Fila/SSE | `App\Services\Knowledge\ProcessingTimeline`, `docs/technical-foundation.md` |
 | Catálogo ANVISA | 39.416 registros em `anvisa_medicines` (10.574 sem princípio ativo preenchido) | `AnvisaMedicineCsvImporter` |
 | Interações DDInter | 160.235 pares com **gravidade apenas** (major 26.914, moderate 96.675, minor 6.833, unknown 29.813), nomes em inglês | `drug_interactions`, `DrugInteractionCsvImporter` |
 | Documentos/chunks | 17 documentos, 782 chunks, `embedding_status=PENDING`, coluna `embedding vector` sem dimensão | `knowledge_documents`, `knowledge_chunks` |
@@ -14,6 +15,7 @@ Auditoria do repositório na branch `feat/interacoes-ddinter` (commit base `9ea4
 | Auth e papéis | Login, primeiro acesso, `UserRole`, middleware `admin`, auditoria de usuário | `app/Http`, `routes/web.php` |
 | PWA (casca) | `manifest.webmanifest` e `sw.js` que não cacheiam `/admin`, `/login` | `public/` |
 | Infra | Compose: postgres (pgvector), redis, document-ocr, local-ai (llamafile Qwen2.5-1.5B) | `compose.yaml` |
+| Saúde dos serviços (atualizado em 06/11/2026) | Sondada em segundo plano por `services:probe-health` (a cada 5 s, no scheduler) e lida do cache pelas telas e pelo SSE; distingue ocupado (`UNRESPONSIVE`, até 3 falhas seguidas) de inacessível e mostra a página do OCR em curso. Ver `docs/realtime-options.md` | `App\Services\Health\ServiceHealthChecker`, `App\Data\Health\ServiceHealth` |
 
 ## Ausente (verificado)
 
