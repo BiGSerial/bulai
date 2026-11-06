@@ -25,7 +25,11 @@ class PaddleOcrEngine(DocumentOcrEngine):
         except ImportError as exc:  # pragma: no cover
             raise EngineError("dependências de renderização ausentes") from exc
 
-        pdf = pdfium.PdfDocument(str(document.path))
+        try:
+            pdf = pdfium.PdfDocument(str(document.path))
+        except pdfium.PdfiumError as exc:
+            # PDF corrompido/ilegível é falha controlada (422), não erro interno.
+            raise EngineError("documento ilegível") from exc
         try:
             total = min(len(pdf), document.page_limit) if document.page_limit else len(pdf)
             if total > document.max_pages:
@@ -33,13 +37,20 @@ class PaddleOcrEngine(DocumentOcrEngine):
 
             ocr = self._engine()
             pages: list[ParsedPage] = []
+            if document.on_page is not None:
+                document.on_page(0, total)
             for index in range(total):
                 image = pdf[index].render(scale=self._dpi / 72).to_pil().convert("RGB")
                 pages.append(self._parse_page(index + 1, ocr.predict(np.array(image))))
+                if document.on_page is not None:
+                    document.on_page(index + 1, total)
 
             return ParsedDocument("paddleocr", self._version(), pages)
         finally:
             pdf.close()
+
+    def warmup(self) -> None:
+        self._engine()
 
     def _engine(self):
         if self._ocr is None:

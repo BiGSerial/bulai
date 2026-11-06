@@ -1,3 +1,5 @@
+import time
+
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -175,8 +177,8 @@ def test_settings_default_to_light_models_without_mkldnn(monkeypatch):
 def test_status_idle_has_the_contract_fields():
     body = client().get("/status").json()
 
-    assert set(body) == {"status", "busy", "active", "queued", "current_seconds", "since", "completed", "failed", "uptime_seconds"}
-    assert body["status"] == "ok" and body["busy"] is False
+    assert set(body) == {"status", "busy", "active", "queued", "current_seconds", "since", "completed", "failed", "uptime_seconds", "current"}
+    assert body["status"] == "ok" and body["busy"] is False and body["current"] is None
     assert (body["active"], body["queued"], body["completed"], body["failed"]) == (0, 0, 0, 0)
     assert body["current_seconds"] is None and body["since"] is None
     assert body["uptime_seconds"] >= 0
@@ -299,3 +301,121 @@ def test_request_timeout_setting(monkeypatch):
     assert Settings.from_env().request_timeout == 900
     monkeypatch.setenv("OCR_REQUEST_TIMEOUT", "0")
     assert Settings.from_env().request_timeout == 0
+
+
+# --- processo filho (OCR_EXECUTOR=process) -----------------------------------------------------------------------
+
+
+def process_client(engine_path: str, monkeypatch, request_timeout: int = 0, **env) -> TestClient:
+    """Servidor com o engine num processo filho real (spawn); `tests.fake_engine` é importável pelo filho via pythonpath."""
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    app = create_app(settings(engine=engine_path, request_timeout=request_timeout), executor_mode="process", watchdog_interval=0.05)
+    return TestClient(app, raise_server_exceptions=False)
+
+
+def test_process_executor_reports_page_progress_in_status_and_keeps_status_fast(monkeypatch):
+    import threading
+
+    with process_client("tests.fake_engine:PagedFakeEngine", monkeypatch, FAKE_PAGES="4", FAKE_PAGE_SECONDS="0.25") as c:
+        assert c.get("/status").json()["worker"]["alive"] is True
+        seen = []
+        latencies = []
+
+        def observe():
+            while True:
+                started = time.perf_counter()
+                body = c.get("/status").json()
+                latencies.append(time.perf_counter() - started)
+                seen.append(body["current"])
+                if not body["busy"] and len(seen) > 3:
+                    return
+                time.sleep(0.05)
+
+        watcher = threading.Thread(target=observe)
+        watcher.start()
+        response = post(c, headers={"X-Correlation-Id": "doc-42"})
+        watcher.join(timeout=5)
+
+        assert response.status_code == 200
+        assert [p["page"] for p in response.json()["pages"]] == [1, 2, 3, 4]
+        pages = [s["page"] for s in seen if s is not None]
+        assert pages == sorted(pages) and pages[-1] >= 3  # progresso monotônico até quase o fim
+        assert all(s["correlation_id"] == "doc-42" for s in seen if s is not None)
+        busy = next(s for s in seen if s is not None and s["total_pages"] is not None)
+        assert busy["total_pages"] == 4 and busy["started_at"].endswith("Z")
+        assert busy["elapsed_seconds"] >= 0
+        assert seen[-1] is None  # volta a null no fim
+        assert max(latencies) < 0.2
+        done = c.get("/status").json()
+        assert done["completed"] == 1 and done["failed"] == 0 and done["worker"]["restarts"] == 0
+
+
+def test_process_executor_engine_errors_are_422_and_the_child_survives(monkeypatch):
+    with process_client("tests.fake_engine:FailingFakeEngine", monkeypatch) as c:
+        assert post(c).status_code == 422
+        assert post(c).status_code == 422
+        body = c.get("/status").json()
+        assert body["failed"] == 2 and body["worker"]["alive"] is True and body["worker"]["restarts"] == 0
+
+
+def test_process_executor_recovers_when_the_child_dies_mid_document(monkeypatch):
+    with process_client("tests.fake_engine:CrashingFakeEngine", monkeypatch) as c:
+        first = post(c)
+        assert first.status_code == 504
+        after_crash = c.get("/status").json()
+        assert after_crash["busy"] is False and after_crash["failed"] == 1 and after_crash["worker"]["alive"] is False
+
+        # O próximo pedido recria o filho sem reiniciar o servidor.
+        monkeypatch.setenv("FAKE_PAGES", "1")
+        monkeypatch.setenv("FAKE_PAGE_SECONDS", "0")
+        c.app.state.executor._settings = settings(engine="tests.fake_engine:PagedFakeEngine")
+        second = post(c)
+        assert second.status_code == 200
+        body = c.get("/status").json()
+        assert body["worker"]["alive"] is True and body["worker"]["restarts"] == 1 and body["completed"] == 1
+
+
+def test_watchdog_kills_the_child_and_the_request_gets_504_instead_of_exiting(monkeypatch):
+    exits = []
+    monkeypatch.setenv("FAKE_PAGES", "50")
+    monkeypatch.setenv("FAKE_PAGE_SECONDS", "0.2")
+    app = create_app(settings(engine="tests.fake_engine:PagedFakeEngine", request_timeout=1), exit_fn=exits.append, watchdog_interval=0.05, executor_mode="process")
+    with TestClient(app, raise_server_exceptions=False) as c:
+        started = time.perf_counter()
+        response = post(c)
+        assert response.status_code == 504 and time.perf_counter() - started < 8
+        assert exits == []  # o servidor continua de pé
+        assert c.get("/health").status_code == 200
+        assert c.get("/status").json()["busy"] is False
+
+
+def test_watchdog_on_timeout_hook_replaces_exit():
+    from app.runtime import ActivityTracker, Watchdog
+
+    now = [0.0]
+    exits, kills = [], []
+    tracker = ActivityTracker(clock=lambda: now[0])
+    tracker.enqueue()
+    tracker.start("abc")
+    now[0] = 10.0
+    watchdog = Watchdog(tracker, timeout=5, exit_fn=exits.append, on_timeout=lambda: kills.append(True))
+
+    assert watchdog.check() is True and kills == [True] and exits == []
+
+
+def test_tracker_progress_and_current_snapshot():
+    from app.runtime import ActivityTracker
+
+    now = [100.0]
+    tracker = ActivityTracker(clock=lambda: now[0], wall_clock=lambda: 1_700_000_000.0)
+    assert tracker.snapshot()["current"] is None
+    tracker.enqueue()
+    token = tracker.start("corr-1")
+    tracker.progress(token, 3, 12)
+    now[0] = 165.5
+    current = tracker.snapshot()["current"]
+
+    assert current == {"correlation_id": "corr-1", "page": 3, "total_pages": 12, "started_at": "2023-11-14T22:13:20Z", "elapsed_seconds": 65.5}
+    tracker.finish(token, success=True)
+    assert tracker.snapshot()["current"] is None

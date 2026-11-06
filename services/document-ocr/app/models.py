@@ -1,8 +1,12 @@
 """Contrato HTTP/interno do serviço. Nada aqui depende de um engine específico."""
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from pydantic import BaseModel
+
+# Chamado pelo engine após cada página concluída: (página concluída, total de páginas). Nunca é serializado.
+PageProgress = Callable[[int, int], None]
 
 
 @dataclass(frozen=True)
@@ -10,6 +14,7 @@ class InputDocument:
     path: Path
     max_pages: int
     page_limit: int | None = None  # processa só as N primeiras páginas (capa/identificação), sem OCR do documento inteiro
+    on_page: PageProgress | None = field(default=None, compare=False, repr=False)
 
 
 @dataclass

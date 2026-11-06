@@ -14,9 +14,10 @@ from starlette.concurrency import run_in_threadpool
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 
 from .config import Settings
-from .engine import DocumentOcrEngine, EngineError, build_engine
+from .engine import DocumentOcrEngine, EngineError
 from .layout import blocks_to_text
 from .runtime import ActivityTracker, Watchdog
+from .worker import ProcessExecutor, WorkerCrashed, build_executor
 from .models import (
     BlockModel,
     InputDocument,
@@ -36,31 +37,33 @@ def create_app(
     restart_delay: float = 1.0,
     watchdog_interval: float = 5.0,
     clock: Callable[[], float] | None = None,
+    executor_mode: str | None = None,
 ) -> FastAPI:
     settings = settings or Settings.from_env()
     tracker = ActivityTracker(clock=clock) if clock else ActivityTracker()
-    watchdog = Watchdog(tracker, settings.request_timeout, exit_fn, watchdog_interval)
+    # Engine injetado (testes) roda no próprio processo; em produção o engine vive num processo filho e o watchdog
+    # mata só o filho, mantendo o servidor (e /status) de pé.
+    executor = build_executor(settings, engine, executor_mode)
+    on_timeout = executor.kill if isinstance(executor, ProcessExecutor) else None
+    watchdog = Watchdog(tracker, settings.request_timeout, exit_fn, watchdog_interval, on_timeout=on_timeout)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
         watchdog.start()
+        executor.start()
         try:
             yield
         finally:
             watchdog.stop()
+            executor.stop()
 
     app = FastAPI(title="BULA-IA Document OCR", docs_url=None, redoc_url=None, lifespan=lifespan)
-    state: dict[str, DocumentOcrEngine | None] = {"engine": engine}
     # O OCR consome CPU e RAM de forma intensa: poucas execuções simultâneas (padrão 1) e fora do event loop,
-    # para que /health continue respondendo enquanto um documento longo é processado.
+    # para que /health e /status continuem respondendo enquanto um documento longo é processado.
     limiter = asyncio.Semaphore(settings.max_concurrency)
     app.state.tracker = tracker
     app.state.watchdog = watchdog
-
-    def get_engine() -> DocumentOcrEngine:
-        if state["engine"] is None:
-            state["engine"] = build_engine(settings)
-        return state["engine"]
+    app.state.executor = executor
 
     def authorize(authorization: str | None = Header(default=None)) -> None:
         if settings.token is None:
@@ -75,7 +78,11 @@ def create_app(
 
     @app.get("/status")
     def status() -> dict:
-        return tracker.snapshot()
+        # Só memória do processo pai: nunca espera o engine.
+        snapshot = tracker.snapshot()
+        if isinstance(executor, ProcessExecutor):
+            snapshot["worker"] = {"alive": executor.alive(), "restarts": executor.restarts}
+        return snapshot
 
     def authorize_admin(authorization: str | None = Header(default=None)) -> None:
         if settings.token is None:
@@ -119,12 +126,19 @@ def create_app(
             success = False
             try:
                 async with limiter:
-                    token = tracker.start()
-                    parsed = await run_in_threadpool(get_engine().parse, InputDocument(path=path, max_pages=settings.max_pages, page_limit=page_limit))
+                    token = tracker.start(correlation_id[:120])
+                    document = InputDocument(
+                        path=path, max_pages=settings.max_pages, page_limit=page_limit,
+                        on_page=lambda page, total, token=token: tracker.progress(token, page, total),
+                    )
+                    parsed = await run_in_threadpool(executor.parse, document)
                     success = True
             except EngineError:
                 logger.warning("ocr_engine_error correlation_id=%s", correlation_id)
                 raise HTTPException(status_code=422, detail="document could not be parsed")
+            except WorkerCrashed as exc:
+                logger.error("ocr_worker_crashed correlation_id=%s reason=%s", correlation_id, exc)
+                raise HTTPException(status_code=504, detail="ocr worker interrupted")
             except Exception:
                 logger.exception("ocr_unexpected_error correlation_id=%s", correlation_id)
                 raise HTTPException(status_code=500, detail="internal error")
