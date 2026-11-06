@@ -21,7 +21,7 @@ final class KnowledgeIndexer
     /**
      * @return array{indexed: int, skipped: int, failed_batches: int, model: string|null, dimensions: int|null, error_code: string|null}
      */
-    public function index(int $batchSize = 16, ?int $limit = null, bool $reindex = false, ?string $expectedModel = null): array
+    public function index(int $batchSize = 16, ?int $limit = null, bool $reindex = false, ?string $expectedModel = null, ?int $documentId = null): array
     {
         $summary = ['indexed' => 0, 'skipped' => 0, 'failed_batches' => 0, 'model' => null, 'dimensions' => null, 'error_code' => null];
         $provider = $this->providers->embedding();
@@ -29,6 +29,7 @@ final class KnowledgeIndexer
 
         $query = KnowledgeChunk::query()
             ->whereHas('document', fn ($documents) => $documents->where('content_status', KnowledgeDocument::STATUS_READY))
+            ->when($documentId !== null, fn ($chunks) => $chunks->where('document_id', $documentId))
             ->orderBy('id');
 
         $query->chunkById($batchSize, function ($chunks) use (&$summary, &$touchedDocuments, $provider, $reindex, $limit, $expectedModel): bool {

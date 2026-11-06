@@ -139,11 +139,14 @@ class KnowledgeDocumentProcessingTest extends TestCase
     {
         Storage::fake('local');
         $document = $this->documentWithFixture('multipage-text.pdf');
+        config(['ai.embedding.default' => 'fake']);
         $job = new ProcessKnowledgeDocument($document->id);
 
         $job->handle(app(KnowledgeDocumentProcessor::class));
 
         $this->assertSame('READY', $document->refresh()->content_status);
+        $this->assertSame('READY', $document->embedding_status, 'O índice vetorial é gerado ao fim do processamento.');
+        $this->assertSame(0, $document->chunks()->whereNull('embedding_model')->count());
         Queue::fake([ProcessKnowledgeDocument::class]);
         $this->artisan('knowledge:process-document', ['document' => $document->id, '--force' => true])
             ->expectsOutput('Processamento enfileirado.')

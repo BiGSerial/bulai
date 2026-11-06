@@ -56,7 +56,7 @@ Título da aba (`->title()` no componente Livewire): `Nome da tela · BULAI`.
 | `toolbar` | Barra de filtros em uma linha (`count`, slot `actions`); dentro, `search`/`select`/`input` com `compact` (rótulo oculto, 36px) |
 | `data-table` | Tabela densa para listas: `columns` (`label`, `class`, `sort`, `align`), `sort`, `direction`, `sort-event` (padrão `sortBy`), `dense`, slot `empty`; cabeçalho fixo em `lg+`, zebra, destaque ao passar o mouse; `td.tabular` para números |
 | `row-actions` | Ações de linha alinhadas à direita (`button variant="quiet" size="sm"`) |
-| `tabs` | Abas sublinhadas ligadas a uma propriedade Livewire (`tabs` com `key`/`label`/`count`, `active`, `model`) |
+| `tabs` | Abas sublinhadas ligadas a uma propriedade Livewire (`tabs` com `key`/`label`/`count`, `active`, `model`, `alpine`). Com `alpine`, a aba é só do navegador (`x-data` com `tab`, hash na URL) e não chama `$set` no Livewire — usado em Revisão de pendência e Documento (detalhe), que não têm a propriedade `$tab` |
 | `callout` | Aviso compacto de uma linha (`tone`, `title`) |
 | `workflow` | Fluxo em etapas numeradas (`steps` com `label`, `href`, `hint`, `count`, `state` done/current/todo) |
 | `kpis` / `kpi` | Grade de indicadores (2 colunas → 4 em `md`) e indicador compacto (rótulo, valor, complemento, `tone`, `href`) |
@@ -219,3 +219,7 @@ Objetivo: densidade profissional e clareza de "o que é, onde está e quando usa
 | **Usuário** (formulário) | Uma coluna, `max-w-2xl`. | Rótulos visíveis; erro ligado ao campo. |
 
 Convenções adotadas nestas telas: números em células com a classe `tabular`; texto longo em célula com `!whitespace-normal`; estado vazio sempre pelo slot `empty` da `data-table`; botões de linha `variant="quiet" size="sm"`; a aba ativa vem da propriedade `tab` validada em `updatedTab()` (valores fora da lista voltam para a primeira aba).
+
+### Revisão de pendência: bula do paciente e do profissional
+
+O mesmo registro ANVISA pode ter bula do paciente e do profissional. `KnowledgeDocumentLifecycleService` considera `source_document_id` **e** `document_type` ao procurar documento existente; se a chave `source:{origem}:{hash}` já pertence a outro tipo, a nova usa o sufixo `:{tipo}`. Erros de validação de "Criar documento e processar" também viram aviso (toast), pois o campo fica na aba Resolver. Teste: `KnowledgeAdminTest::test_review_creates_the_professional_leaflet_when_the_patient_leaflet_shares_the_registration`.

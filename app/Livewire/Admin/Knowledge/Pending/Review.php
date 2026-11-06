@@ -15,6 +15,7 @@ use App\Services\Knowledge\KnowledgePendingItemReanalysisService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class Review extends Component
@@ -143,6 +144,18 @@ class Review extends Component
     }
 
     public function createDocument(KnowledgePendingItemAssociationService $service): void
+    {
+        try {
+            $this->createDocumentOrFail($service);
+        } catch (ValidationException $exception) {
+            [$this->feedbackType, $this->feedbackMessage] = ['warning', collect($exception->errors())->flatten()->first()];
+            $this->notify();
+
+            throw $exception;
+        }
+    }
+
+    private function createDocumentOrFail(KnowledgePendingItemAssociationService $service): void
     {
         $validated = $this->validate([
             'newDocumentTitle' => ['required', 'string', 'max:255'],

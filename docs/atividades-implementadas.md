@@ -265,3 +265,18 @@ Para mudanças futuras, deve-se executar primeiro o arquivo de teste mais direta
 - **Programação dinâmica por intervalo (06/11/2026)**: remédios "de X em X horas" recontam a próxima dose a partir do horário real em que o paciente marcou "Tomei" (tomou a das 06:00 às 09:30 → próxima 17:30); pular não desloca, desfazer restaura, lembretes seguem a agenda recalculada; o paciente escolhe entre "Contar a partir de quando eu tomar" e "Horários fixos". Docs: `docs/tratamento.md`.
 - **Área administrativa profissional (06/11/2026)**: correção das áreas em branco (grade esticada), shell com trilha de navegação, painel "Ajuda desta tela" com "para que serve, quando usar, passo a passo" para todas as telas, busca global (Ctrl+K), menu com descrições, Visão geral com KPIs, fluxo das bulas e "Precisa de atenção"; todas as listas em tabelas densas ordenáveis com barra de filtros única, detalhes com fatos e abas, formulários compactos. Regras fiscalizadas por `AdminDesignSystemTest`; contrato em `docs/admin-design-system.md` e `docs/design/principios-de-ux.md` (seção 10).
 - **Perguntar como chat amigável (06/11/2026)**: balões de conversa com avatar do BULA-IA, indicador "digitando…", boas-vindas com sugestões; quando a bula não responde, o assistente fala em português simples ("Procurei na bula de X e não achei nada sobre isso…", "Ainda não tenho a bula de X comigo…") com sugestões clicáveis de outras perguntas, sem listas de limitações, seção/página ou jargão; detalhes técnicos ficam recolhidos em "Ver na bula". Textos por situação em `docs/consulta-pwa.md`.
+
+## Do PDF aprovado ao Perguntar (índice automático)
+
+**Problema:** um documento criado pela revisão de pendência ficava `READY` mas o Perguntar não o usava: o vínculo documento → princípio ativo e os embeddings só eram gerados por comandos manuais (`knowledge:build-ingredients`, `knowledge:index-embeddings`), e o catálogo de princípios nasce do DDInter, que não cobre todo medicamento brasileiro (ex.: nimesulida; 17.493 de 39.416 medicamentos ANVISA sem princípio ligado).
+
+**Agora, ao fim de `ProcessKnowledgeDocument` (documento `READY`):**
+1. `KnowledgeDocumentIngredientLinker::link()` liga a bula aos princípios ativos; se o princípio declarado na bula não existe no catálogo, cria-o (alias `origin=document`, `review_status=pending_review`, sem interações) e liga os medicamentos ANVISA com o mesmo ativo.
+2. `KnowledgeIndexer::index(documentId:)` gera os embeddings só dos trechos desse documento.
+Falha nessa etapa é registrada (`knowledge_document_post_processing_failed`) e não derruba o documento; a busca textual continua funcionando. Reprocessar à mão: `php artisan knowledge:index-embeddings`.
+
+**Bula do paciente × profissional:** o mesmo registro pode ter os dois documentos (`KnowledgeDocumentLifecycleService`). O Perguntar usa todos os documentos ligados ao princípio ativo; cada evidência carrega `document_type`. O resumo de bula (`LeafletSummaryService`) prefere a do paciente e só usa a do profissional na ausência dela.
+
+**Operação:** `queue:work` não recarrega código; reinicie o worker (`php artisan queue:restart`) após o deploy.
+
+Testes: `ActiveIngredientCatalogTest` (vínculo/criação do princípio), `KnowledgeDocumentProcessingTest::test_job_runs_the_processor_and_command_dispatches_the_job` (embeddings ao fim do job).

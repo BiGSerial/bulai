@@ -53,7 +53,7 @@
         </x-knowledge-admin.card>
 
         <div class="grid gap-4">
-            <x-knowledge-admin.tabs aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
 
             <div x-show="tab === 'trechos'" role="tabpanel" class="grid gap-2">
                 @forelse ($chunks as $chunk)

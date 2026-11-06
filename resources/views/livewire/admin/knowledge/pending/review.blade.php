@@ -139,7 +139,7 @@
 
         {{-- Detalhe sob demanda: três abas, nenhuma repete o resumo acima. --}}
         <div id="detalhe" class="grid gap-4">
-            <x-knowledge-admin.tabs aria-label="Detalhes da pendência" model="tab" :tabs="[['key' => 'analise', 'label' => 'Análise automática', 'count' => $divergences > 0 ? $divergences.' '.($divergences === 1 ? 'divergência' : 'divergências') : null], ['key' => 'resolver', 'label' => $isPending ? 'Resolver' : 'Resultado'], ['key' => 'arquivo', 'label' => 'Arquivo e histórico']]" />
+            <x-knowledge-admin.tabs alpine aria-label="Detalhes da pendência" model="tab" :tabs="[['key' => 'analise', 'label' => 'Análise automática', 'count' => $divergences > 0 ? $divergences.' '.($divergences === 1 ? 'divergência' : 'divergências') : null], ['key' => 'resolver', 'label' => $isPending ? 'Resolver' : 'Resultado'], ['key' => 'arquivo', 'label' => 'Arquivo e histórico']]" />
 
             {{-- Aba: análise automática (só o que diverge; o que concorda vira uma frase) --}}
             <div x-show="tab === 'analise'" role="tabpanel" class="grid gap-4">
