@@ -94,6 +94,9 @@ final class KnowledgeDocumentClassificationService
         }
 
         $ai = [...$base, 'ai_used' => true, 'model' => $response->model, 'confidence' => $response->confidence, 'duration_ms' => $this->elapsed($startedAt),
+            // Quem respondeu de fato e, com retaguarda configurada, por que a IA local foi (ou não) substituída.
+            'provider' => is_string($response->metadata['provider'] ?? null) ? $response->metadata['provider'] : null,
+            'fallback' => is_array($response->metadata['fallback'] ?? null) ? $response->metadata['fallback'] : null,
             'result' => ['product_name' => $response->productName, 'active_ingredient' => $response->activeIngredient, 'document_type' => $response->documentType, 'evidence' => $response->evidence],
             'checks' => $this->fieldChecks($identification, $response), ...$this->promptSnapshot($request, $response)];
 
@@ -291,6 +294,7 @@ final class KnowledgeDocumentClassificationService
             'decision' => $final['decision'] ?? null, 'heuristic_score' => $final['heuristic_score'] ?? null, 'ai_used' => $final['ai_used'] ?? false,
             'model' => $final['model'] ?? null, 'confidence' => $final['confidence'] ?? null, 'duration_ms' => $final['duration_ms'] ?? null,
             'error_code' => $final['error_code'] ?? null, 'reason' => $final['reason'] ?? null,
+            'provider' => $final['provider'] ?? null, 'fallback_used' => (bool) ($final['fallback']['used'] ?? false),
         ]);
 
         return $result;

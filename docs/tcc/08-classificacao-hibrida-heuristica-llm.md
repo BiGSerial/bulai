@@ -54,6 +54,17 @@ O upload identifica apenas com extração textual; para cada PDF pendente é des
 
 `DocumentClassificationRequest` envia somente score, candidatos, até 8 trechos de evidência de até 400 caracteres e campos ambíguos; nunca o PDF ou o texto completo. Temperatura 0.
 
+## 5.1 Retaguarda com LLM comercial (06/11/2026)
+
+Quando a IA local "não consegue extrair as informações", o pedido é repetido para o Claude, sem mudar a regra de decisão:
+
+- **Encadeamento** (`App\Services\Ai\FallbackDocumentClassificationProvider`, montado por `AiProviderManager::classifier()` quando `DOCUMENT_CLASSIFIER_FALLBACK_DRIVER` está definido e difere do padrão). Gatilhos: o primário lança `AiProviderException` (fora do ar, timeout, resposta fora do contrato, não configurado), responde com `confidence` abaixo de `DOCUMENT_CLASSIFICATION_AI_MIN_CONFIDENCE`, ou devolve `active_ingredient` nulo quando esse campo estava entre os ambíguos. Fora desses casos o Claude não é chamado.
+- **Provider** (`App\Services\Ai\Anthropic\AnthropicDocumentClassificationProvider`, driver `anthropic` da capacidade `classifier`): mesmo prompt de sistema e mesmo payload do driver local; saída estruturada por `output_config.format` (JSON Schema) e validação estrita local idêntica (`DocumentClassificationResponse::fromModelOutput`). Uso e custo entram em `ai_usage_logs` com capability `classify`, sob os mesmos orçamentos diário/mensal do driver de texto (`AnthropicUsageTracker`); modelo por `AI_CLASSIFIER_MODEL` ou, vazio, `ANTHROPIC_MODEL`.
+- **Auditoria**: a classificação grava `provider` e `fallback` (`used`, `primary`, `secondary`, `reason`, `primary_confidence`); a revisão de pendências mostra em linguagem simples "A IA local não conseguiu (motivo); a resposta veio do Claude (modelo)". O prompt e a resposta bruta continuam gravados em `store_prompt`.
+- **Limite de autonomia inalterado**: a resposta do Claude passa pelas mesmas verificações de respaldo no texto, conflito com a heurística e confirmação regulatória. Ele nunca promove uma bula sozinho.
+- **Custo**: só trechos curtos já extraídos (≤ 8 trechos de ≤ 400 caracteres), nunca o PDF; cerca de 1 a 2 mil tokens de entrada por documento.
+- Testes: `tests/Feature/Ai/AnthropicClassificationFallbackTest.php` (API simulada com `Http::fake`, sem chamada real).
+
 ## 6. Consulta sob demanda e decisão humana
 
 - "Consultar IA agora" enfileira `ClassifyPendingDocument(forceAi: true)` (`KnowledgePendingItemReanalysisService::queueItem`), ignorando o limiar de pontuação (faixa 40 a 85). É recusada se o classificador não estiver configurado ou se o item já estiver em fila/processamento. O progresso aparece no polling de 3 s existente.

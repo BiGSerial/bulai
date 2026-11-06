@@ -26,10 +26,12 @@ class ClassifyPendingDocument implements ShouldBeUnique, ShouldQueue
 
     public function __construct(public readonly int $batchId, public readonly int $itemId, public readonly bool $forceAi = false, public readonly ?int $actorId = null)
     {
-        // OCR + classificador local + margem; manter queue retry_after acima deste valor.
+        // OCR + classificador local (+ retaguarda, quando configurada) + margem; manter queue retry_after acima deste valor.
+        $fallback = config('ai.classifier.fallback');
+        $fallbackTimeout = filled($fallback) && $fallback !== config('ai.classifier.default') ? (int) config("ai.classifier.drivers.{$fallback}.timeout", 0) : 0;
         $this->timeout = max(
             (int) config('knowledge.processing.job_timeout_seconds'),
-            (int) config('document_ocr.drivers.http.timeout') + (int) config('ai.classifier.drivers.llamafile.timeout') + 30,
+            (int) config('document_ocr.drivers.http.timeout') + (int) config('ai.classifier.drivers.llamafile.timeout') + $fallbackTimeout + 30,
         );
     }
 
