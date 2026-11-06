@@ -26,7 +26,7 @@
 
     <x-knowledge-admin.ops-disclosure title="Importar arquivos" summary="Envie os arquivos ddinter_downloads_code_*.csv (vários de uma vez). O mesmo par em mais de um arquivo é guardado uma única vez." :open="$total === 0">
         <form class="grid gap-3" wire:submit="import">
-            <label class="grid min-h-28 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center transition hover:border-brand-600 hover:bg-brand-50">
+            <label class="grid min-h-20 cursor-pointer place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-center transition hover:border-brand-600 hover:bg-brand-50 focus-within:ring-2 focus-within:ring-brand-600">
                 <span>
                     <span class="block text-sm font-semibold text-slate-900">{{ count($files) > 0 ? count($files).' arquivo(s) selecionado(s)' : 'Selecione os arquivos CSV' }}</span>
                     <span class="mt-1 block text-sm text-slate-500">.csv ou .txt · até {{ $maxMegabytes }} MB cada · até {{ $maxFiles }} arquivos</span>
@@ -44,13 +44,20 @@
         @if ($history->isEmpty())
             <x-knowledge-admin.empty-state>Nenhuma importação de interações foi feita ainda.</x-knowledge-admin.empty-state>
         @else
-            <ul class="grid gap-2">
+            <x-knowledge-admin.data-table :columns="[['label' => 'Arquivo'], ['label' => 'Data'], ['label' => 'Lidas', 'align' => 'right'], ['label' => 'Novas', 'align' => 'right'], ['label' => 'Atualizadas', 'align' => 'right'], ['label' => 'Rejeitadas', 'align' => 'right'], ['label' => 'Por'], ['label' => 'Situação']]">
                 @foreach ($history as $item)
-                    <x-knowledge-admin.ops-row :title="$item->original_filename" :support="(($item->completed_at ?? $item->started_at)?->format('d/m/Y H:i') ?? '—').' · '.number_format($item->rows_read, 0, ',', '.').' lidas · '.number_format($item->rows_inserted, 0, ',', '.').' novas · '.number_format($item->rows_updated, 0, ',', '.').' atualizadas · '.number_format($item->rows_rejected, 0, ',', '.').' rejeitadas'.($item->uploader ? ' · '.$item->uploader->name : '')" wire:key="import-{{ $item->id }}">
-                        <x-knowledge-admin.status-badge :status="$item->status" />
-                    </x-knowledge-admin.ops-row>
+                    <tr wire:key="import-{{ $item->id }}" class="hover:bg-brand-50/40">
+                        <td class="max-w-xs px-3 py-2"><span class="block truncate font-semibold text-slate-900" title="{{ $item->original_filename }}">{{ $item->original_filename }}</span></td>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ ($item->completed_at ?? $item->started_at)?->format('d/m/Y H:i') ?? '—' }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-700">{{ number_format($item->rows_read, 0, ',', '.') }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-700">{{ number_format($item->rows_inserted, 0, ',', '.') }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-700">{{ number_format($item->rows_updated, 0, ',', '.') }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums {{ $item->rows_rejected > 0 ? 'text-amber-800' : 'text-slate-500' }}">{{ number_format($item->rows_rejected, 0, ',', '.') }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ $item->uploader?->name ?? '—' }}</td>
+                        <td class="whitespace-nowrap px-3 py-2"><x-knowledge-admin.status-badge :status="$item->status" /></td>
+                    </tr>
                 @endforeach
-            </ul>
+            </x-knowledge-admin.data-table>
         @endif
     </x-knowledge-admin.section>
 </x-knowledge-admin.shell>

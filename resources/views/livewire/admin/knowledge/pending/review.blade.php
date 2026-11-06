@@ -139,11 +139,7 @@
 
         {{-- Detalhe sob demanda: três abas, nenhuma repete o resumo acima. --}}
         <div id="detalhe" class="grid gap-4">
-            <nav class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Detalhes da pendência">
-                @foreach ([['analise', 'Análise automática', $divergences > 0 ? $divergences.' '.($divergences === 1 ? 'divergência' : 'divergências') : null], ['resolver', $isPending ? 'Resolver' : 'Resultado', null], ['arquivo', 'Arquivo e histórico', null]] as [$tabKey, $tabLabel, $tabBadge])
-                    <a href="#{{ $tabKey }}" role="tab" x-on:click.prevent="tab = '{{ $tabKey }}'" x-bind:aria-selected="tab === '{{ $tabKey }}'" x-bind:class="tab === '{{ $tabKey }}' ? 'border-accent-500 text-brand-800' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'" class="inline-flex min-h-11 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ $tabLabel }}@if ($tabBadge)<x-knowledge-admin.badge tone="warning">{{ $tabBadge }}</x-knowledge-admin.badge>@endif</a>
-                @endforeach
-            </nav>
+            <x-knowledge-admin.tabs aria-label="Detalhes da pendência" model="tab" :tabs="[['key' => 'analise', 'label' => 'Análise automática', 'count' => $divergences > 0 ? $divergences.' '.($divergences === 1 ? 'divergência' : 'divergências') : null], ['key' => 'resolver', 'label' => $isPending ? 'Resolver' : 'Resultado'], ['key' => 'arquivo', 'label' => 'Arquivo e histórico']]" />
 
             {{-- Aba: análise automática (só o que diverge; o que concorda vira uma frase) --}}
             <div x-show="tab === 'analise'" role="tabpanel" class="grid gap-4">

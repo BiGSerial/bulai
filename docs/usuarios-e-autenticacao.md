@@ -48,3 +48,5 @@ php artisan test --compact tests/Feature/Auth tests/Feature/Admin/UserManagement
 - Verificação de e-mail e autenticação em dois fatores não fazem parte do escopo.
 - A opção "enviar senha provisória por e-mail" transmite a senha em texto puro no e-mail; por isso é opcional e a troca no primeiro acesso é obrigatória.
 - `uncompromised()` faz uma consulta externa (k-anonimidade) só em produção; sem saída para a internet a validação falha fechada — garanta a rede `egress` do deploy.
+
+**Reformulação do admin (06/11/2026):** a lista de usuários é uma tabela ordenável pelos cabeçalhos (`sortBy`: nome, e-mail, perfil, último acesso, cadastro; o segundo clique inverte, parâmetros `ordem`/`sentido` na URL) com filtros em uma linha e "Limpar"; a página do usuário tem abas Dados · Acesso · Histórico (parâmetro `aba`), com as ações de acesso em tabela e o histórico em colunas (Evento · Detalhe · Quando · Por quem). Ver `docs/admin-design-system.md`.

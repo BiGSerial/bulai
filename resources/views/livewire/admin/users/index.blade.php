@@ -1,39 +1,53 @@
-<x-knowledge-admin.shell title="Usuários" subtitle="Quem acessa o BULAI e com qual perfil.">
+<x-knowledge-admin.shell title="Usuários" subtitle="Quem acessa o BULAI e com qual perfil. Clique no cabeçalho de uma coluna para ordenar.">
     <x-slot:actions><x-knowledge-admin.button :href="route('admin.users.create')">Novo usuário</x-knowledge-admin.button></x-slot:actions>
     @error('active')<x-knowledge-admin.alert tone="danger">{{ $message }}</x-knowledge-admin.alert>@enderror
     @if ($totals['admins'] <= 1)
-        <x-knowledge-admin.alert tone="warning">Só um administrador ativo: cadastre outro para não ficar sem acesso à administração.</x-knowledge-admin.alert>
+        <x-knowledge-admin.callout tone="warning" title="Só um administrador ativo.">Cadastre outro para não ficar sem acesso à administração.</x-knowledge-admin.callout>
     @endif
 
-    <x-knowledge-admin.ops-filters :count="$users->total().' '.($users->total() === 1 ? 'usuário encontrado' : 'usuários encontrados').(trim($search) !== '' ? ' para “'.$search.'”' : '').' · '.$totals['active'].' ativos · '.$totals['pending'].' com troca de senha pendente'">
-        <x-knowledge-admin.search label="Buscar" wire:model.live.debounce.300ms="search" placeholder="Nome ou e-mail" wrapper-class="w-full sm:max-w-xs" />
-        <x-knowledge-admin.select label="Situação" wire:model.live="status" wrapper-class="w-full sm:w-44"><option value="all">Todas</option><option value="active">Ativos</option><option value="inactive">Inativos</option><option value="pending">Troca de senha pendente</option></x-knowledge-admin.select>
-        <x-knowledge-admin.select label="Perfil" wire:model.live="role" wrapper-class="w-full sm:w-40"><option value="all">Todos</option>@foreach ($roleOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</x-knowledge-admin.select>
-        <x-knowledge-admin.select label="Ordenar por" wire:model.live="sort" wrapper-class="w-full sm:w-48"><option value="name">Nome</option><option value="recent_login">Acesso mais recente</option><option value="newest">Cadastro mais recente</option></x-knowledge-admin.select>
-    </x-knowledge-admin.ops-filters>
+    <x-knowledge-admin.toolbar :count="$users->total().' '.($users->total() === 1 ? 'usuário encontrado' : 'usuários encontrados').(trim($search) !== '' ? ' para “'.$search.'”' : '').' · '.$totals['active'].' ativos · '.$totals['pending'].' com troca de senha pendente'">
+        <x-knowledge-admin.search label="Buscar" compact wire:model.live.debounce.300ms="search" placeholder="Nome ou e-mail" />
+        <x-knowledge-admin.select label="Situação" compact wire:model.live="status" wrapper-class="w-full sm:w-44"><option value="all">Todas as situações</option><option value="active">Ativos</option><option value="inactive">Inativos</option><option value="pending">Troca de senha pendente</option></x-knowledge-admin.select>
+        <x-knowledge-admin.select label="Perfil" compact wire:model.live="role" wrapper-class="w-full sm:w-40"><option value="all">Todos os perfis</option>@foreach ($roleOptions as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</x-knowledge-admin.select>
+        @if (trim($search) !== '' || $status !== 'all' || $role !== 'all')
+            <x-slot:actions><x-knowledge-admin.button variant="quiet" size="sm" wire:click="clearFilters">Limpar</x-knowledge-admin.button></x-slot:actions>
+        @endif
+    </x-knowledge-admin.toolbar>
 
-    @if ($users->isEmpty())
-        <x-knowledge-admin.empty-state>Nenhum usuário encontrado com estes filtros.</x-knowledge-admin.empty-state>
-    @else
-        <ul class="grid gap-2" wire:loading.class="opacity-60" wire:target="search,status,role,sort">
+    <div wire:loading.class="opacity-60" wire:target="search,status,role,sort,direction,sortBy,clearFilters">
+        <x-knowledge-admin.data-table :columns="[['label' => 'Nome', 'sort' => 'name'], ['label' => 'E-mail', 'sort' => 'email'], ['label' => 'Perfil', 'sort' => 'role'], ['label' => 'Situação'], ['label' => 'Último acesso', 'sort' => 'recent_login'], ['label' => 'Cadastro', 'sort' => 'newest'], ['label' => 'Ações', 'align' => 'right']]" :sort="$sort" :direction="$effectiveDirection">
             @foreach ($users as $user)
-                <x-knowledge-admin.ops-row :title="$user->name.($user->is(auth()->user()) ? ' (você)' : '')" :href="route('admin.users.show', $user)" :support="$user->email.' · '.$user->role->label().' · '.($user->last_login_at ? 'Último acesso em '.$user->last_login_at->timezone(config('app.timezone'))->format('d/m/Y H:i') : 'Nunca acessou')" wire:key="user-{{ $user->id }}">
-                    @if (! $user->isActive())
-                        <x-knowledge-admin.badge>Inativo</x-knowledge-admin.badge>
-                    @elseif ($user->must_change_password)
-                        <x-knowledge-admin.badge tone="warning">Troca de senha pendente</x-knowledge-admin.badge>
-                    @else
-                        <x-knowledge-admin.badge tone="success">Ativo</x-knowledge-admin.badge>
-                    @endif
-                    <x-knowledge-admin.button variant="secondary" :href="route('admin.users.show', $user)">Abrir</x-knowledge-admin.button>
-                    @unless ($user->is(auth()->user()))
-                        <x-knowledge-admin.confirm-modal action="toggleActive({{ $user->id }})" :tone="$user->isActive() ? 'danger' : 'primary'" :title="$user->isActive() ? 'Desativar acesso?' : 'Reativar acesso?'" :message="$user->isActive() ? 'O acesso de '.$user->name.' será bloqueado e a pessoa será desconectada imediatamente. O histórico é mantido e o acesso pode ser reativado depois. Para registrar um motivo, desative pela página do usuário.' : 'O acesso de '.$user->name.' será liberado e a pessoa poderá entrar no BULAI novamente com a senha atual.'" :confirm-label="$user->isActive() ? 'Desativar acesso' : 'Reativar acesso'" :loading="$user->isActive() ? 'Desativando…' : 'Reativando…'">
-                            <x-knowledge-admin.button variant="quiet">{{ $user->isActive() ? 'Desativar' : 'Ativar' }}</x-knowledge-admin.button>
-                        </x-knowledge-admin.confirm-modal>
-                    @endunless
-                </x-knowledge-admin.ops-row>
+                <tr wire:key="user-{{ $user->id }}">
+                    <td><a class="rounded hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.users.show', $user) }}" wire:navigate>{{ $user->name }}</a>@if ($user->is(auth()->user())) <span class="text-xs font-normal text-slate-500">(você)</span>@endif</td>
+                    <td class="text-slate-600">{{ $user->email }}</td>
+                    <td>{{ $user->role->label() }}</td>
+                    <td>
+                        @if (! $user->isActive())
+                            <x-knowledge-admin.badge>Inativo</x-knowledge-admin.badge>
+                        @elseif ($user->must_change_password)
+                            <x-knowledge-admin.badge tone="warning">Troca de senha pendente</x-knowledge-admin.badge>
+                        @else
+                            <x-knowledge-admin.badge tone="success">Ativo</x-knowledge-admin.badge>
+                        @endif
+                    </td>
+                    <td class="tabular text-slate-600" title="{{ $user->last_login_at ? 'Último acesso em '.$user->last_login_at->timezone(config('app.timezone'))->format('d/m/Y H:i') : 'Nunca acessou' }}">{{ $user->last_login_at ? 'Último acesso em '.$user->last_login_at->timezone(config('app.timezone'))->format('d/m/Y H:i') : 'Nunca acessou' }}</td>
+                    <td class="tabular text-slate-600">{{ $user->created_at?->timezone(config('app.timezone'))->format('d/m/Y') ?? '—' }}</td>
+                    <td>
+                        <x-knowledge-admin.row-actions>
+                            <x-knowledge-admin.button variant="quiet" size="sm" :href="route('admin.users.show', $user)">Abrir</x-knowledge-admin.button>
+                            @unless ($user->is(auth()->user()))
+                                <x-knowledge-admin.confirm-modal action="toggleActive({{ $user->id }})" :tone="$user->isActive() ? 'danger' : 'primary'" :title="$user->isActive() ? 'Desativar acesso?' : 'Reativar acesso?'" :message="$user->isActive() ? 'O acesso de '.$user->name.' será bloqueado e a pessoa será desconectada imediatamente. O histórico é mantido e o acesso pode ser reativado depois. Para registrar um motivo, desative pela página do usuário.' : 'O acesso de '.$user->name.' será liberado e a pessoa poderá entrar no BULAI novamente com a senha atual.'" :confirm-label="$user->isActive() ? 'Desativar acesso' : 'Reativar acesso'" :loading="$user->isActive() ? 'Desativando…' : 'Reativando…'">
+                                    <x-knowledge-admin.button variant="quiet" size="sm">{{ $user->isActive() ? 'Desativar' : 'Ativar' }}</x-knowledge-admin.button>
+                                </x-knowledge-admin.confirm-modal>
+                            @endunless
+                        </x-knowledge-admin.row-actions>
+                    </td>
+                </tr>
             @endforeach
-        </ul>
-    @endif
+            @if ($users->isEmpty())
+                <x-slot:empty>Nenhum usuário encontrado com estes filtros.</x-slot:empty>
+            @endif
+        </x-knowledge-admin.data-table>
+    </div>
     {{ $users->links() }}
 </x-knowledge-admin.shell>

@@ -52,7 +52,8 @@ class KnowledgeAdminTest extends TestCase
         $source = $this->source();
         $this->document($source, ['title' => 'Dipirona exclusiva', 'external_key' => 'anvisa-dipi']);
         $this->document($source, ['title' => 'Ibuprofeno exclusivo', 'external_key' => 'anvisa-ibu']);
-        foreach (range(1, 20) as $number) {
+        // 25 por página: com 26 documentos a lista tem uma segunda página.
+        foreach (range(1, 24) as $number) {
             $this->document($source, ['external_key' => "page-{$number}", 'title' => "Documento {$number}"]);
         }
 

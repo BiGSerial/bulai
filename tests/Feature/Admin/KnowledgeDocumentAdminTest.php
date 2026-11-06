@@ -136,6 +136,39 @@ class KnowledgeDocumentAdminTest extends TestCase
     /**
      * @param  array<string, mixed>  $attributes
      */
+    public function test_admin_document_index_is_a_sortable_table_with_a_toolbar_count(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $older = $this->document(['title' => 'Bula Antiga', 'external_key' => 'antiga']);
+        $newer = $this->document(['title' => 'Bula Nova', 'external_key' => 'nova']);
+        $older->chunks()->create(['chunk_index' => 0, 'section' => 'Indicações', 'content' => 'A', 'metadata' => []]);
+        $older->chunks()->create(['chunk_index' => 1, 'section' => 'Posologia', 'content' => 'B', 'metadata' => []]);
+        $newer->chunks()->create(['chunk_index' => 0, 'section' => 'Indicações', 'content' => 'C', 'metadata' => []]);
+
+        $component = Livewire::actingAs($admin)->test(Index::class)
+            ->assertSee('2 documentos')
+            ->assertSeeInOrder(['Bula Nova', 'Bula Antiga']);
+
+        $component->call('sortBy', 'title')->assertSet('sort', 'title')->assertSet('direction', 'asc')->assertSeeInOrder(['Bula Antiga', 'Bula Nova']);
+        $component->call('sortBy', 'title')->assertSet('direction', 'desc')->assertSeeInOrder(['Bula Nova', 'Bula Antiga']);
+        $component->call('sortBy', 'trechos')->assertSet('sort', 'trechos')->assertSet('direction', 'asc')->assertSeeInOrder(['Bula Nova', 'Bula Antiga']);
+        $component->call('sortBy', 'coluna-inexistente')->assertSet('sort', 'trechos');
+    }
+
+    public function test_admin_document_show_organizes_details_in_tabs(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $document = $this->document(['title' => 'Bula com abas']);
+        $document->chunks()->create(['chunk_index' => 0, 'section' => 'Indicações', 'content' => 'Trecho único.', 'metadata' => []]);
+
+        $this->actingAs($admin)->get('/admin/documents/'.$document->id)
+            ->assertOk()
+            ->assertSee('role="tablist"', false)
+            ->assertSeeInOrder(['Trechos (1)', 'Arquivo', 'Processamento'])
+            ->assertSee('Princípios ativos ligados')
+            ->assertSee('Trecho único.');
+    }
+
     private function document(array $attributes = []): KnowledgeDocument
     {
         $source = KnowledgeSource::query()->firstOrCreate([

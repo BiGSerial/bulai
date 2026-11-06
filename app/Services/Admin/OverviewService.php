@@ -11,6 +11,7 @@ use App\Models\PatientPrescription;
 use App\Models\UnmatchedMedicineReport;
 use App\Models\User;
 use App\Services\Analytics\AnalyticsService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -30,7 +31,9 @@ final class OverviewService
      *   usage: array{consultations_total: int, consultations_week: int, questions_total: int, questions_week: int, questions_blocked_week: int, leaflets_total: int, leaflets_week: int, prescriptions_total: int, prescriptions_week: int, grounding_rate_week: float|null, distinct_users_week: int},
      *   ai: array{calls_month: int, failed_month: int, cost_month_usd: float, latency_avg_ms: float|null, text_provider: string|null, embedding_provider: string|null, vision_provider: string|null},
      *   people: array{users: int, active: int, admins: int, logged_in_week: int, never_logged_in: int},
-     *   attention: list<array{label: string, count: int, route: string, tone: string}>
+     *   attention: list<array{label: string, count: int, route: string, tone: string}>,
+     *   workflow: array{batches_in_progress: int, pending_items: int, documents_ready: int},
+     *   recent: array{batches: list<array{id: int, name: string, status: string, total: int, pending: int, errors: int, at: Carbon|null}>, questions: list<array{uuid: string, question: string, status: string, at: Carbon|null}>}
      * }
      */
     public function summary(): array
@@ -41,7 +44,38 @@ final class OverviewService
             'ai' => Cache::remember('admin-overview:ai', self::CACHE_SECONDS, fn (): array => $this->ai()),
             'people' => $this->people(),
             'attention' => $this->attention(),
+            'workflow' => $this->workflow(),
+            'recent' => $this->recent(),
         ];
+    }
+
+    /**
+     * Contagens das etapas do fluxo Adicionar → Importações → Pendências → Documentos (ao vivo: são as que mudam a cada envio).
+     *
+     * @return array{batches_in_progress: int, pending_items: int, documents_ready: int}
+     */
+    private function workflow(): array
+    {
+        return [
+            'batches_in_progress' => IngestionBatch::query()->whereIn('status', [IngestionBatch::STATUS_PENDING, IngestionBatch::STATUS_PROCESSING])->count(),
+            'pending_items' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->count(),
+            'documents_ready' => KnowledgeDocument::query()->where('content_status', KnowledgeDocument::STATUS_READY)->count(),
+        ];
+    }
+
+    /**
+     * Atividade recente: últimas importações e últimas perguntas do aplicativo (cinco de cada).
+     *
+     * @return array{batches: list<array{id: int, name: string, status: string, total: int, pending: int, errors: int, at: Carbon|null}>, questions: list<array{uuid: string, question: string, status: string, at: Carbon|null}>}
+     */
+    private function recent(): array
+    {
+        $batches = IngestionBatch::query()->latest('id')->limit(5)->get()
+            ->map(fn (IngestionBatch $batch): array => ['id' => $batch->id, 'name' => (string) ($batch->name ?: 'Importação #'.$batch->id), 'status' => (string) $batch->status, 'total' => (int) $batch->total_items, 'pending' => (int) $batch->pending_items, 'errors' => (int) $batch->error_items, 'at' => $batch->created_at])->all();
+        $questions = DB::table('medication_questions')->select(['uuid', 'question', 'status', 'created_at'])->latest('id')->limit(5)->get()
+            ->map(fn (object $row): array => ['uuid' => (string) $row->uuid, 'question' => (string) $row->question, 'status' => (string) $row->status, 'at' => $row->created_at !== null ? Carbon::parse($row->created_at) : null])->all();
+
+        return ['batches' => $batches, 'questions' => $questions];
     }
 
     /** @return array<string, mixed> */

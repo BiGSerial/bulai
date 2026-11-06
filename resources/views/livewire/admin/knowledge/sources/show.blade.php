@@ -10,22 +10,31 @@
 
     @if (session('sourceFeedback'))<x-knowledge-admin.alert tone="success">{{ session('sourceFeedback') }}</x-knowledge-admin.alert>@endif
 
-    <x-knowledge-admin.card>
-        <dl class="grid gap-4 sm:grid-cols-3">
-            <div><dt class="text-xs text-slate-500">Documentos</dt><dd class="mt-0.5 text-base font-semibold text-slate-900">{{ $source->documents_count }}</dd></div>
-            <div><dt class="text-xs text-slate-500">Importações</dt><dd class="mt-0.5 text-base font-semibold text-slate-900">{{ $source->batches_count }}</dd></div>
-            <div class="min-w-0"><dt class="text-xs text-slate-500">Endereço oficial</dt><dd class="mt-0.5 truncate text-base font-semibold text-slate-900">@if ($source->url)<a class="text-brand-700 hover:underline" href="{{ $source->url }}" target="_blank" rel="noopener noreferrer">{{ $source->url }}</a>@else Não informado @endif</dd></div>
-        </dl>
-        @if ($source->description)<p class="mt-4 whitespace-pre-line border-t border-slate-100 pt-4 text-sm text-slate-700">{{ $source->description }}</p>@endif
+    <x-knowledge-admin.card class="grid gap-3">
+        <x-knowledge-admin.facts class="sm:grid-cols-3 lg:grid-cols-4">
+            <x-knowledge-admin.fact label="Documentos">{{ $source->documents_count }}</x-knowledge-admin.fact>
+            <x-knowledge-admin.fact label="Importações">{{ $source->batches_count }}</x-knowledge-admin.fact>
+            <x-knowledge-admin.fact label="Tipo">{{ $typeLabel }}</x-knowledge-admin.fact>
+            <x-knowledge-admin.fact label="Endereço oficial"><span class="block truncate">@if ($source->url)<a class="text-brand-700 hover:underline" href="{{ $source->url }}" target="_blank" rel="noopener noreferrer">{{ $source->url }}</a>@else Não informado @endif</span></x-knowledge-admin.fact>
+        </x-knowledge-admin.facts>
+        @if ($source->description)<p class="whitespace-pre-line border-t border-slate-100 pt-3 text-sm text-slate-700">{{ $source->description }}</p>@endif
     </x-knowledge-admin.card>
 
     <x-knowledge-admin.section title="Documentos recentes">
-        <div class="grid gap-2">
-            @forelse ($recentDocuments as $document)
-                <a wire:key="recent-{{ $document->id }}" class="flex items-center gap-3 rounded-lg border border-slate-200 px-4 py-3 transition hover:border-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-900">{{ $document->title }}</span><span class="block truncate text-xs text-slate-500">{{ $document->external_key }} · {{ $document->created_at->format('d/m/Y H:i') }}</span></span><span class="shrink-0 text-sm font-semibold text-brand-700">Abrir</span></a>
-            @empty
-                <x-knowledge-admin.empty-state>Nenhum documento desta origem ainda.</x-knowledge-admin.empty-state>
-            @endforelse
-        </div>
+        <x-slot:actions><x-knowledge-admin.button variant="quiet" :href="route('admin.knowledge.documents.index', ['q' => $source->name])">Ver todos</x-knowledge-admin.button></x-slot:actions>
+        @if ($recentDocuments->isEmpty())
+            <x-knowledge-admin.empty-state>Nenhum documento desta origem ainda.</x-knowledge-admin.empty-state>
+        @else
+            <x-knowledge-admin.data-table :columns="[['label' => 'Título'], ['label' => 'Identificador'], ['label' => 'Criado em'], ['label' => '', 'class' => 'w-px']]">
+                @foreach ($recentDocuments as $document)
+                    <tr wire:key="recent-{{ $document->id }}" class="hover:bg-brand-50/40">
+                        <td class="max-w-md px-3 py-2"><a class="block truncate font-semibold text-slate-900 hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate>{{ $document->title }}</a></td>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ $document->external_key ?: '—' }}</td>
+                        <td class="whitespace-nowrap px-3 py-2 text-slate-600">{{ $document->created_at->format('d/m/Y H:i') }}</td>
+                        <td class="px-2 py-1"><x-knowledge-admin.row-actions><x-knowledge-admin.button variant="quiet" size="sm" :href="route('admin.knowledge.documents.show', $document)">Abrir</x-knowledge-admin.button></x-knowledge-admin.row-actions></td>
+                    </tr>
+                @endforeach
+            </x-knowledge-admin.data-table>
+        @endif
     </x-knowledge-admin.section>
 </x-knowledge-admin.shell>

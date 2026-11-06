@@ -28,6 +28,10 @@ Após a quinta onda o aplicativo cobria as tarefas do paciente, mas a experiênc
 | **Landing page** como apresentação de produto, com os limites do produto em seção própria e visível. | Credibilidade comercial sem abrir mão da transparência das diretrizes (não substitui o médico; "nenhuma interação encontrada" não é garantia). |
 | **Programação dinâmica por intervalo**: remédios "de 8 em 8 horas" guardam `interval_minutes` e, no modo `interval` (padrão para essa frequência), a cadeia de doses é recontada a partir do horário real em que o paciente marcou "Tomei"; pular não desloca; doses esquecidas antes de uma marcação continuam visíveis; o paciente pode preferir horários fixos. | Pedido explícito do usuário: o calendário deve seguir a posologia real. Tomou a das 06:00 só às 09:30 → a próxima passa a ser 17:30, e não 14:00. A agenda continua calculada (não materializada): só o evento de marcação é gravado, com o horário real em `recorded_at`. |
 
+### 2.1 Área administrativa profissional (mesma iteração)
+
+O usuário apontou, com captura de tela, áreas em branco, layout "relaxado" e dificuldade de saber "o que, onde e quando usar". Diagnóstico: o conteúdo era uma grade (`display: grid`) que esticava as linhas para preencher a altura da tela (`align-content` padrão), abrindo vazios entre cabeçalho e filtros; corrigido com `content-start`. Decisões: (1) **densidade**: listas em tabelas ordenáveis com cabeçalho fixo, zebra e 25 itens por página, barra de filtros única, detalhes com linha de fatos e abas, formulários em uma coluna; (2) **orientação**: trilha de navegação, menu com descrição por item, painel "Ajuda desta tela" gerado de `App\AdminHelp` (para que serve, quando usar, passo a passo, telas relacionadas) para todas as 31 rotas, fluxo das bulas em etapas na Visão geral; (3) **localização**: busca global (Ctrl+K) sobre telas, documentos, catálogo (tolerante a erros) e usuários; (4) **fiscalização**: `AdminDesignSystemTest` ganhou regra de densidade (cartões altos em listas, blocos vazios, grades sem `content-start`).
+
 ## 3. Modelo de dados e serviços
 
 - Migração `2026_11_06_011348_add_trigram_search_to_catalog`: `CREATE EXTENSION pg_trgm` e cinco índices GIN de trigramas (nome comercial, primeira palavra do nome comercial, princípio ativo, primeira palavra do princípio ativo, nomes e aliases de princípios ativos). Nenhuma coluna nova.
@@ -90,5 +94,7 @@ Os lembretes seguem a agenda recalculada, porque o agendador consulta `agenda()`
 | Testes novos: `BuscaToleranteAErrosTest` 2, `ConsultaDesignSystemTest` 3, `LandingPageTest` 3 | 8 |
 | Testes ampliados: `PerguntaLivreTest` 9 (+3), `PwaAssetTest` 6 (reescritos), `RemediosDeHojeTest` 3, `ConsultaPwaTest` 11, `PerfilEPerguntasTest` | 29 cobrindo as telas |
 | Suíte completa em 06/11/2026 (sequencial, após a sexta onda) | 562 testes, 561 aprovados, 1 ignorado (chamada real à Anthropic, executada à parte), 11.064 asserções, ~61 s |
+| Suíte completa em 06/11/2026 (após programação dinâmica e admin profissional) | 574 testes, 573 aprovados, 1 ignorado, 15.317 asserções, ~58 s |
+| Rotas do admin com ajuda contextual | 31 |
 | Toques para marcar a próxima dose a partir da Início (cartão do dia) | 1 |
 | Trocas de conversa lembradas na pergunta livre | 3 (até 600 caracteres de contexto) |

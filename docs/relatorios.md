@@ -42,3 +42,5 @@ Os arquivos ficam em `storage/app/reports` (volume `shared/storage` em produçã
 - Sem PDF: os formatos são CSV (planilha) e JSON (análise). 
 - O relatório de avaliação depende dos arquivos locais de `storage/app/evaluation/runs` (não versionados).
 - Sem agendamento: para relatórios periódicos, agende `reports:generate` em `routes/console.php`.
+
+**Reformulação do admin (06/11/2026):** tipos e relatórios gerados em tabelas densas; a linha do tipo selecionado expande o formulário (formato e período); ações Baixar/Apagar na linha.

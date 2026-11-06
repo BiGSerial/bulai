@@ -41,32 +41,30 @@
         @endif
 
         {{-- Resumo decisório --}}
-        <x-knowledge-admin.card>
-            <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div><dt class="text-xs text-slate-500">Trechos</dt><dd class="mt-0.5 text-base font-semibold text-slate-900">{{ $document->content_status === 'READY' ? $document->chunks_count : 'Ainda não gerados' }}</dd></div>
-                <div><dt class="text-xs text-slate-500">Índice de busca</dt><dd class="mt-0.5 text-base font-semibold text-slate-900">{{ match ($document->embedding_status) { 'READY' => 'Gerado', 'PROCESSING' => 'Gerando', 'FAILED' => 'Falhou', default => 'Aguardando' } }}</dd></div>
-                <div><dt class="text-xs text-slate-500">Processado em</dt><dd class="mt-0.5 text-base font-semibold text-slate-900">{{ $document->processed_at?->format('d/m/Y H:i') ?? 'Pendente' }}</dd></div>
-                <div class="min-w-0"><dt class="text-xs text-slate-500">Princípios ativos ligados</dt><dd class="mt-0.5 truncate text-base font-semibold text-slate-900" title="{{ $ingredients->pluck('canonical_name')->join(', ') }}">{{ $ingredients->isNotEmpty() ? $ingredients->pluck('canonical_name')->join(', ') : 'Nenhum' }}</dd></div>
-            </dl>
+        <x-knowledge-admin.card class="py-3 sm:py-3">
+            <x-knowledge-admin.facts class="sm:grid-cols-3 lg:grid-cols-6">
+                <x-knowledge-admin.fact label="Trechos">{{ $document->content_status === 'READY' ? $document->chunks_count : 'Ainda não gerados' }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Índice de busca">{{ match ($document->embedding_status) { 'READY' => 'Gerado', 'PROCESSING' => 'Gerando', 'FAILED' => 'Falhou', default => 'Aguardando' } }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Arquivo PDF">{{ match ($document->file_status) { 'READY' => 'Disponível', 'PROCESSING' => 'Armazenando', 'FAILED' => 'Falhou', default => 'Aguardando' } }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Processado em">{{ $document->processed_at?->format('d/m/Y H:i') ?? 'Pendente' }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Idioma">{{ $document->language ?: 'Não informado' }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Princípios ativos ligados"><span class="block truncate" title="{{ $ingredients->pluck('canonical_name')->join(', ') }}">{{ $ingredients->isNotEmpty() ? $ingredients->pluck('canonical_name')->join(', ') : 'Nenhum' }}</span></x-knowledge-admin.fact>
+            </x-knowledge-admin.facts>
         </x-knowledge-admin.card>
 
         <div class="grid gap-4">
-            <nav class="flex gap-1 overflow-x-auto border-b border-slate-200" role="tablist" aria-label="Detalhes do documento">
-                @foreach ([['trechos', 'Trechos ('.$document->chunks_count.')'], ['arquivo', 'Arquivo'], ['processamento', 'Processamento']] as [$tabKey, $tabLabel])
-                    <a href="#{{ $tabKey }}" role="tab" x-on:click.prevent="tab = '{{ $tabKey }}'" x-bind:aria-selected="tab === '{{ $tabKey }}'" x-bind:class="tab === '{{ $tabKey }}' ? 'border-accent-500 text-brand-800' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'" class="inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ $tabLabel }}</a>
-                @endforeach
-            </nav>
+            <x-knowledge-admin.tabs aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
 
-            <div x-show="tab === 'trechos'" role="tabpanel" class="grid gap-3">
+            <div x-show="tab === 'trechos'" role="tabpanel" class="grid gap-2">
                 @forelse ($chunks as $chunk)
-                    <x-knowledge-admin.card wire:key="chunk-{{ $chunk->id }}">
-                        <div class="flex flex-wrap items-center gap-2 text-sm">
+                    <article wire:key="chunk-{{ $chunk->id }}" class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
                             <span class="font-semibold text-slate-900">#{{ $chunk->chunk_index }}</span>
                             <span class="text-slate-500">{{ $chunk->section ?? 'Sem seção' }}</span>
                             @if ($chunk->page_start || $chunk->page_end)<x-knowledge-admin.badge>páginas {{ $chunk->page_start ?? '?' }}-{{ $chunk->page_end ?? '?' }}</x-knowledge-admin.badge>@endif
                         </div>
-                        <pre class="mt-3 whitespace-pre-wrap break-words font-sans text-sm text-slate-800">{{ $chunk->content }}</pre>
-                    </x-knowledge-admin.card>
+                        <pre class="mt-1.5 max-h-96 overflow-auto whitespace-pre-wrap break-words font-sans text-sm text-slate-800">{{ $chunk->content }}</pre>
+                    </article>
                 @empty
                     <x-knowledge-admin.empty-state>Nenhum trecho ainda. {{ $hasFile ? 'Processe o documento para extrair o texto.' : 'Envie o PDF pela importação para gerar os trechos.' }}</x-knowledge-admin.empty-state>
                 @endforelse

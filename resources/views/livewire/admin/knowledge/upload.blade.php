@@ -16,11 +16,11 @@
                 <x-knowledge-admin.button variant="secondary" wire:click="openSourceModal">+ Nova origem</x-knowledge-admin.button>
             </div>
 
-            <label class="grid min-h-40 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/40 p-6 text-center transition hover:border-brand-600 hover:bg-brand-50 focus-within:ring-2 focus-within:ring-brand-600" x-bind:class="dragging ? 'border-brand-600 bg-brand-50' : ''" x-on:dragover.prevent="dragging = true" x-on:dragleave.prevent="dragging = false" x-on:drop.prevent="dragging = false; $refs.files.files = $event.dataTransfer.files; $refs.files.dispatchEvent(new Event('change'))">
+            <label class="grid min-h-32 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/40 px-4 py-4 text-center transition hover:border-brand-600 hover:bg-brand-50 focus-within:ring-2 focus-within:ring-brand-600" x-bind:class="dragging ? 'border-brand-600 bg-brand-50' : ''" x-on:dragover.prevent="dragging = true" x-on:dragleave.prevent="dragging = false" x-on:drop.prevent="dragging = false; $refs.files.files = $event.dataTransfer.files; $refs.files.dispatchEvent(new Event('change'))">
                 <span>
                     <svg class="mx-auto size-8 text-brand-600 stroke-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" /></svg>
-                    <span class="mt-2 block text-sm font-semibold text-slate-900">Arraste os PDFs aqui ou toque para escolher</span>
-                    <span class="mt-1 block text-sm text-slate-500">Vários arquivos de uma vez · até {{ $maxBatchMegabytes }} MB no total</span>
+                    <span class="mt-1 block text-sm font-semibold text-slate-900">Arraste os PDFs aqui ou clique para escolher</span>
+                    <span class="mt-0.5 block text-xs text-slate-500">Vários arquivos de uma vez · até {{ $maxBatchMegabytes }} MB no total</span>
                 </span>
                 <input class="sr-only" type="file" accept="application/pdf,.pdf" multiple wire:model="files" x-ref="files">
             </label>
@@ -34,15 +34,15 @@
 
             @if ($files !== [])
                 <div class="grid gap-2" aria-live="polite">
-                    @foreach ($files as $file)
-                        <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-200 py-1 pl-3 pr-1 text-sm" wire:key="{{ $file->getFilename() }}">
-                            <span class="min-w-0 truncate font-medium text-slate-800">{{ $file->getClientOriginalName() }}</span>
-                            <span class="flex shrink-0 items-center gap-1">
-                                <span class="text-slate-500">{{ number_format($file->getSize() / 1048576, 1, ',', '.') }} MB</span>
-                                <x-knowledge-admin.button variant="quiet" wire:click="removeFile({{ \Illuminate\Support\Js::from($file->getFilename()) }})" aria-label="Remover {{ $file->getClientOriginalName() }} da seleção" loading-target="ingest,removeFile,clearFiles">Remover</x-knowledge-admin.button>
-                            </span>
-                        </div>
-                    @endforeach
+                    <x-knowledge-admin.data-table :columns="[['label' => 'Arquivo'], ['label' => 'Tamanho', 'align' => 'right'], ['label' => '', 'class' => 'w-px']]">
+                        @foreach ($files as $file)
+                            <tr wire:key="{{ $file->getFilename() }}">
+                                <td class="max-w-md px-3 py-1.5"><span class="block truncate font-medium text-slate-800" title="{{ $file->getClientOriginalName() }}">{{ $file->getClientOriginalName() }}</span></td>
+                                <td class="whitespace-nowrap px-3 py-1.5 text-right tabular-nums text-slate-500">{{ number_format($file->getSize() / 1048576, 1, ',', '.') }} MB</td>
+                                <td class="px-2 py-1"><x-knowledge-admin.row-actions><x-knowledge-admin.button variant="quiet" size="sm" wire:click="removeFile({{ \Illuminate\Support\Js::from($file->getFilename()) }})" aria-label="Remover {{ $file->getClientOriginalName() }} da seleção" loading-target="ingest,removeFile,clearFiles">Remover</x-knowledge-admin.button></x-knowledge-admin.row-actions></td>
+                            </tr>
+                        @endforeach
+                    </x-knowledge-admin.data-table>
                     <div class="flex items-center justify-between gap-3">
                         <p class="text-sm text-slate-600">{{ count($files) }} {{ count($files) === 1 ? 'arquivo' : 'arquivos' }} · {{ number_format(collect($files)->sum(fn ($file) => $file->getSize()) / 1048576, 1, ',', '.') }} MB</p>
                         @if (count($files) > 1)

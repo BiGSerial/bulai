@@ -71,3 +71,13 @@ Estados: BACKLOG · READY · IN_PROGRESS · BLOCKED · IN_REVIEW · DONE. `DONE`
 | F-V | Arquiteto | Integração: violações de layout apontadas por B aplicadas nas telas, suíte completa, `docs/tcc/26`, release, commit e PR | F-R..F-U | DONE | 562 testes, 561 aprovados, 1 ignorado, 11.064 asserções (06/11/2026) |
 | F-W | Arquiteto | Programação dinâmica por intervalo: migração `2026_11_06_015003` (`interval_minutes`, `schedule_mode`), parser com `interval_hours`, `register()`/`agenda()`/`mark()` recalculando a cadeia a partir do horário real da última dose tomada | F-0e | DONE | `ProgramacaoDoTratamentoTest` (+1, cadeia recalculada; pular não desloca; desfazer restaura) |
 | F-X | E | Interface da programação dinâmica: Hoje ("Tomou às", "Ajustado", intervalo), Início ("ajustado"), Perfil e Revisar com escolha "Contar a partir de quando eu tomar" × "Horários fixos" | F-W | DONE | `RemediosDeHojeTest` (+1), `ReceitaPorFotoTest` (modo por item); `docs/tratamento.md` seção "Programação dinâmica por intervalo" |
+
+## Iteração 5 (06/11/2026): área administrativa profissional
+
+| ID | Frente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| F-Y0 | Arquiteto | Diagnóstico das áreas em branco (`main` em `grid flex-1` sem `content-start`) e correção no shell; contrato de componentes densos (`toolbar`, `data-table`, `row-actions`, `tabs`, `callout`, `workflow`, `kpis`) | — | DONE | commit `2157a51` |
+| F-Y | F | Shell com trilha de navegação, painel "Ajuda desta tela" (`AdminHelp` para as 31 rotas: para que serve, quando usar, passo a passo, telas relacionadas), busca global Ctrl+K (telas, documentos, catálogo, usuários), menu com descrições, Visão geral reorganizada (KPIs, fluxo das bulas, atenção, atividade recente) | F-Y0 | DONE | `AdminHelpAndSearchTest` (3), `AdminDesignSystemTest` (+regra de densidade); `docs/admin-design-system.md` reescrito |
+| F-Z | G | Base de conhecimento em tabelas densas ordenáveis com barra de filtros única (Documentos, Importações, Pendências, Remédios não encontrados, Origens, Catálogo, Interações), detalhes com fatos + abas, envio compacto | F-Y | DONE | `KnowledgeDocumentAdminTest` (+2); 52 testes das telas |
+| F-AA | H | Fila e serviços (KPIs + tabela), Analytics (abas, KPIs, tabelas), Relatórios (tabelas), Usuários (tabela ordenável, detalhe em abas) | F-Y | DONE | `QueueStatusTest` (+1), `UserManagementAdminTest` (+2), `AnalyticsAdminTest` (+1) |
+| F-AB | Arquiteto | Integração: suíte completa, docs, commit e PR | F-Y..F-AA | DONE | 574 testes, 573 aprovados, 1 ignorado, 15.317 asserções (06/11/2026) |

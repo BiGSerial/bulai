@@ -1,5 +1,5 @@
 <x-knowledge-admin.shell :title="$userId === null ? 'Novo usuário' : 'Editar usuário'" :subtitle="$userId === null ? 'O sistema gera uma senha provisória, que a pessoa troca no primeiro acesso.' : 'Trocar o perfil encerra as sessões abertas da pessoa.'" :back="$userId === null ? route('admin.users.index') : route('admin.users.show', $userId)" :back-label="$userId === null ? 'Usuários' : 'Página do usuário'">
-    <form class="max-w-xl" wire:submit="save">
+    <form class="max-w-2xl" wire:submit="save">
         <x-knowledge-admin.section title="Dados de acesso">
             <x-knowledge-admin.input label="Nome" required wire:model="name" autocomplete="off" />
             <x-knowledge-admin.input type="email" label="E-mail" required wire:model="email" autocomplete="off" inputmode="email" autocapitalize="none" spellcheck="false" />

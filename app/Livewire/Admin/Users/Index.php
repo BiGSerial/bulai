@@ -15,9 +15,11 @@ class Index extends Component
 {
     use WithPagination;
 
-    /** Ordenações disponíveis: chave => [coluna, direção]. */
+    /** Ordenações disponíveis (cabeçalhos da tabela): chave => [coluna, direção padrão]. */
     private const SORTS = [
         'name' => ['name', 'asc'],
+        'email' => ['email', 'asc'],
+        'role' => ['role', 'asc'],
         'recent_login' => ['last_login_at', 'desc'],
         'newest' => ['created_at', 'desc'],
     ];
@@ -33,6 +35,10 @@ class Index extends Component
 
     #[Url(as: 'ordem', except: 'name')]
     public string $sort = 'name';
+
+    /** Sentido escolhido ao clicar duas vezes no mesmo cabeçalho; vazio = sentido padrão da coluna. */
+    #[Url(as: 'sentido', except: '')]
+    public string $direction = '';
 
     /**
      * Defesa em profundidade: além do middleware da rota (reaplicado nas ações pelo Livewire),
@@ -60,7 +66,36 @@ class Index extends Component
 
     public function updatedSort(): void
     {
+        $this->direction = '';
         $this->resetPage();
+    }
+
+    /** Clique no cabeçalho de uma coluna: ordena por ela; o segundo clique inverte o sentido. */
+    public function sortBy(string $field): void
+    {
+        if (! array_key_exists($field, self::SORTS)) {
+            return;
+        }
+        if ($this->sort === $field) {
+            $this->direction = $this->effectiveDirection() === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->sort = $field;
+            $this->direction = '';
+        }
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset('search', 'status', 'role');
+        $this->resetPage();
+    }
+
+    private function effectiveDirection(): string
+    {
+        $default = (self::SORTS[$this->sort] ?? self::SORTS['name'])[1];
+
+        return in_array($this->direction, ['asc', 'desc'], true) ? $this->direction : $default;
     }
 
     public function toggleActive(int $userId, UserAccountService $service): void
@@ -72,7 +107,8 @@ class Index extends Component
     public function render(): View
     {
         $search = trim($this->search);
-        [$column, $direction] = self::SORTS[$this->sort] ?? self::SORTS['name'];
+        [$column] = self::SORTS[$this->sort] ?? self::SORTS['name'];
+        $direction = $this->effectiveDirection();
 
         $query = User::query()
             ->when($search !== '', fn (Builder $query) => $query->where(function (Builder $query) use ($search): void {
@@ -94,6 +130,7 @@ class Index extends Component
                 'pending' => User::query()->where('must_change_password', true)->count(),
             ],
             'roleOptions' => UserRole::options(),
+            'effectiveDirection' => $direction,
         ])->title('Usuários · BULAI');
     }
 }

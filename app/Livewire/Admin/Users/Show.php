@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Users\UserAccountService;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -17,6 +18,10 @@ class Show extends Component
 
     #[Locked]
     public int $userId;
+
+    /** Aba visível: dados, acesso ou historico. */
+    #[Url(as: 'aba', except: 'dados')]
+    public string $tab = 'dados';
 
     /** Motivo informado ao desativar o acesso (vai para a auditoria). */
     public string $reason = '';
@@ -44,6 +49,14 @@ class Show extends Component
     public function mount(User $user): void
     {
         $this->userId = $user->id;
+        $this->updatedTab();
+    }
+
+    public function updatedTab(): void
+    {
+        if (! in_array($this->tab, ['dados', 'acesso', 'historico'], true)) {
+            $this->tab = 'dados';
+        }
     }
 
     public function toggleActive(UserAccountService $service): void

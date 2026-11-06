@@ -209,4 +209,15 @@ final class QueueStatusTest extends TestCase
 
         return $batch->items()->create(['original_filename' => $name, 'normalized_filename' => $name, 'sha256' => hash('sha256', $name), 'mime_type' => 'application/pdf', 'file_size' => 10, 'storage_disk' => 'knowledge', 'storage_key' => "k/{$name}", 'storage_path' => "k/{$name}", 'status' => 'PENDING', 'reason' => 'no_match_found', 'metadata' => $metadata]);
     }
+
+    public function test_queue_page_shows_kpis_including_items_resolved_today(): void
+    {
+        Http::fake(['*' => Http::response(['status' => 'ok', 'busy' => false])]);
+        [$batch] = $this->pendingItem('a.pdf', 'queued');
+        $this->addItem($batch, 'b.pdf', 'queued')->update(['status' => IngestionBatchItem::STATUS_IGNORED]);
+
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/queue')->assertOk()
+            ->assertSeeInOrder(['Na fila', 'Processando', 'Com falha', 'Resolvidos hoje'])
+            ->assertSee('Arquivos que saíram da fila hoje')->assertSee('a.pdf')->assertDontSee('b.pdf');
+    }
 }
