@@ -26,6 +26,7 @@ Após a quinta onda o aplicativo cobria as tarefas do paciente, mas a experiênc
 | **Sensação nativa só com CSS e Alpine**: safe areas em modo standalone, transições de página curtas (`@view-transition`), sem realce de toque, `overscroll-behavior`, alvos ≥ 48 px, estados de pressionar; guardas globais de layout (`min-width: 0`, `overflow-wrap: anywhere`, mídia com `max-width: 100%`). | Sem bibliotecas novas (restrição do projeto); o que mais pesa na percepção de "nativo" é ausência de quebra e resposta imediata ao toque. |
 | **Auditoria estática de layout em teste** (`ConsultaDesignSystemTest`): proíbe nas telas do paciente `whitespace-nowrap` sem corte, grades de 3+ colunas sem prefixo responsivo, larguras fixas maiores que a tela, tabelas fora de `overflow-x-auto`, `style=` inline e jargão técnico. | Mesmo mecanismo do admin (`AdminDesignSystemTest`): a regra vive no teste e vale para as próximas iterações, sem depender de inspeção manual. |
 | **Landing page** como apresentação de produto, com os limites do produto em seção própria e visível. | Credibilidade comercial sem abrir mão da transparência das diretrizes (não substitui o médico; "nenhuma interação encontrada" não é garantia). |
+| **Programação dinâmica por intervalo**: remédios "de 8 em 8 horas" guardam `interval_minutes` e, no modo `interval` (padrão para essa frequência), a cadeia de doses é recontada a partir do horário real em que o paciente marcou "Tomei"; pular não desloca; doses esquecidas antes de uma marcação continuam visíveis; o paciente pode preferir horários fixos. | Pedido explícito do usuário: o calendário deve seguir a posologia real. Tomou a das 06:00 só às 09:30 → a próxima passa a ser 17:30, e não 14:00. A agenda continua calculada (não materializada): só o evento de marcação é gravado, com o horário real em `recorded_at`. |
 
 ## 3. Modelo de dados e serviços
 
@@ -34,6 +35,7 @@ Após a quinta onda o aplicativo cobria as tarefas do paciente, mas a experiênc
 - `MedicationSearchService::search()`: busca por prefixo e, sem resultado, fallback tolerante; cada item traz `fuzzy` e `matched` para a tela perguntar "Você quis dizer…?".
 - `MedicationMentionDetector::detect()`: após o caminho exato, tenta a correção nas palavras não cobertas; cada menção traz `fuzzy` e `corrected`.
 - `MedicationQuestionService::askFreeform()`: aceita a conversa recente (seção 4.1).
+- Migração `2026_11_06_015003_add_dynamic_interval_to_patient_medications`: `patient_medications.interval_minutes` e `schedule_mode` (`fixed` | `interval`). `DoseScheduleParser::parse()` devolve `interval_hours`; `TreatmentScheduleService::agenda()` projeta a cadeia dinâmica (`dynamicSlots`) e cada linha traz `dynamic` e `taken_at`.
 
 ## 4. Fluxos
 
@@ -44,7 +46,18 @@ Após a quinta onda o aplicativo cobria as tarefas do paciente, mas a experiênc
 3. A resposta vem das bulas dos dois e a tela mostra "Entendemos 'lozartana' como Losartana. Não é isso?" com troca e remoção.
 4. "E com café?" chega sem nome de remédio: a tela envia as últimas trocas; o serviço herda os dois remédios e acrescenta "Conversa anterior" ao bloco de fatos; o modelo responde sobre café com as mesmas bulas.
 
-### 4.2 Instalação
+### 4.2 Programação dinâmica (remédio "de 8 em 8 horas", começado hoje)
+
+| Momento | Agenda de hoje | Amanhã |
+| --- | --- | --- |
+| Antes de qualquer marcação | 06:00 · 14:00 · 22:00 | 06:00 · 14:00 · 22:00 |
+| Marcou a das 06:00 como tomada às 09:30 | 06:00 (tomou às 09:30) · 17:30 | 01:30 · 09:30 · 17:30 |
+| Pulou a das 17:30 | 06:00 · 17:30 (pulada) | 01:30 · 09:30 · 17:30 (pular não desloca) |
+| Tomou a das 01:30 só às 03:00 | — | 01:30 (tomou às 03:00) · 11:00 · 19:00 |
+
+Os lembretes seguem a agenda recalculada, porque o agendador consulta `agenda()` a cada 5 minutos.
+
+### 4.3 Instalação
 
 1. Chrome/Edge no Android disparam `beforeinstallprompt` após o engajamento; o aplicativo guarda o evento e mostra o cartão na Início e o item no menu.
 2. "Instalar" chama o prompt nativo; `appinstalled` esconde o cartão. "Agora não" silencia por 14 dias.
@@ -60,6 +73,7 @@ Após a quinta onda o aplicativo cobria as tarefas do paciente, mas a experiênc
 
 ## 6. Limitações e ameaças à validade
 
+- Na programação dinâmica, a partida da cadeia antes da primeira marcação é o primeiro horário programado do dia de início; quem começa o tratamento à tarde deve ajustar esse horário ou simplesmente marcar a primeira dose (a cadeia passa a seguir o horário real).
 - Trigramas não resolvem letras trocadas de lugar em palavras curtas ("dipirnoa" fica abaixo da semelhança mínima de 0,5); a tela continua oferecendo a busca manual.
 - Palavras comuns que coincidem com marcas registradas podem ser corrigidas indevidamente; a lista de palavras comuns reduz, mas não elimina, o risco. A correção é sempre visível e reversível.
 - O contexto da conversa vive na sessão da tela (não é persistido além do histórico já existente de perguntas) e cobre as últimas três trocas.

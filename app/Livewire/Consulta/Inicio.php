@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Consulta;
 
+use App\Livewire\Consulta\Tratamento\Hoje;
 use App\Models\MedicationDoseEvent;
 use App\Models\PatientMedication;
 use App\Services\Treatment\TreatmentScheduleService;
@@ -31,12 +32,14 @@ class Inicio extends Component
     {
         $user = auth()->user();
         $consentido = $user->hasHealthConsent();
-        $agenda = $consentido ? $schedule->agenda($user) : collect();
+        $agenda = $consentido ? Hoje::anotarAjustes($schedule->agenda($user)) : collect();
         $proxima = $consentido ? $schedule->nextDose($user) : null;
+        // Remédio dinâmico: a próxima dose foi recontada a partir do horário real da anterior tomada hoje.
+        $ajustado = $proxima !== null && $proxima['dynamic'] && $agenda->contains(fn (array $dose): bool => $dose['medication']->id === $proxima['medication']->id && $dose['scheduled_for']->equalTo($proxima['scheduled_for']) && ($dose['ajustado'] ?? null) !== null);
         $proximaTexto = match (true) {
             $proxima === null => 'Veja os horários e marque o que já tomou',
             $proxima['status'] === TreatmentScheduleService::DOSE_LATE => 'Atrasado: '.$proxima['time'].' · '.$proxima['medication']->displayName(),
-            $proxima['scheduled_for']->isToday() => 'Próximo: '.$proxima['time'].' · '.$proxima['medication']->displayName(),
+            $proxima['scheduled_for']->isToday() => 'Próximo: '.$proxima['time'].' · '.$proxima['medication']->displayName().($ajustado ? ' · ajustado' : ''),
             default => 'Amanhã: '.$proxima['time'].' · '.$proxima['medication']->displayName(),
         };
         $hoje = CarbonImmutable::now($user->treatmentTimezone());

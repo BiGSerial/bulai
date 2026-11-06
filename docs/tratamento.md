@@ -69,6 +69,28 @@ Contexto de tratamento nas respostas (`TreatmentContextService`): remédios sem 
 | Cadastrar remédio que não está no catálogo | Meus remédios → Adicionar remédio → digitar → Cadastrar assim mesmo (4) → Salvar posologia (+1) |
 | Ajustar um horário | Meus remédios → ⋯ → Informar dose e horários → mudar a hora → Salvar (5) |
 
+## Programação dinâmica por intervalo (06/11/2026)
+
+**Regra.** Quando a frequência é por intervalo ("de 8 em 8 horas", "8/8h", "a cada 6 horas"), o remédio guarda `interval_minutes` e entra no modo `schedule_mode = interval`: os horários **não são fixos**. A agenda projeta a cadeia a partir do horário **real** em que a última dose foi marcada como "Tomei" (`medication_dose_events.recorded_at`), somando o intervalo. O paciente pode trocar para `fixed` (horários iguais todos os dias) em Meus remédios ou ao revisar a receita; frequências por contagem ("2x ao dia", "pela manhã e à noite") continuam fixas.
+
+**Exemplo** (de 8 em 8 horas, começa em 05/11, primeiro horário 06:00):
+
+| O que aconteceu | Agenda de 05/11 | Agenda de 06/11 |
+| --- | --- | --- |
+| Nada marcado | 06:00 · 14:00 · 22:00 | 06:00 · 14:00 · 22:00 |
+| "Tomei" a das 06:00 às **09:30** | 06:00 (tomou às 09:30) · **17:30** (ajustado) | 01:30 · 09:30 · 17:30 |
+| "Pular" a das 17:30 | 06:00 · 17:30 (pulei) | 01:30 · 09:30 · 17:30 (pular não desloca) |
+| "Tomei" a das 01:30 de 06/11 às **03:00** | — | 01:30 (tomou às 03:00) · **11:00** · **19:00** |
+| "Desfazer" a marcação das 01:30 | — | 01:30 · 09:30 · 17:30 |
+
+- **Tomei** desloca a cadeia: a próxima dose é `recorded_at + intervalo`. **Pular** não desloca (a seguinte é contada do horário programado que foi pulado). **Desfazer** devolve a projeção anterior.
+- Doses esquecidas antes de uma marcação continuam visíveis como atrasadas; a cadeia só é recontada **depois** da marcação.
+- Antes da primeira marcação a cadeia nasce no primeiro horário de `dose_times` do dia de início (ou 08:00) e avança em intervalos; por isso, no modo dinâmico, só o primeiro horário é guardado.
+- Cada linha de `agenda()` traz `dynamic` (bool) e `taken_at` (horário real da marcação, no fuso do paciente). `mark()` aceita `recordedAt` para testes.
+- **Telas**: Remédios de hoje mostra "a cada 8 h", "Tomou às 09:30" quando difere do programado e o selo "Ajustado" (com "contado a partir das 09:30, quando você tomou a anterior") nas doses recontadas; a Início acrescenta "· ajustado" à próxima dose; Meus remédios e Revisar receita oferecem os cartões "Contar a partir de quando eu tomar (recomendado)" e "Horários fixos todos os dias", e no modo dinâmico só pedem o "Primeiro horário do dia".
+- **Lembretes** (`treatment:send-reminders`) usam a mesma `agenda()`, portanto seguem a programação recalculada; a `dedupe_key` leva o horário projetado.
+- **Limitações**: a cadeia é recalculada por remédio, sem considerar outros remédios; intervalos que não dividem 24 h ("de 5 em 5 horas") deslocam de dia para dia por desenho; não há limite de doses por dia além do que o intervalo permite; o paciente não edita o intervalo em horas na tela (vem da frequência escrita).
+
 ## Testes
 `tests/Unit/Services/Treatment/DoseScheduleParserTest` (20), `tests/Feature/Consulta/ProgramacaoDoTratamentoTest` (4: registro sem catálogo e pendência, resolução/fusão pelo admin, agenda no fuso do paciente, privacidade), `tests/Feature/Consulta/ReceitaPorFotoTest` (7: confirmação com item fora do catálogo, manter pelo nome, pular), `tests/Feature/Consulta/RemediosDeHojeTest` (3: agenda por período e marcações, privacidade/vazios/Início com cartão do dia e "Marcar como tomado", cadastro pelo nome no perfil e contexto). Rodar: `php artisan test --compact tests/Feature/Consulta tests/Unit/Services/Treatment`.
 

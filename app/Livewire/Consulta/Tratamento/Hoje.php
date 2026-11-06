@@ -7,6 +7,7 @@ use App\Models\PatientMedication;
 use App\Services\Treatment\TreatmentScheduleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 
 /**
@@ -69,7 +70,7 @@ class Hoje extends Component
         $consentido = $user->hasHealthConsent();
         $hoje = CarbonImmutable::now($user->treatmentTimezone())->startOfDay();
         $data = $hoje->addDays($this->dia);
-        $agenda = $consentido ? $schedule->agenda($user, $data) : collect();
+        $agenda = $consentido ? self::anotarAjustes($schedule->agenda($user, $data)) : collect();
 
         $periodos = ['manha' => ['Manhã', 'sol', []], 'tarde' => ['Tarde', 'relogio', []], 'noite' => ['Noite', 'lua', []]];
         foreach ($agenda as $dose) {
@@ -94,7 +95,30 @@ class Hoje extends Component
             'tomadas' => $agenda->where('status', TreatmentScheduleService::DOSE_TAKEN)->count(),
             'atrasadas' => $agenda->where('status', TreatmentScheduleService::DOSE_LATE)->count(),
             'temRemedios' => $remedios->isNotEmpty(),
+            'temDinamico' => $agenda->contains(fn (array $dose): bool => $dose['dynamic']),
             'quandoPrecisar' => $remedios->filter(fn (PatientMedication $item): bool => $item->as_needed && $item->isActive())->values(),
         ]);
+    }
+
+    /**
+     * Em remédios dinâmicos, uma dose projetada depois de uma tomada fora do horário ganha `ajustado` = "HH:MM" (o
+     * horário real da dose anterior, de onde a cadeia foi recontada). As demais linhas ficam com `ajustado` nulo.
+     *
+     * @param  Collection<int, array<string, mixed>>  $agenda
+     * @return Collection<int, array<string, mixed>>
+     */
+    public static function anotarAjustes(Collection $agenda): Collection
+    {
+        $base = [];
+
+        return $agenda->sortBy('time')->values()->map(function (array $dose) use (&$base): array {
+            $id = $dose['medication']->id;
+            $dose['ajustado'] = $dose['dynamic'] && $dose['event'] === null ? ($base[$id] ?? null) : null;
+            if ($dose['dynamic'] && $dose['taken_at'] !== null) {
+                $base[$id] = $dose['taken_at']->format('H:i') !== $dose['time'] ? $dose['taken_at']->format('H:i') : null;
+            }
+
+            return $dose;
+        });
     }
 }

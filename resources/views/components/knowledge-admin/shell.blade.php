@@ -64,7 +64,8 @@
             </div>
         </header>
 
-        <main id="conteudo" class="mx-auto grid w-full max-w-7xl flex-1 gap-5 px-4 py-5 sm:px-6">
+        {{-- `content-start`: sem isso a grade distribui a altura sobrando da tela entre as linhas e abre espaços em branco. --}}
+        <main id="conteudo" class="mx-auto grid w-full max-w-7xl flex-1 content-start gap-5 px-4 py-5 sm:px-6">
             @if ($back)<div><a class="-ml-2 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-brand-700 transition hover:bg-brand-50 hover:text-brand-800" href="{{ $back }}" wire:navigate>← {{ $backLabel }}</a></div>@endif
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div class="min-w-0">

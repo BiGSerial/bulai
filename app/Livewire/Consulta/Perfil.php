@@ -48,8 +48,15 @@ class Perfil extends Component
     /** Remédio em uso cuja posologia está sendo editada (id de `patient_medications`). */
     public ?int $editandoId = null;
 
-    /** @var array{dosage: string, frequency: string, started_at: string|null, ends_at: string|null, prescription_id: int|string|null, notes: string, times: list<string>, as_needed: bool, reminders_enabled: bool} */
-    public array $posologia = ['dosage' => '', 'frequency' => '', 'started_at' => null, 'ends_at' => null, 'prescription_id' => null, 'notes' => '', 'times' => [], 'as_needed' => false, 'reminders_enabled' => true];
+    /**
+     * `interval_hours` vem da frequência ("de 8 em 8 horas"); com ele, `schedule_mode` escolhe entre contar a partir do
+     * horário real em que o paciente toma (`interval`, padrão) ou horários fixos todos os dias (`fixed`).
+     *
+     * @var array{dosage: string, frequency: string, started_at: string|null, ends_at: string|null, prescription_id: int|string|null, notes: string, times: list<string>, as_needed: bool, reminders_enabled: bool, interval_hours: int|null, schedule_mode: string}
+     */
+    public array $posologia = self::POSOLOGIA_VAZIA;
+
+    private const POSOLOGIA_VAZIA = ['dosage' => '', 'frequency' => '', 'started_at' => null, 'ends_at' => null, 'prescription_id' => null, 'notes' => '', 'times' => [], 'as_needed' => false, 'reminders_enabled' => true, 'interval_hours' => null, 'schedule_mode' => PatientMedication::MODE_FIXED];
 
     public function mount(): void
     {
@@ -190,6 +197,8 @@ class Perfil extends Component
             'times' => TreatmentScheduleService::cleanTimes((array) ($medication->dose_times ?? [])),
             'as_needed' => (bool) $medication->as_needed,
             'reminders_enabled' => (bool) $medication->reminders_enabled,
+            'interval_hours' => (int) $medication->interval_minutes > 0 ? intdiv((int) $medication->interval_minutes, 60) : null,
+            'schedule_mode' => $medication->isDynamic() ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED,
         ];
     }
 
@@ -198,12 +207,18 @@ class Perfil extends Component
     {
         $schedule = app(DoseScheduleParser::class)->parse($value);
         if ($schedule === null) {
+            $this->posologia['interval_hours'] = null;
+            $this->posologia['schedule_mode'] = PatientMedication::MODE_FIXED;
+
             return;
         }
         $this->posologia['as_needed'] = $schedule['as_needed'];
         if ($this->posologia['times'] === [] || $schedule['as_needed']) {
             $this->posologia['times'] = $schedule['times'];
         }
+        // Frequência por intervalo: contar a partir de quando o paciente toma é o padrão (ele pode trocar para horários fixos).
+        $this->posologia['interval_hours'] = $schedule['interval_hours'];
+        $this->posologia['schedule_mode'] = $schedule['interval_hours'] !== null ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED;
     }
 
     public function adicionarHorario(): void
@@ -224,7 +239,7 @@ class Perfil extends Component
     public function cancelarPosologia(): void
     {
         $this->editandoId = null;
-        $this->posologia = ['dosage' => '', 'frequency' => '', 'started_at' => null, 'ends_at' => null, 'prescription_id' => null, 'notes' => '', 'times' => [], 'as_needed' => false, 'reminders_enabled' => true];
+        $this->posologia = self::POSOLOGIA_VAZIA;
     }
 
     public function salvarPosologia(): void
@@ -246,6 +261,8 @@ class Perfil extends Component
                 'posologia.times.*' => ['nullable', 'string', 'max:5'],
                 'posologia.as_needed' => ['boolean'],
                 'posologia.reminders_enabled' => ['boolean'],
+                'posologia.interval_hours' => ['nullable', 'integer', 'min:1', 'max:24'],
+                'posologia.schedule_mode' => ['required', 'in:'.PatientMedication::MODE_FIXED.','.PatientMedication::MODE_INTERVAL],
             ], ['posologia.ends_at.after_or_equal' => 'A data de término deve ser igual ou posterior ao início.'])['posologia'];
         } catch (ValidationException $exception) {
             $this->mensagem = $exception->validator->errors()->first();
@@ -258,14 +275,21 @@ class Perfil extends Component
             $prescriptionId = null;
         }
 
+        $intervalMinutes = filled($data['interval_hours']) && ! (bool) $data['as_needed'] ? (int) $data['interval_hours'] * 60 : null;
+        $dinamico = $intervalMinutes !== null && $data['schedule_mode'] === PatientMedication::MODE_INTERVAL;
+        $times = (bool) $data['as_needed'] ? [] : TreatmentScheduleService::cleanTimes((array) $data['times']);
+
         $medication->update([
+            'interval_minutes' => $intervalMinutes,
+            'schedule_mode' => $dinamico ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED,
             'dosage' => filled($data['dosage']) ? trim($data['dosage']) : null,
             'frequency' => filled($data['frequency']) ? trim($data['frequency']) : null,
             'started_at' => $data['started_at'] ?: null,
             'ends_at' => $data['ends_at'] ?: null,
             'prescription_id' => $prescriptionId,
             'notes' => filled($data['notes']) ? trim($data['notes']) : null,
-            'dose_times' => (bool) $data['as_needed'] ? [] : TreatmentScheduleService::cleanTimes((array) $data['times']),
+            // No modo dinâmico só o primeiro horário importa: é onde a cadeia começa antes da primeira marcação.
+            'dose_times' => $dinamico ? array_slice($times, 0, 1) : $times,
             'as_needed' => (bool) $data['as_needed'],
             'reminders_enabled' => (bool) $data['reminders_enabled'],
         ]);

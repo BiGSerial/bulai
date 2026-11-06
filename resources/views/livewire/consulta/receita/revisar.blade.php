@@ -77,20 +77,42 @@
                         {{-- Horários do dia, sugeridos a partir de "quando tomar"; o paciente pode ajustar antes de salvar. --}}
                         <div class="grid gap-2 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200" role="group" aria-label="Horários de {{ $item['name_as_written'] }}">
                             <p class="flex items-center gap-2 text-lg font-semibold text-slate-900"><x-consulta.icone name="relogio" size="sm" />Horários de hoje em diante</p>
+                            @php($dinamico = ! $item['as_needed'] && $item['interval_hours'] !== null && $item['schedule_mode'] === \App\Models\PatientMedication::MODE_INTERVAL)
                             @if ($item['as_needed'])
                                 <p class="text-slate-800">Só quando precisar: sem horário fixo.</p>
                             @elseif ($item['times'] === [])
                                 <p class="text-slate-800">Sem horário definido. Toque em “Adicionar horário” se quiser lembretes.</p>
                             @endif
-                            @foreach ($item['times'] as $pos => $hora)
-                                <div class="flex min-w-0 items-center gap-2" wire:key="rx-h-{{ $index }}-{{ $pos }}">
-                                    <label class="sr-only" for="rx-hora-{{ $index }}-{{ $pos }}">Horário {{ $pos + 1 }}</label>
-                                    <input id="rx-hora-{{ $index }}-{{ $pos }}" class="ui-control min-h-14 min-w-0 flex-1 text-xl" type="time" wire:model="itens.{{ $index }}.times.{{ $pos }}" step="300">
-                                    <button type="button" class="min-h-14 shrink-0 rounded-2xl px-4 text-lg font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600" wire:click="tirarHorario({{ $index }}, {{ $pos }})" aria-label="Tirar o horário {{ $hora ?: $pos + 1 }}">Tirar</button>
+                            @if (! $item['as_needed'] && $item['interval_hours'] !== null)
+                                {{-- Frequência por intervalo: contar a partir de quando toma (recomendado) ou horários fixos. --}}
+                                <div class="grid gap-2" role="radiogroup" aria-label="Como contar os horários de {{ $item['name_as_written'] }}">
+                                    <label class="flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border-2 p-3 {{ $dinamico ? 'border-brand-700 bg-brand-50' : 'border-slate-300 bg-white' }}">
+                                        <input type="radio" class="mt-1 size-6 shrink-0 border-slate-400 text-brand-700 focus:ring-brand-600" name="rx-modo-{{ $index }}" value="{{ \App\Models\PatientMedication::MODE_INTERVAL }}" wire:model.live="itens.{{ $index }}.schedule_mode">
+                                        <span class="min-w-0"><span class="block break-words text-lg font-semibold text-slate-900">Contar a partir de quando eu tomar (recomendado)</span><span class="block break-words text-base text-slate-600">A cada {{ $item['interval_hours'] }} h depois do horário em que você marcar “Tomei”.</span></span>
+                                    </label>
+                                    <label class="flex min-h-16 cursor-pointer items-start gap-3 rounded-2xl border-2 p-3 {{ ! $dinamico ? 'border-brand-700 bg-brand-50' : 'border-slate-300 bg-white' }}">
+                                        <input type="radio" class="mt-1 size-6 shrink-0 border-slate-400 text-brand-700 focus:ring-brand-600" name="rx-modo-{{ $index }}" value="{{ \App\Models\PatientMedication::MODE_FIXED }}" wire:model.live="itens.{{ $index }}.schedule_mode">
+                                        <span class="min-w-0"><span class="block break-words text-lg font-semibold text-slate-900">Horários fixos todos os dias</span><span class="block break-words text-base text-slate-600">Sempre nos mesmos horários, mesmo se atrasar uma dose.</span></span>
+                                    </label>
                                 </div>
-                            @endforeach
-                            @if (count($item['times']) < 12)
-                                <button type="button" class="min-h-14 rounded-2xl border-2 border-dashed border-brand-600/50 bg-white px-4 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="adicionarHorario({{ $index }})">+ Adicionar horário</button>
+                            @endif
+                            @if ($dinamico)
+                                <div class="flex min-w-0 items-center gap-2">
+                                    <label class="min-w-0 flex-1 font-medium text-slate-800" for="rx-hora-{{ $index }}-0">Primeiro horário do dia</label>
+                                    <input id="rx-hora-{{ $index }}-0" class="ui-control min-h-14 w-32 max-w-full text-xl" type="time" wire:model="itens.{{ $index }}.times.0" step="300">
+                                </div>
+                                <p class="text-base text-slate-600">Os outros horários são calculados a cada {{ $item['interval_hours'] }} h a partir da última dose que você marcar.</p>
+                            @else
+                                @foreach ($item['times'] as $pos => $hora)
+                                    <div class="flex min-w-0 items-center gap-2" wire:key="rx-h-{{ $index }}-{{ $pos }}">
+                                        <label class="sr-only" for="rx-hora-{{ $index }}-{{ $pos }}">Horário {{ $pos + 1 }}</label>
+                                        <input id="rx-hora-{{ $index }}-{{ $pos }}" class="ui-control min-h-14 min-w-0 flex-1 text-xl" type="time" wire:model="itens.{{ $index }}.times.{{ $pos }}" step="300">
+                                        <button type="button" class="min-h-14 shrink-0 rounded-2xl px-4 text-lg font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600" wire:click="tirarHorario({{ $index }}, {{ $pos }})" aria-label="Tirar o horário {{ $hora ?: $pos + 1 }}">Tirar</button>
+                                    </div>
+                                @endforeach
+                                @if (count($item['times']) < 12)
+                                    <button type="button" class="min-h-14 rounded-2xl border-2 border-dashed border-brand-600/50 bg-white px-4 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="adicionarHorario({{ $index }})">+ Adicionar horário</button>
+                                @endif
                             @endif
                         </div>
                         <p class="text-lg font-semibold text-slate-900">Está certo?</p>

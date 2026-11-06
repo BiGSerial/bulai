@@ -36,6 +36,9 @@
                         <p class="min-w-0 break-words text-lg font-semibold leading-snug">{{ $atrasadas === 1 ? 'Um horário passou sem marcação.' : $atrasadas.' horários passaram sem marcação.' }} Marque “Tomei” ou “Pular”.</p>
                     </div>
                 @endif
+                @if ($temDinamico)
+                    <p class="flex items-start gap-2 px-1 text-base text-slate-600" role="note"><x-consulta.icone name="relogio" plain class="mt-0.5 size-5 shrink-0" /><span class="min-w-0 break-words">Remédios “de tantas em tantas horas” se ajustam ao horário em que você marca “Tomei”: a próxima dose é contada a partir dali.</span></p>
+                @endif
             @endif
 
             @forelse ($periodos as $chave => [$rotulo, $icone, $doses])
@@ -51,7 +54,13 @@
                                         <p class="shrink-0 rounded-xl bg-brand-50 px-3 py-2 text-2xl font-bold leading-none tabular-nums text-brand-900">{{ $dose['time'] }}</p>
                                         <div class="min-w-0 flex-1">
                                             <p class="break-words text-xl font-semibold leading-snug text-slate-900 {{ $dose['status'] === T::DOSE_SKIPPED ? 'line-through decoration-2' : '' }}">{{ $dose['medication']->displayName() }}</p>
-                                            <p class="break-words text-slate-700">{{ $dose['medication']->dosage ?: 'Dose não informada' }}</p>
+                                            <p class="break-words text-slate-700">{{ collect([$dose['medication']->dosage ?: 'Dose não informada', $dose['dynamic'] ? $dose['medication']->intervalLabel() : null])->filter()->join(' · ') }}</p>
+                                            @if ($dose['taken_at'] !== null && $dose['taken_at']->format('H:i') !== $dose['time'])
+                                                <p class="break-words text-base font-semibold text-emerald-800">Tomou às {{ $dose['taken_at']->format('H:i') }}</p>
+                                            @endif
+                                            @if ($dose['ajustado'] ?? null)
+                                                <p class="break-words text-base text-slate-600"><x-consulta.selo tone="neutral" class="mr-1">Ajustado</x-consulta.selo>contado a partir das {{ $dose['ajustado'] }}, quando você tomou a anterior</p>
+                                            @endif
                                         </div>
                                         <x-consulta.selo :tone="$tom" class="shrink-0">{{ $texto }}</x-consulta.selo>
                                     </div>
