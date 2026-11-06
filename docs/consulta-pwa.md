@@ -254,3 +254,25 @@ Varre `resources/views/livewire/consulta/**`, `resources/views/components/consul
 ### Programação dinâmica por intervalo (06/11/2026)
 
 Remédios "de tantas em tantas horas" deixam de ter horários fixos: depois de "Tomei", a próxima dose é contada a partir do horário real da marcação (regra, exemplos e limitações em `docs/tratamento.md`). Na interface: Remédios de hoje mostra o intervalo, "Tomou às HH:MM" e o selo "Ajustado" com a explicação; a Início acrescenta "· ajustado" à próxima dose; Meus remédios e Revisar receita oferecem a escolha "Contar a partir de quando eu tomar (recomendado)" / "Horários fixos todos os dias" e, no modo dinâmico, pedem só o primeiro horário do dia. Testes: `RemediosDeHojeTest::test_interval_medicines_show_the_real_time_and_the_recalculated_doses_and_the_mode_can_be_chosen`, `ReceitaPorFotoTest` (item "de 8 em 8 horas" confirma em modo dinâmico).
+
+## Perguntar: chat amigável (iteração 5)
+
+**Propósito.** Quando a bula não responde, a tela fala com a pessoa em vez de mostrar um relatório ("Limitações", "evidências", "seção · página"). A conversa é feita de balões: a pergunta à direita, o BULA-IA à esquerda com avatar e nome; "digitando…" enquanto procura; rolagem automática para o último balão; a caixa de texto, o ditado e o botão Perguntar ficam fixos embaixo.
+
+**Arquivos.** `app/Livewire/Consulta/Perguntar.php` (`fala()`, `falaCurta()`, `listar()`, `reformulacoes()` — texto por situação, determinístico, sem IA), `resources/views/livewire/consulta/perguntar.blade.php`, componente novo `resources/views/components/consulta/balao.blade.php`; `resources/views/components/consulta/resposta.blade.php` (página do histórico) alinhado ao mesmo tom; `MedicationQuestionService::askFreeform()` passou a devolver `missing` (`unidentified`, `without_leaflet`) com os nomes em falta, sem mudar os campos existentes (`limitations`/`evidences` continuam no registro e no Analytics).
+
+**O que o balão diz.**
+
+| Situação | Texto | Próximo passo |
+| --- | --- | --- |
+| Respondida | a resposta; "Li isso na bula de X." (+ perfil, + conversa anterior) | Ouvir; "Ver na bula" recolhido com as partes usadas |
+| Só partes da bula | "Não consegui montar uma resposta curta com segurança, mas achei na bula de X estas partes que falam disso:" + até 2 partes de ~300 caracteres | 3 reformulações em chips ("X dá sono?", "Como devo tomar X?", "X pode ser tomado com comida?", "Quais os efeitos mais comuns de X?", sem repetir a pergunta atual) |
+| Nada na bula | "Procurei na bula de X e não achei nada sobre isso. Isso não quer dizer que seja “não”…" | reformulações + "pergunte ao seu farmacêutico" |
+| Sem bula | "Ainda não tenho a bula de X comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa." | chips com outros remédios em uso; "Não é esse remédio?" |
+| Nome sem bula ligada | "Encontrei o nome X, mas ainda não consigo ligar ele a uma bula…" | busca "Não é esse remédio?" |
+| Sem remédio na pergunta | "Sobre qual remédio você quer saber? Escreva o nome como está na caixa…" | chips dos remédios em uso |
+| Bloqueada | mensagem de segurança (e 188 quando há risco) | — |
+
+Correção de digitação ("Entendemos 'lozartana' como Losartana. Não é isso?") é uma linha dentro do balão com "Trocar" / "Não era esse remédio". Remédios sem bula numa pergunta com vários viram uma frase ("Ainda não tenho a bula de Y comigo."). O contexto do tratamento (alergia, interação) continua como uma única frase de risco (`x-consulta.risco`) abaixo do balão; os detalhes (partes da bula, o que foi considerado, link do histórico) ficam em "Ver na bula" / "Mais detalhes".
+
+**Testes.** `PerguntaLivreTest` (+4: só partes da bula, nada na bula, sem bula, falas determinísticas; nenhum balão mostra "Limitações", "seção", "página", "catálogo", "evidência" ou "Princípio ativo") e `PerfilEPerguntasTest` (textos). **Limitações.** As reformulações são modelos fixos por nome de remédio; a rolagem automática e o "digitando…" não foram verificados em aparelho real.

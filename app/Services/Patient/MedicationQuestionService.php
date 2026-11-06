@@ -98,7 +98,7 @@ final class MedicationQuestionService
         $conversation = array_slice(array_values($conversation), -self::CONVERSATION_TURNS);
         $base = [
             'message' => null, 'question' => $verdict->sanitized, 'answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'treatment' => null,
-            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'limitations' => [], 'guard' => $verdict->toArray(), 'uuid' => null,
+            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
         ];
 
         if (! $verdict->allowed()) {
@@ -242,6 +242,8 @@ final class MedicationQuestionService
         }
 
         $limitations = [];
+        // Nomes em falta, para a tela falar com o paciente em vez de listar limitações técnicas.
+        $empty['missing'] = ['unidentified' => $unidentified, 'without_leaflet' => $withoutLeaflet];
         if ($unidentified !== []) {
             $limitations[] = 'Princípio ativo não identificado no catálogo para: '.implode(', ', $unidentified).'.';
         }
@@ -264,7 +266,7 @@ final class MedicationQuestionService
 
         $label = implode(' + ', array_map(fn (AnvisaMedicine $m): string => $m->product_name, $medicines));
 
-        return $this->generate($label, $question, $references, $facts, $retrieval, $conversation) + ['limitations' => $limitations];
+        return $this->generate($label, $question, $references, $facts, $retrieval, $conversation) + ['limitations' => $limitations, 'missing' => $empty['missing']];
     }
 
     /**

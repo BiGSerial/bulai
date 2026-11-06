@@ -193,10 +193,10 @@ final class PerfilEPerguntasTest extends TestCase
         Livewire::actingAs($user)->test(Perguntar::class)
             ->call('perguntar')->assertSee('Escreva sua pergunta')
             ->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
-            ->assertSee('Entendemos que você perguntou sobre')->assertSee('OMEPRAZOL')
-            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('página 3')->assertSee('Baseado na bula oficial, conferido automaticamente.')
-            ->assertDontSee('O comprimido deve ser tomado em jejum.')
-            ->assertSee('Guardada no seu');
+            ->assertSee('Falando de:')->assertSee('OMEPRAZOL')
+            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('Ver na bula')->assertSee('Li isso na bula de OMEPRAZOL.')
+            ->assertDontSee('página 3')->assertDontSee('Limitações')
+            ->assertSee('Guardei esta conversa no seu');
 
         $question = MedicationQuestion::query()->sole();
         $this->assertSame([$user->id, $medicine->id, 'OMEPRAZOL', 'omeprazol em jejum?', MedicationQuestionService::ANSWERED], [$question->user_id, $question->medicine_id, $question->medicine_name, $question->question, $question->status]);
@@ -311,7 +311,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame('major', $record->treatment_context['highest_severity']);
         $this->assertSame('ZOCOR', $record->treatment_context['interactions'][0]['medicine']);
 
-        $this->actingAs($user)->get(route('consulta.pergunta', $record))->assertOk()->assertSee('posso tomar com sinvastatina?')->assertSee('Com ZOCOR')->assertSee('Considera os medicamentos e alergias do seu perfil');
+        $this->actingAs($user)->get(route('consulta.pergunta', $record))->assertOk()->assertSee('posso tomar com sinvastatina?')->assertSee('Com ZOCOR')->assertSee('Também olhei os remédios e as alergias do seu perfil');
         $this->actingAs(User::factory()->create())->get(route('consulta.pergunta', $record))->assertNotFound();
     }
 
