@@ -64,11 +64,18 @@ final class PostgresKnowledgeRetriever implements KnowledgeRetriever
             $builder->where('d.language', $query->language);
         }
         if ($query->sectionPatterns !== null && $query->sectionPatterns !== []) {
-            $builder->where(function (Builder $where) use ($query): void {
-                foreach ($query->sectionPatterns as $pattern) {
-                    $where->orWhereRaw("translate(lower(c.section), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc') like ?", ['%'.Str::lower(Str::ascii($pattern)).'%']);
+            // Padrões que começam com "!" excluem seções ("indica" casaria com "CONTRAINDICAÇÕES"; "!contra" tira essas).
+            $normalized = "translate(lower(c.section), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc')";
+            $positive = array_values(array_filter($query->sectionPatterns, fn (string $pattern): bool => ! str_starts_with($pattern, '!')));
+            $negative = array_values(array_filter($query->sectionPatterns, fn (string $pattern): bool => str_starts_with($pattern, '!')));
+            $builder->where(function (Builder $where) use ($positive, $normalized): void {
+                foreach ($positive as $pattern) {
+                    $where->orWhereRaw("{$normalized} like ?", ['%'.Str::lower(Str::ascii($pattern)).'%']);
                 }
             });
+            foreach ($negative as $pattern) {
+                $builder->whereRaw("{$normalized} not like ?", ['%'.Str::lower(Str::ascii(substr($pattern, 1))).'%']);
+            }
         }
 
         return $builder;

@@ -55,14 +55,20 @@ final class MedicationQuestionService
 
     public const NO_MEDICINE = 'no_medicine';
 
+    /** Sem fatos para afirmar, mas há o que perguntar à pessoa (qual é o outro remédio, alergias…) ou o que não se pode confirmar. */
+    public const NEEDS_INFO = 'needs_info';
+
+    /** O assistente (modelo de texto) não pôde ser consultado agora; nenhum trecho bruto é mostrado no lugar. */
+    public const UNAVAILABLE = 'unavailable';
+
     private const MAX_EVIDENCES = 8;
 
     /** Trocas anteriores consideradas e tamanho máximo do resumo entregue ao modelo. */
     public const CONVERSATION_TURNS = 3;
 
-    private const CONVERSATION_MAX_CHARS = 600;
+    private const CONVERSATION_MAX_CHARS = 1200;
 
-    private const CONVERSATION_TURN_CHARS = 180;
+    private const CONVERSATION_TURN_CHARS = 380;
 
     public const CONVERSATION_LABEL = 'Conversa anterior';
 
@@ -76,6 +82,7 @@ final class MedicationQuestionService
         private readonly MedicineLeafletFinder $leaflets,
         private readonly QuestionIntentDetector $intents,
         private readonly LeafletEvidenceService $evidence,
+        private readonly UrgencyDetector $urgencies,
     ) {}
 
     /**
@@ -116,7 +123,7 @@ final class MedicationQuestionService
         $conversation = array_slice(array_values($conversation), -self::CONVERSATION_TURNS);
         $base = [
             'message' => null, 'question' => $verdict->sanitized, 'answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'treatment' => null,
-            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'guesses' => [], 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
+            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'guesses' => [], 'follow_up' => [], 'limits' => [], 'coverage' => 'none', 'intent' => [], 'urgency' => $this->urgencies->detect($verdict->sanitized), 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
         ];
 
         if (! $verdict->allowed()) {
@@ -151,11 +158,18 @@ final class MedicationQuestionService
         }
         $facts = $this->freeformFacts($ordered, $treatments);
 
-        $result = $this->answerMany($ordered, $verdict->sanitized, $facts, $this->conversationText($conversation)) + [
+        $lastTurn = $conversation !== [] ? $conversation[array_key_last($conversation)] : [];
+        $result = $this->answerMany($ordered, $verdict->sanitized, $facts, $this->conversationText($conversation), [
+            'previous_topics' => array_values(array_filter((array) ($lastTurn['topics'] ?? []), 'is_string')),
+            'previous_question' => isset($lastTurn['question']) ? (string) $lastTurn['question'] : null,
+            'follow_up' => $medicines !== [] && collect($medicines)->every(fn (array $m): bool => $m['matched_text'] === 'conversa'),
+            'urgency' => $base['urgency'],
+        ]) + [
             'treatment' => $treatments[0]['context'] + ['others' => array_slice($treatments, 1)],
             'treatments' => $treatments, 'medicines' => $medicines,
         ] + $base;
-        $result['generation'] += ['conversation_turns' => count($conversation)];
+        $result['urgency'] = $base['urgency'];
+        $result['generation'] += ['conversation_turns' => count($conversation)] + ($base['urgency'] !== null ? ['urgency' => $base['urgency']['kinds']] : []);
 
         return $this->finish($user, $result, $started);
     }
@@ -224,25 +238,29 @@ final class MedicationQuestionService
 
     /**
      * @param  list<AnvisaMedicine>  $medicines
-     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, limitations: list<string>, missing: array{unidentified: list<string>, without_leaflet: list<string>}, intent: list<string>}
+     * @param  array{previous_topics?: list<string>, previous_question?: string|null, follow_up?: bool, urgency?: array<string, mixed>|null}  $context
+     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, limitations: list<string>, missing: array{unidentified: list<string>, without_leaflet: list<string>}, intent: list<string>, follow_up: list<string>, limits: list<string>, coverage: string}
      */
-    private function answerMany(array $medicines, string $question, ?string $facts, ?string $conversation = null): array
+    private function answerMany(array $medicines, string $question, ?string $facts, ?string $conversation = null, array $context = []): array
     {
-        $empty = ['answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'limitations' => []];
+        $empty = ['answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'limitations' => [], 'follow_up' => [], 'limits' => [], 'coverage' => 'none'];
         $mode = (string) config('bulai.retrieval.mode');
-        $limit = (int) config('bulai.retrieval.evidence_per_pair');
-        $topics = $this->intents->topics($question, count($medicines));
-        $topicLabel = $topics !== [] ? $this->intents->label($topics[0]) : '';
+        $perSection = (int) config('bulai.questions.evidence_per_section');
+        $plan = $this->intents->plan($question, count($medicines), (array) ($context['previous_topics'] ?? []));
+        $topics = $plan['topics'];
+        $sections = $plan['sections'];
         $unidentified = [];
         $withoutLeaflet = [];
-        $references = [];
+        $streams = [];
         $coverage = [];
         $sectionMatched = false;
-        $retrieval = ['mode' => $mode, 'duration_ms' => 0, 'per_medicine' => [], 'intent' => $topics, 'section_matched' => false, 'leaflet_fallback' => null];
+        $retrieval = ['mode' => $mode, 'duration_ms' => 0, 'per_medicine' => [], 'intent' => $topics, 'sections' => $sections, 'ambiguous' => $plan['ambiguous'], 'inherited_intent' => $plan['inherited'], 'section_matched' => false, 'leaflet_fallback' => null];
         // O usuário pergunta pelo nome comercial; as bulas falam pelo princípio ativo. Os nomes dos ativos citados
         // entram na consulta de recuperação para que a bula de um cite o outro.
         $ingredientNames = collect($medicines)->flatMap(fn (AnvisaMedicine $m) => $m->ingredients->pluck('normalized_name'))->unique()->values()->all();
-        $searchText = trim($question.' '.implode(' ', $ingredientNames));
+        $names = implode(' ', $ingredientNames);
+        // Pergunta de acompanhamento ("mas por quê?"): a busca usa também a pergunta anterior, que diz o assunto.
+        $subject = trim($question.' '.(! empty($context['follow_up']) ? (string) ($context['previous_question'] ?? '') : ''));
 
         foreach ($medicines as $medicine) {
             // Bulas pelo princípio ativo ligado (ligando o catálogo na hora se preciso) ou, na falta dele, pelo nome.
@@ -259,20 +277,28 @@ final class MedicationQuestionService
             $documentIds = $this->patientFirst($found['document_ids']);
             $coverage[] = ['medicine' => $medicine, 'documents' => $documentIds];
 
-            // 1. Evidências já extraídas da bula inteira para este assunto (perguntas anteriores).
-            $stored = $this->evidence->stored($documentIds, $topics, $question);
-            foreach ($stored as $reference) {
-                $references[$reference->chunkId] ??= $reference;
+            // 1. Evidências já extraídas da bula inteira para este assunto (perguntas anteriores, mesma versão do documento).
+            $stored = $this->evidence->stored($documentIds, array_values(array_unique([...$topics, ...$sections])), $question);
+            if ($stored !== []) {
+                $streams[] = $stored;
             }
-            // 2. Busca por trechos: seções do assunto na bula do paciente, depois em todas, depois sem restrição.
-            [$result, $matched] = $this->retrieve($searchText, $mode, $limit, $documentIds, $topics);
-            $retrieval['duration_ms'] += $result->durationMs;
-            $retrieval['per_medicine'][] = ['medicine' => $medicine->product_name, 'documents' => count($documentIds), 'references' => count($result->references), 'stored_facts' => count($stored), 'section_matched' => $matched, 'found_by' => $found['method'], 'linked_now' => $found['linked_now']];
-            $retrieval += $result->configuration;
-            $sectionMatched = $sectionMatched || $stored !== [] || $matched;
-            foreach ($result->references as $reference) {
-                $references[$reference->chunkId] ??= $reference;
+            // 2. Cada seção do plano tem a sua busca (em palavras de bula, não a pergunta inteira): seção do assunto na bula do
+            // paciente, depois em todas as bulas, depois sem restrição de seção (os rótulos de seção das bulas nem sempre são bons).
+            $perMedicine = ['medicine' => $medicine->product_name, 'documents' => count($documentIds), 'stored_facts' => count($stored), 'found_by' => $found['method'], 'linked_now' => $found['linked_now'], 'sections' => []];
+            foreach ($sections as $section) {
+                $text = trim($this->intents->sectionQuery($section).' '.$names.' '.($plan['ambiguous'] ? $subject : $this->intents->searchTerms($subject)));
+                [$result, $matched] = $this->retrieve($text, $mode, $perSection, $documentIds, [$section]);
+                $retrieval['duration_ms'] += $result->durationMs;
+                $retrieval += $result->configuration;
+                $sectionMatched = $sectionMatched || $matched;
+                $perMedicine['sections'][$section] = ['references' => count($result->references), 'section_label_matched' => $matched];
+                if ($result->references !== []) {
+                    $streams[] = $result->references;
+                }
             }
+            $perMedicine['references'] = array_sum(array_column($perMedicine['sections'], 'references'));
+            $retrieval['per_medicine'][] = $perMedicine;
+            $sectionMatched = $sectionMatched || $stored !== [];
         }
 
         $limitations = [];
@@ -292,23 +318,34 @@ final class MedicationQuestionService
             return ['status' => self::NO_LEAFLET, 'limitations' => $limitations] + $empty;
         }
 
-        $references = $this->rank($references);
+        $references = $this->interleave($streams);
         $retrieval['section_matched'] = $sectionMatched;
         $label = implode(' + ', array_map(fn (AnvisaMedicine $m): string => $m->product_name, $medicines));
         $extra = ['limitations' => $limitations, 'missing' => $empty['missing'], 'intent' => $topics];
+        // Orçamento de palavras dos fatos: pergunta simples (um só assunto simples, ou geral) = resposta curta; segurança, interações e
+        // comparações pedem mais. Vale o menor dos assuntos quando há mais de um assunto simples.
+        $byIntent = (array) config('bulai.questions.conversation.fact_words_by_intent');
+        $factWords = $plan['ambiguous']
+            ? (int) config('bulai.questions.conversation.fact_words_general')
+            : (count($topics) === 1 && isset($byIntent[$topics[0]]) ? (int) $byIntent[$topics[0]] : (int) config('bulai.questions.conversation.max_fact_words'));
+        $genContext = ['conversation' => $conversation, 'topics' => $plan['labels'], 'ambiguous' => $plan['ambiguous'], 'urgency' => ! empty($context['urgency']), 'fact_words' => $factWords,
+            'allow_asks' => ! (count($topics) === 1 && in_array($topics[0], (array) config('bulai.questions.conversation.no_ask_intents'), true))];
 
-        // 3. Primeira tentativa com o que a busca trouxe (as seções do assunto vieram primeiro); é o modelo quem julga se
-        // o trecho responde: "insuficiente" leva à bula inteira, nunca a trechos irrelevantes na tela.
-        $generated = null;
+        // 3. Primeira geração com o que a busca trouxe; é o modelo quem julga se as evidências cobrem a pergunta. Uma reformulação
+        // controlada (nível 1) acontece dentro do gerador quando a validação reprova tudo.
+        $best = null;
+        $last = null;
         if ($references !== []) {
-            $generated = $this->generate($label, $question, $references, $facts, $retrieval, $conversation);
-            if ($generated['status'] === self::ANSWERED) {
-                return $generated + $extra;
+            $last = $this->generate($label, $question, $references, $facts, $retrieval, $genContext);
+            $best = $this->usable($last) ? $last : null;
+            if ($best !== null && $last['coverage'] === 'full' && $last['status'] === self::ANSWERED) {
+                return $last + $extra;
             }
         }
 
-        // 4. Segunda fonte: a bula inteira de cada medicamento, na seção compatível com a intenção.
-        $fallback = $this->consultWholeLeaflets($coverage, $question, $topics, $topicLabel);
+        // 4. Nível 2: a bula inteira de cada medicamento, na seção compatível com a intenção, quando a cobertura não é completa
+        // (inclusive sem nenhum fato). A segunda geração só substitui a primeira se for melhor.
+        $fallback = $this->consultWholeLeaflets($coverage, $question, $topics !== [] ? $topics : $sections, $plan['labels'][0] ?? '');
         $retrieval['leaflet_fallback'] = $fallback['extraction'];
         if ($fallback['references'] !== []) {
             $merged = $fallback['references'];
@@ -317,30 +354,35 @@ final class MedicationQuestionService
                     $merged[] = $reference;
                 }
             }
-            $generated = $this->generate($label, $question, array_slice($merged, 0, self::MAX_EVIDENCES), $facts, $retrieval, $conversation);
-            if ($generated['status'] === self::ANSWERED) {
-                return $generated + $extra;
+            $second = $this->generate($label, $question, array_slice($merged, 0, self::MAX_EVIDENCES), $facts, $retrieval, $genContext);
+            $last = $second;
+            if ($this->usable($second) && ($best === null || $this->rank($second) >= $this->rank($best))) {
+                $best = $second;
             }
         }
 
-        // 5. Sem resposta segura: trechos só aparecem se forem da seção adequada e o modelo não pôde ser consultado;
-        // "insuficiente" declarado pelo modelo nunca vira trecho na tela.
-        $modelUnavailable = $generated !== null && ($generated['generation']['status'] ?? null) !== ExplanationGenerator::STATUS_GENERATED && empty($generated['generation']['insufficient_declared']);
-        $sections = collect($references)->map(fn (EvidenceReference $r): string => trim((string) $r->section))->filter()->unique()->take(3)->values()->all();
-        $status = $modelUnavailable && $sectionMatched && $references !== [] ? self::EXCERPTS_ONLY : self::NO_EVIDENCE;
+        // Nível 3: o que há é parcial (fatos com cobertura parcial, ou só o que perguntar ou não confirmar): a conversa continua com isso.
+        if ($best !== null) {
+            return $best + $extra;
+        }
+
+        // Nível 4: insuficiência real. O assistente indisponível não é falta de evidência; nenhum trecho bruto vira resposta.
+        $unavailable = $last !== null && ($last['generation']['status'] ?? null) === ExplanationGenerator::STATUS_UNAVAILABLE;
+        $found = collect($references)->map(fn (EvidenceReference $r): string => trim((string) $r->section))->filter()->unique()->take(3)->values()->all();
 
         return [
-            'status' => $status,
+            'status' => $unavailable ? self::UNAVAILABLE : self::NO_EVIDENCE,
             'answer' => null,
-            'evidences' => $status === self::EXCERPTS_ONLY ? array_map(fn (EvidenceReference $r): array => $r->toArray() + ['supports_claims' => []], $references) : [],
-            'generation' => ($generated['generation'] ?? []) + ['status' => $generated['generation']['status'] ?? 'not_attempted'],
-            'retrieval' => $retrieval + ['found_sections' => $sections, 'fallback_consulted' => $fallback['consulted']],
+            'evidences' => [],
+            'generation' => ($last['generation'] ?? []) + ['status' => $last['generation']['status'] ?? 'not_attempted'],
+            'retrieval' => $retrieval + ['found_sections' => $found, 'fallback_consulted' => $fallback['consulted']],
+            'follow_up' => [], 'limits' => [], 'coverage' => 'none',
         ] + $extra;
     }
 
     /**
-     * Busca por trechos em três passos: seções do assunto só na bula do paciente; seções do assunto em todas as bulas;
-     * qualquer seção. Devolve também se algum trecho veio da seção adequada.
+     * Busca de uma seção em três passos: a seção na bula do paciente; a seção em todas as bulas; qualquer seção.
+     * Devolve também se algum trecho veio de seção com o nome esperado.
      *
      * @param  list<int>  $documentIds  bula do paciente primeiro
      * @param  list<string>  $topics
@@ -412,25 +454,64 @@ final class MedicationQuestionService
         return array_values(array_filter($documentIds, fn (int $id): bool => ($types[$id] ?? null) === 'bula_paciente'));
     }
 
-    /** @param array<int, EvidenceReference> $references @return list<EvidenceReference> */
-    private function rank(array $references): array
+    /** A geração trouxe algo aproveitável: fatos, perguntas à pessoa, ou ao menos a limitação dita com as palavras do modelo. @param array<string, mixed> $generated */
+    private function usable(array $generated): bool
     {
-        $references = array_values($references);
-        usort($references, fn (EvidenceReference $a, EvidenceReference $b): int => $b->score <=> $a->score);
+        return in_array($generated['status'], [self::ANSWERED, self::NEEDS_INFO], true) || ($generated['status'] === self::NO_EVIDENCE && ! empty($generated['answer']));
+    }
 
-        return array_slice($references, 0, self::MAX_EVIDENCES);
+    /** Ordena resultados: fatos > só perguntas > só limitação; e cobertura completa > parcial > nenhuma. @param array<string, mixed> $generated */
+    private function rank(array $generated): int
+    {
+        $status = match ($generated['status']) {
+            self::ANSWERED => 20, self::NEEDS_INFO => 10, default => 0
+        };
+
+        return $status + match ($generated['coverage'] ?? 'none') {
+            'full' => 2, 'partial' => 1, default => 0
+        };
+    }
+
+    /**
+     * Junta as evidências de várias buscas (uma por seção e medicamento) alternando entre elas, para que cada parte da pergunta
+     * seja representada, sem repetir o mesmo trecho e respeitando o limite de evidências.
+     *
+     * @param  list<list<EvidenceReference>>  $streams
+     * @return list<EvidenceReference>
+     */
+    private function interleave(array $streams): array
+    {
+        $merged = [];
+        for ($position = 0; count($merged) < self::MAX_EVIDENCES; $position++) {
+            $any = false;
+            foreach ($streams as $stream) {
+                if (! isset($stream[$position])) {
+                    continue;
+                }
+                $any = true;
+                $reference = $stream[$position];
+                if (! isset($merged[$reference->chunkId]) && count($merged) < self::MAX_EVIDENCES) {
+                    $merged[$reference->chunkId] = $reference;
+                }
+            }
+            if (! $any) {
+                break;
+            }
+        }
+
+        return array_values($merged);
     }
 
     /**
      * @param  list<EvidenceReference>  $references
      * @param  array<string, mixed>  $retrieval
-     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>}
+     * @param  array{conversation?: string|null, topics?: list<string>, ambiguous?: bool, urgency?: bool}  $context
+     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, follow_up: list<string>, limits: list<string>, coverage: string}
      */
-    private function generate(string $label, string $question, array $references, ?string $facts, array $retrieval, ?string $conversation = null): array
+    private function generate(string $label, string $question, array $references, ?string $facts, array $retrieval, array $context = []): array
     {
-        // O modelo recebe tratamento e conversa no mesmo bloco de fatos (T1); no registro ficam separados.
-        $modelFacts = trim(implode("\n", array_filter([$facts, $conversation]))) ?: null;
-        $generated = $this->generator->answer($label, $question, $references, (string) Str::uuid(), $modelFacts);
+        $conversation = $context['conversation'] ?? null;
+        $generated = $this->generator->answer($label, $question, $references, (string) Str::uuid(), $facts, $context);
         $evidences = array_map(fn (EvidenceReference $reference): array => $reference->toArray(), $references);
         if ($facts !== null) {
             $evidences[] = [
@@ -449,13 +530,23 @@ final class MedicationQuestionService
         foreach ($evidences as &$evidence) {
             $evidence['supports_claims'] = array_keys(array_filter($generated['claims'], fn (array $claim): bool => in_array($evidence['chunk_id'], $claim['evidence_chunk_ids'], true)));
         }
+        unset($evidence);
+
+        // ANSWERED: há ao menos um fato sustentado. NEEDS_INFO: não há fato, mas há o que perguntar à pessoa. Só limitação dita pelo
+        // modelo (a bula não trata do assunto): NO_EVIDENCE, com a explicação específica do modelo no lugar de uma frase genérica.
+        $status = $generated['status'] !== ExplanationGenerator::STATUS_GENERATED
+            ? ($generated['status'] === ExplanationGenerator::STATUS_UNAVAILABLE ? self::UNAVAILABLE : self::NO_EVIDENCE)
+            : ($generated['claims'] !== [] ? self::ANSWERED : ($generated['follow_up'] !== [] ? self::NEEDS_INFO : self::NO_EVIDENCE));
 
         return [
-            'status' => $generated['explanation'] !== null ? self::ANSWERED : self::EXCERPTS_ONLY,
+            'status' => $status,
             'answer' => $generated['explanation'],
-            'evidences' => $evidences,
+            'evidences' => in_array($status, [self::ANSWERED, self::NEEDS_INFO], true) ? $evidences : [],
             'generation' => $generated['generation'] + ['status' => $generated['status'], 'conversation_context' => $conversation !== null],
             'retrieval' => $retrieval,
+            'follow_up' => $generated['follow_up'],
+            'limits' => $generated['limits'],
+            'coverage' => $generated['coverage'],
         ];
     }
 

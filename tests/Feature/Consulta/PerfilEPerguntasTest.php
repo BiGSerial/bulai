@@ -168,10 +168,11 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame(MedicationQuestionService::NO_EVIDENCE, $service->ask($comBula, 'qual a cor da embalagem?')['status']);
 
         $this->scripted = 'não é json';
-        $excerpts = $service->ask($comBula, 'devo tomar em jejum pela manhã?');
-        $this->assertSame(MedicationQuestionService::EXCERPTS_ONLY, $excerpts['status']);
-        $this->assertSame(3, $excerpts['evidences'][0]['page_start']);
-        $this->assertNull($excerpts['answer']);
+        // Saída inválida do modelo (mesmo depois da reformulação controlada): nunca vira trechos brutos como resposta.
+        $invalid = $service->ask($comBula, 'devo tomar em jejum pela manhã?');
+        $this->assertSame(MedicationQuestionService::NO_EVIDENCE, $invalid['status']);
+        $this->assertSame([[], null], [$invalid['evidences'], $invalid['answer']]);
+        $this->assertSame(2, $invalid['generation']['attempts'], 'uma reformulação controlada antes de desistir');
 
         $this->scripted = json_encode(['claims' => [['text' => 'A bula orienta tomar o comprimido pela manhã, em jejum, com um copo de água.', 'evidence_ids' => ['E1']]]]);
         $answered = $service->ask($comBula, 'devo tomar em jejum pela manhã?');
@@ -180,7 +181,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame([0], $answered['evidences'][0]['supports_claims']);
 
         $this->scripted = json_encode(['claims' => [['text' => 'Você deve suspender o uso e trocar por outro remédio em jejum pela manhã.', 'evidence_ids' => ['E1']]]]);
-        $this->assertSame(MedicationQuestionService::EXCERPTS_ONLY, $service->ask($comBula, 'devo tomar em jejum pela manhã?')['status']);
+        $this->assertSame(MedicationQuestionService::NO_EVIDENCE, $service->ask($comBula, 'devo tomar em jejum pela manhã?')['status'], 'conduta proibida é reprovada; nada de trecho bruto');
     }
 
     public function test_question_page_detects_the_medicine_in_the_text_throttles_and_records_the_question_with_metrics(): void
@@ -194,7 +195,7 @@ final class PerfilEPerguntasTest extends TestCase
             ->call('perguntar')->assertSee('Escreva sua pergunta')
             ->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
             ->assertSee('Falando de:')->assertSee('OMEPRAZOL')
-            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('De onde tirei isso')->assertSee('Li isso na bula')
+            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('Fontes utilizadas')->assertSee('Baseado na bula')
             ->assertDontSee('Limitações')
             ->assertSee('Guardei esta conversa no seu');
 
@@ -205,7 +206,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame('A bula diz que o comprimido deve ser tomado em jejum.', $question->answer);
         $this->assertSame(3, $question->evidences[0]['page_start']);
         $this->assertSame([0], $question->evidences[0]['supports_claims']);
-        $this->assertSame(['generated', 1, 'interaction-explanation-v2:qa'], [$question->generation['status'], $question->generation['claims_accepted'], $question->generation['prompt_version']]);
+        $this->assertSame(['generated', 1, 'interaction-explanation-v3:qa'], [$question->generation['status'], $question->generation['claims_accepted'], $question->generation['prompt_version']]);
         $this->assertSame('lexical', $question->retrieval['mode']);
         $this->assertSame('scripted', $question->pipeline['text_provider']);
         $this->assertFalse($question->treatment_context['consented']);

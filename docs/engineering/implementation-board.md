@@ -118,3 +118,16 @@ Estados: BACKLOG · READY · IN_PROGRESS · BLOCKED · IN_REVIEW · DONE. `DONE`
 | I-T | Arquiteto | Tradução de princípios ativos por IA (`IngredientTranslationService`), `knowledge:build-ingredients` com IA, job `BuildActiveIngredientCatalog` após importações, sais e dose no normalizador | I-0 | DONE | `PerguntarConfiavelTest` (tradução, job), `ActiveIngredientCatalogTest` |
 | I-Z | Arquiteto | Integração: cherry-pick do commit do vínculo bula ↔ princípio ativo que ficou fora da mesclagem da PR #37, Pint, suíte completa, docs, commit e PR | I-D..I-T | DONE | suíte completa (ver PR) |
 | I-W | Arquiteto | Web Push sem dependência (VAPID/openssl, push vazio, `push_subscriptions`, canal, comando de chaves, botão e service worker v6); balão sem estourar no PWA; `Permissions-Policy: microphone=(self)` no nginx | I-Z | DONE | `WebPushTest` (5), `docs/notificacoes.md` |
+
+## Iteração 9 (07/11/2026): motor conversacional do Perguntar
+
+| ID | Frente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| J-0 | Arquiteto | Investigação da causa raiz com o modelo real (contrato só de afirmações citadas, busca sem seção, fallback para trechos brutos, saída cortada, rótulos de seção) | — | DONE | nota 30 §2; antes: relevância 6/10, naturalidade 4/7 |
+| J-A | Arquiteto | Intenção composta + plano de seções + busca por seção intercalada; exclusão de seção (`!contra`) | J-0 | DONE | `ConversaHumanizadaTest` (intenção, cenários 1–3) |
+| J-G | Arquiteto | Geração por segmentos (fact/limit/ask), cobertura, prompt v3, reformulação controlada, validador de segmentos | J-0 | DONE | `ConversaHumanizadaTest` (cenário 8, validador) |
+| J-F | Arquiteto | Fallback em 4 níveis sem trecho bruto; `needs_info`/`unavailable`; fila de revisão; versão do documento nas evidências extraídas | J-G | DONE | cenários 5 e 6 |
+| J-U | Arquiteto | Urgência determinística; memória (intenção herdada, conversa em bloco próprio) | J-A | DONE | cenários 7 e urgência |
+| J-I | Arquiteto | Interface: conversa em parágrafos, "Fontes utilizadas" recolhida e sem repetição, remédio uma vez | J-F | DONE | teste de tela |
+| J-E | Arquiteto | `evaluation:conversation` (8 cenários, 5 dimensões, qualquer medicamento) e documentação com exemplos comparativos | J-I | DONE | nota 30 §4–5; 9/9, 9/9, 9/9, 8/8, 8/8 |
+| J-Z | Arquiteto | Integração: Pint, suíte completa, docs, commit e PR | J-A..J-E | DONE | 637 testes, 636 aprovados, 1 ignorado |
