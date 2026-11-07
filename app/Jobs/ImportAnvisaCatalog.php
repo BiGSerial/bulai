@@ -45,6 +45,11 @@ class ImportAnvisaCatalog implements ShouldQueue
             $this->discardStoredFile($import->stored_path);
             AnvisaCatalogImport::query()->whereKey($import->id)->update(['stored_path' => null]);
         }
+
+        // Catálogo novo sem princípios ativos ligados deixa o Perguntar e as interações cegos: a ligação roda em seguida.
+        if ($import->fresh()?->status === 'COMPLETED') {
+            BuildActiveIngredientCatalog::dispatch('anvisa_catalog_import');
+        }
     }
 
     public function failed(?Throwable $exception): void

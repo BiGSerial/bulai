@@ -10,9 +10,9 @@
     $texto = match ($status) {
         Q::ANSWERED => $resposta['answer'],
         Q::EXCERPTS_ONLY => 'Não consegui montar uma resposta curta com segurança, mas achei na bula estas partes que falam disso. Na dúvida, pergunte ao seu farmacêutico.',
-        Q::NOT_IDENTIFIED => 'Encontrei o nome do remédio, mas ainda não consigo ligar ele a uma bula. Tente escrever o nome como está na caixa.',
-        Q::NO_LEAFLET => 'Ainda não tenho a bula deste remédio comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico.',
-        default => 'Procurei na bula e não achei nada sobre isso. Isso não quer dizer que seja “não”: a bula pode simplesmente não falar desse assunto. Na dúvida, pergunte ao seu farmacêutico.',
+        Q::NOT_IDENTIFIED => 'Conheço o remédio, mas ainda não tenho a bula dele comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico. A equipe foi avisada para buscar a bula.',
+        Q::NO_LEAFLET => 'Ainda não tenho a bula deste remédio comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico. A equipe foi avisada para buscar a bula.',
+        default => 'Procurei na bula '.(! empty($resposta['retrieval']['fallback_consulted']) ? 'inteira ' : '').'e não localizei uma informação suficientemente clara sobre isso. Prefiro não completar a resposta com suposições; isso não quer dizer que seja seguro. Na dúvida, fale com um farmacêutico ou médico.',
     };
 @endphp
 <section {{ $attributes->class('grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm') }} aria-live="polite" aria-labelledby="resp-titulo" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">

@@ -49,7 +49,8 @@
             <x-consulta.balao de="eu" wire:key="pe-{{ count($conversa) }}">{{ $resposta['pergunta'] }}</x-consulta.balao>
 
             <x-consulta.balao :tone="$fala['tone']" wire:key="ba-{{ count($conversa) }}-{{ $status }}" x-init="$nextTick(() => $el.scrollIntoView({ block: 'end', behavior: 'smooth' }))" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">
-                {{-- 1. O que o BULA-IA diz, em letras grandes. --}}
+                {{-- 1. O que o BULA-IA diz, em letras grandes (com uma frase de abertura quando a bula inteira foi consultada ou o assunto são efeitos). --}}
+                @if ($fala['intro'])<p class="break-words text-lg text-slate-700" data-testid="fala-intro">{{ $fala['intro'] }}</p>@endif
                 <p class="break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">{{ $fala['texto'] }}</p>
 
                 @if ($status === Q::BLOCKED && ($resposta['guard']['category'] ?? null) === 'harm_risk')
@@ -81,6 +82,13 @@
                 @endif
 
                 {{-- 5. Sugestões do próximo passo (chips). --}}
+                @if ($status === Q::NO_MEDICINE && ($resposta['guesses'] ?? []) !== [])
+                    <div class="flex flex-wrap gap-2" aria-label="Você quis dizer" data-testid="guesses">
+                        @foreach (array_slice($resposta['guesses'], 0, 3) as $palpite)
+                            <button type="button" wire:key="gs-{{ $palpite['id'] }}" wire:click="corrigir({{ $palpite['id'] }})" class="min-h-12 max-w-full rounded-full bg-brand-50 px-4 py-2 text-left text-base font-semibold text-brand-900 ring-1 ring-inset ring-brand-600/20 hover:bg-brand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"><span class="block truncate">{{ $palpite['name'] }}</span>@if ($palpite['ingredients'] !== '')<span class="block truncate text-sm font-normal text-slate-700">{{ $palpite['ingredients'] }}</span>@endif</button>
+                        @endforeach
+                    </div>
+                @endif
                 @if ($status === Q::NO_MEDICINE && $resposta['suggestions'] !== [])
                     <p class="break-words text-base text-slate-700">Ou toque em um dos seus remédios:</p>
                     <div class="flex flex-wrap gap-2">
@@ -149,11 +157,11 @@
                         @endunless
                         @if ($fontes !== [] || $resposta['treatments'] !== [] || ! empty($resposta['uuid']))
                             <details class="rounded-xl bg-surface-100">
-                                <summary class="min-h-12 cursor-pointer select-none px-3 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ $status === Q::ANSWERED ? 'Ver na bula' : 'Mais detalhes' }}</summary>
+                                <summary class="min-h-12 cursor-pointer select-none px-3 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ $status === Q::ANSWERED ? 'De onde tirei isso' : 'Mais detalhes' }}</summary>
                                 <div class="grid gap-3 px-3 pb-3">
                                     @foreach ($fontes as $fonte)
                                         <blockquote wire:key="ft-{{ $loop->index }}" class="grid gap-1 border-l-4 border-brand-200 pl-3">
-                                            <p class="break-words text-sm font-semibold text-slate-600">{{ $fonte['document_title'] }}</p>
+                                            <p class="break-words text-sm font-semibold text-slate-600">{{ $fonte['document_title'] }}@if (! empty($fonte['section'])) · {{ $fonte['section'] }}@endif@if (! empty($fonte['page_start'])) · página {{ $fonte['page_start'] }}@endif</p>
                                             <p class="max-h-48 overflow-y-auto whitespace-pre-line break-words text-base leading-relaxed text-slate-800">{{ $fonte['excerpt'] }}</p>
                                         </blockquote>
                                     @endforeach

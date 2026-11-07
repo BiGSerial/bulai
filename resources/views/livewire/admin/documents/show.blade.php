@@ -11,7 +11,7 @@
         };
         $ingredients = $document->relationLoaded('ingredients') ? $document->ingredients : collect();
     @endphp
-    <div x-data="{ tab: ['trechos', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
+    <div x-data="{ tab: ['trechos', 'evidencias', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
         <x-knowledge-admin.page-header :badge="$label" :badge-tone="$tone" :meta="[$document->documentTypeLabel(), $document->source->name]">
             @if ($hasFile)
                 <x-slot:primary>
@@ -85,7 +85,36 @@
         </x-knowledge-admin.card>
 
         <div class="grid gap-4">
-            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'evidencias', 'label' => 'Evidências extraídas ('.$facts->count().')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+
+            <div x-show="tab === 'evidencias'" x-cloak role="tabpanel" class="grid gap-2" data-testid="leaflet-facts">
+                <p class="text-sm text-slate-600">Trechos que a IA localizou na bula inteira quando a busca por trechos não respondeu a uma pergunta de paciente. Cada um aponta para o trecho, a seção, a página e a versão do documento; o Perguntar reaproveita os não rejeitados. Revise como farmacêutico: verificada, rejeitada ou apagada.</p>
+                @forelse ($facts as $fact)
+                    <article wire:key="fact-{{ $fact->id }}" class="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <div class="flex flex-wrap items-center gap-2 text-xs">
+                            <x-knowledge-admin.badge :tone="match ($fact->review_status) { 'verified' => 'success', 'rejected' => 'danger', default => 'warning' }">{{ $fact->reviewLabel() }}</x-knowledge-admin.badge>
+                            <span class="text-slate-500">{{ $fact->section ?: 'Sem seção' }}</span>
+                            @if ($fact->page_start)<x-knowledge-admin.badge>página {{ $fact->page_start }}</x-knowledge-admin.badge>@endif
+                            @if ($fact->chunk)<span class="text-slate-500">trecho #{{ $fact->chunk->chunk_index }}</span>@endif
+                            <span class="text-slate-500">confiança {{ number_format((float) $fact->confidence, 2, ',', '') }} · {{ $fact->extraction_method }} · {{ $fact->model }} · {{ $fact->extracted_at?->format('d/m/Y H:i') }}</span>
+                            @if ($fact->medicine)<span class="text-slate-500">pergunta sobre {{ $fact->medicine->product_name }}</span>@endif
+                        </div>
+                        @if ($fact->question)<p class="mt-1 text-xs italic text-slate-500">“{{ $fact->question }}”</p>@endif
+                        <blockquote class="mt-1.5 whitespace-pre-wrap break-words border-l-4 border-brand-200 pl-3 text-sm text-slate-800">{{ $fact->excerpt }}</blockquote>
+                        @if ($fact->summary)<p class="mt-1 text-sm text-slate-700">Em palavras simples: {{ $fact->summary }}</p>@endif
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            @if ($fact->review_status !== 'verified')<x-knowledge-admin.button variant="secondary" size="sm" wire:click="reviewFact({{ $fact->id }}, 'verified')">Verificada</x-knowledge-admin.button>@endif
+                            @if ($fact->review_status !== 'rejected')<x-knowledge-admin.button variant="quiet" size="sm" wire:click="reviewFact({{ $fact->id }}, 'rejected')">Rejeitar</x-knowledge-admin.button>@endif
+                            @if ($fact->review_status !== 'pending')<x-knowledge-admin.button variant="quiet" size="sm" wire:click="reviewFact({{ $fact->id }}, 'pending')">Devolver à revisão</x-knowledge-admin.button>@endif
+                            <x-knowledge-admin.confirm-modal :action="'deleteFact('.$fact->id.')'" tone="danger" title="Apagar esta evidência?" message="O Perguntar deixa de usá-la nas próximas respostas. O trecho da bula continua no documento." confirm-label="Apagar" loading="Apagando…">
+                                <x-knowledge-admin.button variant="quiet" size="sm">Apagar</x-knowledge-admin.button>
+                            </x-knowledge-admin.confirm-modal>
+                        </div>
+                    </article>
+                @empty
+                    <x-knowledge-admin.empty-state>Nenhuma evidência extraída ainda. Elas surgem quando uma pergunta de paciente leva o Perguntar a ler a bula inteira.</x-knowledge-admin.empty-state>
+                @endforelse
+            </div>
 
             <div x-show="tab === 'trechos'" role="tabpanel" class="grid gap-2">
                 @forelse ($chunks as $chunk)

@@ -49,6 +49,11 @@ class ImportDrugInteractions implements ShouldQueue
             $this->discardStoredFile($import->stored_path);
             DrugInteractionImport::query()->whereKey($import->id)->update(['stored_path' => null]);
         }
+
+        // Interações novas só valem depois de ligadas aos princípios ativos (e estes aos medicamentos): roda em seguida.
+        if ($import->fresh()?->status === 'COMPLETED') {
+            BuildActiveIngredientCatalog::dispatch('drug_interactions_import');
+        }
     }
 
     public function failed(?Throwable $exception): void

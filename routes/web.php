@@ -32,6 +32,7 @@ use App\Livewire\Admin\Knowledge\QueueStatus as KnowledgeQueueStatus;
 use App\Livewire\Admin\Knowledge\Sources\Form as KnowledgeSourceForm;
 use App\Livewire\Admin\Knowledge\Sources\Index as KnowledgeSourceIndex;
 use App\Livewire\Admin\Knowledge\Sources\Show as KnowledgeSourceShow;
+use App\Livewire\Admin\Knowledge\UnansweredQuestions\Index as KnowledgeUnansweredQuestionsIndex;
 use App\Livewire\Admin\Knowledge\UnmatchedMedicines\Index as KnowledgeUnmatchedMedicinesIndex;
 use App\Livewire\Admin\Knowledge\Upload as KnowledgeUpload;
 use App\Livewire\Admin\Reports\Index as AdminReportIndex;
@@ -135,6 +136,7 @@ Route::prefix('admin')
         Route::get('/knowledge/interactions', KnowledgeInteractionsIndex::class)->name('knowledge.interactions.index');
         Route::get('/knowledge/pending', KnowledgePendingIndex::class)->name('knowledge.pending.index');
         Route::get('/knowledge/unmatched-medicines', KnowledgeUnmatchedMedicinesIndex::class)->name('knowledge.unmatched.index');
+        Route::get('/knowledge/unanswered-questions', KnowledgeUnansweredQuestionsIndex::class)->name('knowledge.unanswered.index');
         Route::get('/knowledge/batches/{batch}/items/{item}/review', KnowledgePendingReview::class)
             ->scopeBindings()
             ->name('knowledge.pending.review');

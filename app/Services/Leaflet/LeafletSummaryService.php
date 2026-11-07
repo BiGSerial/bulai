@@ -12,6 +12,7 @@ use App\Models\Knowledge\KnowledgeDocument;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Interactions\ExplanationValidator;
+use App\Services\Knowledge\MedicineLeafletFinder;
 use App\Services\Retrieval\KnowledgeRetriever;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,7 @@ final class LeafletSummaryService
         private readonly KnowledgeRetriever $retriever,
         private readonly AiProviderManager $providers,
         private readonly ExplanationValidator $validator,
+        private readonly MedicineLeafletFinder $leaflets,
     ) {}
 
     /** Resumo já gerado e ainda válido para as bulas atuais, sem disparar geração. */
@@ -80,16 +82,15 @@ final class LeafletSummaryService
      */
     private function target(AnvisaMedicine $medicine): ?array
     {
-        $medicine->loadMissing('ingredients:id');
-        $ingredientIds = $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
-        if ($ingredientIds === []) {
+        // Bulas pelo princípio ativo ligado ou, na falta dele, pelo nome do produto/ativo (MedicineLeafletFinder).
+        $found = $this->leaflets->find($medicine);
+        if ($found['document_ids'] === []) {
             return null;
         }
 
         $documents = DB::table('knowledge_documents as d')
-            ->join('knowledge_document_ingredients as di', 'di.document_id', '=', 'd.id')
             ->join('knowledge_sources as s', 's.id', '=', 'd.source_id')
-            ->whereIn('di.ingredient_id', $ingredientIds)
+            ->whereIn('d.id', $found['document_ids'])
             ->where('d.content_status', KnowledgeDocument::STATUS_READY)
             ->where('s.active', true)
             ->orderBy('d.id')
@@ -104,7 +105,8 @@ final class LeafletSummaryService
         $versions = $chosen->map(fn (object $row): string => (string) ($row->content_hash ?? $row->processed_at ?? $row->id))->sort()->values()->all();
 
         return [
-            'key' => MedicineLeafletSummary::keyFor($ingredientIds),
+            // Sem princípio ativo ligado, o cache é por nome do produto (a bula foi achada pelo nome).
+            'key' => $found['ingredient_ids'] !== [] ? MedicineLeafletSummary::keyFor($found['ingredient_ids']) : 'p:'.mb_substr((string) $medicine->normalized_product_name, 0, 110),
             'prompt_version' => (string) config('bulai.leaflet.prompt_version'),
             'fingerprint' => hash('sha256', implode('|', $versions)),
             'documents' => $chosen->pluck('id')->map(fn ($id): int => (int) $id)->values()->all(),

@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Documents;
 use App\Jobs\IndexKnowledgeDocumentEmbeddings;
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\KnowledgeDocument;
+use App\Models\Knowledge\KnowledgeLeafletFact;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
 use App\Services\Knowledge\KnowledgeDocumentIngredientLinker;
 use App\Services\Knowledge\ProcessingTimeline;
@@ -67,6 +68,22 @@ class Show extends Component
         $this->document->refresh();
     }
 
+    /** Revisão farmacêutica de uma evidência extraída da bula pela IA (verificada ou rejeitada; rejeitada deixa de ser usada). */
+    public function reviewFact(int $factId, string $status): void
+    {
+        if (! in_array($status, [KnowledgeLeafletFact::REVIEW_VERIFIED, KnowledgeLeafletFact::REVIEW_REJECTED, KnowledgeLeafletFact::REVIEW_PENDING], true)) {
+            return;
+        }
+        KnowledgeLeafletFact::query()->where('document_id', $this->document->id)->whereKey($factId)->update(['review_status' => $status, 'updated_at' => now()]);
+        $this->processingFeedback = $status === KnowledgeLeafletFact::REVIEW_REJECTED ? 'Evidência rejeitada: o Perguntar não a usa mais.' : ($status === KnowledgeLeafletFact::REVIEW_VERIFIED ? 'Evidência marcada como verificada.' : 'Evidência devolvida para revisão.');
+    }
+
+    public function deleteFact(int $factId): void
+    {
+        KnowledgeLeafletFact::query()->where('document_id', $this->document->id)->whereKey($factId)->delete();
+        $this->processingFeedback = 'Evidência apagada.';
+    }
+
     public function render(ProcessingTimeline $timeline): View
     {
         $this->document->load(['source', 'ingestionBatch', 'ingredients'])->loadCount('chunks');
@@ -74,6 +91,8 @@ class Show extends Component
 
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),
+            // Evidências extraídas da bula inteira pela IA em perguntas de pacientes (auditáveis: trecho, seção, página, hash).
+            'facts' => KnowledgeLeafletFact::query()->with(['chunk:id,chunk_index', 'medicine:id,product_name'])->where('document_id', $this->document->id)->orderByDesc('id')->limit(100)->get(),
             'processing' => $this->document->metadata['processing'] ?? [],
             'timeline' => $events,
             // Etapa em andamento: a página se atualiza sozinha (wire:poll + evento em tempo real) até concluir.

@@ -4,12 +4,15 @@ namespace App\Services\Patient;
 
 use App\Data\Knowledge\EvidenceReference;
 use App\Data\Knowledge\RetrievalQuery;
+use App\Data\Knowledge\RetrievalResult;
 use App\Models\Consultation\MedicationQuestion;
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Interactions\ExplanationGenerator;
 use App\Services\Interactions\InteractionLookup;
+use App\Services\Knowledge\LeafletEvidenceService;
+use App\Services\Knowledge\MedicineLeafletFinder;
 use App\Services\Retrieval\KnowledgeRetriever;
 use App\Services\Safety\GuardVerdict;
 use App\Services\Safety\InputGuard;
@@ -17,13 +20,24 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Responde perguntas livres sobre medicamentos usando só as bulas ligadas aos seus princípios ativos e, quando o usuário
- * consentiu, os fatos determinísticos do seu tratamento (medicamentos em uso, interações DDInter e alergias). Sem bula ou
- * sem trecho relevante, diz isso; nunca responde "de memória". Cada pergunta de usuário autenticado é registrada em
- * `medication_questions` com evidências, contexto, triagem e métricas (auditoria e dados analíticos), com prazo de retenção.
+ * Responde perguntas livres sobre medicamentos usando só as bulas cadastradas e, quando o usuário consentiu, os fatos
+ * determinísticos do seu tratamento (medicamentos em uso, interações DDInter e alergias). Nunca responde "de memória".
+ * Cada pergunta de usuário autenticado é registrada em `medication_questions` com evidências, contexto, triagem e métricas.
  *
- * `ask()` responde sobre UM medicamento já escolhido; `askFreeform()` recebe só o texto, passa pela triagem de segurança
- * (`InputGuard`), detecta os medicamentos citados (`MedicationMentionDetector`) e responde sobre todos eles.
+ * Fluxo de resposta (`askFreeform`):
+ * 1. triagem (`InputGuard`), detecção dos medicamentos (`MedicationMentionDetector`) e localização das bulas de cada um
+ *    (`MedicineLeafletFinder`: princípio ativo ligado, ligando o catálogo na hora se preciso, ou nome do produto);
+ * 2. intenção da pergunta (`QuestionIntentDetector`: efeitos colaterais, como tomar, interações…) e evidências: as já
+ *    extraídas da bula inteira para esse assunto, depois a busca por trechos restrita às seções adequadas (bula do
+ *    paciente primeiro) e só então sem restrição de seção;
+ * 3. com evidência da seção adequada, o modelo responde em linguagem simples, afirmação a afirmação, cada uma citando
+ *    a evidência; a tela mostra fonte, seção e página;
+ * 4. sem evidência adequada ou com o modelo declarando insuficiência, a bula inteira é consultada
+ *    (`LeafletEvidenceService`): trecho literal, seção, página e confiança, conferidos contra o texto do documento e
+ *    gravados como evidência auditável, reaproveitada nas próximas perguntas;
+ * 5. se nem assim houver evidência, a resposta diz isso com clareza, nunca preenche com trechos irrelevantes, nunca
+ *    trata ausência como segurança, e a pergunta entra na fila de revisão humana (`review_status`) para a equipe
+ *    adquirir fontes.
  */
 final class MedicationQuestionService
 {
@@ -59,6 +73,9 @@ final class MedicationQuestionService
         private readonly InputGuard $guard,
         private readonly MedicationMentionDetector $detector,
         private readonly InteractionLookup $lookup,
+        private readonly MedicineLeafletFinder $leaflets,
+        private readonly QuestionIntentDetector $intents,
+        private readonly LeafletEvidenceService $evidence,
     ) {}
 
     /**
@@ -68,7 +85,8 @@ final class MedicationQuestionService
     {
         $started = hrtime(true);
         $treatment = $user !== null ? $this->treatment->for($user, $medicine) : null;
-        $result = $this->answer($medicine, $question, $treatment) + ['treatment' => $treatment, 'uuid' => null];
+        $facts = $treatment !== null ? $this->treatment->asEvidenceText($treatment, $medicine->product_name) : null;
+        $result = $this->answerMany([$medicine->loadMissing('ingredients')], $question, $facts) + ['treatment' => $treatment, 'uuid' => null];
         $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
 
         if ($user !== null) {
@@ -89,7 +107,7 @@ final class MedicationQuestionService
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos pelo usuário (correção ou link), além dos detectados
      * @param  list<array{question: string, answer: string|null, medicine_ids: list<int>}>  $conversation  últimas trocas desta sessão, da mais antiga para a mais nova
      * @param  list<int>  $excludedMedicineIds  medicamentos que o usuário mandou remover da pergunta (detecção errada)
-     * @return array{status: string, message: string|null, question: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, treatment: array<string, mixed>|null, treatments: list<array{medicine: string, context: array<string, mixed>}>, medicines: list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>, suggestions: list<array{id: int, name: string}>, limitations: list<string>, guard: array{category: string, flags: list<string>}, uuid: string|null}
+     * @return array{status: string, message: string|null, question: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, treatment: array<string, mixed>|null, treatments: list<array{medicine: string, context: array<string, mixed>}>, medicines: list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>, suggestions: list<array{id: int, name: string}>, guesses: list<array{id: int, name: string, ingredients: string, matched: string, term: string}>, limitations: list<string>, guard: array{category: string, flags: list<string>}, uuid: string|null}
      */
     public function askFreeform(User $user, string $question, array $forcedMedicineIds = [], array $conversation = [], array $excludedMedicineIds = []): array
     {
@@ -98,7 +116,7 @@ final class MedicationQuestionService
         $conversation = array_slice(array_values($conversation), -self::CONVERSATION_TURNS);
         $base = [
             'message' => null, 'question' => $verdict->sanitized, 'answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'treatment' => null,
-            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
+            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'guesses' => [], 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
         ];
 
         if (! $verdict->allowed()) {
@@ -118,7 +136,10 @@ final class MedicationQuestionService
                     ->map(fn (PatientMedication $item): array => ['id' => $item->medicine_id, 'name' => $item->medicine->product_name])->values()->all()
                 : [];
 
-            return $this->finish($user, ['status' => self::NO_MEDICINE, 'suggestions' => $suggestions] + $base, $started);
+            // Nada reconhecido: nomes parecidos com o que foi escrito ("você quis dizer…?") e os remédios em uso, para a pessoa tocar.
+            $guesses = array_values(array_filter($this->detector->guesses($verdict->sanitized), fn (array $g): bool => ! in_array($g['id'], $excludedMedicineIds, true)));
+
+            return $this->finish($user, ['status' => self::NO_MEDICINE, 'suggestions' => $suggestions, 'guesses' => $guesses] + $base, $started);
         }
 
         $models = AnvisaMedicine::query()->with('ingredients')->whereIn('id', array_column($medicines, 'id'))->get()->keyBy('id');
@@ -203,39 +224,52 @@ final class MedicationQuestionService
 
     /**
      * @param  list<AnvisaMedicine>  $medicines
-     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, limitations: list<string>}
+     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, limitations: list<string>, missing: array{unidentified: list<string>, without_leaflet: list<string>}, intent: list<string>}
      */
     private function answerMany(array $medicines, string $question, ?string $facts, ?string $conversation = null): array
     {
         $empty = ['answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'limitations' => []];
         $mode = (string) config('bulai.retrieval.mode');
         $limit = (int) config('bulai.retrieval.evidence_per_pair');
+        $topics = $this->intents->topics($question, count($medicines));
+        $topicLabel = $topics !== [] ? $this->intents->label($topics[0]) : '';
         $unidentified = [];
         $withoutLeaflet = [];
         $references = [];
-        $retrieval = ['mode' => $mode, 'duration_ms' => 0, 'per_medicine' => []];
+        $coverage = [];
+        $sectionMatched = false;
+        $retrieval = ['mode' => $mode, 'duration_ms' => 0, 'per_medicine' => [], 'intent' => $topics, 'section_matched' => false, 'leaflet_fallback' => null];
         // O usuário pergunta pelo nome comercial; as bulas falam pelo princípio ativo. Os nomes dos ativos citados
         // entram na consulta de recuperação para que a bula de um cite o outro.
         $ingredientNames = collect($medicines)->flatMap(fn (AnvisaMedicine $m) => $m->ingredients->pluck('normalized_name'))->unique()->values()->all();
         $searchText = trim($question.' '.implode(' ', $ingredientNames));
 
         foreach ($medicines as $medicine) {
-            $ingredientIds = $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
-            if ($ingredientIds === []) {
-                $unidentified[] = $medicine->product_name;
+            // Bulas pelo princípio ativo ligado (ligando o catálogo na hora se preciso) ou, na falta dele, pelo nome.
+            $found = $this->leaflets->find($medicine);
+            if ($found['document_ids'] === []) {
+                if ($found['ingredient_ids'] === []) {
+                    $unidentified[] = $medicine->product_name;
+                } else {
+                    $withoutLeaflet[] = $medicine->product_name;
+                }
 
                 continue;
             }
-            $documentIds = DB::table('knowledge_document_ingredients')->whereIn('ingredient_id', $ingredientIds)->pluck('document_id')->all();
-            if ($documentIds === []) {
-                $withoutLeaflet[] = $medicine->product_name;
+            $documentIds = $this->patientFirst($found['document_ids']);
+            $coverage[] = ['medicine' => $medicine, 'documents' => $documentIds];
 
-                continue;
+            // 1. Evidências já extraídas da bula inteira para este assunto (perguntas anteriores).
+            $stored = $this->evidence->stored($documentIds, $topics, $question);
+            foreach ($stored as $reference) {
+                $references[$reference->chunkId] ??= $reference;
             }
-            $result = $this->retriever->retrieve(new RetrievalQuery($searchText, $mode, $limit, $documentIds));
+            // 2. Busca por trechos: seções do assunto na bula do paciente, depois em todas, depois sem restrição.
+            [$result, $matched] = $this->retrieve($searchText, $mode, $limit, $documentIds, $topics);
             $retrieval['duration_ms'] += $result->durationMs;
-            $retrieval['per_medicine'][] = ['medicine' => $medicine->product_name, 'documents' => count($documentIds), 'references' => count($result->references)];
+            $retrieval['per_medicine'][] = ['medicine' => $medicine->product_name, 'documents' => count($documentIds), 'references' => count($result->references), 'stored_facts' => count($stored), 'section_matched' => $matched, 'found_by' => $found['method'], 'linked_now' => $found['linked_now']];
             $retrieval += $result->configuration;
+            $sectionMatched = $sectionMatched || $stored !== [] || $matched;
             foreach ($result->references as $reference) {
                 $references[$reference->chunkId] ??= $reference;
             }
@@ -244,6 +278,7 @@ final class MedicationQuestionService
         $limitations = [];
         // Nomes em falta, para a tela falar com o paciente em vez de listar limitações técnicas.
         $empty['missing'] = ['unidentified' => $unidentified, 'without_leaflet' => $withoutLeaflet];
+        $empty['intent'] = $topics;
         if ($unidentified !== []) {
             $limitations[] = 'Princípio ativo não identificado no catálogo para: '.implode(', ', $unidentified).'.';
         }
@@ -257,44 +292,133 @@ final class MedicationQuestionService
             return ['status' => self::NO_LEAFLET, 'limitations' => $limitations] + $empty;
         }
 
-        $references = array_values($references);
-        usort($references, fn (EvidenceReference $a, EvidenceReference $b): int => $b->score <=> $a->score);
-        $references = array_slice($references, 0, self::MAX_EVIDENCES);
-        if ($references === []) {
-            return ['status' => self::NO_EVIDENCE, 'retrieval' => $retrieval, 'limitations' => $limitations] + $empty;
+        $references = $this->rank($references);
+        $retrieval['section_matched'] = $sectionMatched;
+        $label = implode(' + ', array_map(fn (AnvisaMedicine $m): string => $m->product_name, $medicines));
+        $extra = ['limitations' => $limitations, 'missing' => $empty['missing'], 'intent' => $topics];
+
+        // 3. Primeira tentativa com o que a busca trouxe (as seções do assunto vieram primeiro); é o modelo quem julga se
+        // o trecho responde: "insuficiente" leva à bula inteira, nunca a trechos irrelevantes na tela.
+        $generated = null;
+        if ($references !== []) {
+            $generated = $this->generate($label, $question, $references, $facts, $retrieval, $conversation);
+            if ($generated['status'] === self::ANSWERED) {
+                return $generated + $extra;
+            }
         }
 
-        $label = implode(' + ', array_map(fn (AnvisaMedicine $m): string => $m->product_name, $medicines));
+        // 4. Segunda fonte: a bula inteira de cada medicamento, na seção compatível com a intenção.
+        $fallback = $this->consultWholeLeaflets($coverage, $question, $topics, $topicLabel);
+        $retrieval['leaflet_fallback'] = $fallback['extraction'];
+        if ($fallback['references'] !== []) {
+            $merged = $fallback['references'];
+            foreach ($references as $reference) {
+                if (! collect($merged)->contains(fn (EvidenceReference $r): bool => $r->chunkId === $reference->chunkId)) {
+                    $merged[] = $reference;
+                }
+            }
+            $generated = $this->generate($label, $question, array_slice($merged, 0, self::MAX_EVIDENCES), $facts, $retrieval, $conversation);
+            if ($generated['status'] === self::ANSWERED) {
+                return $generated + $extra;
+            }
+        }
 
-        return $this->generate($label, $question, $references, $facts, $retrieval, $conversation) + ['limitations' => $limitations, 'missing' => $empty['missing']];
+        // 5. Sem resposta segura: trechos só aparecem se forem da seção adequada e o modelo não pôde ser consultado;
+        // "insuficiente" declarado pelo modelo nunca vira trecho na tela.
+        $modelUnavailable = $generated !== null && ($generated['generation']['status'] ?? null) !== ExplanationGenerator::STATUS_GENERATED && empty($generated['generation']['insufficient_declared']);
+        $sections = collect($references)->map(fn (EvidenceReference $r): string => trim((string) $r->section))->filter()->unique()->take(3)->values()->all();
+        $status = $modelUnavailable && $sectionMatched && $references !== [] ? self::EXCERPTS_ONLY : self::NO_EVIDENCE;
+
+        return [
+            'status' => $status,
+            'answer' => null,
+            'evidences' => $status === self::EXCERPTS_ONLY ? array_map(fn (EvidenceReference $r): array => $r->toArray() + ['supports_claims' => []], $references) : [],
+            'generation' => ($generated['generation'] ?? []) + ['status' => $generated['generation']['status'] ?? 'not_attempted'],
+            'retrieval' => $retrieval + ['found_sections' => $sections, 'fallback_consulted' => $fallback['consulted']],
+        ] + $extra;
     }
 
     /**
-     * @param  array<string, mixed>|null  $treatment
-     * @return array{status: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>}
+     * Busca por trechos em três passos: seções do assunto só na bula do paciente; seções do assunto em todas as bulas;
+     * qualquer seção. Devolve também se algum trecho veio da seção adequada.
+     *
+     * @param  list<int>  $documentIds  bula do paciente primeiro
+     * @param  list<string>  $topics
+     * @return array{0: RetrievalResult, 1: bool}
      */
-    private function answer(AnvisaMedicine $medicine, string $question, ?array $treatment): array
+    private function retrieve(string $text, string $mode, int $limit, array $documentIds, array $topics): array
     {
-        $empty = ['answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => []];
-        $ingredientIds = $medicine->ingredients()->pluck('active_ingredients.id')->all();
-        if ($ingredientIds === []) {
-            return ['status' => self::NOT_IDENTIFIED] + $empty;
+        if ($topics !== []) {
+            $patterns = $this->intents->sectionPatterns($topics);
+            $patient = $this->patientOnly($documentIds);
+            foreach (array_unique([$patient === [] ? $documentIds : $patient, $documentIds], SORT_REGULAR) as $ids) {
+                $result = $this->retriever->retrieve(new RetrievalQuery($text, $mode, $limit, $ids, $patterns));
+                if (! $result->isEmpty()) {
+                    return [$result, true];
+                }
+            }
+        }
+        $result = $this->retriever->retrieve(new RetrievalQuery($text, $mode, $limit, $documentIds));
+        $matched = $topics !== [] && collect($result->references)->contains(fn (EvidenceReference $r): bool => $this->intents->sectionMatches($r->section, $topics));
+
+        return [$result, $matched];
+    }
+
+    /**
+     * @param  list<array{medicine: AnvisaMedicine, documents: list<int>}>  $coverage
+     * @param  list<string>  $topics
+     * @return array{references: list<EvidenceReference>, extraction: array<string, mixed>|null, consulted: bool}
+     */
+    private function consultWholeLeaflets(array $coverage, string $question, array $topics, string $topicLabel): array
+    {
+        if ($coverage === [] || ! $this->evidence->isEnabled()) {
+            return ['references' => [], 'extraction' => $coverage === [] ? null : ['reason' => 'disabled'], 'consulted' => false];
+        }
+        $references = [];
+        $extraction = ['per_medicine' => [], 'accepted' => 0, 'run_id' => (string) Str::uuid()];
+        foreach ($coverage as $entry) {
+            // Bula do paciente e, se ela não responder, a do profissional: no máximo duas leituras por medicamento.
+            $result = $this->evidence->extract(array_slice($entry['documents'], 0, 2), $question, $topics, $entry['medicine']->id, $extraction['run_id'], $topicLabel);
+            $extraction['per_medicine'][] = ['medicine' => $entry['medicine']->product_name] + $result['extraction'];
+            $extraction['accepted'] += count($result['references']);
+            if (isset($result['extraction']['document_id'])) {
+                $extraction['document_id'] = $result['extraction']['document_id'];
+            }
+            $references = [...$references, ...$result['references']];
         }
 
-        $documentIds = DB::table('knowledge_document_ingredients')->whereIn('ingredient_id', $ingredientIds)->pluck('document_id')->all();
-        if ($documentIds === []) {
-            return ['status' => self::NO_LEAFLET] + $empty;
+        return ['references' => $references, 'extraction' => $extraction, 'consulted' => true];
+    }
+
+    /** @param list<int> $documentIds @return list<int> bulas do paciente primeiro, mantendo a ordem relativa */
+    private function patientFirst(array $documentIds): array
+    {
+        $patient = $this->patientOnly($documentIds);
+
+        return [...$patient, ...array_values(array_diff($documentIds, $patient))];
+    }
+
+    /** @param list<int> $documentIds @return list<int> */
+    private function patientOnly(array $documentIds): array
+    {
+        static $types = [];
+        $missing = array_values(array_diff($documentIds, array_keys($types)));
+        if ($missing !== []) {
+            foreach (DB::table('knowledge_documents')->whereIn('id', $missing)->pluck('document_type', 'id') as $id => $type) {
+                $types[(int) $id] = (string) $type;
+            }
         }
 
-        $mode = (string) config('bulai.retrieval.mode');
-        $result = $this->retriever->retrieve(new RetrievalQuery($question, $mode, (int) config('bulai.retrieval.evidence_per_pair'), $documentIds));
-        if ($result->isEmpty()) {
-            return ['status' => self::NO_EVIDENCE, 'retrieval' => ['mode' => $mode] + $result->configuration] + $empty;
-        }
+        return array_values(array_filter($documentIds, fn (int $id): bool => ($types[$id] ?? null) === 'bula_paciente'));
+    }
 
-        $facts = $treatment !== null ? $this->treatment->asEvidenceText($treatment, $medicine->product_name) : null;
+    /** @param array<int, EvidenceReference> $references @return list<EvidenceReference> */
+    private function rank(array $references): array
+    {
+        $references = array_values($references);
+        usort($references, fn (EvidenceReference $a, EvidenceReference $b): int => $b->score <=> $a->score);
 
-        return $this->generate($medicine->product_name, $question, $result->references, $facts, ['mode' => $mode, 'duration_ms' => $result->durationMs] + $result->configuration);
+        return array_slice($references, 0, self::MAX_EVIDENCES);
     }
 
     /**
@@ -360,6 +484,9 @@ final class MedicationQuestionService
             'pipeline' => $this->pipeline(),
             'duration_ms' => $durationMs,
             'expires_at' => now()->addDays((int) config('bulai.questions.retention_days')),
+            // Sem resposta mesmo depois de esgotar as fontes: fila de revisão humana (adquirir bula ou mais fontes).
+            'review_status' => MedicationQuestion::needsReview($result['status']) ? MedicationQuestion::REVIEW_PENDING : null,
+            'review_reason' => MedicationQuestion::needsReview($result['status']) ? $result['status'] : null,
         ])->uuid;
 
         return $result;
@@ -385,6 +512,8 @@ final class MedicationQuestionService
             'pipeline' => $this->pipeline(),
             'duration_ms' => $durationMs,
             'expires_at' => now()->addDays((int) config('bulai.questions.retention_days')),
+            'review_status' => MedicationQuestion::needsReview($result['status']) ? MedicationQuestion::REVIEW_PENDING : null,
+            'review_reason' => MedicationQuestion::needsReview($result['status']) ? $result['status'] : null,
         ]);
     }
 
@@ -397,6 +526,7 @@ final class MedicationQuestionService
             'text_provider' => config('ai.text.default'),
             'embedding_provider' => config('ai.embedding.default'),
             'prompt_version' => config('bulai.generation.prompt_version').':qa',
+            'leaflet_fallback' => $this->evidence->isEnabled() ? LeafletEvidenceService::PROMPT_VERSION : null,
             'code_version' => config('bulai.code_version'),
         ];
     }
