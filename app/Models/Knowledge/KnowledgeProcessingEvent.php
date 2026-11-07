@@ -120,6 +120,31 @@ class KnowledgeProcessingEvent extends Model
         return implode(' · ', $parts);
     }
 
+    /** Explicação em português do código de erro da etapa (nulo sem erro ou para código desconhecido). */
+    public function errorLabel(): ?string
+    {
+        $code = $this->detail['error_code'] ?? null;
+
+        return is_string($code) ? (self::errorLabels()[$code] ?? null) : null;
+    }
+
+    /** @return array<string, string> */
+    public static function errorLabels(): array
+    {
+        return [
+            'AI_TIMEOUT' => 'o serviço de IA demorou mais que o limite de tempo de uma requisição',
+            'AI_UNAVAILABLE' => 'o serviço de IA não respondeu ou devolveu erro interno',
+            'AI_NOT_CONFIGURED' => 'o provedor de IA não está configurado',
+            'AI_RATE_LIMITED' => 'o provedor de IA limitou a taxa de requisições',
+            'AI_AUTH_FAILED' => 'a credencial do provedor de IA foi recusada',
+            'AI_INVALID_RESPONSE' => 'o serviço de IA devolveu uma resposta fora do contrato',
+            'AI_INVALID_REQUEST' => 'a requisição ao serviço de IA foi considerada inválida',
+            'EMBEDDING_INCOMPLETE' => 'alguns trechos ficaram sem vetor',
+            'INDEX_JOB_FAILED' => 'o job do índice foi interrompido (limite de tempo do worker ou erro inesperado)',
+            'POST_PROCESSING_ERROR' => 'erro inesperado após a geração dos trechos',
+        ];
+    }
+
     public function durationLabel(): ?string
     {
         $ms = $this->duration_ms;

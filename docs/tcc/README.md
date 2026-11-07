@@ -72,3 +72,4 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 | [25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md](25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |
 | [26-experiencia-nativa-conversa-com-contexto-e-tolerancia-a-erros.md](26-experiencia-nativa-conversa-com-contexto-e-tolerancia-a-erros.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |
 | [27-observabilidade-do-pipeline-progresso-em-tempo-real-e-retaguarda-do-classificador.md](27-observabilidade-do-pipeline-progresso-em-tempo-real-e-retaguarda-do-classificador.md) | 3.3.2 (pipeline de ingestão), 3.3.3 (classificação híbrida), 3.5.2, 3.5.3 |
+| [28-indice-de-busca-como-etapa-propria-lotes-de-embeddings-e-fuso-horario.md](28-indice-de-busca-como-etapa-propria-lotes-de-embeddings-e-fuso-horario.md) | 3.3.2 (etapa de embeddings), 3.5.2, 3.5.3 |

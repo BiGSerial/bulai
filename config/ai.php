@@ -49,12 +49,18 @@ return [
     ],
     'embedding' => [
         'default' => env('AI_EMBEDDING_DRIVER'),
+        // Tamanho de cada requisição de embeddings: por quantidade de trechos E por total de caracteres. O serviço local
+        // (bge-m3 em CPU) calcula um texto por vez, então o tempo da requisição é a soma dos trechos; 4 trechos de bula
+        // (~6.000 caracteres) levam ~30-60 s em 2 vCPU, bem abaixo do limite de tempo.
+        'batch_size' => (int) env('AI_EMBEDDING_BATCH_SIZE', 4),
+        'batch_characters' => (int) env('AI_EMBEDDING_BATCH_CHARACTERS', 6_000),
         'drivers' => [
             'openai_compatible' => [
                 'base_url' => env('AI_EMBEDDING_BASE_URL'),
                 'api_key' => env('AI_EMBEDDING_API_KEY'),
                 'model' => env('AI_EMBEDDING_MODEL'),
-                'timeout' => (int) env('AI_EMBEDDING_TIMEOUT', 60),
+                // Cobre uma requisição inteira (um lote); deve ser maior que LOCAL_AI_REQUEST_TIMEOUT do serviço `embeddings`.
+                'timeout' => (int) env('AI_EMBEDDING_TIMEOUT', 180),
                 'retries' => (int) env('AI_EMBEDDING_RETRIES', 2),
             ],
         ],

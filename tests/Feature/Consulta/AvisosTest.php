@@ -51,7 +51,7 @@ final class AvisosTest extends TestCase
         $this->medication($user, 'Sem lembrete', ['reminders_enabled' => false]);
         $this->medication($user, 'Se precisar', ['as_needed' => true, 'frequency' => 'se precisar']);
         $marcado = $this->medication($user, 'Já tomei', ['dose_times' => ['08:00']]);
-        MedicationDoseEvent::query()->create(['user_id' => $user->id, 'patient_medication_id' => $marcado->id, 'scheduled_for' => CarbonImmutable::parse('2026-11-05 08:00', 'America/Sao_Paulo')->utc(), 'status' => MedicationDoseEvent::STATUS_TAKEN, 'recorded_at' => now()]);
+        MedicationDoseEvent::query()->create(['user_id' => $user->id, 'patient_medication_id' => $marcado->id, 'scheduled_for' => CarbonImmutable::parse('2026-11-05 08:00', 'America/Sao_Paulo')->setTimezone(config('app.timezone')), 'status' => MedicationDoseEvent::STATUS_TAKEN, 'recorded_at' => now()]);
         $desligado = $this->patient(['reminders_enabled' => false]);
         $this->medication($desligado, 'Losartana');
         $semConsentimento = User::factory()->create();

@@ -22,6 +22,9 @@ return [
         'max_text_characters' => (int) env('KNOWLEDGE_MAX_TEXT_CHARACTERS', 5_000_000),
         'min_text_characters' => (int) env('KNOWLEDGE_MIN_TEXT_CHARACTERS', 20),
         'job_timeout_seconds' => (int) env('KNOWLEDGE_JOB_TIMEOUT_SECONDS', 60),
+        // Job separado que gera o índice de busca (embeddings) depois do processamento; a propriedade `timeout` do job
+        // prevalece sobre o --timeout do worker, mas precisa ficar abaixo de REDIS/DB_QUEUE_RETRY_AFTER.
+        'index_job_timeout_seconds' => (int) env('KNOWLEDGE_INDEX_JOB_TIMEOUT_SECONDS', 600),
         'progress_stale_minutes' => (int) env('KNOWLEDGE_PROGRESS_STALE_MINUTES', 5),
     ],
     'identification' => [

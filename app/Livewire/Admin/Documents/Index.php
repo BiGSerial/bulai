@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Documents;
 
+use App\Jobs\IndexKnowledgeDocumentEmbeddings;
 use App\Models\Knowledge\KnowledgeDocument;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -28,6 +29,8 @@ class Index extends Component
     #[Url(as: 'dir', except: 'desc')]
     public string $direction = 'desc';
 
+    public ?string $reindexFeedback = null;
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -53,6 +56,26 @@ class Index extends Component
         $this->direction = $this->sort === $field && $this->direction === 'asc' ? 'desc' : 'asc';
         $this->sort = $field;
         $this->resetPage();
+    }
+
+    /** Enfileira só o índice de busca dos documentos prontos que ainda não o têm (aguardando ou com falha); nada do PDF é lido de novo. */
+    public function generatePendingSearchIndexes(): void
+    {
+        $ids = $this->pendingIndexQuery()->orderBy('id')->pluck('id');
+        foreach ($ids as $id) {
+            IndexKnowledgeDocumentEmbeddings::dispatch((int) $id);
+        }
+        $this->reindexFeedback = $ids->isEmpty()
+            ? 'Nenhum documento pronto está sem índice de busca.'
+            : ($ids->count() === 1 ? 'Índice de busca de 1 documento enfileirado.' : "Índice de busca de {$ids->count()} documentos enfileirado.").' Os trechos e os PDFs não mudam; a fila gera um documento por vez. Acompanhe em Fila e serviços.';
+    }
+
+    /** Documentos com trechos prontos cujo índice de busca está aguardando ou falhou. @return Builder<KnowledgeDocument> */
+    private function pendingIndexQuery(): Builder
+    {
+        return KnowledgeDocument::query()
+            ->where('content_status', KnowledgeDocument::STATUS_READY)
+            ->whereNotIn('embedding_status', [KnowledgeDocument::STATUS_READY, KnowledgeDocument::STATUS_PROCESSING]);
     }
 
     public function render(): View
@@ -84,6 +107,7 @@ class Index extends Component
         return view('livewire.admin.documents.index', [
             'documents' => $documents,
             'fileStatuses' => ['PENDING', 'PROCESSING', 'READY', 'FAILED'],
+            'pendingIndexCount' => $this->pendingIndexQuery()->count(),
         ])->title('Documentos · BULAI');
     }
 }
