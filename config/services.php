@@ -20,6 +20,13 @@ return [
         'timeout' => (int) env('KINGHOST_SMTP_TIMEOUT', 15),
     ],
 
+    // Web Push (VAPID): `php artisan webpush:generate-keys`. A chave privada é o PEM em base64; segredo, só no app.env.
+    'webpush' => [
+        'public_key' => env('WEBPUSH_PUBLIC_KEY'),
+        'private_key' => env('WEBPUSH_PRIVATE_KEY'),
+        'subject' => env('WEBPUSH_SUBJECT'),
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

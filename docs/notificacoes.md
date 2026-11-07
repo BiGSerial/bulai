@@ -50,3 +50,24 @@ Serviço `scheduler` novo em `compose.prod.yaml` (`php artisan schedule:work`, 2
 - `BULAI_REMINDER_QUEUE` está reservada: hoje a entrega é síncrona dentro do agendador (volume pequeno, sem dependência do worker).
 - A janela de lembrete é avaliada a cada 5 minutos; um lembrete pode chegar até 5 minutos depois do início da janela.
 - Remédios com programação dinâmica ("de 8 em 8 horas"): o lembrete segue a agenda recalculada a partir do horário real da última dose tomada (ver `docs/tratamento.md`, "Programação dinâmica por intervalo").
+
+## Web Push (07/11/2026)
+
+O aviso do navegador só aparecia com o aplicativo aberto. Agora há Web Push real, **sem dependência nova**: autenticação VAPID (RFC 8292, JWT ES256 assinado com `openssl` em `App\Services\Push\WebPushSender`) e push **sem conteúdo**. O push vazio acorda o service worker (`public/sw.js`, evento `push`), que busca o texto em `GET /push/ultimo` (aviso não lido mais recente do próprio paciente, últimos 30 min) e o mostra; sem rede ou sessão, mostra um aviso genérico. Assim não se guardam chaves do aparelho nem há criptografia de payload.
+
+- **Tabela** `push_subscriptions` (usuário, endpoint, hash, falhas). Endpoints que respondem 404/410 são apagados; 10 falhas seguidas também.
+- **Canal** `App\Notifications\Channels\WebPushChannel`: acrescentado às vias de `MedicationReminderNotification`, `TreatmentEndingNotification` e `UnmatchedMedicineResolvedNotification` só quando há chaves VAPID e aparelho inscrito; nunca derruba a notificação (o aviso continua no aplicativo e no e-mail).
+- **Rotas** (área do paciente): `POST/DELETE /push/inscrever`, `GET /push/ultimo`. JS: `window.bulaiPush` (`resources/js/app.js`). Tela Avisos: "Receber avisos também com o aplicativo fechado".
+- **Chaves**: `sudo bulai-deploy artisan webpush:generate-keys` imprime `WEBPUSH_PUBLIC_KEY`, `WEBPUSH_PRIVATE_KEY` (PEM em base64, **segredo**) e `WEBPUSH_SUBJECT`; só no `/srv/bulai/shared/env/app.env`, depois `sudo bulai-deploy activate`. Sem as três variáveis o botão não aparece e tudo segue como antes. Trocar a chave pública invalida as inscrições.
+- **Ativação nos aparelhos**: o service worker mudou (`bulai-static-v6`); quem já instalou precisa tocar em "Atualizar" (faixa azul) uma vez e depois ativar os avisos de novo na tela Avisos. No iPhone o Web Push só funciona com o app instalado na tela inicial (iOS 16.4+).
+- **Limitações**: a entrega depende do serviço de push do navegador (FCM, Apple, Mozilla); o lembrete sai pelo agendador a cada 5 minutos (`treatment:send-reminders`), então precisa do `scheduler` rodando; push vazio exibe o aviso só se o aparelho consegue buscar `/push/ultimo` (sessão válida), senão mostra o texto genérico.
+- Testes: `tests/Feature/Consulta/WebPushTest.php` (JWT verificado com a chave pública, push vazio com TTL/Urgency, limpeza de endpoints, canal, rotas, tela e service worker).
+
+## Correções de interface (07/11/2026)
+
+- **Balão quebrando o layout no PWA**: `break-words` não reduz a largura mínima de itens de grid/flex; uma palavra longa alargava a coluna e o `overflow-x: clip` cortava o balão. `.app-screen` agora força `min-width: 0` nos filhos de grid/flex e `overflow-wrap: anywhere` nos textos; a coluna do chat usa `minmax(0, 1fr)`.
+- **Microfone sem pedir permissão**: o nginx de produção enviava `Permissions-Policy: microphone=()`, que proíbe o recurso na página inteira (o navegador nem exibe o pedido). Passou a `microphone=(self)` em `docker/production/nginx/default.conf` (imagem `bulai-web`). Quem negou antes precisa liberar o microfone nas configurações do site.
+
+### Celular estreito (07/11/2026, segunda passada)
+
+Capturas de um Android com tela de ~370 px (fonte grande) mostraram o nome do remédio quebrando no meio da palavra ("DIPIRON/A") e o chat usando só ~70 % da largura. Ajustes: cartão da dose em duas linhas (horário e situação em cima, nome e dose com a largura toda embaixo; trilho da linha do tempo mais estreito); balão do assistente sem avatar e sem margem direita no celular (o avatar volta a partir de `sm`); margens laterais da tela de 1 rem para 0,75 rem; caixa de pergunta compacta (1 linha que cresce até ~6, botões `min-h-12`), devolvendo altura às respostas; título do cabeçalho em até duas linhas em vez de cortado; abaixo de 24 rem a tipografia grande (`text-xl`/`2xl`/`3xl`) diminui um degrau e `px-5` vira `px-4`. Não foi possível conferir em aparelho real: validar nas três telas das capturas (Remédios de hoje, Perguntar, uma resposta longa).

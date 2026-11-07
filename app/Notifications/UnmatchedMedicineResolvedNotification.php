@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\PatientMedication;
+use App\Notifications\Channels\WebPushChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
@@ -19,7 +20,7 @@ final class UnmatchedMedicineResolvedNotification extends Notification
     /** @return list<string> */
     public function via(mixed $notifiable): array
     {
-        return ['database'];
+        return WebPushChannel::appendTo($notifiable, ['database']);
     }
 
     /** @return array<string, mixed> */

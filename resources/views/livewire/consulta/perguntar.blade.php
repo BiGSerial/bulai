@@ -5,7 +5,7 @@
     técnicos (partes da bula, o que foi considerado) ficam recolhidos. A caixa de texto fica fixa embaixo (slot sticky).
 --}}
 <x-consulta.shell title="Perguntar" :back="route('consulta.inicio')">
-    <div class="grid gap-4" aria-label="Conversa com o BULA-IA">
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-4" aria-label="Conversa com o BULA-IA">
         @if ($resposta === null && $conversa === [])
             <x-consulta.balao>
                 <p class="break-words" id="perg-titulo">Oi! Sou o BULA-IA. Qual é a sua dúvida sobre um remédio?</p>
@@ -200,16 +200,16 @@
     <x-slot:sticky>
         <form class="grid gap-2" wire:submit="perguntar" x-data="ditado({ aplicar: (t) => { $refs.pergunta.value = t }, confirmar: (t) => $wire.set('pergunta', t, false), texto: () => $refs.pergunta.value })" aria-label="Fazer uma pergunta">
             <label for="pergunta" class="sr-only">Sua pergunta sobre um remédio</label>
-            <textarea id="pergunta" x-ref="pergunta" rows="2" class="ui-control min-h-14 resize-none text-xl leading-relaxed" wire:model="pergunta" maxlength="{{ $maximo }}" autocomplete="off" enterkeyhint="send" placeholder="{{ $resposta || $conversa !== [] ? 'Continue a conversa…' : 'Ex.: posso tomar omeprazol com café?' }}" x-on:keydown.enter.prevent="$wire.set('pergunta', $refs.pergunta.value, false); $wire.perguntar()"></textarea>
+            <textarea id="pergunta" x-ref="pergunta" rows="1" class="ui-control max-h-36 min-h-12 resize-none text-lg leading-snug [field-sizing:content]" wire:model="pergunta" maxlength="{{ $maximo }}" autocomplete="off" enterkeyhint="send" placeholder="{{ $resposta || $conversa !== [] ? 'Continue a conversa…' : 'Ex.: posso tomar omeprazol com café?' }}" x-on:keydown.enter.prevent="$wire.set('pergunta', $refs.pergunta.value, false); $wire.perguntar()"></textarea>
             <p x-cloak x-show="parcial !== ''" class="px-1 text-base italic text-slate-500" aria-live="polite" x-text="parcial"></p>
             <p x-cloak x-show="erro !== ''" role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-base font-medium text-amber-900" x-text="erro"></p>
             <p x-cloak x-show="! suportado" class="px-1 text-base text-slate-600">Para falar a pergunta, use o microfone do teclado do celular.</p>
             <div class="flex gap-2">
-                <button type="button" x-cloak x-show="suportado" x-on:click="alternar()" x-bind:aria-pressed="ouvindo" class="inline-flex min-h-14 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-brand-700 bg-white px-3 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" x-bind:class="ouvindo ? 'animate-pulse bg-rose-50 border-rose-500 text-rose-900' : ''">
+                <button type="button" x-cloak x-show="suportado" x-on:click="alternar()" x-bind:aria-pressed="ouvindo" class="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-brand-700 bg-white px-3 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" x-bind:class="ouvindo ? 'animate-pulse bg-rose-50 border-rose-500 text-rose-900' : ''">
                     <svg class="size-7 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
                     <span class="truncate" x-text="ouvindo ? 'Parar' : 'Falar'">Falar</span>
                 </button>
-                <x-knowledge-admin.button variant="accent" type="submit" class="min-h-14 flex-1 text-lg" loadingTarget="perguntar,corrigir,remover" loading="Procurando na bula…">Perguntar</x-knowledge-admin.button>
+                <x-knowledge-admin.button variant="accent" type="submit" class="min-h-12 flex-1 text-lg" loadingTarget="perguntar,corrigir,remover" loading="Procurando na bula…">Perguntar</x-knowledge-admin.button>
             </div>
         </form>
     </x-slot:sticky>

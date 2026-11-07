@@ -151,8 +151,27 @@
     .app-screen main > *,
     .app-screen main section > *,
     .app-screen main form > *,
+    .app-screen main .grid > *,
+    .app-screen main .flex > *,
     .app-screen nav ul > li {
         min-width: 0;
+    }
+
+    /* `break-words` não reduz a largura mínima de itens de grid/flex: uma palavra longa (nome de remédio, "2,5mg/5mg",
+       endereço) alargava a coluna e o `overflow-x: clip` cortava o balão no WPA. `anywhere` quebra de verdade. */
+    .app-screen main .break-words,
+    .app-screen main blockquote,
+    .app-screen main li {
+        overflow-wrap: anywhere;
+    }
+
+    /* Celular estreito (ou zoom/fonte grande do sistema): tipografia grande um pouco menor e cartões com menos margem,
+       para o texto não ser espremido nem cortado. Acima de 24rem tudo continua como antes. */
+    @media (max-width: 24rem) {
+        .app-screen .text-3xl { font-size: 1.625rem; line-height: 1.2; }
+        .app-screen .text-2xl { font-size: 1.375rem; line-height: 1.25; }
+        .app-screen .text-xl { font-size: 1.1875rem; line-height: 1.4; }
+        .app-screen main .px-5 { padding-inline: 1rem; }
     }
 
     /* Resposta tátil: botões e links "afundam" levemente ao toque, como em um app nativo. */

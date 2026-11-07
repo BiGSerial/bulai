@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\FirstAccessController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Livewire\Admin\Analytics\Consultations\Index as AnalyticsConsultationIndex;
@@ -98,6 +99,10 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
 
 // Área do usuário final (PWA de consulta): qualquer conta ativa; dados sempre filtrados pelo próprio usuário.
 Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsChanged::class])->group(function (): void {
+    // Web Push: inscrição do aparelho e o texto do aviso mostrado pelo service worker.
+    Route::post('/push/inscrever', [PushSubscriptionController::class, 'store'])->name('push.store');
+    Route::delete('/push/inscrever', [PushSubscriptionController::class, 'destroy'])->name('push.destroy');
+    Route::get('/push/ultimo', [PushSubscriptionController::class, 'latest'])->name('push.latest');
     Route::get('/inicio', ConsultaInicio::class)->name('consulta.inicio');
     Route::view('/sobre', 'consulta.sobre')->name('consulta.sobre');
     Route::get('/consulta', ConsultaPesquisa::class)->name('consulta.pesquisa');

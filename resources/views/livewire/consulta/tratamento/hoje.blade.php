@@ -44,14 +44,18 @@
             @forelse ($periodos as $chave => [$rotulo, $icone, $doses])
                 <section class="grid gap-3" aria-labelledby="per-{{ $chave }}">
                     <h2 id="per-{{ $chave }}" class="flex items-center gap-2 px-1 text-xl font-semibold text-brand-900"><x-consulta.icone :name="$icone" size="sm" />{{ $rotulo }}</h2>
-                    <ol class="relative grid gap-3 border-l-4 border-slate-200 pl-5 ml-3">
+                    <ol class="relative grid gap-3 border-l-4 border-slate-200 pl-4 ml-2">
                         @foreach ($doses as $dose)
                             @php [$texto, $tom, $bolinha] = $estado($dose['status']); $iso = $dose['scheduled_for']->utc()->toIso8601String(); $marcado = in_array($dose['status'], [T::DOSE_TAKEN, T::DOSE_SKIPPED], true); $alvo = $dose['medication']->id.", '".$iso."'"; @endphp
                             <li wire:key="d-{{ $dose['medication']->id }}-{{ $dose['time'] }}" class="relative">
-                                <span class="absolute -left-[2.05rem] top-6 size-5 rounded-full ring-4 {{ $bolinha }}" aria-hidden="true"></span>
-                                <article class="grid min-w-0 gap-3 rounded-2xl bg-white p-4 ring-1 transition {{ $dose['status'] === T::DOSE_LATE ? 'ring-rose-300' : ($dose['status'] === T::DOSE_DUE ? 'ring-2 ring-accent-400 shadow-md' : 'ring-slate-200') }} {{ $dose['status'] === T::DOSE_SKIPPED ? 'opacity-75' : '' }}" aria-label="{{ $dose['time'] }}, {{ $dose['medication']->displayName() }}: {{ $texto }}">
-                                    <div class="flex min-w-0 items-start gap-3">
+                                <span class="absolute -left-[1.8rem] top-6 size-5 rounded-full ring-4 {{ $bolinha }}" aria-hidden="true"></span>
+                                <article class="grid min-w-0 gap-3 rounded-2xl bg-white p-3 ring-1 transition sm:p-4 {{ $dose['status'] === T::DOSE_LATE ? 'ring-rose-300' : ($dose['status'] === T::DOSE_DUE ? 'ring-2 ring-accent-400 shadow-md' : 'ring-slate-200') }} {{ $dose['status'] === T::DOSE_SKIPPED ? 'opacity-75' : '' }}" aria-label="{{ $dose['time'] }}, {{ $dose['medication']->displayName() }}: {{ $texto }}">
+                                    {{-- Celular estreito: horário e situação em cima, nome e dose embaixo com a largura toda (antes o nome quebrava no meio da palavra). --}}
+                                    <div class="flex min-w-0 flex-wrap items-center justify-between gap-2">
                                         <p class="shrink-0 rounded-xl bg-brand-50 px-3 py-2 text-2xl font-bold leading-none tabular-nums text-brand-900">{{ $dose['time'] }}</p>
+                                        <x-consulta.selo :tone="$tom" class="shrink-0">{{ $texto }}</x-consulta.selo>
+                                    </div>
+                                    <div class="grid min-w-0 gap-1">
                                         <div class="min-w-0 flex-1">
                                             <p class="break-words text-xl font-semibold leading-snug text-slate-900 {{ $dose['status'] === T::DOSE_SKIPPED ? 'line-through decoration-2' : '' }}">{{ $dose['medication']->displayName() }}</p>
                                             <p class="break-words text-slate-700">{{ collect([$dose['medication']->dosage ?: 'Dose não informada', $dose['dynamic'] ? $dose['medication']->intervalLabel() : null])->filter()->join(' · ') }}</p>
@@ -62,7 +66,6 @@
                                                 <p class="break-words text-base text-slate-600"><x-consulta.selo tone="neutral" class="mr-1">Ajustado</x-consulta.selo>contado a partir das {{ $dose['ajustado'] }}, quando você tomou a anterior</p>
                                             @endif
                                         </div>
-                                        <x-consulta.selo :tone="$tom" class="shrink-0">{{ $texto }}</x-consulta.selo>
                                     </div>
                                     @if ($marcado)
                                         <x-consulta.botao variant="quiet" size="sm" class="justify-self-start !w-auto" wire:click="desfazer({{ $alvo }})" wire:loading.attr="disabled"><x-consulta.icone name="desfazer" plain class="size-5" />Desfazer</x-consulta.botao>

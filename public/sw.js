@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bulai-static-v5';
+const CACHE_NAME = 'bulai-static-v6';
 const PRECACHE = ['/offline', '/manifest.webmanifest', '/brand/bulai-icone-app.svg', '/brand/bulai-icone-192.png', '/brand/bulai-icone-512.png'];
 const OFFLINE_URL = '/offline';
 
@@ -21,6 +21,29 @@ self.addEventListener('message', (event) => {
     if (event.data === 'SKIP_WAITING') {
         self.skipWaiting();
     }
+});
+
+// Web Push (VAPID, sem conteúdo): o servidor acorda o aparelho e o texto do aviso vem de /push/ultimo.
+// Todo push precisa mostrar uma notificação (userVisibleOnly), então, sem rede ou sem sessão, mostra um aviso genérico.
+self.addEventListener('push', (event) => {
+    event.waitUntil((async () => {
+        let aviso = {};
+        try {
+            const resposta = await fetch('/push/ultimo', { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+            if (resposta.ok) {
+                aviso = await resposta.json();
+            }
+        } catch (erro) {
+            // Sem rede: segue com o aviso genérico.
+        }
+        await self.registration.showNotification(aviso.title || 'Aviso do BULA-IA', {
+            body: aviso.body || 'Você tem um aviso novo. Toque para abrir.',
+            icon: '/brand/bulai-icone-192.png',
+            badge: '/brand/bulai-icone-192.png',
+            tag: aviso.tag || 'bulai-aviso',
+            data: { url: aviso.url || '/avisos' },
+        });
+    })());
 });
 
 // Toque no aviso (lembrete de dose): foca a janela do aplicativo já aberta e leva a "Remédios de hoje"; senão, abre uma.

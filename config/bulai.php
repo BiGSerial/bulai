@@ -68,8 +68,8 @@ return [
         // DDInter (inglês). A IA só propõe: o nome devolvido precisa existir no catálogo; o alias nasce `pending_review`.
         'ai_translation' => [
             'enabled' => (bool) env('BULAI_INGREDIENT_AI_TRANSLATION_ENABLED', true),
-            'batch_size' => (int) env('BULAI_INGREDIENT_AI_TRANSLATION_BATCH', 40),
-            'max_output_tokens' => (int) env('BULAI_INGREDIENT_AI_TRANSLATION_MAX_OUTPUT_TOKENS', 2000),
+            'batch_size' => (int) env('BULAI_INGREDIENT_AI_TRANSLATION_BATCH', 25),
+            'max_output_tokens' => (int) env('BULAI_INGREDIENT_AI_TRANSLATION_MAX_OUTPUT_TOKENS', 4000),
             // Limite por execução do construtor (nomes distintos); o restante fica para a próxima execução.
             'max_names_per_run' => (int) env('BULAI_INGREDIENT_AI_TRANSLATION_MAX_NAMES', 1200),
         ],
