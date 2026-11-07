@@ -305,6 +305,31 @@ final class PerguntarConfiavelTest extends TestCase
         $this->assertSame(['fluconazole', 'warfarin'], ActiveIngredient::query()->orderBy('normalized_name')->pluck('normalized_name')->all());
     }
 
+    public function test_names_the_ai_could_not_match_in_ddinter_are_remembered_and_not_sent_again(): void
+    {
+        $metamizole = ActiveIngredient::query()->create(['normalized_name' => 'metamizole', 'canonical_name' => 'Metamizole']);
+        ActiveIngredientAlias::query()->create(['ingredient_id' => $metamizole->id, 'alias' => 'metamizole', 'normalized_alias' => 'metamizole', 'language' => 'en', 'origin' => 'ddinter', 'review_status' => 'reviewed']);
+        $this->medicine('NOVALGINA', 'DIPIRONA');
+        $this->medicine('OUTRO', 'BROMOPRIDA');
+        $this->scripted = json_encode(['translations' => [['pt' => 'dipirona', 'en' => 'metamizole'], ['pt' => 'bromoprida', 'en' => 'bromopride']]]);
+
+        $first = app(ActiveIngredientCatalogBuilder::class)->translateUnresolved();
+        $this->assertSame([2, 1, ['bromoprida']], [$first['names'], $first['accepted'], $first['unknown']]);
+        $this->assertSame(['bromoprida'], DB::table('ingredient_translation_misses')->pluck('normalized_name')->all());
+
+        // Segunda execução: a bromoprida (que o DDInter não tem) não volta à IA; só resta o que ainda não foi tentado.
+        $this->providerCalls = 0;
+        $this->medicine('TERCEIRO', 'DIOSMINA');
+        $this->scripted = json_encode(['translations' => [['pt' => 'diosmina', 'en' => null]]]);
+        $second = app(ActiveIngredientCatalogBuilder::class)->translateUnresolved();
+        $this->assertSame([1, 1, 1], [$second['names'], $second['skipped_known_misses'], $this->providerCalls]);
+        $this->assertStringNotContainsString('bromoprida', $this->requests[array_key_last($this->requests)]['prompt']);
+
+        // --retry-misses esquece os recusados e tenta tudo de novo.
+        $third = app(ActiveIngredientCatalogBuilder::class)->translateUnresolved(retryMisses: true);
+        $this->assertSame([2, 0], [$third['names'], $third['skipped_known_misses']]);
+    }
+
     public function test_a_truncated_translation_reply_still_keeps_the_complete_pairs(): void
     {
         $metamizole = ActiveIngredient::query()->create(['normalized_name' => 'metamizole', 'canonical_name' => 'Metamizole']);

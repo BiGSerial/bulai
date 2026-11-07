@@ -26,9 +26,12 @@ final class ActiveIngredientCatalogBuilder
      * para o nome do DDInter (`IngredientTranslationService`); os aceitos viram aliases `pending_review` e os medicamentos
      * correspondentes são ligados. Sem provedor configurado ou com a tradução desligada, não faz nada.
      *
-     * @return array{names: int, proposed: int, accepted: int, medicines_linked: int, unknown: list<string>, error_code: string|null, reason?: string}
+     * Nomes que a IA já tentou e que o DDInter não tem ficam em `ingredient_translation_misses` e não são reenviados
+     * (`$retryMisses` limpa essa memória). Assim cada execução avança para os nomes ainda não tentados.
+     *
+     * @return array{names: int, proposed: int, accepted: int, medicines_linked: int, unknown: list<string>, error_code: string|null, skipped_known_misses?: int, reason?: string}
      */
-    public function translateUnresolved(): array
+    public function translateUnresolved(bool $retryMisses = false): array
     {
         $base = ['names' => 0, 'proposed' => 0, 'accepted' => 0, 'medicines_linked' => 0, 'unknown' => [], 'error_code' => null];
         if (! $this->translation->isEnabled() || ! $this->translation->hasCatalog()) {
@@ -45,9 +48,19 @@ final class ActiveIngredientCatalogBuilder
                     }
                 }
             });
+        if ($retryMisses) {
+            DB::table('ingredient_translation_misses')->delete();
+        }
+        $misses = DB::table('ingredient_translation_misses')->pluck('normalized_name')->flip()->all();
+        $skipped = count(array_intersect_key($texts, $misses));
+        $texts = array_diff_key($texts, $misses);
         $names = array_slice(array_values($texts), 0, (int) config('bulai.ingredients.ai_translation.max_names_per_run'));
         $result = $this->translation->translate($names);
-        $stats = ['names' => count($names)] + array_intersect_key($result, $base) + $base;
+        if ($result['unknown'] !== []) {
+            $rows = array_map(fn (string $name): array => ['normalized_name' => mb_substr($name, 0, 200), 'attempts' => 1, 'created_at' => now(), 'updated_at' => now()], array_values(array_unique($result['unknown'])));
+            DB::table('ingredient_translation_misses')->upsert($rows, ['normalized_name'], ['attempts' => DB::raw('ingredient_translation_misses.attempts + 1'), 'updated_at']);
+        }
+        $stats = ['names' => count($names), 'skipped_known_misses' => $skipped] + array_intersect_key($result, $base) + $base;
         if ($result['accepted'] > 0) {
             $this->resolver->flush();
             $stats['medicines_linked'] = $this->linkMedicines()['medicines_linked'];
