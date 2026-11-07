@@ -207,3 +207,21 @@
         }
     }
 }
+
+/*
+ * Administração: barra lateral compacta e rolagem discreta.
+ * - A descrição curta de cada item do menu (segunda linha) só aparece em janelas altas, onde cabe sem rolagem.
+ * - Rolagem fina e na cor do menu (sem a barra clara padrão do navegador).
+ */
+@layer components {
+    @media (min-height: 62rem) {
+        .admin-nav-desc {
+            display: block;
+        }
+    }
+
+    .admin-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-brand-600) transparent;
+    }
+}

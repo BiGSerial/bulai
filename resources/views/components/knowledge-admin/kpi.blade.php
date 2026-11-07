@@ -8,18 +8,25 @@
         'brand' => 'text-brand-700',
         default => 'text-slate-900',
     };
-    $classes = 'grid min-w-0 content-start gap-0.5 rounded-lg bg-surface-50 px-3 py-2.5 ring-1 ring-slate-200';
+    $edge = match ($tone) {
+        'warning' => 'border-amber-500',
+        'danger' => 'border-rose-600',
+        'success' => 'border-emerald-600',
+        'brand' => 'border-brand-600',
+        default => 'border-slate-400',
+    };
+    $classes = 'grid min-w-0 content-start gap-0.5 rounded-lg border-l-4 bg-white px-3 py-2.5 shadow-sm ring-1 ring-slate-300 '.$edge;
 @endphp
 @if ($href)
-    <a {{ $attributes->class($classes.' transition hover:ring-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600') }} href="{{ $href }}" wire:navigate>
-        <span class="truncate text-xs text-slate-600">{{ $label }}</span>
+    <a {{ $attributes->class($classes.' transition hover:bg-brand-50 hover:ring-brand-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600') }} href="{{ $href }}" wire:navigate>
+        <span class="text-xs font-medium text-slate-700">{{ $label }}</span>
         <span class="text-xl font-semibold tabular-nums {{ $valueClass }}">{{ $value }}</span>
-        @if ($hint)<span class="truncate text-xs text-slate-500">{{ $hint }}</span>@endif
+        @if ($hint)<span class="text-xs text-slate-600">{{ $hint }}</span>@endif
     </a>
 @else
     <div {{ $attributes->class($classes) }}>
-        <span class="truncate text-xs text-slate-600">{{ $label }}</span>
+        <span class="text-xs font-medium text-slate-700">{{ $label }}</span>
         <span class="text-xl font-semibold tabular-nums {{ $valueClass }}">{{ $value }}</span>
-        @if ($hint)<span class="truncate text-xs text-slate-500">{{ $hint }}</span>@endif
+        @if ($hint)<span class="text-xs text-slate-600">{{ $hint }}</span>@endif
     </div>
 @endif

@@ -4,7 +4,7 @@
     `tabs`: lista de ['key' => 'ativos', 'label' => 'Ativos', 'count' => 12|null]; `active`: chave atual.
 --}}
 @props(['tabs' => [], 'active' => null, 'model' => 'tab', 'alpine' => false])
-<div {{ $attributes->class('flex gap-1 overflow-x-auto border-b border-slate-200') }} role="tablist">
+<div {{ $attributes->class('flex gap-1 overflow-x-auto border-b-2 border-slate-300') }} role="tablist">
     @foreach ($tabs as $tab)
         @php($isActive = ($tab['key'] ?? null) === $active)
         <button type="button" role="tab" @if ($alpine) x-bind:aria-selected="{{ $model }} === '{{ $tab['key'] }}'" x-on:click="{{ $model }} = '{{ $tab['key'] }}'" x-bind:class="{{ $model }} === '{{ $tab['key'] }}' ? 'border-brand-700 text-brand-800' : 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900'" @else aria-selected="{{ $isActive ? 'true' : 'false' }}" wire:click="$set('{{ $model }}', '{{ $tab['key'] }}')" @endif
