@@ -74,7 +74,7 @@ final class AdminHelpAndSearchTest extends TestCase
             ->assertSee('Catálogo ANVISA')->assertSee('LOSARTANA POTASSICA')
             ->assertDontSee('Usuários');
         $component->set('q', 'carlos')->assertSee('Usuários')->assertSee('Carlos Paciente')->assertSee('carlos@exemplo.test')->assertDontSee('Documentos');
-        $component->set('q', 'pendên')->assertSee('Telas')->assertSee('Pendências')->assertSee('Arquivos que esperam sua decisão');
+        $component->set('q', 'pendên')->assertSee('Telas')->assertSee('Pendências')->assertSee('Esperam a sua decisão');
         $component->set('q', 'zzzz-nada')->assertSee('Nada encontrado para “zzzz-nada”.');
 
         Livewire::actingAs(User::factory()->create())->test(GlobalSearch::class)->assertForbidden();

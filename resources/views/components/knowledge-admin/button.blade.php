@@ -5,9 +5,9 @@
         'primary' => 'bg-brand-700 text-white shadow-sm hover:bg-brand-800',
         'accent' => 'bg-accent-600 text-white shadow-sm hover:bg-accent-700',
         'danger' => 'bg-rose-700 text-white shadow-sm hover:bg-rose-800',
-        'quiet' => 'text-slate-700 hover:bg-slate-100',
+        'quiet' => 'text-slate-800 hover:bg-slate-300/60',
         'link' => 'text-brand-700 hover:underline',
-        default => 'border border-slate-300 bg-white text-slate-800 shadow-sm hover:bg-slate-50',
+        default => 'border border-slate-400 bg-white text-slate-900 shadow-sm hover:bg-brand-50 hover:border-brand-600',
     };
     $opensNewTab = $attributes->get('target') === '_blank';
 @endphp

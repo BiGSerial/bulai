@@ -229,3 +229,23 @@ Convenções adotadas nestas telas: números em células com a classe `tabular`;
 ### Revisão de pendência: bula do paciente e do profissional
 
 O mesmo registro ANVISA pode ter bula do paciente e do profissional. `KnowledgeDocumentLifecycleService` considera `source_document_id` **e** `document_type` ao procurar documento existente; se a chave `source:{origem}:{hash}` já pertence a outro tipo, a nova usa o sufixo `:{tipo}`. Erros de validação de "Criar documento e processar" também viram aviso (toast), pois o campo fica na aba Resolver. Teste: `KnowledgeAdminTest::test_review_creates_the_professional_leaflet_when_the_patient_leaflet_shares_the_registration`.
+
+## Reformulação de 07/11/2026: monitor largo, contraste, tabelas que não vazam e celular
+
+Sintomas vistos em produção (monitor de 2576 px): conteúdo preso ao centro (`max-w-7xl`, 1280 px) com mais da metade da tela vazia, cabeçalho de coluna quebrando letra por letra ("P-E-R-G-U-N-T-A-S"), texto de célula escrito sobre a coluna vizinha, barra lateral com rolagem horizontal e descrições truncadas, subtítulo cortado e "tudo muito branco".
+
+Causas e correções (na origem, nos componentes, não tela a tela):
+
+| Causa | Correção |
+| --- | --- |
+| `data-table` forçava `whitespace-nowrap` em toda célula e as telas colocavam `max-w-*` nelas: o texto vazava sobre a coluna vizinha | O texto da célula **quebra por padrão** (`break-words`). `whitespace-nowrap` só em células curtas (datas, números); `truncate` + `max-w-*` só num bloco interno. Teste: nenhuma célula combina `nowrap` + `max-w-*` sem `truncate`. |
+| `th` podia quebrar por letra quando a coluna era espremida | `th` com `whitespace-nowrap`; cabeçalho escuro (`bg-brand-700`, texto branco) com ordenação em laranja |
+| `main` com `max-w-7xl` | `max-w-none` com margens `px-3 sm:px-6 xl:px-8 2xl:px-10`; formulários seguem com `max-w-2xl`; grade de indicadores com seis colunas em `2xl` |
+| Fundo `surface-50` com cartões brancos | Fundo `bg-slate-200`; cartões, barra de filtros e tabelas brancos com `border-slate-300` e `shadow-sm`; selos e alertas com fundo `-100`; indicadores com borda lateral por tom; títulos em `brand-900` |
+| Menu com itens de duas linhas, rolagem horizontal e descrições longas | Um item por linha (`min-h-9`); a descrição curta só aparece em janelas altas (`min-height: 62rem`) e sempre na dica; `overflow-x-hidden`, rolagem vertical fina; descrições curtas (≤ 29 caracteres); item ativo mais contrastado; rodapé (recolher) fixo |
+| Título e subtítulo com `truncate` | Quebram (subtítulo `max-w-4xl`, até o fim do texto) |
+| Tabelas no celular | Rolagem horizontal com a **primeira coluna fixa** à esquerda; `main` com margem de 0,75 rem |
+
+Reatividade: a tela **Perguntas sem resposta** passou a usar abas de situação com contagem (`Pendentes N`, `Resolvidas N`, `Descartadas N`) e `wire:poll.20s.visible`. Os componentes continuam aceitando `wire:poll`/`bulai-realtime`; use nas listas que mostram filas.
+
+Testes: `tests/Feature/Admin/AdminLayoutContractTest.php` (contrato de classes) e `AdminDesignSystemTest` (paleta, escala, vocabulário). **Limitação:** não houve conferência visual em navegador nesta alteração (nenhum navegador disponível no ambiente de desenvolvimento); validar nos dois tamanhos (monitor largo e celular) após o deploy.
