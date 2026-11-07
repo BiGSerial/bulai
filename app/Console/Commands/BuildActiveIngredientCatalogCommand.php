@@ -8,14 +8,14 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
-#[Signature('knowledge:build-ingredients {--aliases= : CSV de aliases curados (padrão: database/data/ingredient_aliases.csv)} {--no-ai : Não traduzir com IA os nomes que aliases e regras não resolveram}')]
+#[Signature('knowledge:build-ingredients {--aliases= : CSV de aliases curados (padrão: database/data/ingredient_aliases.csv)} {--no-ai : Não traduzir com IA os nomes que aliases e regras não resolveram} {--retry-misses : Tentar de novo os nomes que a IA já tentou e o DDInter não tem}')]
 #[Description('Constrói o catálogo de princípios ativos (DDInter), liga medicamentos da ANVISA e interações a ele; traduz com IA o que sobrar')]
 class BuildActiveIngredientCatalogCommand extends Command
 {
     public function handle(ActiveIngredientCatalogBuilder $builder, KnowledgeDocumentIngredientLinker $linker): int
     {
         $stats = $builder->build($this->option('aliases') ?: null);
-        $translation = $this->option('no-ai') ? null : $builder->translateUnresolved();
+        $translation = $this->option('no-ai') ? null : $builder->translateUnresolved((bool) $this->option('retry-misses'));
         $documentLinks = $linker->linkAll();
         $skipped = $stats['curated_skipped'];
         unset($stats['curated_skipped']);
