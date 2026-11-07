@@ -18,7 +18,43 @@ final class ActiveIngredientCatalogBuilder
     public function __construct(
         private readonly IngredientNameNormalizer $normalizer,
         private readonly ActiveIngredientResolver $resolver,
+        private readonly IngredientTranslationService $translation,
     ) {}
+
+    /**
+     * Segunda passada, com IA: os textos de princípio ativo que continuaram sem vínculo depois de `build()` são traduzidos
+     * para o nome do DDInter (`IngredientTranslationService`); os aceitos viram aliases `pending_review` e os medicamentos
+     * correspondentes são ligados. Sem provedor configurado ou com a tradução desligada, não faz nada.
+     *
+     * @return array{names: int, proposed: int, accepted: int, medicines_linked: int, unknown: list<string>, error_code: string|null, reason?: string}
+     */
+    public function translateUnresolved(): array
+    {
+        $base = ['names' => 0, 'proposed' => 0, 'accepted' => 0, 'medicines_linked' => 0, 'unknown' => [], 'error_code' => null];
+        if (! $this->translation->isEnabled() || ! $this->translation->hasCatalog()) {
+            return $base + ['reason' => 'disabled'];
+        }
+        $texts = [];
+        AnvisaMedicine::query()->select(['id', 'active_ingredient'])
+            ->whereNotNull('active_ingredient')->where('active_ingredient', '!=', '')
+            ->whereNotIn('id', DB::table('anvisa_medicine_ingredients')->select('medicine_id'))
+            ->orderBy('id')->chunkById(2000, function ($medicines) use (&$texts): void {
+                foreach ($medicines as $medicine) {
+                    foreach ($this->normalizer->components($medicine->active_ingredient) as $component) {
+                        $texts[$this->normalizer->base($component)] = $component;
+                    }
+                }
+            });
+        $names = array_slice(array_values($texts), 0, (int) config('bulai.ingredients.ai_translation.max_names_per_run'));
+        $result = $this->translation->translate($names);
+        $stats = ['names' => count($names)] + array_intersect_key($result, $base) + $base;
+        if ($result['accepted'] > 0) {
+            $this->resolver->flush();
+            $stats['medicines_linked'] = $this->linkMedicines()['medicines_linked'];
+        }
+
+        return $stats;
+    }
 
     /**
      * @return array{ingredients: int, aliases_curated: int, curated_skipped: list<string>, components: int, components_linked: int, components_ambiguous: int, medicines_linked: int, medicines_total: int, interactions_linked: int, interactions_total: int}

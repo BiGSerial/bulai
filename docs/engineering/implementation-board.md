@@ -105,3 +105,15 @@ Estados: BACKLOG · READY · IN_PROGRESS · BLOCKED · IN_REVIEW · DONE. `DONE`
 | H-A | Arquiteto | Admin: alerta + "Gerar o índice de busca"/"Refazer só o índice de busca" na página do documento (erro explicado por `KnowledgeProcessingEvent::errorLabel()`), "Refazer o índice de busca" no menu Mais, "Gerar N índices de busca pendentes" na lista | H-J | DONE | `KnowledgeSearchIndexTest` (2 testes de tela) |
 | H-T | Arquiteto | Fuso America/Sao_Paulo: `APP_TIMEZONE`, `TZ`/`PGTZ` em `compose.yaml` e `compose.prod.yaml`, `php.ini`; `LOCAL_AI_REQUEST_TIMEOUT` 180 no serviço `embeddings`; correção de `TreatmentScheduleService` (gravava em UTC, lia no fuso do app) | — | DONE | `docker compose config` (dev e prod) válidos; 6 testes do tratamento passam em UTC e em Brasília; release 2026-11-07 (conjunto confiável) |
 | H-Z | Arquiteto | Integração: Pint, suíte completa, docs (nota 28, release, atividades), commit e PR | H-I..H-T | DONE | 606 testes, 605 aprovados, 1 ignorado, 15.962 asserções (07/11/2026) |
+
+## Iteração 8 (07/11/2026): Perguntar confiável, bula inteira como segunda fonte e revisão humana
+
+| ID | Frente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| I-0 | Arquiteto | Diagnóstico: catálogo sem vínculos em produção (56 % no dev), `limit(600)` que perdia termos, nomes PT sem tradução para o DDInter, bulas sem vínculo, "naprix d" → NAPRIX, trechos irrelevantes na tela | — | DONE | nota 29 §1 (medições no dev) |
+| I-D | Arquiteto | `MedicationMentionDetector`: consulta agregada por grupo, chave por componentes do ativo sem sal/dose, regra de foco, sufixo de linha, ditado partido, `guesses()` | I-0 | DONE | `PerguntarConfiavelTest` (detecção, "você quis dizer") |
+| I-F | Arquiteto | `MedicineLeafletFinder`: vínculo do catálogo na hora (aliases + tradução por IA) e bula pelo nome; usado no Perguntar, na Bula simples e no resumo | I-D | DONE | `PerguntarConfiavelTest` (vínculo na hora / pelo nome) |
+| I-E | Arquiteto | Intenção → seção (`QuestionIntentDetector`), bula inteira como segunda fonte (`LeafletEvidenceService`, `knowledge_leaflet_facts`), resposta honesta, fonte com seção/página, "De onde tirei isso" | I-F | DONE | `PerguntarConfiavelTest` (bula inteira, resposta honesta) |
+| I-R | Arquiteto | Fila de revisão humana (`medication_questions.review_status`, tela Perguntas sem resposta, Visão geral) e revisão das evidências na página do documento | I-E | DONE | `PerguntarConfiavelTest` (revisão), `KnowledgeDocumentAdminTest` |
+| I-T | Arquiteto | Tradução de princípios ativos por IA (`IngredientTranslationService`), `knowledge:build-ingredients` com IA, job `BuildActiveIngredientCatalog` após importações, sais e dose no normalizador | I-0 | DONE | `PerguntarConfiavelTest` (tradução, job), `ActiveIngredientCatalogTest` |
+| I-Z | Arquiteto | Integração: cherry-pick do commit do vínculo bula ↔ princípio ativo que ficou fora da mesclagem da PR #37, Pint, suíte completa, docs, commit e PR | I-D..I-T | DONE | suíte completa (ver PR) |

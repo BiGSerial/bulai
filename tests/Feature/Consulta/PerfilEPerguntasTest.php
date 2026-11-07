@@ -194,8 +194,8 @@ final class PerfilEPerguntasTest extends TestCase
             ->call('perguntar')->assertSee('Escreva sua pergunta')
             ->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
             ->assertSee('Falando de:')->assertSee('OMEPRAZOL')
-            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('Ver na bula')->assertSee('Li isso na bula de OMEPRAZOL.')
-            ->assertDontSee('página 3')->assertDontSee('Limitações')
+            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('De onde tirei isso')->assertSee('Li isso na bula')
+            ->assertDontSee('Limitações')
             ->assertSee('Guardei esta conversa no seu');
 
         $question = MedicationQuestion::query()->sole();
@@ -205,7 +205,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame('A bula diz que o comprimido deve ser tomado em jejum.', $question->answer);
         $this->assertSame(3, $question->evidences[0]['page_start']);
         $this->assertSame([0], $question->evidences[0]['supports_claims']);
-        $this->assertSame(['generated', 1, 'interaction-explanation-v1:qa'], [$question->generation['status'], $question->generation['claims_accepted'], $question->generation['prompt_version']]);
+        $this->assertSame(['generated', 1, 'interaction-explanation-v2:qa'], [$question->generation['status'], $question->generation['claims_accepted'], $question->generation['prompt_version']]);
         $this->assertSame('lexical', $question->retrieval['mode']);
         $this->assertSame('scripted', $question->pipeline['text_provider']);
         $this->assertFalse($question->treatment_context['consented']);

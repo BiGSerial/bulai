@@ -4,6 +4,7 @@ namespace App\Services\Admin;
 
 use App\Models\AiUsageLog;
 use App\Models\Consultation\InteractionConsultation;
+use App\Models\Consultation\MedicationQuestion;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
 use App\Models\Knowledge\KnowledgeDocument;
@@ -157,6 +158,7 @@ final class OverviewService
         $items = [
             ['label' => 'arquivos aguardando sua revisão', 'count' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_PENDING)->count(), 'route' => 'admin.knowledge.pending.index', 'tone' => 'warning'],
             ['label' => 'remédios de pacientes sem correspondência no catálogo', 'count' => UnmatchedMedicineReport::query()->open()->count(), 'route' => 'admin.knowledge.unmatched.index', 'tone' => 'warning'],
+            ['label' => 'perguntas de pacientes sem resposta (fontes a adquirir)', 'count' => MedicationQuestion::query()->pendingReview()->count(), 'route' => 'admin.knowledge.unanswered.index', 'tone' => 'warning'],
             ['label' => 'arquivos com erro nas importações', 'count' => IngestionBatchItem::query()->where('status', IngestionBatchItem::STATUS_ERROR)->count(), 'route' => 'admin.knowledge.batches.index', 'tone' => 'danger'],
             ['label' => 'importações ainda em processamento', 'count' => IngestionBatch::query()->whereIn('status', [IngestionBatch::STATUS_PENDING, IngestionBatch::STATUS_PROCESSING])->count(), 'route' => 'admin.knowledge.batches.index', 'tone' => 'info'],
             ['label' => 'documentos sem índice de busca', 'count' => KnowledgeDocument::query()->where('content_status', KnowledgeDocument::STATUS_READY)->where('embedding_status', '!=', KnowledgeDocument::STATUS_READY)->count(), 'route' => 'admin.knowledge.documents.index', 'tone' => 'warning'],

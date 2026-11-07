@@ -35,14 +35,9 @@ class Bula extends Component
     public function mount(AnvisaMedicine $medicine, LeafletSummaryService $service): void
     {
         $this->medicine = $medicine;
-        $medicine->loadMissing('ingredients:id');
-        if ($medicine->ingredients->isEmpty()) {
-            $this->estado = self::NOT_IDENTIFIED;
-
-            return;
-        }
+        // Bulas pelo princípio ativo ligado (ligando o catálogo na hora se preciso) ou pelo nome; sem nada, explica qual é o caso.
         if (! $service->isAvailable($medicine)) {
-            $this->estado = self::NO_LEAFLET;
+            $this->estado = $medicine->ingredients()->exists() ? self::NO_LEAFLET : self::NOT_IDENTIFIED;
 
             return;
         }

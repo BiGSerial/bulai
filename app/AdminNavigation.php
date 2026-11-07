@@ -49,6 +49,7 @@ final class AdminNavigation
                 self::item('admin.knowledge.batches.index', 'Importações', 'admin.knowledge.batches.*', 'inbox', 'Acompanhar cada envio e o que aconteceu com os arquivos', 'Histórico dos envios'),
                 self::item('admin.knowledge.pending.index', 'Pendências', 'admin.knowledge.pending.*', 'alert', 'Arquivos que precisam da sua decisão antes de entrar na base', 'Arquivos que esperam sua decisão'),
                 self::item('admin.knowledge.unmatched.index', 'Remédios não encontrados', 'admin.knowledge.unmatched.*', 'flag', 'Remédios que pacientes cadastraram e o catálogo não reconheceu: ligar ao medicamento certo', 'Ligar ao catálogo o que pacientes escreveram'),
+                self::item('admin.knowledge.unanswered.index', 'Perguntas sem resposta', 'admin.knowledge.unanswered.*', 'alert', 'Perguntas que ficaram sem resposta mesmo com a bula inteira lida: adquirir a fonte que falta', 'Fontes a adquirir para responder'),
                 self::item('admin.knowledge.documents.index', 'Documentos', 'admin.*documents.*', 'document', 'Documentos já incorporados à base', 'Bulas prontas na base'),
                 self::item('admin.knowledge.sources.index', 'Origens', 'admin.knowledge.sources.*', 'library', 'De onde vêm os documentos (ex.: ANVISA)', 'Procedência dos documentos'),
                 self::item('admin.knowledge.catalog.index', 'Catálogo ANVISA', 'admin.knowledge.catalog.*', 'beaker', 'Lista oficial de medicamentos usada para validar bulas', 'Lista oficial de medicamentos'),

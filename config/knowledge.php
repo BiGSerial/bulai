@@ -27,6 +27,10 @@ return [
         'index_job_timeout_seconds' => (int) env('KNOWLEDGE_INDEX_JOB_TIMEOUT_SECONDS', 600),
         'progress_stale_minutes' => (int) env('KNOWLEDGE_PROGRESS_STALE_MINUTES', 5),
     ],
+    'ingredients' => [
+        // Job que constrói o catálogo de princípios ativos após cada importação (ANVISA e DDInter); inclui a tradução por IA.
+        'job_timeout_seconds' => (int) env('KNOWLEDGE_INGREDIENTS_JOB_TIMEOUT_SECONDS', 840),
+    ],
     'identification' => [
         'first_pages' => (int) env('KNOWLEDGE_IDENTIFICATION_FIRST_PAGES', 2),
         'last_pages' => (int) env('KNOWLEDGE_IDENTIFICATION_LAST_PAGES', 4),

@@ -94,6 +94,13 @@ final class AdminHelp
                 'steps' => ['Abra "Revisar" no primeiro item.', 'Decida: criar documento, associar a um existente ou não incorporar.', 'Siga para a próxima pendência até zerar a lista.'],
                 'related' => [$r('admin.knowledge.batches.index', 'Importações'), $r('admin.knowledge.documents.index', 'Documentos')],
             ],
+            'admin.knowledge.unanswered.*' => [
+                'title' => 'Perguntas sem resposta',
+                'purpose' => 'Perguntas de pacientes que o Perguntar não conseguiu responder mesmo depois de procurar nos trechos e ler a bula inteira: falta a bula, falta o princípio ativo no catálogo ou a bula não traz o assunto.',
+                'when' => 'Periodicamente, para adquirir as fontes que faltam. Cada linha agrupa as perguntas de um remédio por motivo.',
+                'steps' => ['Veja o motivo: cadastre a bula que falta, ligue o princípio ativo ou busque uma bula mais completa.', 'Teste a pergunta no Perguntar.', 'Marque como resolvida (ou descarte o que não tem fonte a adquirir).'],
+                'related' => [$r('admin.knowledge.upload', 'Adicionar documentos'), $r('admin.knowledge.documents.index', 'Documentos'), $r('admin.knowledge.catalog.index', 'Catálogo ANVISA')],
+            ],
             'admin.knowledge.unmatched.*' => [
                 'title' => 'Remédios não encontrados',
                 'purpose' => 'Remédios que pacientes cadastraram pelo nome (receita ou à mão) e o catálogo ANVISA não reconheceu. Ligar ao medicamento certo libera a bula simples e o cruzamento de interações para essas pessoas.',

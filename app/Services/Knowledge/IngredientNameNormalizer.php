@@ -15,7 +15,12 @@ final class IngredientNameNormalizer
         'dipropionato', 'furoato', 'cipionato', 'enantato', 'benzoato', 'lactato', 'gluconato', 'carbonato', 'oxalato', 'tosilato',
         'hidrocloreto', 'cloreto', 'iodeto', 'palmitato', 'estearato', 'undecanoato', 'decanoato', 'pamoato', 'hemifumarato',
         'hidrobrometo', 'estolato', 'etilsuccinato', 'lactobionato', 'gluceptato', 'ascorbato', 'salicilato', 'sacarato', 'cetoglutarato', 'hidrogenotartarato', 'hidroxido',
+        'hemitartarato', 'hemissulfato', 'hidrogenossulfato', 'dinitrato', 'mononitrato', 'embonato', 'pivalato', 'trometamol', 'napsilato', 'hiclato', 'resinato', 'polistirex',
+        'monoidrato', 'tetraidrato', 'dicloreto', 'bissuccinato', 'hemi hidrato', 'glicinato', 'orotato', 'aspartato', 'picolinato', 'bicarbonato', 'tiocianato', 'cromoglicato',
     ];
+
+    /** Dose/concentração colada ao nome ("losartana potassica 50mg", "2,5 mg"): tokens numéricos e unidades. */
+    private const STRENGTH_TOKEN = '/^(\d+([.,]\d+)?(mg|mcg|ug|g|ml|l|ui|iu|%)?|mg|mcg|ug|ml|ui|iu|mg\/ml|mcg\/ml)$/';
 
     /** Qualificadores finais descartáveis. */
     private const TRAILING_QUALIFIERS = [
@@ -44,7 +49,10 @@ final class IngredientNameNormalizer
     {
         $normalized = $this->normalize(preg_replace('/\([^)]*\)/', ' ', (string) $name));
         $normalized = preg_replace('/\b(?:di|mono|tri|sesqui|hemi|hexa|penta)\s+hidratad[oa]\b/', ' ', $normalized) ?? $normalized;
-        $tokens = array_values(array_filter(explode(' ', $normalized), fn (string $token): bool => $token !== ''));
+        $tokens = array_values(array_filter(explode(' ', $normalized), fn (string $token): bool => $token !== '' && preg_match(self::STRENGTH_TOKEN, $token) !== 1));
+        if ($tokens === []) {
+            return $normalized;
+        }
 
         $prefixes = implode('|', self::SALT_PREFIXES);
         if (count($tokens) > 2 && preg_match('/^(?:'.$prefixes.')$/', $tokens[0]) === 1 && in_array($tokens[1], ['de', 'do', 'da'], true)) {

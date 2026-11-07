@@ -66,3 +66,7 @@ Diagnóstico: o tamanho do lote foi escolhido pensando em uma API de nuvem (que 
 | --- | --- |
 | Antes (release de 06/11) | 599 testes, 598 aprovados, 1 ignorado |
 | Depois | 606 testes, 605 aprovados, 1 ignorado, 15.962 asserções (07/11/2026) |
+
+## 6. Complemento (07/11): vínculo bula ↔ princípio ativo como ação própria
+
+O teste em produção depois do índice mostrou um segundo elo faltando: o Perguntar parte do nome comercial, vai ao catálogo ANVISA (`anvisa_medicine_ingredients`) e daí às bulas ligadas ao princípio ativo (`knowledge_document_ingredients`). Bulas processadas antes do vinculador existir não tinham esse vínculo, e o vinculador só usava registro, metadado de princípio ativo e título. Decisões: (i) nova estratégia `catalog` no `KnowledgeDocumentIngredientLinker` (nome do produto normalizado → catálogo → ingredientes já ligados; confiança 0,6; só quando as anteriores não resolvem), (ii) ação "Vincular princípios ativos" por documento (síncrona, etapa `link` na linha do tempo) e em massa (`LinkKnowledgeDocumentIngredients`), com alerta na página quando a bula pronta não tem vínculo, (iii) dependência operacional explícita: `knowledge:build-ingredients` precisa rodar após importar o catálogo ANVISA e o DDInter. Evidência: `tests/Feature/Knowledge/KnowledgeIngredientLinkActionsTest.php` (3). Limitação: produtos ausentes do catálogo ANVISA continuam sem vínculo até o reprocessamento identificar o princípio ativo.

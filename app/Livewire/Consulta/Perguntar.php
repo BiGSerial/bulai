@@ -9,6 +9,7 @@ use App\Services\Patient\MedicationQuestionService;
 use App\Services\Patient\TreatmentContextService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Livewire\Component;
 
 /**
@@ -193,7 +194,7 @@ class Perguntar extends Component
      *
      * @param  array<string, mixed>  $resposta
      * @param  list<string>  $emUso
-     * @return array{texto: string, fonte: string|null, trechos: list<array{titulo: string, texto: string}>, sugestoes: list<string>, remedios: list<string>, tone: string}
+     * @return array{intro: string|null, texto: string, fonte: string|null, trechos: list<array{titulo: string, texto: string}>, sugestoes: list<string>, remedios: list<string>, tone: string}
      */
     public static function fala(array $resposta, array $emUso = []): array
     {
@@ -203,23 +204,22 @@ class Perguntar extends Component
         $de = fn (array $lista): string => self::listar($lista === [] ? $nomes : $lista);
         $pergunta = (string) ($resposta['pergunta'] ?? $resposta['question'] ?? '');
         $sugestoes = self::reformulacoes($comBula !== [] ? $comBula : $nomes, $pergunta);
-        $fala = ['texto' => '', 'fonte' => null, 'trechos' => [], 'sugestoes' => [], 'remedios' => [], 'tone' => 'neutral'];
+        $assunto = (string) (($resposta['intent'] ?? [])[0] ?? '');
+        $assuntoLabel = $assunto !== '' ? mb_strtolower((string) config('bulai.leaflet.sections.'.$assunto.'.label', $assunto)) : '';
+        $efeitos = $assunto === 'efeitos_colaterais';
+        $bulaInteira = ! empty($resposta['retrieval']['leaflet_fallback']['document_id']);
+        $consultouInteira = (bool) ($resposta['retrieval']['fallback_consulted'] ?? false);
+        $revisao = ' Registrei sua pergunta para a equipe buscar mais fontes.';
+        $fala = ['intro' => null, 'texto' => '', 'fonte' => null, 'trechos' => [], 'sugestoes' => [], 'remedios' => [], 'tone' => 'neutral'];
 
         switch ($resposta['status']) {
             case MedicationQuestionService::ANSWERED:
                 $fala['texto'] = (string) $resposta['answer'];
-                $fonte = 'Li isso na bula de '.self::listar($comBula !== [] ? $comBula : $nomes).'.';
-                if ($semBula !== []) {
-                    $fonte .= ' Ainda não tenho a bula de '.self::listar($semBula).', então respondi só sobre '.self::listar($comBula).'.';
+                if ($bulaInteira || $efeitos) {
+                    $intro = $bulaInteira ? 'Encontrei na bula de '.$de($comBula).($assuntoLabel !== '' ? ' a parte sobre '.$assuntoLabel : ' o que responde a isso').'.' : '';
+                    $fala['intro'] = trim($intro.($efeitos ? ' Os efeitos relatados podem variar de pessoa para pessoa; resumo abaixo os que a bula traz e deixo o trecho como referência.' : ''));
                 }
-                $evidencias = collect($resposta['evidences'] ?? []);
-                if ($evidencias->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']))) {
-                    $fonte .= ' Também olhei os remédios e as alergias do seu perfil.';
-                }
-                if (! empty($resposta['generation']['conversation_context'])) {
-                    $fonte .= ' Leva em conta o que você perguntou antes nesta conversa.';
-                }
-                $fala['fonte'] = $fonte;
+                $fala['fonte'] = self::fonte($resposta, $comBula !== [] ? $comBula : $nomes, $semBula, $comBula);
                 break;
             case MedicationQuestionService::EXCERPTS_ONLY:
                 $fala['texto'] = 'Não consegui montar uma resposta curta com segurança, mas achei na bula de '.$de($comBula).' estas partes que falam disso:';
@@ -228,21 +228,33 @@ class Perguntar extends Component
                 $fala['sugestoes'] = $sugestoes;
                 break;
             case MedicationQuestionService::NO_EVIDENCE:
-                $fala['texto'] = 'Procurei na bula de '.$de($comBula).' e não achei nada sobre isso. Isso não quer dizer que seja “não”: a bula pode simplesmente não falar desse assunto.';
-                $fala['fonte'] = ($semBula !== [] ? 'Ainda não tenho a bula de '.self::listar($semBula).' comigo. ' : '').'Quer tentar de outro jeito? Na dúvida, pergunte ao seu farmacêutico.';
+                $secoes = array_values(array_filter((array) ($resposta['retrieval']['found_sections'] ?? []), 'is_string'));
+                $texto = $consultouInteira
+                    ? 'Procurei na bula inteira de '.$de($comBula).', mas não localizei uma informação suficientemente clara sobre '.($assuntoLabel !== '' ? $assuntoLabel : 'isso').'. Prefiro não completar a resposta com suposições.'
+                    : 'Procurei na bula de '.$de($comBula).' e não achei uma parte que responda a isso com segurança. Prefiro não completar a resposta com suposições.';
+                if ($secoes !== []) {
+                    $texto .= ' O que encontrei fala de '.mb_strtolower(self::listar(array_map(fn (string $s): string => Str::limit($s, 40, ''), $secoes))).', e isso não responde à sua pergunta.';
+                }
+                $texto .= ' Isso não quer dizer que seja seguro: a bula consultada só não permitiu responder.';
+                $fala['texto'] = $texto;
+                $fala['fonte'] = ($semBula !== [] ? 'Ainda não tenho a bula de '.self::listar($semBula).' comigo. ' : '')
+                    .($efeitos ? 'Se você estiver sentindo algum sintoma ou teve uma reação depois de usar o remédio, vale falar com um farmacêutico ou médico.' : 'Na dúvida, fale com um farmacêutico ou médico.').$revisao;
                 $fala['sugestoes'] = $sugestoes;
                 break;
             case MedicationQuestionService::NO_LEAFLET:
-                $fala['texto'] = 'Ainda não tenho a bula de '.$de($semBula).' comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa.';
+                $fala['texto'] = 'Ainda não tenho a bula de '.$de($semBula).' comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa.'.$revisao;
                 $fala['remedios'] = array_slice(array_values(array_diff($emUso, $nomes)), 0, 3);
                 $fala['tone'] = 'warning';
                 break;
             case MedicationQuestionService::NOT_IDENTIFIED:
-                $fala['texto'] = 'Encontrei o nome '.$de($semBula).', mas ainda não consigo ligar ele a uma bula. Tente escrever o nome como está na caixa, ou toque em “Não é esse remédio?”.';
+                $fala['texto'] = 'Conheço o '.$de($semBula).', mas ainda não tenho a bula dele comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa. Se não era esse, toque em “Não é esse remédio?”.'.$revisao;
+                $fala['remedios'] = array_slice(array_values(array_diff($emUso, $nomes)), 0, 3);
                 $fala['tone'] = 'warning';
                 break;
             case MedicationQuestionService::NO_MEDICINE:
-                $fala['texto'] = 'Sobre qual remédio você quer saber? Escreva o nome como está na caixa, por exemplo “Losartana”.';
+                $fala['texto'] = ($resposta['guesses'] ?? []) !== []
+                    ? 'Não reconheci o nome do remédio. Você quis dizer um destes? Toque nele, ou escreva o nome como está na caixa.'
+                    : 'Sobre qual remédio você quer saber? Escreva o nome como está na caixa, por exemplo “Losartana”.';
                 $fala['tone'] = 'warning';
                 break;
             case MedicationQuestionService::BLOCKED:
@@ -252,6 +264,44 @@ class Perguntar extends Component
         }
 
         return $fala;
+    }
+
+    /**
+     * "Fonte: bula do paciente de LOSARTANA, parte “Reações adversas”, página 12." a partir da primeira evidência que
+     * sustenta alguma afirmação; depois, o que mais foi levado em conta (perfil, conversa, bulas que faltam).
+     *
+     * @param  array<string, mixed>  $resposta
+     * @param  list<string>  $nomes
+     * @param  list<string>  $semBula
+     * @param  list<string>  $comBula
+     */
+    public static function fonte(array $resposta, array $nomes, array $semBula, array $comBula): string
+    {
+        $evidencias = collect($resposta['evidences'] ?? []);
+        $primeira = $evidencias->first(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true) && ! empty($e['supports_claims']))
+            ?? $evidencias->first(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true));
+        $tipo = match ($primeira['document_type'] ?? null) {
+            'bula_paciente' => 'bula do paciente', 'bula_profissional' => 'bula do profissional de saúde', default => 'bula'
+        };
+        $fonte = 'Li isso na '.$tipo.' de '.self::listar($nomes);
+        if (is_string($primeira['section'] ?? null) && trim($primeira['section']) !== '') {
+            $fonte .= ', parte “'.Str::limit(trim($primeira['section']), 60, '…').'”';
+        }
+        if (! empty($primeira['page_start'])) {
+            $fonte .= ', página '.$primeira['page_start'];
+        }
+        $fonte .= '.';
+        if ($semBula !== []) {
+            $fonte .= ' Ainda não tenho a bula de '.self::listar($semBula).', então respondi só sobre '.self::listar($comBula).'.';
+        }
+        if ($evidencias->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']))) {
+            $fonte .= ' Também olhei os remédios e as alergias do seu perfil.';
+        }
+        if (! empty($resposta['generation']['conversation_context'])) {
+            $fonte .= ' Leva em conta o que você perguntou antes nesta conversa.';
+        }
+
+        return $fonte;
     }
 
     /** "Losartana", "Losartana e Omeprazol", "A, B e C". @param list<string> $nomes */
@@ -317,7 +367,7 @@ class Perguntar extends Component
 
         return match ($status) {
             MedicationQuestionService::NO_LEAFLET => 'Ainda não tenho a bula de '.$nome.' comigo.',
-            MedicationQuestionService::NOT_IDENTIFIED => 'Não consegui ligar '.$nome.' a uma bula.',
+            MedicationQuestionService::NOT_IDENTIFIED => 'Ainda não tenho a bula de '.$nome.' comigo.',
             MedicationQuestionService::NO_EVIDENCE => 'Não achei nada sobre isso na bula de '.$nome.'.',
             MedicationQuestionService::EXCERPTS_ONLY => 'Mostrei as partes da bula de '.$nome.' que falam disso.',
             MedicationQuestionService::NO_MEDICINE => 'Perguntei sobre qual remédio você queria saber.',
@@ -348,7 +398,11 @@ class Perguntar extends Component
             'buscou' => strlen(trim($this->busca)) >= 3,
             'corrigidos' => array_values(array_filter($this->resposta['medicines'] ?? [], fn (array $m): bool => ! empty($m['fuzzy']))),
             'fala' => $this->resposta !== null ? self::fala($this->resposta, $emUso) : null,
-            'fontes' => collect($this->resposta['evidences'] ?? [])->filter(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true) && ! empty($e['excerpt']))->values()->all(),
+            // "De onde tirei isso": só os trechos que sustentam alguma afirmação da resposta (ou todos, quando não houve resposta).
+            'fontes' => collect($this->resposta['evidences'] ?? [])
+                ->filter(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true) && ! empty($e['excerpt']))
+                ->when(($this->resposta['status'] ?? null) === MedicationQuestionService::ANSWERED, fn ($c) => $c->filter(fn ($e) => ! empty($e['supports_claims'])))
+                ->values()->all(),
             'retentionDays' => (int) config('bulai.questions.retention_days'),
         ]);
     }

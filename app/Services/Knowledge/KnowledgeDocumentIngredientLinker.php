@@ -63,6 +63,20 @@ final class KnowledgeDocumentIngredientLinker
             $this->remember($found, $component, 'title', 0.7);
         }
 
+        // Nome comercial no catálogo ANVISA (ex.: "RENITEC®" → RENITEC → enalapril): cobre bulas antigas sem metadados
+        // de identificação, cujo título só traz o nome do produto. Vale o que o catálogo já tem ligado (knowledge:build-ingredients).
+        $normalizedProduct = $this->catalog->text($product);
+        if ($found === [] && $normalizedProduct !== '') {
+            DB::table('anvisa_medicine_ingredients as l')
+                ->join('anvisa_medicines as m', 'm.id', '=', 'l.medicine_id')
+                ->where('m.normalized_product_name', $normalizedProduct)
+                ->distinct()
+                ->pluck('l.ingredient_id')
+                ->each(function (int $id) use (&$found): void {
+                    $found[$id] = ['catalog', 0.6];
+                });
+        }
+
         $now = now();
         $rows = [];
         foreach ($found as $ingredientId => [$method, $confidence]) {

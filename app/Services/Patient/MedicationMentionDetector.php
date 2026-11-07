@@ -7,6 +7,7 @@ use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Interactions\FuzzyMedicineMatcher;
 use App\Services\Knowledge\AnvisaCatalogNormalizer;
+use App\Services\Knowledge\IngredientNameNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -14,18 +15,26 @@ use Illuminate\Support\Facades\DB;
 /**
  * Detecta medicamentos citados em texto livre (nome comercial ou princípio ativo, PT/EN) contra o catálogo ANVISA.
  *
- * Determinístico: n-gramas de 1–3 palavras do texto normalizado, uma consulta ao catálogo (igualdade ou prefixo de
- * palavra) e uma aos aliases de princípios ativos; registros equivalentes são agrupados por conjunto de princípios ativos
- * e um produto representativo é devolvido por grupo, na ordem em que aparecem no texto. Termos que casam com muitos
- * grupos distintos (ex.: "acido") são descartados como ambíguos. "meus remédios" acrescenta os medicamentos em uso.
+ * Determinístico: n-gramas de 1–3 palavras do texto normalizado (mais a junção de palavras vizinhas, para o ditado que
+ * parte "ome prazol"), uma consulta agregada ao catálogo (igualdade ou prefixo de palavra, um grupo por nome × princípio
+ * ativo, com um produto representativo) e uma aos aliases de princípios ativos. Registros equivalentes são agrupados por
+ * conjunto de princípios ativos ligados ou, quando o catálogo ainda não tem vínculo, pelos componentes do ativo sem sais
+ * ("losartana potassica" = "losartana"); um produto representativo é devolvido por grupo, na ordem em que aparecem no texto.
+ *
+ * Termo que casa com vários grupos: se existe produto com exatamente esse nome, vale ele; se todos os grupos partilham
+ * o princípio ativo que o termo nomeia ("losartana" → losartana e losartana + hidroclorotiazida), vale o grupo só com
+ * esse ativo; senão, mais de três grupos distintos ("acido") é ambíguo e o termo é descartado. "meus remédios" acrescenta
+ * os medicamentos em uso. Quando nada é reconhecido, `guesses()` sugere nomes parecidos para a pessoa escolher.
  */
 final class MedicationMentionDetector
 {
     public const MAX_MENTIONS = 4;
 
-    private const MAX_CANDIDATES = 30;
+    private const MAX_CANDIDATES = 40;
 
     private const MAX_GROUPS_PER_TERM = 3;
+
+    private const MAX_CATALOG_GROUPS = 800;
 
     private const MIN_TERM_LENGTH = 4;
 
@@ -33,7 +42,7 @@ final class MedicationMentionDetector
 
     /** Palavras frequentes em perguntas (já normalizadas) que nunca são nomes de medicamento. */
     private const STOPWORDS = [
-        'para', 'como', 'tomar', 'tomo', 'toma', 'tomei', 'tomando', 'posso', 'pode', 'podem', 'poderia', 'devo', 'deve', 'junto', 'juntos', 'juntas',
+        'para', 'como', 'tomar', 'tomo', 'toma', 'tomei', 'tomando', 'tomado', 'posso', 'pode', 'podem', 'poderia', 'devo', 'deve', 'junto', 'juntos', 'juntas',
         'meus', 'minha', 'minhas', 'remedio', 'remedios', 'medicamento', 'medicamentos', 'medicacao', 'tratamento', 'tenho', 'estou', 'usar', 'usando',
         'dose', 'doses', 'dosagem', 'comprimido', 'comprimidos', 'capsula', 'capsulas', 'gotas', 'xarope', 'manha', 'noite', 'tarde', 'jejum', 'antes',
         'depois', 'durante', 'gravidez', 'gravida', 'amamentando', 'amamentacao', 'alcool', 'cerveja', 'vinho', 'cafe', 'leite', 'comida', 'alimento',
@@ -53,17 +62,24 @@ final class MedicationMentionDetector
         'lactante', 'marido', 'esposa', 'filho', 'filha', 'senhor', 'senhora', 'doutor', 'doutora', 'hospital', 'farmacia', 'posto', 'consulta', 'retorno',
         'urgente', 'emergencia', 'normal', 'melhor', 'pior', 'forte', 'fraco', 'grande', 'pequeno', 'rapido', 'devagar', 'sempre', 'nunca', 'agora', 'hoje',
         'ontem', 'amanha', 'sozinho', 'sozinha', 'generico', 'similar', 'referencia', 'original', 'caixa', 'frasco', 'ampola', 'injecao', 'pomada', 'creme',
-        'spray', 'adesivo', 'supositorio', 'colirio', 'beber', 'comer', 'bastante',
+        'spray', 'adesivo', 'supositorio', 'colirio', 'beber', 'comer', 'bastante', 'nada', 'coisa', 'assim', 'ainda', 'tambem', 'outro', 'outra', 'outros',
     ];
 
     /** Semelhança mínima para aceitar uma palavra digitada errado como nome de remédio ("lozartana" → Losartana). */
     private const FUZZY_MIN_SIMILARITY = 0.5;
 
+    /** Semelhança mínima para apenas SUGERIR um nome ("você quis dizer…?"), quando nada foi reconhecido. */
+    private const GUESS_MIN_SIMILARITY = 0.3;
+
     private const FUZZY_MIN_TERM_LENGTH = 5;
 
     private const FUZZY_MAX_TERMS = 6;
 
-    public function __construct(private readonly AnvisaCatalogNormalizer $normalizer, private readonly FuzzyMedicineMatcher $fuzzy) {}
+    public function __construct(
+        private readonly AnvisaCatalogNormalizer $normalizer,
+        private readonly FuzzyMedicineMatcher $fuzzy,
+        private readonly IngredientNameNormalizer $ingredients,
+    ) {}
 
     /**
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos explicitamente pelo usuário (entram primeiro)
@@ -126,8 +142,38 @@ final class MedicationMentionDetector
     }
 
     /**
+     * Nomes parecidos com as palavras da pergunta, para a tela perguntar "você quis dizer…?" quando nada foi reconhecido.
+     * Mais tolerante que a correção automática (que exige semelhança alta e correspondência inequívoca).
+     *
+     * @return list<array{id: int, name: string, ingredients: string, matched: string, term: string}>
+     */
+    public function guesses(string $text, int $limit = 3): array
+    {
+        $guesses = [];
+        $attempts = 0;
+        foreach (explode(' ', $this->normalizer->text($text)) as $token) {
+            if (mb_strlen($token) < self::MIN_TERM_LENGTH || ctype_digit($token[0]) || in_array($token, self::STOPWORDS, true)) {
+                continue;
+            }
+            if ($attempts++ >= self::FUZZY_MAX_TERMS) {
+                break;
+            }
+            foreach ($this->fuzzy->match($token, 2, self::GUESS_MIN_SIMILARITY) as $match) {
+                $key = $this->groupKey($match['medicine']);
+                $guesses[$key] ??= ['id' => $match['medicine']->id, 'name' => $match['medicine']->product_name, 'ingredients' => (string) ($match['medicine']->active_ingredient ?: ''), 'matched' => $match['matched'], 'term' => $token];
+                if (count($guesses) >= $limit) {
+                    return array_values($guesses);
+                }
+            }
+        }
+
+        return array_values($guesses);
+    }
+
+    /**
      * N-gramas de 1 a 3 palavras cujas pontas são termos úteis (≥ 4 letras, não numéricos, fora das stopwords), em ordem de
-     * aparição e com os maiores primeiro em cada posição.
+     * aparição e com os maiores primeiro em cada posição; depois, a junção de cada par de palavras vizinhas ("ome prazol",
+     * "dor flex"), para o ditado por voz que parte um nome ao meio.
      *
      * @param  list<string>  $tokens
      * @return list<array{text: string, start: int, size: int}>
@@ -143,34 +189,65 @@ final class MedicationMentionDetector
             for ($size = 3; $size >= 1; $size--) {
                 $slice = array_slice($tokens, $start, $size);
                 if (count($slice) < $size || ! $useful($slice[$size - 1])) {
+                    // "naprix d", "naprix a", "losartana hct": sufixo curto de linha de produto é testado como nome exato.
+                    if ($size === 2 && count($slice) === 2 && $this->isProductSuffix($slice[1])) {
+                        $candidates[] = ['text' => implode(' ', $slice), 'start' => $start, 'size' => 2];
+                    }
+
                     continue;
                 }
                 $candidates[] = ['text' => implode(' ', $slice), 'start' => $start, 'size' => $size];
+            }
+        }
+        $joinable = fn (string $token): bool => $token !== '' && ! ctype_digit($token[0]) && ! in_array($token, self::STOPWORDS, true);
+        for ($start = 0; $start < count($tokens) - 1; $start++) {
+            if ($joinable($tokens[$start]) && $joinable($tokens[$start + 1]) && mb_strlen($tokens[$start].$tokens[$start + 1]) >= self::FUZZY_MIN_TERM_LENGTH) {
+                $candidates[] = ['text' => $tokens[$start].$tokens[$start + 1], 'start' => $start, 'size' => 2];
             }
         }
 
         return array_slice($candidates, 0, self::MAX_CANDIDATES);
     }
 
+    /** Sufixo de linha de produto: 1 a 3 letras/dígitos ("d", "a", "hct", "xr", "50") que não seja palavra comum. */
+    private function isProductSuffix(string $token): bool
+    {
+        // Só vale como nome exato do catálogo ("naprix a" existe; "losartana a" não), então a lista de exclusão é mínima.
+        return $token !== '' && mb_strlen($token) <= 3 && ctype_alnum($token) && ! in_array($token, ['de', 'da', 'do', 'em', 'com', 'ou'], true);
+    }
+
     /**
-     * Uma consulta ao catálogo: nome comercial ou princípio ativo igual ao termo, ou começando pelo termo seguido de espaço.
+     * Uma consulta agregada ao catálogo: nome comercial ou princípio ativo igual ao termo, ou começando pelo termo seguido
+     * de espaço. Devolve um produto representativo por nome × princípio ativo (preferindo um registro já ligado a
+     * princípios ativos) com o tamanho do grupo, para que centenas de "dipirona" não expulsem a "losartana" da resposta.
      *
      * @param  list<array{text: string, start: int, size: int}>  $candidates
-     * @return Collection<int, AnvisaMedicine>
+     * @return Collection<int, AnvisaMedicine> com o atributo transitório `group_members`
      */
     private function catalogMatches(array $candidates): Collection
     {
         $terms = array_values(array_unique(array_column($candidates, 'text')));
 
-        return AnvisaMedicine::query()->with('ingredients:id')
-            ->where(function (Builder $query) use ($terms): void {
-                $query->whereIn('normalized_product_name', $terms)->orWhereIn('normalized_active_ingredient', $terms);
+        $groups = DB::table('anvisa_medicines as m')
+            ->leftJoin('anvisa_medicine_ingredients as l', 'l.medicine_id', '=', 'm.id')
+            ->selectRaw('coalesce(min(m.id) filter (where l.id is not null), min(m.id)) as id, count(distinct m.id) as members, min(case when m.registration_status = ? then 0 else 1 end) as inactive', ['Ativo'])
+            ->where(function (\Illuminate\Database\Query\Builder $query) use ($terms): void {
+                $query->whereIn('m.normalized_product_name', $terms)->orWhereIn('m.normalized_active_ingredient', $terms);
                 foreach ($terms as $term) {
-                    $query->orWhere('normalized_product_name', 'like', $term.' %')->orWhere('normalized_active_ingredient', 'like', $term.' %');
+                    $query->orWhere('m.normalized_product_name', 'like', $term.' %')->orWhere('m.normalized_active_ingredient', 'like', $term.' %');
                 }
             })
-            ->orderByRaw("case when registration_status = 'Ativo' then 0 else 1 end")->orderBy('normalized_product_name')->orderBy('id')
-            ->limit(600)->get();
+            ->groupBy('m.normalized_product_name', 'm.normalized_active_ingredient')
+            ->orderBy('inactive')->orderByDesc('members')->orderBy('id')
+            ->limit(self::MAX_CATALOG_GROUPS)
+            ->get();
+        if ($groups->isEmpty()) {
+            return new Collection;
+        }
+        $members = $groups->mapWithKeys(fn (object $row): array => [(int) $row->id => (int) $row->members]);
+
+        return AnvisaMedicine::query()->with('ingredients:id')->whereIn('id', $members->keys()->all())->get()
+            ->each(fn (AnvisaMedicine $medicine) => $medicine->setAttribute('group_members', $members[$medicine->id] ?? 1));
     }
 
     /**
@@ -195,9 +272,9 @@ final class MedicationMentionDetector
     }
 
     /**
-     * Associa cada produto ao primeiro candidato (posição no texto) que ele satisfaz, agrupa por conjunto de princípios
-     * ativos, escolhe um representativo e descarta termos ambíguos (muitos grupos distintos). Termos contidos num n-grama
-     * maior já satisfeito são ignorados.
+     * Associa cada produto ao primeiro candidato (posição no texto) que ele satisfaz, agrupa por princípios ativos, aplica a
+     * regra de foco do termo (nome exato > ativo partilhado > até três grupos > ambíguo) e escolhe um representativo por
+     * grupo. Termos contidos num n-grama maior já satisfeito são ignorados.
      *
      * @param  Collection<int, AnvisaMedicine>  $rows
      * @param  list<array{text: string, start: int, size: int}>  $candidates
@@ -225,16 +302,105 @@ final class MedicationMentionDetector
             if (array_intersect($span, $covered) !== []) {
                 continue;
             }
-            $exact = array_filter($groups, fn (array $members): bool => collect($members)->contains(fn (AnvisaMedicine $m): bool => $m->normalized_product_name === $candidate['text']));
-            if (count($groups) > self::MAX_GROUPS_PER_TERM && $exact === []) {
+            $chosen = $this->focus($groups, $candidate['text']);
+            if ($chosen === []) {
                 continue;
             }
-            $chosen = $exact !== [] ? $exact : $groups;
             $covered = [...$covered, ...$span];
-            $result[$position] = array_map(fn (array $members): array => ['medicine' => $this->representative($members, $candidate['text'])], array_values($chosen));
+            $result[$position] = array_map(fn (array $members): array => ['medicine' => $this->representative($members, $candidate['text'])], $chosen);
         }
 
         return $result;
+    }
+
+    /**
+     * Regra de foco de um termo que casou com vários grupos. Grupos ordenados do maior (mais registros no catálogo) para o menor.
+     *
+     * @param  array<string, list<AnvisaMedicine>>  $groups
+     * @return list<list<AnvisaMedicine>> grupos escolhidos; vazio quando o termo é ambíguo
+     */
+    private function focus(array $groups, string $term): array
+    {
+        $groups = $this->mergeUnlinked($groups);
+        uasort($groups, fn (array $a, array $b): int => $this->members($b) <=> $this->members($a));
+        $exact = array_filter($groups, fn (array $members): bool => collect($members)->contains(fn (AnvisaMedicine $m): bool => $m->normalized_product_name === $term));
+        if ($exact !== []) {
+            return array_values($exact);
+        }
+        if (count($groups) === 1) {
+            return array_values($groups);
+        }
+
+        // Todos os grupos têm em comum o princípio ativo que o termo nomeia ("losartana" → losartana; losartana + hidroclorotiazida):
+        // a pessoa quis o remédio só com esse ativo, se existir; senão, os maiores grupos.
+        $shared = null;
+        foreach ($groups as $members) {
+            $names = $this->componentNames($members);
+            $shared = $shared === null ? $names : array_values(array_intersect($shared, $names));
+        }
+        $focus = array_values(array_filter($shared ?? [], fn (string $name): bool => $name === $term || str_starts_with($name, $term.' ')));
+        if ($focus !== []) {
+            $single = array_filter($groups, fn (array $members): bool => $this->componentNames($members) === [$focus[0]]);
+
+            return array_slice(array_values($single !== [] ? $single : $groups), 0, self::MAX_GROUPS_PER_TERM);
+        }
+
+        return count($groups) > self::MAX_GROUPS_PER_TERM ? [] : array_values($groups);
+    }
+
+    /**
+     * Catálogo com vínculo parcial: registros ainda sem princípio ativo ligado ("a:dipirona") entram no grupo já ligado com
+     * os mesmos componentes ("i:12"), para o mesmo remédio não aparecer duas vezes.
+     *
+     * @param  array<string, list<AnvisaMedicine>>  $groups
+     * @return array<string, list<AnvisaMedicine>>
+     */
+    private function mergeUnlinked(array $groups): array
+    {
+        $linkedByNames = [];
+        foreach ($groups as $key => $members) {
+            if (str_starts_with($key, 'i:')) {
+                $linkedByNames[implode('+', $this->componentNames($members))] ??= $key;
+            }
+        }
+        foreach ($groups as $key => $members) {
+            $target = str_starts_with($key, 'a:') ? ($linkedByNames[substr($key, 2)] ?? null) : null;
+            if ($target !== null) {
+                $groups[$target] = [...$groups[$target], ...$members];
+                unset($groups[$key]);
+            }
+        }
+
+        return $groups;
+    }
+
+    /** @param list<AnvisaMedicine> $members */
+    private function members(array $members): int
+    {
+        return array_sum(array_map(fn (AnvisaMedicine $m): int => (int) ($m->getAttribute('group_members') ?? 1), $members));
+    }
+
+    /**
+     * Componentes do princípio ativo do grupo sem sais e hidratos, a partir do texto do catálogo (vale com ou sem vínculo).
+     *
+     * @param  list<AnvisaMedicine>  $members
+     * @return list<string>
+     */
+    private function componentNames(array $members): array
+    {
+        $names = [];
+        foreach ($members as $medicine) {
+            foreach ($this->ingredients->components($medicine->normalized_active_ingredient ?: $medicine->normalized_product_name) as $component) {
+                $base = $this->ingredients->base($component);
+                if ($base !== '') {
+                    $names[$base] = $base;
+                }
+            }
+        }
+        $names = array_values($names);
+        sort($names);
+
+        return $names;
     }
 
     private function satisfies(AnvisaMedicine $medicine, string $term): bool
@@ -271,20 +437,31 @@ final class MedicationMentionDetector
      */
     private function representative(array $members, string $term): AnvisaMedicine
     {
+        // Um registro já ligado a princípios ativos representa melhor o grupo (interações, tratamento e bula funcionam por ele).
         return collect($members)->sortBy(fn (AnvisaMedicine $m): array => [
+            $m->ingredients->isNotEmpty() ? 0 : 1,
             $m->normalized_product_name === $term ? 0 : 1,
             $m->normalized_product_name === $m->normalized_active_ingredient ? 0 : 1,
             $m->registration_status === 'Ativo' ? 0 : 1,
-            $m->ingredients->isNotEmpty() ? 0 : 1,
             $m->id,
         ])->first();
     }
 
+    /**
+     * Grupo de equivalência: princípios ativos ligados; sem vínculo, os componentes do ativo sem sais ("losartana potassica"
+     * e "losartana potássica 50 mg" caem no mesmo grupo); sem ativo informado, o próprio nome do produto.
+     */
     private function groupKey(AnvisaMedicine $medicine): string
     {
         $ids = $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->sort()->values()->all();
+        if ($ids !== []) {
+            return 'i:'.implode('-', $ids);
+        }
+        if (filled($medicine->normalized_active_ingredient)) {
+            return 'a:'.implode('+', $this->componentNames([$medicine]));
+        }
 
-        return $ids !== [] ? 'i:'.implode('-', $ids) : 'p:'.$medicine->normalized_product_name.'|'.$medicine->normalized_active_ingredient;
+        return 'p:'.$medicine->normalized_product_name;
     }
 
     /**
