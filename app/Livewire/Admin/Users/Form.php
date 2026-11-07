@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Users;
 
 use App\Models\User;
+use App\Services\Users\TemporaryPasswordEmailException;
 use App\Services\Users\UserAccountService;
 use App\UserRole;
 use Illuminate\Contracts\View\View;
@@ -70,7 +71,12 @@ class Form extends Component
             $this->createdUserId = $user->id;
             $this->temporaryPassword = $temporaryPassword;
             if ($this->sendByEmail) {
-                $service->emailTemporaryPassword($user, $temporaryPassword, true, auth()->user());
+                try {
+                    $service->emailTemporaryPassword($user, $temporaryPassword, true, auth()->user());
+                } catch (TemporaryPasswordEmailException $exception) {
+                    // O usuário já foi criado e a senha aparece no modal; o aviso explica por que o e-mail não saiu.
+                    $this->addError('temporaryPassword', $exception->getMessage());
+                }
             }
 
             return null;

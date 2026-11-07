@@ -1,6 +1,8 @@
-@props(['password', 'title' => 'Senha provisória', 'close' => 'closeModal'])
+{{-- `warning`: aviso em destaque (ex.: o e-mail com a senha não pôde ser enviado); a senha continua válida e visível. --}}
+@props(['password', 'title' => 'Senha provisória', 'close' => 'closeModal', 'warning' => null])
 <x-knowledge-admin.modal :title="$title" description="Entregue a senha provisória à pessoa por um canal seguro. No primeiro acesso, ela precisará definir uma senha própria." :close="$close">
     <div class="grid gap-4 px-5 py-5" x-data="{ copied: false }">
+        @if ($warning)<x-knowledge-admin.alert tone="danger" data-testid="temporary-password-warning">{{ $warning }}</x-knowledge-admin.alert>@endif
         <x-knowledge-admin.alert tone="warning">Copie a senha agora: ela não será mostrada novamente. Se ela se perder, gere uma nova senha provisória.</x-knowledge-admin.alert>
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
             <span class="break-all font-mono text-base font-semibold text-slate-900" data-temporary-password>{{ $password }}</span>

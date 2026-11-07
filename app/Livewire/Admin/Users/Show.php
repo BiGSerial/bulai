@@ -5,6 +5,7 @@ namespace App\Livewire\Admin\Users;
 use App\Models\Consultation\InteractionConsultation;
 use App\Models\Consultation\MedicationQuestion;
 use App\Models\User;
+use App\Services\Users\TemporaryPasswordEmailException;
 use App\Services\Users\UserAccountService;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
@@ -73,7 +74,12 @@ class Show extends Component
         $user = User::query()->findOrFail($this->userId);
         $this->temporaryPassword = $service->issueTemporaryPassword($user, auth()->user());
         if ($this->sendByEmail) {
-            $service->emailTemporaryPassword($user, $this->temporaryPassword, false, auth()->user());
+            try {
+                $service->emailTemporaryPassword($user, $this->temporaryPassword, false, auth()->user());
+            } catch (TemporaryPasswordEmailException $exception) {
+                // A senha continua válida e aparece no modal; o aviso explica por que o e-mail não saiu.
+                $this->addError('temporaryPassword', $exception->getMessage());
+            }
         }
     }
 
