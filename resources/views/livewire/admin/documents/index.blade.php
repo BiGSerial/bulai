@@ -11,9 +11,13 @@
         </x-knowledge-admin.select>
         @if ($search !== '' || $fileStatus !== '')<x-knowledge-admin.button variant="quiet" wire:click="clearFilters">Limpar</x-knowledge-admin.button>@endif
         <x-slot:actions>
+            @if ($pendingIndexCount > 0)
+                <x-knowledge-admin.button variant="secondary" wire:click="generatePendingSearchIndexes" loading-target="generatePendingSearchIndexes" loading="Enfileirando…" title="Gera só o índice de busca (embeddings) dos documentos prontos que estão aguardando ou com falha; os trechos e os PDFs não mudam." data-testid="generate-pending-search-indexes">Gerar {{ $pendingIndexCount === 1 ? '1 índice de busca pendente' : $pendingIndexCount.' índices de busca pendentes' }}</x-knowledge-admin.button>
+            @endif
             <x-knowledge-admin.button variant="quiet" :href="route('admin.knowledge.documents.create')">Cadastrar sem PDF</x-knowledge-admin.button>
         </x-slot:actions>
     </x-knowledge-admin.toolbar>
+    @if ($reindexFeedback)<x-knowledge-admin.alert>{{ $reindexFeedback }}</x-knowledge-admin.alert>@endif
 
     <div wire:loading.class="opacity-60" wire:target="search,fileStatus,clearFilters,sortBy">
         @if ($documents->isEmpty())

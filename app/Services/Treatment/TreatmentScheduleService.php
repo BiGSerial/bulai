@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\DB;
  *  - monta a agenda do dia (cada horário programado de cada remédio ativo, com o que já foi marcado);
  *  - registra "tomei"/"pulei"; resolve pendências ligando o remédio ao catálogo.
  *
- * Horários são do paciente (fuso em `patient_profiles.timezone`); `scheduled_for` é gravado em UTC.
+ * Horários são do paciente (fuso em `patient_profiles.timezone`); `scheduled_for` e `recorded_at` são gravados no fuso do app
+ * (`APP_TIMEZONE`), que é como o Eloquent lê colunas `timestamp` sem fuso.
  */
 final class TreatmentScheduleService
 {
@@ -147,7 +148,7 @@ final class TreatmentScheduleService
             ->where(fn ($query) => $query->whereNull('ends_at')->orWhereDate('ends_at', '>=', $day->toDateString()))
             ->orderBy('id')->get();
         $events = MedicationDoseEvent::query()->where('user_id', $user->id)
-            ->whereBetween('scheduled_for', [$day->utc(), $day->endOfDay()->utc()])->orderBy('scheduled_for')->get();
+            ->whereBetween('scheduled_for', [$this->stored($day), $this->stored($day->endOfDay())])->orderBy('scheduled_for')->get();
         $byKey = $events->keyBy(fn (MedicationDoseEvent $event): string => $event->patient_medication_id.'|'.$event->scheduled_for->utc()->toIso8601String());
 
         $rows = [];
@@ -187,7 +188,7 @@ final class TreatmentScheduleService
 
         // Ponto de partida do dia: a dose seguinte à última marcação anterior ao dia; sem marcação, a cadeia nasce no
         // primeiro horário programado do dia de início e avança em intervalos até alcançar o dia pedido.
-        $previous = MedicationDoseEvent::query()->where('patient_medication_id', $medication->id)->where('scheduled_for', '<', $day->utc())->orderByDesc('scheduled_for')->first();
+        $previous = MedicationDoseEvent::query()->where('patient_medication_id', $medication->id)->where('scheduled_for', '<', $this->stored($day))->orderByDesc('scheduled_for')->first();
         if ($previous !== null) {
             $cursor = $after($previous);
         } else {
@@ -260,15 +261,24 @@ final class TreatmentScheduleService
         $status = $status === MedicationDoseEvent::STATUS_SKIPPED ? MedicationDoseEvent::STATUS_SKIPPED : MedicationDoseEvent::STATUS_TAKEN;
 
         return MedicationDoseEvent::query()->updateOrCreate(
-            ['patient_medication_id' => $medication->id, 'scheduled_for' => $scheduledFor->utc()],
-            ['user_id' => $user->id, 'status' => $status, 'recorded_at' => ($recordedAt ?? CarbonImmutable::now())->utc()],
+            ['patient_medication_id' => $medication->id, 'scheduled_for' => $this->stored($scheduledFor)],
+            ['user_id' => $user->id, 'status' => $status, 'recorded_at' => $this->stored($recordedAt ?? CarbonImmutable::now())],
         );
     }
 
     /** Desfaz a marcação de um horário. */
     public function unmark(User $user, PatientMedication $medication, CarbonImmutable $scheduledFor): void
     {
-        MedicationDoseEvent::query()->where('user_id', $user->id)->where('patient_medication_id', $medication->id)->where('scheduled_for', $scheduledFor->utc())->delete();
+        MedicationDoseEvent::query()->where('user_id', $user->id)->where('patient_medication_id', $medication->id)->where('scheduled_for', $this->stored($scheduledFor))->delete();
+    }
+
+    /**
+     * Instante no fuso do app para gravar ou comparar com colunas `timestamp` (sem fuso): o Eloquent formata o Carbon
+     * no fuso da instância e lê a coluna no fuso do app, então gravar em UTC só funcionava com APP_TIMEZONE=UTC.
+     */
+    private function stored(CarbonImmutable $time): CarbonImmutable
+    {
+        return $time->setTimezone((string) config('app.timezone', 'UTC'));
     }
 
     /** Interpreta durações como "7 dias", "por 10 dias", "2 semanas", "1 mês"; null quando contínuo ou ilegível. */

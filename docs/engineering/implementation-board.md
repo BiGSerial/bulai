@@ -94,3 +94,14 @@ Estados: BACKLOG · READY · IN_PROGRESS · BLOCKED · IN_REVIEW · DONE. `DONE`
 | G-T | T | Linha do tempo do processamento (`knowledge_processing_events`, `ProcessingTimeline`, emissão em extração/OCR/normalização/trechos/embeddings/vínculo, página do documento com `wire:poll` + SSE) | G-0 | DONE | `KnowledgeProcessingTimelineTest` (6); `docs/technical-foundation.md` |
 | G-J | J | Fila e serviços com "Bulas em processamento" (etapa, página X de Y casada por `correlation_id`, sem sinal), SSE com `documents`/`progress`/`hint`, KPI "Em andamento" | G-H, G-T | DONE | `QueueStatusTest` (+3) |
 | G-Z | Arquiteto | Integração: Pint, suíte completa, build, docs (nota 27, release, atividades), commit e PR #33 | G-P..G-J | DONE | 599 testes, 598 aprovados, 1 ignorado, 15.762 asserções (06/11/2026); OCR: 23 testes em pytest |
+
+## Iteração 7 (07/11/2026): índice de busca como etapa própria, lotes de embeddings e fuso horário
+
+| ID | Frente | Tarefa | Dep. | Estado | Evidência / bloqueio |
+| --- | --- | --- | --- | --- | --- |
+| H-0 | Arquiteto | Diagnóstico do `AI_TIMEOUT` em `Índice de busca (embeddings)`: 16 trechos por requisição × serviço que calcula um texto por vez (≈ 123 tokens/s em 2 vCPU) × 60 s de limite na VPS (`AI_EMBEDDING_TIMEOUT` ausente no `app.env`) | — | DONE | nota 28 §1 |
+| H-I | Arquiteto | `KnowledgeIndexer`: lotes por quantidade e caracteres (`ai.embedding.batch_size`/`batch_characters`), retomada trecho a trecho em `AI_TIMEOUT`/`AI_UNAVAILABLE` (`split_batches`), situação do documento sempre recalculada; limites 180 s | H-0 | DONE | `KnowledgeSearchIndexTest` (2 testes do indexador) |
+| H-J | Arquiteto | Job `IndexKnowledgeDocumentEmbeddings` (único por documento, `KNOWLEDGE_INDEX_JOB_TIMEOUT_SECONDS`, `failed()` → FAILED + `INDEX_JOB_FAILED`), enfileirado ao fim de `ProcessKnowledgeDocument`; `ProcessingTimeline::resetStep` | H-I | DONE | `KnowledgeSearchIndexTest` (2 testes do job), `KnowledgeProcessingTimelineTest` |
+| H-A | Arquiteto | Admin: alerta + "Gerar o índice de busca"/"Refazer só o índice de busca" na página do documento (erro explicado por `KnowledgeProcessingEvent::errorLabel()`), "Refazer o índice de busca" no menu Mais, "Gerar N índices de busca pendentes" na lista | H-J | DONE | `KnowledgeSearchIndexTest` (2 testes de tela) |
+| H-T | Arquiteto | Fuso America/Sao_Paulo: `APP_TIMEZONE`, `TZ`/`PGTZ` em `compose.yaml` e `compose.prod.yaml`, `php.ini`; `LOCAL_AI_REQUEST_TIMEOUT` 180 no serviço `embeddings`; correção de `TreatmentScheduleService` (gravava em UTC, lia no fuso do app) | — | DONE | `docker compose config` (dev e prod) válidos; 6 testes do tratamento passam em UTC e em Brasília; release 2026-11-07 (conjunto confiável) |
+| H-Z | Arquiteto | Integração: Pint, suíte completa, docs (nota 28, release, atividades), commit e PR | H-I..H-T | DONE | 606 testes, 605 aprovados, 1 ignorado, 15.962 asserções (07/11/2026) |

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Admin\Documents;
 
+use App\Jobs\IndexKnowledgeDocumentEmbeddings;
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
@@ -30,6 +31,20 @@ class Show extends Component
         $this->document->refresh();
     }
 
+    /** Refaz só o índice de busca (embeddings): os trechos ficam como estão, nada do PDF é lido de novo. */
+    public function rebuildSearchIndex(): void
+    {
+        if ($this->document->content_status !== KnowledgeDocument::STATUS_READY) {
+            $this->processingFeedback = 'O índice de busca só pode ser gerado depois que o texto e os trechos estiverem prontos.';
+
+            return;
+        }
+
+        IndexKnowledgeDocumentEmbeddings::dispatch($this->document->id);
+        $this->processingFeedback = 'Geração do índice de busca enfileirada. Só os trechos sem vetor são enviados ao serviço de embeddings; os trechos e o PDF não mudam.';
+        $this->document->refresh();
+    }
+
     public function render(ProcessingTimeline $timeline): View
     {
         $this->document->load(['source', 'ingestionBatch', 'ingredients'])->loadCount('chunks');
@@ -41,6 +56,10 @@ class Show extends Component
             'timeline' => $events,
             // Etapa em andamento: a página se atualiza sozinha (wire:poll + evento em tempo real) até concluir.
             'timelineActive' => $events->first(fn (KnowledgeProcessingEvent $event): bool => $event->isRunning()),
+            // Última falha do índice de busca: explica o código e oferece refazer só essa etapa.
+            'embeddingFailure' => $this->document->embedding_status === KnowledgeDocument::STATUS_FAILED
+                ? $events->last(fn (KnowledgeProcessingEvent $event): bool => $event->step === KnowledgeProcessingEvent::STEP_EMBED && $event->state === KnowledgeProcessingEvent::STATE_FAILED)
+                : null,
         ])->title($this->document->title.' · BULAI');
     }
 }

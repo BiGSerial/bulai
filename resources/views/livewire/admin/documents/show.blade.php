@@ -32,10 +32,27 @@
                 @if ($document->ingestionBatch)<x-knowledge-admin.menu-item :href="route('admin.knowledge.batches.show', $document->ingestionBatch)">Ver a importação</x-knowledge-admin.menu-item>@endif
                 <x-knowledge-admin.menu-item :href="route('admin.knowledge.sources.show', $document->source)">Ver a origem</x-knowledge-admin.menu-item>
                 <x-knowledge-admin.menu-item x-on:click="tab = 'processamento'">Situação do processamento</x-knowledge-admin.menu-item>
+                @if ($document->content_status === 'READY')
+                    <x-knowledge-admin.menu-item wire:click="rebuildSearchIndex" wire:loading.attr="disabled" wire:target="rebuildSearchIndex" data-testid="rebuild-search-index-menu">Refazer o índice de busca</x-knowledge-admin.menu-item>
+                @endif
             </x-slot:more>
         </x-knowledge-admin.page-header>
 
         @if ($processingFeedback)<x-knowledge-admin.alert>{{ $processingFeedback }}</x-knowledge-admin.alert>@endif
+        @if ($document->content_status === 'READY' && ! in_array($document->embedding_status, ['READY', 'PROCESSING'], true) && ! $timelineActive)
+            @php
+                $indexFailed = $document->embedding_status === 'FAILED';
+            @endphp
+            <x-knowledge-admin.alert :tone="$indexFailed ? 'danger' : 'warning'" data-testid="embedding-pending">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium">{{ $indexFailed ? 'O índice de busca falhou' : 'O índice de busca ainda não foi gerado' }}@if ($indexFailed && is_string($embeddingFailure?->detail['error_code'] ?? null)) ({{ $embeddingFailure->detail['error_code'] }})@endif.</p>
+                        <p class="mt-1">@if ($indexFailed && $embeddingFailure?->errorLabel()){{ ucfirst($embeddingFailure->errorLabel()) }}. @endif{{ $indexFailed ? 'Os trechos estão prontos e o PDF não será lido de novo: só os trechos sem vetor vão ao serviço de embeddings, em lotes menores.' : 'Sem o índice, o Perguntar só encontra esta bula por busca textual. Os trechos já estão prontos; gerar o índice não lê o PDF de novo.' }}</p>
+                    </div>
+                    <x-knowledge-admin.button variant="secondary" wire:click="rebuildSearchIndex" loading-target="rebuildSearchIndex" loading="Enfileirando…" data-testid="rebuild-search-index">{{ $indexFailed ? 'Refazer só o índice de busca' : 'Gerar o índice de busca' }}</x-knowledge-admin.button>
+                </div>
+            </x-knowledge-admin.alert>
+        @endif
         @if ($timelineActive)
             <x-knowledge-admin.callout title="Processando agora:" data-testid="timeline-live">{{ $timelineActive->stepLabel() }}@if ($timelineActive->summary() !== '') · {{ $timelineActive->summary() }}@endif · há {{ $timelineActive->durationLabel() }}. <a class="underline" href="#processamento" x-on:click.prevent="tab = 'processamento'">Ver a linha do tempo</a></x-knowledge-admin.callout>
         @endif

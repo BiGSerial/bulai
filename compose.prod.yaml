@@ -49,6 +49,9 @@ x-php-app: &php-app
     DOCUMENT_CLASSIFIER_DRIVER: llamafile
     LOCAL_AI_URL: http://local-ai:8080
     AI_EMBEDDING_BASE_URL: http://embeddings:8080/v1
+    # Fuso do app e do container (datas na tela, agendador, logs); os demais serviços usam o mesmo TZ.
+    APP_TIMEZONE: America/Sao_Paulo
+    TZ: America/Sao_Paulo
   <<: *hardening
   read_only: true
   logging: *default-logging
@@ -197,6 +200,8 @@ services:
     environment:
       POSTGRES_DB: bulai
       BULAI_DB_USER: bulai
+      TZ: America/Sao_Paulo
+      PGTZ: America/Sao_Paulo
     command:
       - postgres
       - -c
@@ -246,6 +251,7 @@ services:
       OCR_LANGUAGE: pt
       OCR_MAX_CONCURRENCY: "1"
       OMP_NUM_THREADS: "2"
+      TZ: America/Sao_Paulo
     networks:
       - ai
     tmpfs:
@@ -267,6 +273,7 @@ services:
       LOCAL_AI_MODEL_PATH: /models
       LOCAL_AI_MODEL_FILENAME: ${LOCAL_AI_MODEL_FILENAME:-qwen2.5-1.5b-instruct-q4_k_m.gguf}
       LOCAL_AI_MODEL_NAME: ${LOCAL_AI_MODEL_NAME:-qwen2.5-1.5b-instruct}
+      TZ: America/Sao_Paulo
       LOCAL_AI_THREADS: "3"
       LOCAL_AI_CONTEXT: "8192"
       LOCAL_AI_REQUEST_TIMEOUT: "120"
@@ -302,7 +309,9 @@ services:
       LOCAL_AI_MODEL_NAME: ${EMBEDDINGS_MODEL_NAME:-bge-m3}
       LOCAL_AI_THREADS: "2"
       LOCAL_AI_CONTEXT: "2048"
-      LOCAL_AI_REQUEST_TIMEOUT: "120"
+      # Limite por texto no llamafiler (o app envia lotes pequenos; AI_EMBEDDING_TIMEOUT em app.env cobre o lote inteiro).
+      LOCAL_AI_REQUEST_TIMEOUT: "180"
+      TZ: America/Sao_Paulo
     volumes:
       - ${BULAI_SHARED_DIR:-/srv/bulai/shared}/models:/models:ro
     networks:

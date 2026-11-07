@@ -70,6 +70,12 @@ final class ProcessingTimeline
         $this->guard(fn () => KnowledgeProcessingEvent::query()->where('document_id', $documentId)->delete());
     }
 
+    /** Apaga só as linhas de uma etapa (ex.: refazer o índice de busca sem perder o restante da execução). */
+    public function resetStep(int $documentId, string $step): void
+    {
+        $this->guard(fn () => KnowledgeProcessingEvent::query()->where('document_id', $documentId)->where('step', $step)->delete());
+    }
+
     /** @return Collection<int, KnowledgeProcessingEvent> em ordem cronológica */
     public function for(int $documentId): Collection
     {
