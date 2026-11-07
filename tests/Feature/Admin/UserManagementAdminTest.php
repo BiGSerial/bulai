@@ -345,6 +345,30 @@ class UserManagementAdminTest extends TestCase
             ->assertSee('Só um administrador');
     }
 
+    public function test_a_mail_transport_failure_still_shows_the_temporary_password_with_a_warning_instead_of_a_500(): void
+    {
+        // Transporte real da KingHost sem token: o envio é recusado antes de qualquer chamada HTTP.
+        config(['mail.default' => 'kinghost', 'services.kinghost_smtp.token' => null]);
+        $admin = User::factory()->admin()->create();
+        $user = User::factory()->create();
+
+        $component = Livewire::actingAs($admin)->test(Show::class, ['user' => $user])->set('sendByEmail', true)->call('issueTemporaryPassword')
+            ->assertHasErrors('temporaryPassword')
+            ->assertSee('data-testid="temporary-password-warning"', false)
+            ->assertSee('o e-mail não pôde ser enviado')
+            ->assertSee('token da API não configurado');
+        $this->shownTemporaryPassword($component);
+        $this->assertSame([UserAuditEvent::EVENT_TEMPORARY_PASSWORD_ISSUED], $user->auditEvents()->pluck('event')->all(), 'o envio não é auditado quando falha');
+
+        $created = Livewire::actingAs($admin)->test(Form::class)
+            ->set('name', 'João Lima')->set('email', 'joao@example.com')->set('role', UserRole::User->value)->set('sendByEmail', true)
+            ->call('save')
+            ->assertHasErrors('temporaryPassword')
+            ->assertSee('data-testid="temporary-password-warning"', false);
+        $this->shownTemporaryPassword($created);
+        $this->assertTrue(User::query()->where('email', 'joao@example.com')->exists(), 'o usuário é criado mesmo com o e-mail recusado');
+    }
+
     private function shownTemporaryPassword(Testable $component): string
     {
         $this->assertSame(1, preg_match('/data-temporary-password>([A-Za-z0-9]+)</', $component->html(), $matches), 'A senha provisória deve aparecer na tela.');

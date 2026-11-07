@@ -15,6 +15,6 @@
     </form>
 
     @if ($temporaryPassword)
-        <x-knowledge-admin.temporary-password-modal :password="$temporaryPassword" close="finishCreation" title="Usuário cadastrado" />
+        <x-knowledge-admin.temporary-password-modal :password="$temporaryPassword" close="finishCreation" title="Usuário cadastrado" :warning="$errors->first('temporaryPassword')" />
     @endif
 </x-knowledge-admin.shell>

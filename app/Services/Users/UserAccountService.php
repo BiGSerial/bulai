@@ -9,8 +9,10 @@ use App\UserRole;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Gestão de acessos: cadastro com senha provisória, edição, ativação e troca de senha.
@@ -182,7 +184,14 @@ final class UserAccountService
      */
     public function emailTemporaryPassword(User $user, string $temporaryPassword, bool $isNewAccount, User $actor): void
     {
-        $user->notify(new TemporaryPasswordNotification($temporaryPassword, $isNewAccount));
+        try {
+            $user->notify(new TemporaryPasswordNotification($temporaryPassword, $isNewAccount));
+        } catch (Throwable $exception) {
+            // A senha já está gerada e será exibida; o transporte (API da KingHost, SMTP) é que recusou. Nada da senha vai ao log.
+            Log::warning('temporary_password_email_failed', ['user_id' => $user->id, 'actor_id' => $actor->id, 'message' => $exception->getMessage()]);
+
+            throw TemporaryPasswordEmailException::from($exception);
+        }
         $this->record($user, UserAuditEvent::EVENT_TEMPORARY_PASSWORD_EMAILED, $actor);
     }
 

@@ -126,6 +126,6 @@
     </x-knowledge-admin.card>
 
     @if ($temporaryPassword)
-        <x-knowledge-admin.temporary-password-modal :password="$temporaryPassword" close="$refresh" />
+        <x-knowledge-admin.temporary-password-modal :password="$temporaryPassword" close="$refresh" :warning="$errors->first('temporaryPassword')" />
     @endif
 </x-knowledge-admin.shell>
