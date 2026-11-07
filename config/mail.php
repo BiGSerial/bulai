@@ -114,6 +114,15 @@ return [
     |
     */
 
+    /*
+    | Tema dos e-mails em Markdown (resources/views/vendor/mail): identidade do BULA-IA (azul-marinho, laranja e creme).
+    */
+
+    'markdown' => [
+        'theme' => env('MAIL_MARKDOWN_THEME', 'bulai'),
+        'paths' => [resource_path('views/vendor/mail')],
+    ],
+
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),

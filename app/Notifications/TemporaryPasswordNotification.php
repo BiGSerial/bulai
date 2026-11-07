@@ -31,12 +31,9 @@ final class TemporaryPasswordNotification extends Notification
 
         return (new MailMessage)
             ->subject(($this->isNewAccount ? 'Seu acesso ao ' : 'Nova senha provisória · ').$app)
-            ->greeting('Olá, '.$notifiable->name.'!')
-            ->line($this->isNewAccount ? "Um administrador criou o seu acesso ao {$app}." : "Um administrador gerou uma nova senha provisória para o seu acesso ao {$app}.")
-            ->line('Senha provisória: **'.$this->temporaryPassword.'**')
-            ->action('Entrar no '.$app, route('login'))
-            ->line('No primeiro acesso você precisará definir uma senha própria. Esta senha provisória deixa de valer depois disso.')
-            ->line('Se você não esperava este e-mail, não use a senha e avise um administrador.')
-            ->salutation('Equipe '.$app);
+            ->markdown('mail.senha-provisoria', [
+                'name' => $notifiable->name, 'app' => $app, 'isNewAccount' => $this->isNewAccount,
+                'password' => $this->temporaryPassword, 'loginUrl' => route('login'),
+            ]);
     }
 }

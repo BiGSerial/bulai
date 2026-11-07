@@ -1,0 +1,2 @@
+{{ $slot }} · Bulas inteligentes
+{{ $url }}
