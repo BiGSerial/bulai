@@ -137,6 +137,7 @@ docker network ls | grep bulai-internal                              # existe, m
    chmod 600 ~/bulai-trusted.tgz && sha256sum ~/bulai-trusted.tgz     # deve ser IGUAL ao hash anotado
    sudo install -d -m 0755 -o root -g root /root/bulai-src && sudo tar -xzf ~/bulai-trusted.tgz -C /root/bulai-src --no-same-owner
    sudo chown -R root:root /root/bulai-src && rm ~/bulai-trusted.tgz
+   sudo chmod -R go-w /root/bulai-src                   # o instalador recusa origem gravável por grupo/outros ("Origem não confiável ... modo=775")
    sha256sum /root/bulai-src/compose.prod.yaml           # anote: é o hash que o deploy confere
    ```
 
