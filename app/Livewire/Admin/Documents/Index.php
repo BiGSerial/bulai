@@ -3,6 +3,7 @@
 namespace App\Livewire\Admin\Documents;
 
 use App\Jobs\IndexKnowledgeDocumentEmbeddings;
+use App\Jobs\LinkKnowledgeDocumentIngredients;
 use App\Models\Knowledge\KnowledgeDocument;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -78,6 +79,26 @@ class Index extends Component
             ->whereNotIn('embedding_status', [KnowledgeDocument::STATUS_READY, KnowledgeDocument::STATUS_PROCESSING]);
     }
 
+    /** Enfileira o vínculo com os princípios ativos dos documentos prontos que não têm nenhum (é por ele que o Perguntar acha a bula). */
+    public function linkUnlinkedDocuments(): void
+    {
+        $ids = $this->unlinkedQuery()->orderBy('id')->pluck('id');
+        foreach ($ids as $id) {
+            LinkKnowledgeDocumentIngredients::dispatch((int) $id);
+        }
+        $this->reindexFeedback = $ids->isEmpty()
+            ? 'Todos os documentos prontos já têm princípio ativo ligado.'
+            : ($ids->count() === 1 ? 'Vínculo de 1 documento enfileirado.' : "Vínculo de {$ids->count()} documentos enfileirado.").' Leva alguns segundos por documento; os que continuarem sem vínculo precisam do produto no catálogo ANVISA (Admin → Catálogo ANVISA) ou de reprocessamento.';
+    }
+
+    /** Documentos prontos sem nenhuma linha em knowledge_document_ingredients. @return Builder<KnowledgeDocument> */
+    private function unlinkedQuery(): Builder
+    {
+        return KnowledgeDocument::query()
+            ->where('content_status', KnowledgeDocument::STATUS_READY)
+            ->whereDoesntHave('ingredients');
+    }
+
     public function render(): View
     {
         $column = self::SORTABLE[$this->sort] ?? 'updated_at';
@@ -108,6 +129,7 @@ class Index extends Component
             'documents' => $documents,
             'fileStatuses' => ['PENDING', 'PROCESSING', 'READY', 'FAILED'],
             'pendingIndexCount' => $this->pendingIndexQuery()->count(),
+            'unlinkedCount' => $this->unlinkedQuery()->count(),
         ])->title('Documentos · BULAI');
     }
 }

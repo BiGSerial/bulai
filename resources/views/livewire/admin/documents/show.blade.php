@@ -34,6 +34,7 @@
                 <x-knowledge-admin.menu-item x-on:click="tab = 'processamento'">Situação do processamento</x-knowledge-admin.menu-item>
                 @if ($document->content_status === 'READY')
                     <x-knowledge-admin.menu-item wire:click="rebuildSearchIndex" wire:loading.attr="disabled" wire:target="rebuildSearchIndex" data-testid="rebuild-search-index-menu">Refazer o índice de busca</x-knowledge-admin.menu-item>
+                    <x-knowledge-admin.menu-item wire:click="linkIngredients" wire:loading.attr="disabled" wire:target="linkIngredients" data-testid="link-ingredients-menu">Revincular princípios ativos</x-knowledge-admin.menu-item>
                 @endif
             </x-slot:more>
         </x-knowledge-admin.page-header>
@@ -55,6 +56,17 @@
         @endif
         @if ($timelineActive)
             <x-knowledge-admin.callout title="Processando agora:" data-testid="timeline-live">{{ $timelineActive->stepLabel() }}@if ($timelineActive->summary() !== '') · {{ $timelineActive->summary() }}@endif · há {{ $timelineActive->durationLabel() }}. <a class="underline" href="#processamento" x-on:click.prevent="tab = 'processamento'">Ver a linha do tempo</a></x-knowledge-admin.callout>
+        @endif
+        @if ($document->content_status === 'READY' && $ingredients->isEmpty() && ! $timelineActive)
+            <x-knowledge-admin.alert tone="warning" data-testid="ingredients-missing">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium">Nenhum princípio ativo ligado a esta bula.</p>
+                        <p class="mt-1">É por esse vínculo que o Perguntar chega à bula a partir do nome do remédio; sem ele, a resposta é "ainda não consigo ligar a uma bula". O vínculo usa o registro ANVISA, o princípio ativo identificado ou o nome do produto no catálogo; não lê o PDF de novo.</p>
+                    </div>
+                    <x-knowledge-admin.button variant="secondary" wire:click="linkIngredients" loading-target="linkIngredients" loading="Vinculando…" data-testid="link-ingredients">Vincular princípios ativos</x-knowledge-admin.button>
+                </div>
+            </x-knowledge-admin.alert>
         @endif
         @if (($processing['error_code'] ?? null) !== null)
             <x-knowledge-admin.alert tone="danger">Falha no processamento: {{ $processing['error_code'] }}@if (($processing['error_id'] ?? null) !== null) · Código de referência: {{ $processing['error_id'] }}@endif</x-knowledge-admin.alert>
