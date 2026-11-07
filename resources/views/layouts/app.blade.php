@@ -13,6 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="BULA-IA">
     <meta name="format-detection" content="telephone=no">
     <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="/brand/bulai-icone-app.svg" type="image/svg+xml">
     <link rel="icon" href="/brand/bulai-icone-192.png" type="image/png" sizes="192x192">
     <link rel="apple-touch-icon" href="/brand/bulai-icone-180.png" sizes="180x180">

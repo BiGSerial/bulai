@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\PatientMedication;
 use App\Notifications\Channels\HasDedupeKey;
+use App\Notifications\Channels\WebPushChannel;
 use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -36,7 +37,7 @@ final class MedicationReminderNotification extends Notification implements HasDe
     /** @return list<string> */
     public function via(mixed $notifiable): array
     {
-        return $this->byEmail ? ['database', 'mail'] : ['database'];
+        return WebPushChannel::appendTo($notifiable, $this->byEmail ? ['database', 'mail'] : ['database']);
     }
 
     /** @return array<string, mixed> */

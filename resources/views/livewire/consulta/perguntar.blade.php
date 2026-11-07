@@ -5,7 +5,7 @@
     técnicos (partes da bula, o que foi considerado) ficam recolhidos. A caixa de texto fica fixa embaixo (slot sticky).
 --}}
 <x-consulta.shell title="Perguntar" :back="route('consulta.inicio')">
-    <div class="grid gap-4" aria-label="Conversa com o BULA-IA">
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-4" aria-label="Conversa com o BULA-IA">
         @if ($resposta === null && $conversa === [])
             <x-consulta.balao>
                 <p class="break-words" id="perg-titulo">Oi! Sou o BULA-IA. Qual é a sua dúvida sobre um remédio?</p>

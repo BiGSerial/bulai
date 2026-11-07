@@ -79,7 +79,7 @@ class PwaAssetTest extends TestCase
     {
         $serviceWorker = file_get_contents(public_path('sw.js'));
 
-        $this->assertStringContainsString("const CACHE_NAME = 'bulai-static-v5'", $serviceWorker);
+        $this->assertStringContainsString("const CACHE_NAME = 'bulai-static-v6'", $serviceWorker);
         $this->assertStringContainsString("addEventListener('fetch'", $serviceWorker, 'o Chrome só instala PWA com handler de fetch');
         $this->assertStringContainsString("'/offline'", $serviceWorker);
         $this->assertStringContainsString("url.pathname.startsWith('/admin')", $serviceWorker);

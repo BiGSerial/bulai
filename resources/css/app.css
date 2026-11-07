@@ -151,8 +151,18 @@
     .app-screen main > *,
     .app-screen main section > *,
     .app-screen main form > *,
+    .app-screen main .grid > *,
+    .app-screen main .flex > *,
     .app-screen nav ul > li {
         min-width: 0;
+    }
+
+    /* `break-words` não reduz a largura mínima de itens de grid/flex: uma palavra longa (nome de remédio, "2,5mg/5mg",
+       endereço) alargava a coluna e o `overflow-x: clip` cortava o balão no WPA. `anywhere` quebra de verdade. */
+    .app-screen main .break-words,
+    .app-screen main blockquote,
+    .app-screen main li {
+        overflow-wrap: anywhere;
     }
 
     /* Resposta tátil: botões e links "afundam" levemente ao toque, como em um app nativo. */

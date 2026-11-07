@@ -62,12 +62,31 @@
             <x-consulta.botao size="md" :href="route('consulta.perfil')">Abrir meus remédios</x-consulta.botao>
         @endif
 
-        {{-- Avisos do navegador (só com o aplicativo aberto; sem Web Push). Aparece apenas onde há suporte e ainda não foi permitido. --}}
-        <div x-data="{ suporte: 'Notification' in window && 'serviceWorker' in navigator, permissao: 'Notification' in window ? Notification.permission : 'denied' }" class="grid gap-2">
-            <template x-if="suporte && permissao === 'default'">
-                <button type="button" class="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" x-on:click="Notification.requestPermission().then((r) => permissao = r)">Ativar avisos neste aparelho</button>
+        {{-- Avisos no aparelho: com Web Push (chave VAPID configurada) chegam até com o aplicativo fechado; sem ele, só com o aplicativo aberto. --}}
+        @php
+            $chavePush = filled(config('services.webpush.public_key')) && filled(config('services.webpush.private_key')) ? config('services.webpush.public_key') : null;
+        @endphp
+        <div x-data="{
+                suporte: 'Notification' in window && 'serviceWorker' in navigator,
+                permissao: 'Notification' in window ? Notification.permission : 'denied',
+                chave: @js($chavePush),
+                push: false,
+                erro: '',
+                async init() { if (this.chave && window.bulaiPush && window.bulaiPush.suportado()) { this.push = await window.bulaiPush.ativo().catch(() => false) } },
+                async ativar() {
+                    this.erro = '';
+                    this.permissao = this.permissao === 'granted' ? 'granted' : await Notification.requestPermission();
+                    if (this.permissao === 'granted' && this.chave && window.bulaiPush && window.bulaiPush.suportado()) {
+                        try { await window.bulaiPush.ativar(this.chave); this.push = true } catch (e) { this.erro = 'Não consegui ativar os avisos com o aplicativo fechado neste aparelho. Tente de novo.' }
+                    }
+                },
+            }" class="grid gap-2">
+            <template x-if="suporte && (permissao === 'default' || (permissao === 'granted' && chave && !push))">
+                <button type="button" class="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-brand-700 bg-white px-4 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" x-on:click="ativar()" x-text="permissao === 'default' ? 'Ativar avisos neste aparelho' : 'Receber avisos também com o aplicativo fechado'">Ativar avisos neste aparelho</button>
             </template>
-            <p x-cloak x-show="suporte && permissao === 'granted'" class="flex items-center gap-2 text-base text-slate-700"><x-consulta.icone name="check" plain class="size-5 shrink-0 text-emerald-700" />Avisos neste aparelho ativados. Eles aparecem enquanto o aplicativo estiver aberto.</p>
+            <p x-cloak x-show="suporte && permissao === 'granted' && push" class="flex items-center gap-2 text-base text-slate-700"><x-consulta.icone name="check" plain class="size-5 shrink-0 text-emerald-700" />Avisos ativados neste aparelho, inclusive com o aplicativo fechado.</p>
+            <p x-cloak x-show="suporte && permissao === 'granted' && !chave" class="flex items-center gap-2 text-base text-slate-700"><x-consulta.icone name="check" plain class="size-5 shrink-0 text-emerald-700" />Avisos neste aparelho ativados. Eles aparecem enquanto o aplicativo estiver aberto.</p>
+            <p x-cloak x-show="erro !== ''" role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-base font-medium text-amber-900" x-text="erro"></p>
             <p x-cloak x-show="suporte && permissao === 'denied'" class="text-base text-slate-700">Os avisos deste aparelho estão bloqueados nas configurações do navegador.</p>
         </div>
     </x-consulta.cartao>

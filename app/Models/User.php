@@ -85,6 +85,12 @@ class User extends Authenticatable
         return $this->hasMany(UserAuditEvent::class);
     }
 
+    /** Aparelhos inscritos em Web Push (avisos com o aplicativo fechado). */
+    public function pushSubscriptions(): HasMany
+    {
+        return $this->hasMany(PushSubscription::class);
+    }
+
     public function patientProfile(): HasOne
     {
         return $this->hasOne(PatientProfile::class);
