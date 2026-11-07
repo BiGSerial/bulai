@@ -305,6 +305,21 @@ final class PerguntarConfiavelTest extends TestCase
         $this->assertSame(['fluconazole', 'warfarin'], ActiveIngredient::query()->orderBy('normalized_name')->pluck('normalized_name')->all());
     }
 
+    public function test_a_truncated_translation_reply_still_keeps_the_complete_pairs(): void
+    {
+        $metamizole = ActiveIngredient::query()->create(['normalized_name' => 'metamizole', 'canonical_name' => 'Metamizole']);
+        ActiveIngredientAlias::query()->create(['ingredient_id' => $metamizole->id, 'alias' => 'metamizole', 'normalized_alias' => 'metamizole', 'language' => 'en', 'origin' => 'ddinter', 'review_status' => 'reviewed']);
+        $this->medicine('NOVALGINA', 'DIPIRONA');
+        $this->medicine('OUTRO', 'CARBETOCINA');
+        // Resposta cortada no meio pelo limite de tokens: o primeiro par está completo, o segundo não.
+        $this->scripted = '{"translations": [{"pt": "dipirona", "en": "metamizole"}, {"pt": "carbetocina", "en": "carbet';
+
+        $stats = app(ActiveIngredientCatalogBuilder::class)->translateUnresolved();
+
+        $this->assertSame([2, 1, 1], [$stats['names'], $stats['proposed'], $stats['accepted']]);
+        $this->assertSame(['metamizole'], AnvisaMedicine::query()->where('product_name', 'NOVALGINA')->firstOrFail()->ingredients->pluck('normalized_name')->all());
+    }
+
     public function test_ai_translation_links_portuguese_ingredient_names_to_ddinter_so_interactions_work(): void
     {
         $metamizole = ActiveIngredient::query()->create(['normalized_name' => 'metamizole', 'canonical_name' => 'Metamizole']);
