@@ -6,6 +6,7 @@ use App\Jobs\IndexKnowledgeDocumentEmbeddings;
 use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
+use App\Services\Knowledge\KnowledgeDocumentIngredientLinker;
 use App\Services\Knowledge\ProcessingTimeline;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
@@ -42,6 +43,27 @@ class Show extends Component
 
         IndexKnowledgeDocumentEmbeddings::dispatch($this->document->id);
         $this->processingFeedback = 'Geração do índice de busca enfileirada. Só os trechos sem vetor são enviados ao serviço de embeddings; os trechos e o PDF não mudam.';
+        $this->document->refresh();
+    }
+
+    /** Refaz só o vínculo com os princípios ativos (é por ele que o Perguntar encontra a bula); rápido, roda na hora. */
+    public function linkIngredients(KnowledgeDocumentIngredientLinker $linker, ProcessingTimeline $timeline): void
+    {
+        if ($this->document->content_status !== KnowledgeDocument::STATUS_READY) {
+            $this->processingFeedback = 'O vínculo com o princípio ativo só pode ser feito depois que o texto e os trechos estiverem prontos.';
+
+            return;
+        }
+
+        $timeline->resetStep($this->document->id, KnowledgeProcessingEvent::STEP_LINK);
+        $event = $timeline->start($this->document->id, KnowledgeProcessingEvent::STEP_LINK);
+        $count = $linker->link($this->document);
+        $timeline->finish($event, ['ingredients' => $count]);
+        $this->processingFeedback = match (true) {
+            $count === 0 => 'Nenhum princípio ativo encontrado para esta bula: o nome do produto não está no catálogo ANVISA ligado a um princípio ativo e os metadados não informam o ativo. Confira o catálogo (Admin → Catálogo ANVISA) ou reprocesse o documento.',
+            $count === 1 => '1 princípio ativo ligado. O Perguntar já encontra esta bula.',
+            default => "{$count} princípios ativos ligados. O Perguntar já encontra esta bula.",
+        };
         $this->document->refresh();
     }
 

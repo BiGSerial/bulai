@@ -11,6 +11,9 @@
         </x-knowledge-admin.select>
         @if ($search !== '' || $fileStatus !== '')<x-knowledge-admin.button variant="quiet" wire:click="clearFilters">Limpar</x-knowledge-admin.button>@endif
         <x-slot:actions>
+            @if ($unlinkedCount > 0)
+                <x-knowledge-admin.button variant="secondary" wire:click="linkUnlinkedDocuments" loading-target="linkUnlinkedDocuments" loading="Enfileirando…" title="Liga ao princípio ativo os documentos prontos que não têm nenhum; é por esse vínculo que o Perguntar encontra a bula. Não lê os PDFs de novo." data-testid="link-unlinked-documents">Vincular {{ $unlinkedCount === 1 ? '1 documento sem princípio ativo' : $unlinkedCount.' documentos sem princípio ativo' }}</x-knowledge-admin.button>
+            @endif
             @if ($pendingIndexCount > 0)
                 <x-knowledge-admin.button variant="secondary" wire:click="generatePendingSearchIndexes" loading-target="generatePendingSearchIndexes" loading="Enfileirando…" title="Gera só o índice de busca (embeddings) dos documentos prontos que estão aguardando ou com falha; os trechos e os PDFs não mudam." data-testid="generate-pending-search-indexes">Gerar {{ $pendingIndexCount === 1 ? '1 índice de busca pendente' : $pendingIndexCount.' índices de busca pendentes' }}</x-knowledge-admin.button>
             @endif
