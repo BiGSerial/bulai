@@ -283,7 +283,7 @@ class UserManagementAdminTest extends TestCase
             ->call('save')->assertHasNoErrors();
         $password = $this->shownTemporaryPassword($component);
         $user = User::query()->where('email', 'maria@example.com')->sole();
-        Notification::assertSentTo($user, TemporaryPasswordNotification::class, fn (TemporaryPasswordNotification $n): bool => str_contains(implode(' ', $n->toMail($user)->introLines), $password));
+        Notification::assertSentTo($user, TemporaryPasswordNotification::class, fn (TemporaryPasswordNotification $n): bool => str_contains((string) $n->toMail($user)->render(), $password));
         $this->assertSame([UserAuditEvent::EVENT_CREATED, UserAuditEvent::EVENT_TEMPORARY_PASSWORD_EMAILED], $user->auditEvents()->orderBy('id')->pluck('event')->all());
 
         Livewire::actingAs($admin)->test(Show::class, ['user' => $user])->set('sendByEmail', true)->call('issueTemporaryPassword')->assertHasNoErrors();

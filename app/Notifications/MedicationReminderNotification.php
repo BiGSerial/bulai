@@ -63,11 +63,9 @@ final class MedicationReminderNotification extends Notification implements HasDe
 
         return (new MailMessage)
             ->subject($data['title'].' às '.$data['time'].' · '.config('app.name'))
-            ->greeting('Olá, '.$notifiable->name.'!')
-            ->line($data['body'])
-            ->action('Ver remédios de hoje', route('consulta.hoje'))
-            ->line('Para parar de receber lembretes por e-mail, desative "Também por e-mail" em Avisos no aplicativo.')
-            ->line(config('bulai.guidelines.disclaimer'))
-            ->salutation('Equipe '.config('app.name'));
+            ->markdown('mail.lembrete-de-dose', [
+                'name' => $notifiable->name, 'app' => config('app.name'), 'time' => $data['time'], 'medicine' => $this->medication->displayName(),
+                'dosage' => trim((string) $this->medication->dosage), 'todayUrl' => route('consulta.hoje'),
+            ]);
     }
 }

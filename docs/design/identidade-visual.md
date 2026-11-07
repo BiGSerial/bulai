@@ -100,3 +100,23 @@ Arquivos em `public/brand`: `bulai-logo-horizontal.svg` (fundo creme), `bulai-lo
 
 - Faça: uma ação laranja por tela; títulos em azul-marinho; fundos creme com cartões brancos.
 - Não faça: laranja `accent-500` com texto branco; usar azul/laranja para indicar gravidade; mais de uma ação de destaque na mesma tela; cores sem texto; fontes externas.
+
+## 12. E-mails (07/11/2026)
+
+Os e-mails transacionais seguem a mesma identidade, em vez do modelo padrão do Laravel (preto e branco, em inglês, com "Laravel" e "All rights reserved").
+
+| Elemento | Regra |
+| --- | --- |
+| Tema | `resources/views/vendor/mail/html/themes/bulai.css` (selecionado em `config/mail.php`, `markdown.theme`, ou `MAIL_MARKDOWN_THEME`). Fundo creme `#ECE6DA`, cartão branco de cantos arredondados, texto `#334155` de 16 px, títulos `#12344D`. |
+| Cabeçalho | Faixa azul-marinho `#12344D` com filete laranja `#D9661F`, o símbolo (`public/brand/bulai-icone-192.png`, **PNG com endereço absoluto** a partir de `APP_URL`: e-mail não aceita SVG) e o nome "BULA-IA" com o lema "Bulas inteligentes" em texto, que continua legível quando o cliente bloqueia imagens. |
+| Botão | Laranja `#B8521A` (texto branco, contraste AA), cantos arredondados, texto de 17 px em negrito. Verde e vinho para os níveis `success`/`error`. |
+| Painel | Fundo creme `#F7F4EE` com barra lateral azul-marinho; usado para a senha provisória (monoespaçada) e para o horário do remédio. |
+| Rodapé | Nome e lema, o aviso do produto (`bulai.guidelines.disclaimer`: não substitui médico ou farmacêutico) e "Você recebeu esta mensagem porque tem uma conta no BULA-IA" com o caminho de volta ao aplicativo. |
+| Idioma | Tudo em português: saudação "Olá!", assinatura "Equipe BULA-IA", texto do link alternativo do botão ("Se o botão “…” não funcionar, copie e cole o endereço abaixo no navegador"). |
+| Texto simples | A versão `text/` tem o mesmo cabeçalho e rodapé. A API da KingHost envia só o corpo HTML; a versão de texto vale para outros transportes. |
+
+Layouts dedicados: `resources/views/mail/senha-provisoria.blade.php` (senha em painel, três passos) e `resources/views/mail/lembrete-de-dose.blade.php` (horário e remédio em painel, um botão). Redefinição de senha e fim do tratamento usam `vendor/notifications/email.blade.php` com o tema.
+
+Exemplos renderizados (abra no navegador; os links de ação apontam para o ambiente de desenvolvimento): `docs/design/emails/*.html`. Teste: `tests/Feature/Infrastructure/EmailIdentidadeTest.php`.
+
+**Limitações.** Clientes de e-mail renderizam CSS de forma diferente (Outlook ignora cantos arredondados e sombras; modo escuro pode inverter cores); o desenho foi feito para degradar sem perder leitura. Não foi conferido em clientes reais: enviar um e-mail de teste para Gmail e para o celular depois do deploy. O símbolo só aparece se `https://<APP_URL>/brand/bulai-icone-192.png` for público.
