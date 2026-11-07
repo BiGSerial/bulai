@@ -56,6 +56,39 @@ return [
         // Segunda fonte: quando os trechos da busca não respondem (ou não vêm da seção adequada), a bula inteira é
         // enviada ao modelo, que devolve trecho literal + seção + página + confiança; o aceito fica gravado como
         // evidência auditável (knowledge_leaflet_facts) e é reaproveitado nas próximas perguntas.
+        // Intenções compostas do Perguntar: uma pergunta como "posso tomar X?" pede várias partes da bula (para que serve,
+        // quando não usar, cuidados). `expands` lista as seções de `leaflet.sections` consultadas; `keywords` são palavras da
+        // pergunta (normalizadas) que ativam a intenção. Sem nenhuma intenção reconhecida a pergunta é tratada como geral.
+        'intents' => [
+            'seguranca_de_uso' => [
+                'label' => 'Segurança de uso',
+                'expands' => ['para_que_serve', 'nao_use_se', 'riscos'],
+                'keywords' => ['posso tomar', 'posso usar', 'posso', 'pode tomar', 'pode usar', 'devo tomar', 'devo usar', 'faz mal', 'e seguro', 'tem problema', 'tem perigo', 'tenho que tomar'],
+            ],
+            'comparacao' => [
+                'label' => 'Comparação entre medicamentos',
+                'expands' => ['para_que_serve', 'riscos', 'efeitos_colaterais'],
+                'keywords' => ['diferenca', 'melhor que', 'pior que', 'mais forte', 'mais fraco', 'qual e melhor', 'comparar', 'em vez de', 'no lugar de'],
+            ],
+        ],
+        // Seções consultadas quando nenhuma intenção é reconhecida ("ibuprofeno?", "me fale do ibuprofeno").
+        'general_sections' => ['para_que_serve', 'riscos'],
+        'max_sections' => 4,
+        'evidence_per_section' => (int) env('BULAI_QUESTION_EVIDENCE_PER_SECTION', 2),
+        // Resposta conversacional: até 3 perguntas de esclarecimento e frases de no máximo 40 palavras em média.
+        'conversation' => [
+            'max_asks' => 3,
+            'max_facts' => 5,
+            'max_fact_words' => 150,
+            // Profundidade proporcional à pergunta: perguntas simples pedem resposta curta; o modelo ordena os fatos por importância
+            // e os que passam do orçamento são descartados. Intenção => palavras de fatos (padrão: max_fact_words).
+            'fact_words_by_intent' => ['para_que_serve' => 90, 'como_usar' => 110, 'beneficios' => 90],
+            'fact_words_general' => 110,
+            // Intenções puramente informativas (não dependem de dados da pessoa): perguntas de esclarecimento do modelo são descartadas.
+            'no_ask_intents' => ['para_que_serve', 'como_usar', 'beneficios'],
+            'max_avg_sentence_words' => 40,
+            'max_retries' => 1,
+        ],
         'leaflet_fallback' => [
             'enabled' => (bool) env('BULAI_LEAFLET_FALLBACK_ENABLED', true),
             'max_characters' => (int) env('BULAI_LEAFLET_FALLBACK_MAX_CHARACTERS', 150_000),
@@ -81,11 +114,11 @@ return [
         'evidence_per_section' => (int) env('BULAI_LEAFLET_EVIDENCE_PER_SECTION', 3),
         // `keywords`: palavras da pergunta do paciente que pedem essa seção (QuestionIntentDetector; comparação normalizada).
         'sections' => [
-            'para_que_serve' => ['label' => 'Para que serve', 'query' => 'indicado para tratamento de indicações', 'patterns' => ['indica', 'para que', 'como este medicamento funciona'],
+            'para_que_serve' => ['label' => 'Para que serve', 'query' => 'indicado para tratamento de indicações', 'patterns' => ['indica', 'para que', 'como este medicamento funciona', '!contra'],
                 'keywords' => ['para que serve', 'serve para', 'serve pra', 'indicado', 'indicacao', 'trata', 'funciona', 'para que e', 'pra que']],
             'como_usar' => ['label' => 'Como usar', 'query' => 'modo de usar posologia dose administração horário', 'patterns' => ['como devo usar', 'posologia', 'modo de usar', 'como usar'],
                 'keywords' => ['como tomar', 'como devo tomar', 'como usar', 'como uso', 'como tomo', 'dose', 'doses', 'dosagem', 'quantas vezes', 'quantos comprimidos', 'horario', 'horarios', 'jejum', 'comida', 'alimento', 'alimentos', 'manha', 'noite', 'esqueci', 'esquecer', 'posologia', 'quanto tempo', 'antes de dormir', 'de estomago vazio', 'mastigar', 'partir']],
-            'beneficios' => ['label' => 'Benefícios esperados (prós)', 'query' => 'eficácia benefício alívio melhora resultado', 'patterns' => ['indica', 'resultados de efic', 'caracteristicas farmacol', 'como este medicamento funciona'],
+            'beneficios' => ['label' => 'Benefícios esperados (prós)', 'query' => 'eficácia benefício alívio melhora resultado', 'patterns' => ['indica', 'resultados de efic', 'caracteristicas farmacol', 'como este medicamento funciona', '!contra'],
                 'keywords' => ['beneficio', 'beneficios', 'melhora', 'resultado', 'faz efeito', 'fazer efeito', 'demora']],
             'riscos' => ['label' => 'Riscos e cuidados (contras)', 'query' => 'advertências precauções riscos cuidados gravidez idosos', 'patterns' => ['advert', 'precau', 'o que devo saber'],
                 'keywords' => ['cuidado', 'cuidados', 'risco', 'riscos', 'perigoso', 'perigosa', 'seguro', 'segura', 'dirigir', 'advertencia', 'precaucao', 'figado', 'rins', 'rim', 'pressao', 'coracao', 'diabetes', 'diabetico', 'idoso', 'idosa', 'idosos', 'gravida', 'gravidez', 'amamentando', 'amamentacao']],
@@ -108,9 +141,9 @@ return [
     ],
     'generation' => [
         'enabled' => (bool) env('BULAI_GENERATION_ENABLED', true),
-        // v2 (07/11/2026): tom de conversa para pessoas idosas (resposta direta primeiro, "você", termos difíceis explicados entre parênteses).
-        'prompt_version' => 'interaction-explanation-v2',
-        'max_output_tokens' => (int) env('BULAI_GENERATION_MAX_OUTPUT_TOKENS', 700),
+        // v2 (07/11/2026): tom de conversa para pessoas idosas. v3: contrato por segmentos (fato citado, limite, pergunta) e cobertura.
+        'prompt_version' => 'interaction-explanation-v3',
+        'max_output_tokens' => (int) env('BULAI_GENERATION_MAX_OUTPUT_TOKENS', 1400),
     ],
     'code_version' => env('BULAI_CODE_VERSION'),
 ];

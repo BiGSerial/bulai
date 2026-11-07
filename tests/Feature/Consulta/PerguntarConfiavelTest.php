@@ -134,7 +134,7 @@ final class PerguntarConfiavelTest extends TestCase
         $this->assertSame(['NAPRIX=naprix'], $this->detected('naprix dá tosse?'));
         $this->assertSame(['OMEPRAZOL=omeprazol'], $this->detected('ome prazol em jejum?'), 'ditado que parte o nome');
 
-        $this->assertSame(['interacoes', 'como_usar'], app(QuestionIntentDetector::class)->topics('posso tomar losartana junto com dipirona de manhã?', 2));
+        $this->assertSame(['interacoes', 'seguranca_de_uso', 'como_usar'], app(QuestionIntentDetector::class)->topics('posso tomar losartana junto com dipirona de manhã?', 2));
         $this->assertSame(['efeitos_colaterais'], app(QuestionIntentDetector::class)->topics('Quais os efeitos colatereais para naprix d?'));
         $this->assertSame([], app(QuestionIntentDetector::class)->topics('naprix é bom?'));
     }
@@ -153,7 +153,7 @@ final class PerguntarConfiavelTest extends TestCase
 
         $this->leaflet('DORFLEX — Bula do paciente', ['REAÇÕES ADVERSAS' => 'Pode dar sono e tontura em algumas pessoas.'], ingredientId: $dorflex->ingredients()->value('active_ingredients.id'));
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que pode dar sono e tontura em algumas pessoas.', 'evidence_ids' => ['E1']]]]);
-        $component->call('corrigir', $dorflex->id)->assertSee('A bula diz que pode dar sono e tontura em algumas pessoas.')->assertSee('Li isso na bula do paciente de DORFLEX, parte “REAÇÕES ADVERSAS”, página 3.');
+        $component->call('corrigir', $dorflex->id)->assertSee('A bula diz que pode dar sono e tontura em algumas pessoas.')->assertSee('Baseado na bula do paciente de DORFLEX.');
     }
 
     public function test_a_medicine_without_catalog_link_is_linked_on_the_fly_or_its_leaflet_is_found_by_name(): void
@@ -183,7 +183,7 @@ final class PerguntarConfiavelTest extends TestCase
         // 3. No Perguntar e na Bula simples o RENITEC responde; o XPTO entra na fila de revisão.
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que pode dar tosse seca.', 'evidence_ids' => ['E1']]]]);
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'renitec dá tosse?')->call('perguntar')
-            ->assertSee('A bula diz que pode dar tosse seca.')->assertSee('Li isso na bula')->assertSee('de RENITEC, parte “REAÇÕES ADVERSAS”, página 3.');
+            ->assertSee('A bula diz que pode dar tosse seca.')->assertSee('Baseado na bula')->assertSee('de RENITEC.');
         $this->assertSame(MedicineLeafletFinder::BY_NAME, MedicationQuestion::query()->latest('id')->first()->retrieval['per_medicine'][0]['found_by']);
         Livewire::actingAs($user)->test(Bula::class, ['medicine' => $renitec->fresh()])->assertSet('estado', Bula::LOADING);
         Livewire::actingAs($user)->test(Bula::class, ['medicine' => $xpto])->assertSet('estado', Bula::NOT_IDENTIFIED);
@@ -215,21 +215,19 @@ final class PerguntarConfiavelTest extends TestCase
             json_encode(['claims' => [['text' => 'A bula diz que dor de cabeça é uma reação comum, junto com diarreia e náusea.', 'evidence_ids' => ['E1']]]]),
         ];
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol dá dor de cabeça?')->call('perguntar')
-            ->assertSeeHtml('data-testid="fala-intro"')
-            ->assertSee('Encontrei na bula de OMEPRAZOL a parte sobre efeitos colaterais mais comuns. Os efeitos relatados podem variar de pessoa para pessoa')
             ->assertSee('A bula diz que dor de cabeça é uma reação comum, junto com diarreia e náusea.')
-            ->assertSee('Li isso na bula do paciente de OMEPRAZOL, parte “REAÇÕES ADVERSAS”, página 4.')->assertSee('De onde tirei isso');
+            ->assertSee('Baseado na bula do paciente de OMEPRAZOL.')->assertSee('Fontes utilizadas')->assertSee('REAÇÕES ADVERSAS')->assertSee('página 4');
         $this->assertSame(3, $this->providerCalls);
         $this->assertStringContainsString('<bula>', $this->requests[1]['prompt']);
         $this->assertStringContainsString('Assunto da pergunta (seção esperada): Efeitos colaterais mais comuns', $this->requests[1]['prompt']);
         $this->assertStringContainsString('seção adequada da bula', (string) $this->requests[1]['system']);
-        $this->assertStringContainsString('tratando por "você"', (string) $this->requests[2]['system'], 'prompt humanizado (v2)');
+        $this->assertStringContainsString('HUMANIZAR a bula', (string) $this->requests[2]['system'], 'prompt conversacional (v3)');
 
         $fact = KnowledgeLeafletFact::query()->sole();
         $this->assertSame([$document->id, $chunk->id, $medicine->id, 'efeitos_colaterais', 'REAÇÕES ADVERSAS', 4, 'Reações comuns: dor de cabeça, diarreia e náusea.', 0.93, 'pdf_fallback_ai', 'pending', $document->sha256, $document->content_hash, 'scripted-model', 'omeprazol dá dor de cabeça?'],
             [$fact->document_id, $fact->chunk_id, $fact->medicine_id, $fact->topic, $fact->section, $fact->page_start, $fact->excerpt, $fact->confidence, $fact->extraction_method, $fact->review_status, $fact->document_sha256, $fact->document_version, $fact->model, $fact->question]);
         $record = MedicationQuestion::query()->sole();
-        $this->assertSame([MedicationQuestionService::ANSWERED, null, 'interaction-explanation-v2:qa', 'leaflet-evidence-v1'], [$record->status, $record->review_status, $record->pipeline['prompt_version'], $record->pipeline['leaflet_fallback']]);
+        $this->assertSame([MedicationQuestionService::ANSWERED, null, 'interaction-explanation-v3:qa', 'leaflet-evidence-v1'], [$record->status, $record->review_status, $record->pipeline['prompt_version'], $record->pipeline['leaflet_fallback']]);
         $this->assertSame([1, 2], [$record->retrieval['leaflet_fallback']['accepted'], $record->retrieval['leaflet_fallback']['per_medicine'][0]['rejected']]);
         $this->assertEquals(['excerpt_not_in_chunk' => 1, 'unknown_chunk' => 1], $record->retrieval['leaflet_fallback']['per_medicine'][0]['documents'][0]['rejection_reasons']);
         $this->assertSame('pdf_fallback_ai', collect($record->evidences)->firstWhere('chunk_id', $chunk->id)['method']);
@@ -278,12 +276,12 @@ final class PerguntarConfiavelTest extends TestCase
         Livewire::actingAs($admin)->test(UnansweredIndex::class)->call('resolver', $medicine->id, 'NAPRIX', 'no_evidence')->assertSee('marcada(s) como resolvida(s)')->assertDontSee('Bula sem resposta clara');
         $this->assertSame([MedicationQuestion::REVIEW_RESOLVED, $admin->id], [$record->fresh()->review_status, $record->fresh()->reviewed_by]);
 
-        // Com a IA fora do ar e trechos da seção certa, a tela mostra só esses trechos (nunca os de outra seção).
+        // Saída inválida do modelo (mesmo depois da reformulação e da leitura da bula inteira): a tela nunca mostra o trecho bruto no lugar da resposta.
         $this->leaflet('NAPRIX — Bula do paciente', ['REAÇÕES ADVERSAS' => 'Tosse seca é uma reação comum ao ramipril.'], ingredientId: $medicine->ingredients()->value('active_ingredients.id'));
         $this->queue = ['não é json', 'não é json'];
         $component->call('novaPergunta')->set('pergunta', 'naprix dá tosse? quais os efeitos colaterais?')->call('perguntar')
-            ->assertSee('Não consegui montar uma resposta curta com segurança')->assertSee('Tosse seca é uma reação comum ao ramipril.')->assertDontSee('Cápsulas duras');
-        $this->assertSame(MedicationQuestionService::EXCERPTS_ONLY, MedicationQuestion::query()->latest('id')->first()->status);
+            ->assertDontSee('Não consegui montar uma resposta curta')->assertDontSee('Tosse seca é uma reação comum ao ramipril.')->assertDontSee('Cápsulas duras')->assertSee('Procurei na bula inteira de NAPRIX');
+        $this->assertSame(MedicationQuestionService::NO_EVIDENCE, MedicationQuestion::query()->latest('id')->first()->status);
     }
 
     public function test_importing_interactions_or_the_catalog_queues_the_ingredient_catalog_build(): void

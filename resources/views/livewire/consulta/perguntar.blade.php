@@ -51,7 +51,8 @@
             <x-consulta.balao :tone="$fala['tone']" wire:key="ba-{{ count($conversa) }}-{{ $status }}" x-init="$nextTick(() => $el.scrollIntoView({ block: 'end', behavior: 'smooth' }))" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">
                 {{-- 1. O que o BULA-IA diz, em letras grandes (com uma frase de abertura quando a bula inteira foi consultada ou o assunto são efeitos). --}}
                 @if ($fala['intro'])<p class="break-words text-lg text-slate-700" data-testid="fala-intro">{{ $fala['intro'] }}</p>@endif
-                <p class="break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">{{ $fala['texto'] }}</p>
+                @if ($fala['urgencia'])<p role="alert" class="break-words rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-3 text-lg font-semibold text-rose-900" data-testid="urgencia">{{ $fala['urgencia'] }}</p>@endif
+                <p class="whitespace-pre-line break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">{{ $fala['texto'] }}</p>
 
                 @if ($status === Q::BLOCKED && ($resposta['guard']['category'] ?? null) === 'harm_risk')
                     <p class="break-words">Ligue <a class="text-2xl font-bold underline" href="tel:188">188</a> (CVV, gratuito, 24 h) ou procure a emergência mais próxima. Você não está sozinho.</p>
@@ -73,7 +74,7 @@
                 @if ($fala['fonte'])<p class="break-words text-base text-slate-700">{{ $fala['fonte'] }}</p>@endif
 
                 {{-- 4. Ouvir (só se o navegador souber falar). --}}
-                @if ($status === Q::ANSWERED)
+                @if (in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true))
                     <button type="button" x-cloak x-show="podeOuvir" class="inline-flex min-h-12 items-center justify-self-start gap-2 rounded-xl border-2 border-brand-700 bg-white px-4 text-base font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40"
                         x-on:click="if (falando) { speechSynthesis.cancel(); falando = false; return } const u = new SpeechSynthesisUtterance($refs.texto.textContent.trim()); u.lang = 'pt-BR'; u.rate = 0.95; u.onend = () => falando = false; speechSynthesis.cancel(); speechSynthesis.speak(u); falando = true">
                         <x-consulta.icone name="ouvir" plain class="size-6" />
@@ -157,11 +158,11 @@
                         @endunless
                         @if ($fontes !== [] || $resposta['treatments'] !== [] || ! empty($resposta['uuid']))
                             <details class="rounded-xl bg-surface-100">
-                                <summary class="min-h-12 cursor-pointer select-none px-3 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ $status === Q::ANSWERED ? 'De onde tirei isso' : 'Mais detalhes' }}</summary>
+                                <summary class="min-h-12 cursor-pointer select-none px-3 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true) ? 'Fontes utilizadas' : 'Mais detalhes' }}</summary>
                                 <div class="grid gap-3 px-3 pb-3">
                                     @foreach ($fontes as $fonte)
                                         <blockquote wire:key="ft-{{ $loop->index }}" class="grid gap-1 border-l-4 border-brand-200 pl-3">
-                                            <p class="break-words text-sm font-semibold text-slate-600">{{ $fonte['document_title'] }}@if (! empty($fonte['section'])) · {{ $fonte['section'] }}@endif@if (! empty($fonte['page_start'])) · página {{ $fonte['page_start'] }}@endif</p>
+                                            <p class="break-words text-sm font-semibold text-slate-600">{{ $fonte['document_title'] }}@if (! empty($fonte['section'])) · {{ $fonte['section'] }}@endif@if (! empty($fonte['page_start'])) · página {{ $fonte['page_start'] }}@endif@if (! empty($fonte['processed'])) · bula de {{ $fonte['processed'] }}@endif</p>
                                             <p class="max-h-48 overflow-y-auto whitespace-pre-line break-words text-base leading-relaxed text-slate-800">{{ $fonte['excerpt'] }}</p>
                                         </blockquote>
                                     @endforeach
