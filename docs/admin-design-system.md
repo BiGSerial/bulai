@@ -201,6 +201,12 @@ Objetivo: densidade e clareza. Listas viraram tabelas (`data-table`) com ordena�
 | Revisão de pendência | estrutura anterior mantida; abas pelo componente `tabs` (contagem de divergências como selo) | — | — |
 | Adicionar documentos / Cadastrar sem PDF / Origem (formulário) | formulário em uma coluna `max-w-2xl`; área de arrastar com ~128 px e instruções em duas linhas curtas; arquivos selecionados em tabela (Arquivo · Tamanho · Remover) | — | botão com verbo e `loading-target`; erros ligados ao campo |
 
+**Envio de arquivos (Adicionar documentos)**, regras aprendidas com o bug do botão preso (06/11/2026):
+
+- Um botão com `wire:loading.attr="disabled"` **nunca** recebe `disabled` do servidor. O Livewire guarda o estado do atributo quando o carregamento começa e o restaura ao terminar, por cima da re-renderização: o botão nascia desabilitado (sem arquivos), o upload o marcava, o servidor o habilitava e o fim do upload o desabilitava de novo. O estado "há arquivos" fica no Alpine (`hasFiles`, alimentado por `$wire.$watch('files', …)`), e `loading-target` aponta só para a ação (`ingest`), não para a propriedade de upload.
+- Arrastar e soltar chama `$wire.uploadMultiple('files', pdfs, fim, erro, progresso, cancelamento)` em vez de simular o `change` do input; `dragenter`, `dragover` e `drop` com `.prevent`; só PDFs passam (os demais são listados em "Ignorado"). No Livewire 4 o envio múltiplo **acrescenta** à seleção (`append`), então escolher ou arrastar de novo não substitui o que já está na lista.
+- O progresso vem dos eventos `livewire-upload-*` (input) e dos callbacks do `uploadMultiple` (arrastar); o callback de progresso recebe o evento bruto do XHR (`loaded`/`total`), não `detail.progress`.
+
 Regras que estas telas seguem (e que valem para as próximas): abaixo de `md` a tabela rola horizontalmente (o admin é desktop-first); células de texto longo usam `max-w-*` + `truncate` + `title`; números alinhados à direita com `tabular-nums`; a coluna de ações tem `class="w-px"` para não roubar largura; `wire:loading.class="opacity-60"` no bloco da tabela com `wire:target` nos filtros e na ordenação.
 
 ## Telas de operação, análises e pessoas (reformulação de 06/11/2026)

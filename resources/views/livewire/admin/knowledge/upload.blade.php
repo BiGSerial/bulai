@@ -6,7 +6,34 @@
         </x-knowledge-admin.alert>
     @endif
 
-    <form class="max-w-2xl" wire:submit="ingest" x-data="{ uploading: false, progress: 0, dragging: false }" x-on:livewire-upload-start="uploading = true" x-on:livewire-upload-finish="uploading = false; progress = 100" x-on:livewire-upload-error="uploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
+    {{--
+        O botão de envio não pode nascer com `disabled` vindo do servidor junto com `wire:loading.attr="disabled"`: o Livewire
+        guarda o estado do atributo quando o upload começa e o restaura ao terminar, por cima da re-renderização que já o
+        tinha habilitado (o botão ficava preso em "desabilitado" após escolher vários arquivos). O estado fica só no Alpine:
+        `hasFiles` acompanha a propriedade `files` pelo `$wire.$watch`, e `uploading` acompanha os eventos de upload.
+        Arrastar e soltar chama `$wire.uploadMultiple` diretamente (sem simular o `change` do input), e acrescenta à seleção.
+    --}}
+    <form class="max-w-2xl" wire:submit="ingest"
+        x-data="{
+            uploading: false, progress: 0, dragging: false, hasFiles: {{ $files === [] ? 'false' : 'true' }}, rejected: [],
+            start() { this.uploading = true; this.progress = 0; },
+            stop(done = false) { this.uploading = false; this.progress = done ? 100 : this.progress; },
+            drop(event) {
+                this.dragging = false;
+                const files = Array.from(event.dataTransfer?.files ?? []);
+                const pdfs = files.filter(file => file.type === 'application/pdf' || /\.pdf$/i.test(file.name));
+                this.rejected = files.filter(file => ! pdfs.includes(file)).map(file => file.name);
+                if (pdfs.length === 0) { return; }
+                this.start();
+                $wire.uploadMultiple('files', pdfs,
+                    () => this.stop(true),
+                    () => this.stop(),
+                    (event) => { if (event.lengthComputable) { this.progress = Math.round(event.loaded * 100 / event.total); } },
+                    () => this.stop());
+            },
+        }"
+        x-init="$wire.$watch('files', value => hasFiles = Array.isArray(value) && value.length > 0)"
+        x-on:livewire-upload-start="start()" x-on:livewire-upload-finish="stop(true)" x-on:livewire-upload-error="stop()" x-on:livewire-upload-cancel="stop()" x-on:livewire-upload-progress="progress = $event.detail.progress">
         <x-knowledge-admin.section title="Novo envio">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <x-knowledge-admin.select label="Origem dos documentos" required wire:model="sourceId" hint="Instituição ou base de onde os documentos foram obtidos." wrapper-class="flex-1">
@@ -16,14 +43,15 @@
                 <x-knowledge-admin.button variant="secondary" wire:click="openSourceModal">+ Nova origem</x-knowledge-admin.button>
             </div>
 
-            <label class="grid min-h-32 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/40 px-4 py-4 text-center transition hover:border-brand-600 hover:bg-brand-50 focus-within:ring-2 focus-within:ring-brand-600" x-bind:class="dragging ? 'border-brand-600 bg-brand-50' : ''" x-on:dragover.prevent="dragging = true" x-on:dragleave.prevent="dragging = false" x-on:drop.prevent="dragging = false; $refs.files.files = $event.dataTransfer.files; $refs.files.dispatchEvent(new Event('change'))">
+            <label class="grid min-h-32 cursor-pointer place-items-center rounded-xl border-2 border-dashed border-brand-200 bg-brand-50/40 px-4 py-4 text-center transition hover:border-brand-600 hover:bg-brand-50 focus-within:ring-2 focus-within:ring-brand-600" x-bind:class="dragging ? 'border-brand-600 bg-brand-50' : ''" x-on:dragenter.prevent="dragging = true" x-on:dragover.prevent="dragging = true" x-on:dragleave.prevent="dragging = false" x-on:drop.prevent.stop="drop($event)" data-dropzone>
                 <span>
                     <svg class="mx-auto size-8 text-brand-600 stroke-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z" /></svg>
-                    <span class="mt-1 block text-sm font-semibold text-slate-900">Arraste os PDFs aqui ou clique para escolher</span>
+                    <span class="mt-1 block text-sm font-semibold text-slate-900" x-text="hasFiles ? 'Arraste mais PDFs aqui ou clique para acrescentar' : 'Arraste os PDFs aqui ou clique para escolher'">Arraste os PDFs aqui ou clique para escolher</span>
                     <span class="mt-0.5 block text-xs text-slate-500">Vários arquivos de uma vez · até {{ $maxBatchMegabytes }} MB no total</span>
                 </span>
-                <input class="sr-only" type="file" accept="application/pdf,.pdf" multiple wire:model="files" x-ref="files">
+                <input class="sr-only" type="file" accept="application/pdf,.pdf" multiple wire:model="files">
             </label>
+            <p x-show="rejected.length > 0" x-cloak class="text-sm text-amber-800" aria-live="polite">Só PDFs são aceitos. Ignorado: <span x-text="rejected.join(', ')"></span></p>
             @error('files')<span class="text-sm text-rose-700">{{ $message }}</span>@enderror
             @error('files.*')<span class="text-sm text-rose-700">{{ $message }}</span>@enderror
 
@@ -55,7 +83,7 @@
             @endif
 
             <div class="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4">
-                <x-knowledge-admin.button type="submit" loading-target="ingest,files" loading="Enviando…" :disabled="$files === []">Enviar {{ count($files) > 0 ? count($files).' '.(count($files) === 1 ? 'arquivo' : 'arquivos') : 'arquivos' }}</x-knowledge-admin.button>
+                <x-knowledge-admin.button type="submit" loading-target="ingest" loading="Enviando…" x-bind:disabled="uploading || ! hasFiles" data-testid="upload-submit">Enviar {{ count($files) > 0 ? count($files).' '.(count($files) === 1 ? 'arquivo' : 'arquivos') : 'arquivos' }}</x-knowledge-admin.button>
                 <p class="text-sm text-slate-500">Depois do envio, acompanhe em Importações; arquivos não reconhecidos aparecem em Pendências.</p>
             </div>
         </x-knowledge-admin.section>

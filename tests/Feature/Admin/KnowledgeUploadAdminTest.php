@@ -171,6 +171,31 @@ class KnowledgeUploadAdminTest extends TestCase
     /**
      * @return list<string>
      */
+    public function test_submit_button_state_lives_in_alpine_and_the_dropzone_uploads_through_livewire(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $button = fn (string $html): string => preg_match('/<button[^>]*data-testid="upload-submit"[^>]*>/', $html, $match) === 1 ? $match[0] : '';
+
+        $empty = Livewire::actingAs($admin)->test(Upload::class);
+        $html = $empty->html();
+        // O servidor nunca desabilita o botão: com `wire:loading.attr="disabled"`, o Livewire restauraria o atributo ao fim do upload.
+        $this->assertDoesNotMatchRegularExpression('/\sdisabled(?:=|\s|>)/', $button($html));
+        $this->assertStringContainsString('x-bind:disabled="uploading || ! hasFiles"', $button($html));
+        $this->assertStringContainsString('wire:target="ingest"', $button($html));
+        $this->assertStringNotContainsString('wire:target="ingest,files"', $html);
+        $this->assertStringContainsString('hasFiles: false', $html);
+        $this->assertStringContainsString("\$wire.uploadMultiple('files', pdfs", $html);
+        $this->assertStringContainsString('x-on:drop.prevent.stop="drop($event)"', $html);
+        $this->assertStringContainsString('x-on:dragenter.prevent', $html);
+        $this->assertStringContainsString("\$wire.\$watch('files'", $html);
+
+        $withFiles = $empty->set('files', [$this->pdf('dipirona.pdf', 'a'), $this->pdf('paracetamol.pdf', 'b')]);
+        $html = $withFiles->html();
+        $this->assertDoesNotMatchRegularExpression('/\sdisabled(?:=|\s|>)/', $button($html));
+        $this->assertStringContainsString('Enviar 2 arquivos', $html);
+        $this->assertStringContainsString('hasFiles: true', $html);
+    }
+
     private function selectedFilenames(Testable $component): array
     {
         return array_map(fn (TemporaryUploadedFile $file): string => $file->getClientOriginalName(), $component->get('files'));
