@@ -35,7 +35,7 @@
             @else
                 <a class="inline-flex size-14 shrink-0 items-center justify-center rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.inicio') }}" wire:navigate aria-label="BULA-IA — início"><img class="size-10" src="/brand/bulai-icone-app.svg" alt="" width="40" height="40"></a>
             @endif
-            <h1 class="min-w-0 flex-1 truncate text-2xl font-semibold leading-tight text-brand-900 sm:text-3xl">{{ $title ?? 'BULA-IA' }}</h1>
+            <h1 class="line-clamp-2 min-w-0 flex-1 break-words text-2xl font-semibold leading-tight text-brand-900 sm:text-3xl">{{ $title ?? 'BULA-IA' }}</h1>
             <nav class="hidden items-center gap-1 sm:flex" aria-label="Principal">
                 @foreach ($items as $item)
                     <a href="{{ route($item['route']) }}" wire:navigate @if ($active($item)) aria-current="page" @endif class="relative min-h-12 rounded-lg px-3 py-2 font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 {{ $active($item) ? 'bg-brand-50 text-brand-900 after:absolute after:inset-x-3 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-accent-500' : 'text-slate-700 hover:bg-brand-50 hover:text-brand-900' }}">{{ $item['label'] }}</a>
@@ -64,7 +64,7 @@
 
     <x-consulta.toast />
 
-    <main id="conteudo" class="mx-auto grid min-w-0 max-w-3xl gap-4 px-4 py-4 {{ isset($sticky) ? 'pb-32 sm:pb-6' : '' }}">
+    <main id="conteudo" class="mx-auto grid min-w-0 max-w-3xl gap-4 px-3 py-4 sm:px-4 {{ isset($sticky) ? 'pb-28 sm:pb-6' : '' }}">
         @if (session('accountFeedback'))<x-knowledge-admin.alert tone="success">{{ session('accountFeedback') }}</x-knowledge-admin.alert>@endif
         {{-- Aviso completo na primeira abertura; depois fica em "Saiba mais". --}}
         <section x-cloak x-show="aviso" class="grid gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900" aria-labelledby="aviso-titulo">
@@ -78,7 +78,7 @@
 
     @isset($sticky)
         {{-- Ação principal da tela, sempre ao alcance do polegar (acima da barra inferior no celular). --}}
-        <div class="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-20 border-t border-brand-100 bg-white/95 px-4 py-2 backdrop-blur sm:bottom-0 sm:border-t-0 sm:bg-transparent sm:py-3">
+        <div class="fixed inset-x-0 bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))] z-20 border-t border-brand-100 bg-white/95 px-3 py-1.5 backdrop-blur sm:bottom-0 sm:border-t-0 sm:bg-transparent sm:py-3">
             <div class="mx-auto max-w-3xl">{{ $sticky }}</div>
         </div>
     @endisset
