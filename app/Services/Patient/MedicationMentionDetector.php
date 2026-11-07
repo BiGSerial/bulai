@@ -138,7 +138,30 @@ final class MedicationMentionDetector
             }
         }
 
-        return array_values($mentions);
+        return $this->collapseSameName(array_values($mentions));
+    }
+
+    /**
+     * O mesmo remédio não aparece duas vezes: registros do catálogo com o mesmo nome comercial (ex.: três "DIPIRONA" com
+     * textos de princípio ativo diferentes) viram uma só menção, a primeira (a escolhida ou a mais bem posicionada).
+     *
+     * @param  list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>  $mentions
+     * @return list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>
+     */
+    private function collapseSameName(array $mentions): array
+    {
+        $seen = [];
+        $unique = [];
+        foreach ($mentions as $mention) {
+            $name = $this->normalizer->text($mention['name']);
+            if (isset($seen[$name])) {
+                continue;
+            }
+            $seen[$name] = true;
+            $unique[] = $mention;
+        }
+
+        return $unique;
     }
 
     /**

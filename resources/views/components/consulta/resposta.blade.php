@@ -8,7 +8,8 @@
     $usouTratamento = collect($evidencias)->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']));
     $usouConversa = (bool) ($resposta['generation']['conversation_context'] ?? false);
     $texto = match ($status) {
-        Q::ANSWERED => $resposta['answer'],
+        Q::ANSWERED, Q::NEEDS_INFO => $resposta['answer'],
+        Q::UNAVAILABLE => 'Não consegui consultar o assistente nessa hora.',
         Q::EXCERPTS_ONLY => 'Não consegui montar uma resposta curta com segurança, mas achei na bula estas partes que falam disso. Na dúvida, pergunte ao seu farmacêutico.',
         Q::NOT_IDENTIFIED => 'Conheço o remédio, mas ainda não tenho a bula dele comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico. A equipe foi avisada para buscar a bula.',
         Q::NO_LEAFLET => 'Ainda não tenho a bula deste remédio comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico. A equipe foi avisada para buscar a bula.',
@@ -20,7 +21,7 @@
     @if ($mostrarPergunta && ! empty($resposta['pergunta']))<p class="text-base italic text-slate-600">“{{ $resposta['pergunta'] }}”</p>@endif
 
     {{-- 1. A resposta em letras grandes vem primeiro. --}}
-    <p class="text-xl leading-relaxed text-slate-900 sm:text-2xl" x-ref="texto">{{ $texto }}</p>
+    <p class="whitespace-pre-line text-xl leading-relaxed text-slate-900 sm:text-2xl" x-ref="texto">{{ $texto }}</p>
 
     {{-- 2. Ouvir (só se o navegador souber falar). --}}
     <button type="button" x-cloak x-show="podeOuvir" class="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border-2 border-brand-700 bg-white px-4 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40"
@@ -29,7 +30,7 @@
         <span x-text="falando ? 'Parar de ouvir' : 'Ouvir a resposta'">Ouvir a resposta</span>
     </button>
 
-    @if ($status === Q::ANSWERED)
+    @if (in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true))
         <p class="text-base text-slate-700">Li isso na bula oficial.@if ($usouTratamento) Também olhei os remédios e as alergias do seu perfil.@endif @if ($usouConversa) Leva em conta o que você perguntou antes nesta conversa.@endif</p>
     @endif
 

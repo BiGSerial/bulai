@@ -222,7 +222,7 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que café não altera a absorção.', 'evidence_ids' => ['E1']]]]);
         $component->set('pergunta', 'e com café?')->call('perguntar')
             ->assertSee('Perguntas anteriores (1)')->assertSee('omeprazol em jejum?')->assertSee('A bula diz que café não altera a absorção.')
-            ->assertSee('Leva em conta o que você perguntou antes')->assertSee('Falando de:')->assertSee('Li isso na bula do paciente de OMEPRAZOL, parte “INTERAÇÕES”, página 3.');
+            ->assertSee('Leva em conta o que você perguntou antes')->assertSee('Falando de:')->assertSee('Baseado na bula do paciente de OMEPRAZOL.');
 
         $this->assertStringContainsString(MedicationQuestionService::CONVERSATION_LABEL, (string) $this->lastPrompt);
         $this->assertStringContainsString('Paciente perguntou: "omeprazol em jejum?" Resposta dada: "A bula diz que deve ser tomado pela manhã, em jejum."', (string) $this->lastPrompt);
@@ -279,9 +279,9 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = 'não é json';
 
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol e sembula de manhã?')->call('perguntar')
-            ->assertSee('Ainda não tenho a bula de SEMBULA comigo.')->assertSee('Pode ser tomado pela manhã.')
+            ->assertSee('Procurei na bula inteira de OMEPRAZOL')->assertDontSee('Pode ser tomado pela manhã.', 'saída inválida nunca mostra o trecho bruto')
             ->assertDontSee('Limitações')->assertDontSee('Ainda não há bula cadastrada');
-        $this->assertSame(MedicationQuestionService::EXCERPTS_ONLY, MedicationQuestion::query()->sole()->status);
+        $this->assertSame(MedicationQuestionService::NO_EVIDENCE, MedicationQuestion::query()->sole()->status);
     }
 
     /** @return list<string> palavras de relatório técnico que nunca devem aparecer no chat */
@@ -296,7 +296,7 @@ final class PerguntaLivreTest extends TestCase
         return $component;
     }
 
-    public function test_when_the_answer_cannot_be_summarized_the_chat_shows_short_leaflet_parts_and_suggests_other_questions(): void
+    public function test_when_the_answer_cannot_be_generated_the_chat_never_falls_back_to_raw_leaflet_parts(): void
     {
         $user = User::factory()->create();
         $medicine = $this->medicine('OMEPRAZOL', 'OMEPRAZOL');
@@ -304,12 +304,11 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = 'não é json';
 
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol antes do café da manhã?')->call('perguntar')
-            ->assertSee('Não consegui montar uma resposta curta com segurança, mas achei na bula de OMEPRAZOL estas partes que falam disso:')
-            ->assertSee('Deve ser tomado pela manhã, antes do café.')->assertSee('…')
-            ->assertSee('Quer que eu procure de outro jeito?')->assertSee('OMEPRAZOL dá sono?')->assertSee('Como devo tomar OMEPRAZOL?')->assertSee('OMEPRAZOL pode ser tomado com comida?')
-            ->assertDontSee('Quais os efeitos mais comuns de OMEPRAZOL?', 'no máximo 3 sugestões')->assertSee('Falando de:')->assertSee('BULA-IA');
+            ->assertDontSee('Não consegui montar uma resposta curta')->assertDontSee('Deve ser tomado pela manhã, antes do café.')->assertDontSee('estas partes que falam disso')
+            ->assertSee('Procurei na bula inteira de OMEPRAZOL')->assertSee('Prefiro não completar a resposta com suposições.')->assertSee('Como devo tomar OMEPRAZOL?')
+            ->assertSee('Falando de:')->assertSee('BULA-IA');
         $this->semJargao($component);
-        $this->assertSame(MedicationQuestionService::EXCERPTS_ONLY, MedicationQuestion::query()->sole()->status);
+        $this->assertSame(MedicationQuestionService::NO_EVIDENCE, MedicationQuestion::query()->sole()->status);
 
         $component->call('sugerir', 'OMEPRAZOL dá sono?');
         $this->assertSame('OMEPRAZOL dá sono?', $component->get('pergunta'));
@@ -355,11 +354,11 @@ final class PerguntaLivreTest extends TestCase
     {
         $base = ['medicines' => [['id' => 1, 'name' => 'LOSARTANA']], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'evidences' => [], 'generation' => [], 'pergunta' => 'losartana dá sono?'];
 
-        $this->assertSame([null, 'A bula diz que sim.', 'Li isso na bula de LOSARTANA.'], array_values(array_slice(Perguntar::fala(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'A bula diz que sim.'] + $base), 0, 3)));
+        $this->assertSame([null, null, 'A bula diz que sim.', 'Baseado na bula de LOSARTANA.'], array_values(array_slice(Perguntar::fala(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'A bula diz que sim.'] + $base), 0, 4)));
         $comFonte = ['evidences' => [['document_type' => 'bula_paciente', 'section' => 'Reações adversas', 'page_start' => 12, 'excerpt' => 'x', 'chunk_id' => 5, 'supports_claims' => [0]]], 'intent' => ['efeitos_colaterais'], 'retrieval' => ['leaflet_fallback' => ['document_id' => 1]]] + $base;
         $fala = Perguntar::fala(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'Pode dar tontura.'] + $comFonte);
-        $this->assertSame('Encontrei na bula de LOSARTANA a parte sobre efeitos colaterais mais comuns. Os efeitos relatados podem variar de pessoa para pessoa; resumo abaixo os que a bula traz e deixo o trecho como referência.', $fala['intro']);
-        $this->assertSame('Li isso na bula do paciente de LOSARTANA, parte “Reações adversas”, página 12.', $fala['fonte']);
+        $this->assertNull($fala['intro'], 'a resposta já é uma conversa; a tela não acrescenta abertura');
+        $this->assertSame('Baseado na bula do paciente de LOSARTANA.', $fala['fonte']);
         $this->assertSame('Conheço o LOSARTANA, mas ainda não tenho a bula dele comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa. Se não era esse, toque em “Não é esse remédio?”. Registrei sua pergunta para a equipe buscar mais fontes.', Perguntar::fala(['status' => MedicationQuestionService::NOT_IDENTIFIED, 'missing' => ['unidentified' => ['LOSARTANA'], 'without_leaflet' => []]] + $base)['texto']);
         $this->assertSame(['Como devo tomar LOSARTANA?', 'LOSARTANA pode ser tomado com comida?', 'Quais os efeitos mais comuns de LOSARTANA?'], Perguntar::reformulacoes(['LOSARTANA'], 'Losartana dá sono'));
         $this->assertSame('LOSARTANA, OMEPRAZOL e MAREVAN', Perguntar::listar(['LOSARTANA', 'OMEPRAZOL', 'MAREVAN']));
