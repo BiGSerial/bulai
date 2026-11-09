@@ -7,6 +7,7 @@ use App\Models\Consultation\InteractionConsultation;
 use App\Models\Consultation\InteractionPairResult;
 use App\Models\Consultation\MedicationQuestion;
 use App\Models\Consultation\MedicineLeafletSummary;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Query\Builder;
@@ -29,6 +30,7 @@ final class AnalyticsService
      *   questions: array{total: int, by_status: array<string, int>, distinct_users: int, duration: array{avg: float|null, p50: float|null, p95: float|null}, grounding: array{accepted: int, rejected: int, rate: float|null}, rejection_reasons: array<string, int>, with_treatment_context: int, with_treatment_interaction: int},
      *   leaflets: array{total: int, by_status: array<string, int>, views: int, cache_hits: int, duration: array{avg: float|null, p50: float|null, p95: float|null}, grounding: array{accepted: int, rejected: int, rate: float|null}},
      *   ai: array{calls: int, succeeded: int, failed: int, input_tokens: int, output_tokens: int, estimated_cost_usd: float, latency_avg_ms: float|null, latency_p95_ms: float|null, by_model: list<array{provider: string, model: string|null, capability: string|null, calls: int, input_tokens: int, output_tokens: int, estimated_cost_usd: float, latency_avg_ms: float|null}>, failures_by_error: array<string, int>, daily: list<array{day: string, calls: int, failed: int, input_tokens: int, output_tokens: int, estimated_cost_usd: float}>}
+     *   timeline: array{days: list<string>, consultations: list<int>, questions: list<int>, leaflets: list<int>}
      * }
      */
     public function overview(?CarbonInterface $from = null, ?CarbonInterface $to = null): array
@@ -40,7 +42,36 @@ final class AnalyticsService
             'questions' => $this->questions($from, $to),
             'leaflets' => $this->leaflets($from, $to),
             'ai' => $this->aiUsage($from, $to),
+            'timeline' => $this->timeline($from, $to),
         ];
+    }
+
+    /**
+     * Volume diário de consultas, perguntas e bulas humanizadas, com dias sem atividade preenchidos com zero.
+     * Sem `$from` (todo o período) a série cobre os últimos 90 dias, para o gráfico continuar legível.
+     *
+     * @return array{days: list<string>, consultations: list<int>, questions: list<int>, leaflets: list<int>}
+     */
+    public function timeline(?CarbonInterface $from = null, ?CarbonInterface $to = null): array
+    {
+        $start = CarbonImmutable::instance($from ?? now()->subDays(89))->startOfDay();
+        $end = CarbonImmutable::instance($to ?? now())->startOfDay();
+        $perDay = fn (string $table): array => $this->period(DB::table($table), $start, $to)
+            ->selectRaw("to_char(created_at, 'YYYY-MM-DD') as day, count(*) as total")->groupBy('day')->pluck('total', 'day')->map(fn ($total): int => (int) $total)->all();
+        $consultations = $perDay('interaction_consultations');
+        $questions = $perDay('medication_questions');
+        $leaflets = $perDay('medicine_leaflet_summaries');
+
+        $series = ['days' => [], 'consultations' => [], 'questions' => [], 'leaflets' => []];
+        for ($day = $start; $day->lessThanOrEqualTo($end); $day = $day->addDay()) {
+            $key = $day->format('Y-m-d');
+            $series['days'][] = $key;
+            $series['consultations'][] = $consultations[$key] ?? 0;
+            $series['questions'][] = $questions[$key] ?? 0;
+            $series['leaflets'][] = $leaflets[$key] ?? 0;
+        }
+
+        return $series;
     }
 
     /**

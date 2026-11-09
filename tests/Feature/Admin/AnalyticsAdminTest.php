@@ -100,6 +100,33 @@ final class AnalyticsAdminTest extends TestCase
         $this->assertSame(2, app(AnalyticsService::class)->overview(now()->subDays(30))['consultations']['total']);
     }
 
+    public function test_timeline_fills_days_without_activity_with_zero(): void
+    {
+        InteractionConsultationFactory::new()->create(['created_at' => now()->subDays(2)]);
+        InteractionConsultationFactory::new()->create(['created_at' => now()->subDays(2)]);
+        MedicationQuestionFactory::new()->create(['created_at' => now()]);
+
+        $timeline = app(AnalyticsService::class)->timeline(now()->subDays(3));
+
+        $this->assertCount(4, $timeline['days']);
+        $this->assertSame([0, 2, 0, 0], $timeline['consultations']);
+        $this->assertSame([0, 0, 0, 1], $timeline['questions']);
+        $this->assertSame([0, 0, 0, 0], $timeline['leaflets']);
+        $this->assertCount(90, app(AnalyticsService::class)->timeline()['days']);
+    }
+
+    public function test_dashboard_renders_charts_with_accessible_data_and_aligned_table_columns(): void
+    {
+        $this->seedActivity();
+
+        Livewire::actingAs(User::factory()->admin()->create())->test(Dashboard::class)
+            ->assertSeeHtml('x-data="bulaiChart(')
+            ->assertSeeHtml('aria-label="Atividade diária"')
+            ->assertSeeHtml('aria-label="Vereditos"')
+            ->assertSeeHtml('[&amp;_td:nth-child(2)]:text-right')
+            ->assertDontSeeHtml('[&_td:last-child]:text-right');
+    }
+
     public function test_consultation_detail_shows_full_evidence_but_never_the_users_identity(): void
     {
         $patient = $this->seedActivity();

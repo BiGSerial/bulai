@@ -54,6 +54,15 @@ JSON: `generated_at`, `code_version`, `overview` (mesmo agregado do painel), `pa
 ## Componentes visuais
 `x-knowledge-admin.bars` (distribuição em barras, largura em 12 faixas por classe, sem CSS inline), `x-knowledge-admin.meter` (razão 0–1), `x-knowledge-admin.evidences` (lista completa de trechos com afirmações sustentadas) e `x-knowledge-admin.generation-facts` (status, modelo, tokens, afirmações, recuperação, tempos). Gravidade usa cores de estado sempre acompanhadas de texto.
 
+## Gráficos (Chart.js)
+A visão geral usa **Chart.js 4** + **chartjs-plugin-datalabels** (dependências `chart.js` e `chartjs-plugin-datalabels` no `package.json`).
+- `resources/js/charts.js`: componente Alpine `bulaiChart` (registrado em `alpine:init`, importado por `app.js`). O Chart.js é carregado por *import dinâmico* só quando há gráfico na página (chunk separado no build; o app do paciente não o baixa). Tipos: barras horizontais (`bar`), colunas (`column`, opcionalmente `stacked`), linha (`line`) e rosca (`doughnut`); rótulos de valor/percentual pelo datalabels; formatos `int`, `usd`, `ms`, `percent` em pt-BR; animação desligada com `prefers-reduced-motion`.
+- `resources/views/components/knowledge-admin/chart.blade.php` (`<x-knowledge-admin.chart>`): recebe `items`+`labels`+`tones` (uma série) ou `categories`+`series` (várias). Fica sob `wire:ignore` com `wire:key` derivado do hash dos dados, então o gráfico é recriado quando o período muda. Uma tabela `sr-only` espelha os números para leitores de tela; sem dados mostra a mensagem `empty`.
+- `AnalyticsService::timeline()` (também em `overview()['timeline']`): consultas, perguntas e bulas por dia, com zeros nos dias sem atividade.
+- Gráficos da página: atividade diária (linha), afirmações aceitas × rejeitadas (barras empilhadas), vereditos/status/modos (rosca), gravidade, motivos de rejeição e resultado das perguntas (barras), tempo por tipo de resposta e por etapa, custo/chamadas por dia, chamadas por modelo e tokens.
+
+**Alinhamento das tabelas:** `x-knowledge-admin.data-table` aplica a cada célula o alinhamento do cabeçalho da sua coluna (`'align' => 'right'` para números; coluna sem título = ações, à direita). Antes só a última célula ia à direita, deixando colunas numéricas do meio desalinhadas do cabeçalho.
+
 ## Fábricas de teste
 `database/factories/Consultation/{InteractionConsultation,InteractionPairResult,MedicationQuestion,MedicineLeafletSummary}Factory` — usar `XFactory::new()->create()` (os modelos não declaram `HasFactory`).
 
@@ -66,7 +75,7 @@ Cobrem: acesso só de admin (403), agregações (taxa de ancoragem, percentis, v
 ## Limitações
 - Agregações dependem de funções do PostgreSQL (`percentile_cont`, `jsonb_each_text`, `jsonb_array_elements`); não rodam em SQLite.
 - Custo é **estimado** pela tabela de preços configurada; não é a fatura do provedor.
-- A série diária de IA ignora o filtro de período (sempre 30 dias) e não há gráfico de linha: a tabela é a visualização.
+- Os gráficos de consumo de IA (custo e chamadas por dia) ignoram o filtro de período (sempre 30 dias); a tabela "Série diária" continua disponível. A atividade diária (consultas/perguntas/bulas) respeita o período e, em "Todo o período", mostra os últimos 90 dias.
 - O painel consulta o banco a cada renderização (sem cache); com volume grande, considerar materialização diária.
 - Perguntas e consultas são apagadas pela retenção (`consultations:purge-expired`); métricas históricas devem ser exportadas antes da purga.
 
