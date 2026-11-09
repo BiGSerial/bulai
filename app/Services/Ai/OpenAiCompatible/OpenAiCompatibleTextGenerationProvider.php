@@ -36,11 +36,8 @@ final class OpenAiCompatibleTextGenerationProvider implements TextGenerationProv
             throw $this->client->invalidResponse('generate', $model, $startedAt);
         }
 
-        $usage = new TokenUsage(
-            is_int($body['usage']['prompt_tokens'] ?? null) ? $body['usage']['prompt_tokens'] : null,
-            is_int($body['usage']['completion_tokens'] ?? null) ? $body['usage']['completion_tokens'] : null,
-        );
-        $this->client->logSuccess('generate', $model, $usage, $startedAt);
+        $usage = TokenUsage::fromOpenAi(is_array($body['usage'] ?? null) ? $body['usage'] : null);
+        $this->client->logSuccess('generate', $model, $usage, $startedAt, is_string($body['model'] ?? null) ? $body['model'] : null);
 
         return new TextGenerationResponse($content, is_string($body['model'] ?? null) ? $body['model'] : $model, $usage, [
             'provider' => $this->client->provider,

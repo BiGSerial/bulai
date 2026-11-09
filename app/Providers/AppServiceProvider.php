@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Notifications\Channels\DedupedDatabaseChannel;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\AiUsageAttribution;
 use App\Services\Ai\DocumentClassificationProvider;
 use App\Services\Ai\EmbeddingProvider;
 use App\Services\Ai\TextGenerationProvider;
@@ -22,6 +23,7 @@ use App\Services\Knowledge\PrinsFrankPdfTextExtractor;
 use App\Services\Mail\KingHostSmtpTransport;
 use App\Services\Queue\WorkerHeartbeat;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobFailed;
@@ -82,6 +84,14 @@ class AppServiceProvider extends ServiceProvider
             baseUrl: (string) config('services.kinghost_smtp.url'),
             timeoutSeconds: (int) config('services.kinghost_smtp.timeout'),
         ));
+
+        // Consumo de IA disparado por comando (avaliações, importações) fica com a origem artisan:<comando>. O worker e o
+        // agendador ficam de fora: cada job traz a origem de quem o despachou.
+        Event::listen(CommandStarting::class, function (CommandStarting $event): void {
+            if ($event->command !== null && ! Str::startsWith($event->command, ['queue:', 'schedule:'])) {
+                AiUsageAttribution::remember(null, 'artisan:'.$event->command);
+            }
+        });
 
         Event::listen(Looping::class, fn () => app(WorkerHeartbeat::class)->beat());
         Event::listen(JobProcessing::class, fn () => app(WorkerHeartbeat::class)->beat(busy: true));

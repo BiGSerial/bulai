@@ -55,7 +55,8 @@ final class OpenAiCompatibleEmbeddingProvider implements EmbeddingProvider
             $embeddings[] = new EmbeddingResponse(array_map('floatval', array_values($vector)), $responseModel, null, $metadata);
         }
 
-        $this->client->logSuccess('embed', $responseModel, new TokenUsage($inputTokens, null), $startedAt);
+        // Embeddings não têm saída: 0 tokens de saída, para o custo da entrada poder ser estimado.
+        $this->client->logSuccess('embed', $model, new TokenUsage($inputTokens, 0, raw: is_array($body['usage'] ?? null) ? $body['usage'] : []), $startedAt, $responseModel);
 
         return new EmbeddingBatchResponse($embeddings, $responseModel, $inputTokens, $metadata);
     }

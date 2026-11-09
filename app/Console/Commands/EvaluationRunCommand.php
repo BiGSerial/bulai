@@ -17,10 +17,10 @@ use Illuminate\Console\Command;
 class EvaluationRunCommand extends Command
 {
     private const DEFAULT_DATASETS = [
-        'identification' => 'database/evaluation/identification.v1.json',
-        'interactions' => 'database/evaluation/interactions.v1.json',
-        'generation' => 'database/evaluation/interactions.v1.json',
-        'baseline' => 'database/evaluation/interactions.v1.json',
+        'identification' => 'database/evaluation/identification.v2.json',
+        'interactions' => 'database/evaluation/interactions.v2.json',
+        'generation' => 'database/evaluation/interactions.v2.json',
+        'baseline' => 'database/evaluation/interactions.v2.json',
         'retrieval' => 'database/evaluation/retrieval.v1.json',
     ];
 

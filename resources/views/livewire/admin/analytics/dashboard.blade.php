@@ -15,7 +15,7 @@
     $rejectionLabels = ['not_grounded_in_cited_evidence' => 'Não ancorada na evidência citada', 'forbidden_recommendation' => 'Recomendação proibida', 'unknown_evidence_reference' => 'Evidência citada inexistente', 'no_evidence_reference' => 'Sem citação de evidência', 'invalid_length' => 'Tamanho inválido', 'malformed_claim' => 'Afirmação malformada', 'no_verifiable_terms' => 'Sem termos verificáveis'];
     $questionLabels = ['answered' => 'Respondida', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado'];
     $leafletLabels = ['generated' => 'Gerada', 'partial' => 'Parcial', 'invalid' => 'Rejeitada na validação', 'unavailable' => 'Indisponível'];
-    $abas = [['key' => 'visao', 'label' => 'Visão geral', 'href' => route('admin.analytics.index')], ['key' => 'consultas', 'label' => 'Consultas', 'href' => route('admin.analytics.consultations.index')], ['key' => 'perguntas', 'label' => 'Perguntas', 'href' => route('admin.analytics.questions.index')], ['key' => 'bulas', 'label' => 'Bulas humanizadas', 'href' => route('admin.analytics.leaflets.index')]];
+    $abas = [['key' => 'visao', 'label' => 'Visão geral', 'href' => route('admin.analytics.index')], ['key' => 'consultas', 'label' => 'Consultas', 'href' => route('admin.analytics.consultations.index')], ['key' => 'perguntas', 'label' => 'Perguntas', 'href' => route('admin.analytics.questions.index')], ['key' => 'bulas', 'label' => 'Bulas humanizadas', 'href' => route('admin.analytics.leaflets.index')], ['key' => 'consumo', 'label' => 'Consumo de IA', 'href' => route('admin.analytics.ai-usage.index')]];
 @endphp
     <x-slot:actions>
         <x-knowledge-admin.button variant="secondary" :href="route('admin.reports.index')">Gerar relatório</x-knowledge-admin.button>
@@ -107,7 +107,7 @@
                     </x-knowledge-admin.data-table>
                 @endif
             </x-knowledge-admin.ops-disclosure>
-            <p class="text-xs text-slate-500">Só métricas técnicas: nunca prompts, respostas ou dados do usuário. Exportação para o TCC: <code class="rounded bg-slate-100 px-1">php artisan analytics:export</code> ou a tela Relatórios.</p>
+            <p class="text-xs text-slate-500">Só métricas técnicas: nunca prompts ou respostas. Consumo por usuário e por provedor, com o uso informado por cada API: <a class="text-brand-700 underline" href="{{ route('admin.analytics.ai-usage.index') }}" wire:navigate>Consumo de IA</a>. Exportação para o TCC: <code class="rounded bg-slate-100 px-1">php artisan analytics:export</code> ou a tela Relatórios.</p>
         </x-knowledge-admin.section>
     </div>
 </x-knowledge-admin.shell>

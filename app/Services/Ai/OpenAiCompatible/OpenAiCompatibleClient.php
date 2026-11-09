@@ -2,26 +2,47 @@
 
 namespace App\Services\Ai\OpenAiCompatible;
 
+use App\Data\Ai\AiUsageRecord;
 use App\Data\Ai\TokenUsage;
+use App\Models\AiUsageLog;
+use App\Services\Ai\AiCostEstimator;
 use App\Services\Ai\AiProviderException;
+use App\Services\Ai\AiUsageRecorder;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Transporte HTTP para APIs no padrão OpenAI (OpenAI, gateways, Ollama, vLLM, llama.cpp...).
  * Nada do JSON do fornecedor sai desta camada: os providers o convertem em DTOs.
+ *
+ * Cada chamada vai para ai_usage_logs com o nome do provedor de fato (usageProvider(): `openai` quando a URL é a da
+ * OpenAI, ou o rótulo de `provider` na configuração), o `usage` original e o custo pela tabela `pricing` do driver.
  */
 final class OpenAiCompatibleClient
 {
-    /** @param array<string, mixed> $config base_url, api_key, model, timeout, retries */
+    /** @param array<string, mixed> $config base_url, api_key, model, timeout, retries, provider, pricing */
     public function __construct(
         public readonly string $provider,
         public readonly string $capability,
         private readonly array $config,
+        private readonly ?AiUsageRecorder $recorder = null,
     ) {}
+
+    /** Nome do provedor nos registros de consumo: o rótulo configurado, `openai` pela URL oficial ou o nome do driver. */
+    public function usageProvider(): string
+    {
+        if (filled($this->config['provider'] ?? null)) {
+            return mb_substr((string) $this->config['provider'], 0, 40);
+        }
+
+        $host = parse_url((string) ($this->config['base_url'] ?? ''), PHP_URL_HOST);
+
+        return is_string($host) && ($host === 'api.openai.com' || str_ends_with($host, '.openai.azure.com')) ? 'openai' : $this->provider;
+    }
 
     public function defaultModel(): ?string
     {
@@ -76,8 +97,15 @@ final class OpenAiCompatibleClient
     }
 
     /** Registra métricas sem conteúdo de prompts/respostas nem credenciais. */
-    public function logSuccess(string $operation, string $model, ?TokenUsage $usage, int $startedAt): void
+    public function logSuccess(string $operation, string $model, ?TokenUsage $usage, int $startedAt, ?string $responseModel = null): void
     {
+        $pricing = (array) ($this->config['pricing'] ?? []);
+        $cost = AiCostEstimator::estimate($pricing, $model, $usage);
+        $this->persist(new AiUsageRecord(
+            $this->usageProvider(), $model, null, $this->capability, $usage?->inputTokens, $usage?->outputTokens, $this->elapsedMs($startedAt),
+            AiUsageLog::STATUS_SUCCESS, null, 200, null, $cost, $cost === null ? null : AiCostEstimator::reference($pricing), $usage, $responseModel,
+        ));
+
         Log::info('ai_request_completed', [
             'provider' => $this->provider,
             'capability' => $this->capability,
@@ -86,6 +114,7 @@ final class OpenAiCompatibleClient
             'latency_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
             'input_tokens' => $usage?->inputTokens,
             'output_tokens' => $usage?->outputTokens,
+            'estimated_cost_usd' => $cost,
             'success' => true,
         ]);
     }
@@ -115,7 +144,7 @@ final class OpenAiCompatibleClient
         return $request->retry(
             $retries + 1,
             (int) config('ai.retry_sleep_ms'),
-            fn (\Throwable $exception): bool => $exception instanceof ConnectionException
+            fn (Throwable $exception): bool => $exception instanceof ConnectionException
                 ? ! str_contains($exception->getMessage(), 'cURL error 28')
                 : ($exception->response ?? null) === null || $exception->response->status() === 429 || $exception->response->serverError(),
             throw: false,
@@ -124,6 +153,10 @@ final class OpenAiCompatibleClient
 
     private function fail(string $code, string $correlationId, string $operation, string $model, int $startedAt, ?int $status = null): AiProviderException
     {
+        $this->persist(new AiUsageRecord(
+            $this->usageProvider(), $model, null, $this->capability, null, null, $this->elapsedMs($startedAt), AiUsageLog::STATUS_FAILED, $code, $status,
+        ));
+
         Log::warning('ai_request_failed', [
             'provider' => $this->provider,
             'capability' => $this->capability,
@@ -137,5 +170,19 @@ final class OpenAiCompatibleClient
         ]);
 
         return new AiProviderException($code, $correlationId);
+    }
+
+    private function persist(AiUsageRecord $record): void
+    {
+        try {
+            $this->recorder?->record($record);
+        } catch (Throwable) {
+            // Métrica nunca derruba a chamada.
+        }
+    }
+
+    private function elapsedMs(int $startedAt): int
+    {
+        return (int) ((hrtime(true) - $startedAt) / 1_000_000);
     }
 }

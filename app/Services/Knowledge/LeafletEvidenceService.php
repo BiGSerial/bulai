@@ -99,6 +99,7 @@ final class LeafletEvidenceService
                     prompt: $this->prompt($document, $question, $topicLabel, $text),
                     system: $this->system(),
                     maxOutputTokens: (int) config('bulai.questions.leaflet_fallback.max_output_tokens'),
+                    effort: config('bulai.generation.effort'),
                     metadata: ['run_id' => $runId, 'purpose' => 'leaflet_evidence', 'document_id' => $document->id],
                 ));
             } catch (AiProviderException $exception) {

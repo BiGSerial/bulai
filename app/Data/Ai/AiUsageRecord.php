@@ -19,5 +19,7 @@ final readonly class AiUsageRecord
         public ?string $providerRequestId = null,
         public ?float $estimatedCostUsd = null,
         public ?string $pricingReference = null,
+        public ?TokenUsage $usage = null,
+        public ?string $responseModel = null,
     ) {}
 }

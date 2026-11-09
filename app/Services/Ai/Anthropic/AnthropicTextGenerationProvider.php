@@ -71,8 +71,7 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
             $requestId = $response->header('request-id') ?: null;
 
             $text = '';
-            $inputTokens = null;
-            $outputTokens = null;
+            $usage = [];
             $stopReason = null;
             $finished = false;
             $responseModel = $model;
@@ -81,7 +80,7 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
                 $data = $event['data'];
                 switch ($event['event']) {
                     case 'message_start':
-                        $inputTokens = is_int($data['message']['usage']['input_tokens'] ?? null) ? $data['message']['usage']['input_tokens'] : $inputTokens;
+                        $usage = is_array($data['message']['usage'] ?? null) ? $data['message']['usage'] : $usage;
                         $responseModel = is_string($data['message']['model'] ?? null) ? $data['message']['model'] : $responseModel;
                         break;
                     case 'content_block_delta':
@@ -93,7 +92,8 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
                         break;
                     case 'message_delta':
                         $stopReason = is_string($data['delta']['stop_reason'] ?? null) ? $data['delta']['stop_reason'] : $stopReason;
-                        $outputTokens = is_int($data['usage']['output_tokens'] ?? null) ? $data['usage']['output_tokens'] : $outputTokens;
+                        // O usage do message_delta é cumulativo e complementa (ou atualiza) o do message_start.
+                        $usage = is_array($data['usage'] ?? null) ? array_merge($usage, array_filter($data['usage'], fn (mixed $value): bool => $value !== null)) : $usage;
                         break;
                     case 'message_stop':
                         $finished = true;
@@ -116,7 +116,7 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
                 'content' => [['type' => 'text', 'text' => $text]],
                 'stop_reason' => $stopReason,
                 'model' => $responseModel,
-                'usage' => ['input_tokens' => $inputTokens, 'output_tokens' => $outputTokens],
+                'usage' => $usage,
             ], $model, $correlationId, $requestId);
         } catch (Throwable $throwable) {
             $exception = $throwable instanceof AiProviderException
@@ -160,7 +160,13 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
         }
 
         if ($request->system !== null && $request->system !== '') {
-            $payload['system'] = $request->system;
+            // System longo e estável vira prefixo em cache (o que varia fica na mensagem do usuário); curto demais não seria cacheado.
+            $payload['system'] = mb_strlen($request->system) >= (int) config('ai.text.drivers.anthropic.cache_system_min_characters')
+                ? [['type' => 'text', 'text' => $request->system, 'cache_control' => ['type' => 'ephemeral']]]
+                : $request->system;
+        }
+        if ($request->effort !== null) {
+            $payload['output_config'] = ['effort' => $request->effort];
         }
         $payload['messages'] = [['role' => 'user', 'content' => $request->prompt]];
         if ($stream) {
@@ -173,7 +179,7 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
     private function finish(TextGenerationResponse $result, string $model, ?string $runId, int $startedAt, ?string $requestId, string $correlationId): void
     {
         $usage = $result->usage ?? new TokenUsage(null, null);
-        $cost = $this->tracker->recordSuccess($model, $runId, $usage, $startedAt, $requestId);
+        $cost = $this->tracker->recordSuccess($model, $runId, $usage, $startedAt, $requestId, responseModel: $result->model);
 
         Log::info('ai_request_completed', [
             'provider' => 'anthropic',
@@ -182,6 +188,8 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
             'latency_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000),
             'input_tokens' => $usage->inputTokens,
             'output_tokens' => $usage->outputTokens,
+            'cache_read_tokens' => $usage->cacheReadTokens,
+            'cache_write_tokens' => $usage->cacheWriteTokens,
             'estimated_cost_usd' => $cost,
             'stop_reason' => $result->metadata['stop_reason'] ?? null,
             'provider_request_id' => $requestId,

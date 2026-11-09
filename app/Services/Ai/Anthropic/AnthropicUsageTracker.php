@@ -5,6 +5,7 @@ namespace App\Services\Ai\Anthropic;
 use App\Data\Ai\AiUsageRecord;
 use App\Data\Ai\TokenUsage;
 use App\Models\AiUsageLog;
+use App\Services\Ai\AiCostEstimator;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\AiUsageRecorder;
 use Throwable;
@@ -55,31 +56,24 @@ final class AnthropicUsageTracker
         return (int) ceil($characters / $charsPerToken);
     }
 
-    /** USD estimados a partir da tabela configurada; null quando o modelo, o preço ou o uso são desconhecidos. */
+    /** USD estimados a partir da tabela configurada (entrada, cache e saída); null quando falta preço ou uso. */
     public function estimateCost(string $model, ?TokenUsage $usage): ?float
     {
-        $prices = $this->config['pricing']['models'][$model] ?? null;
-        if ($usage === null || $usage->inputTokens === null || $usage->outputTokens === null
-            || ! is_array($prices) || ! is_numeric($prices['input'] ?? null) || ! is_numeric($prices['output'] ?? null)) {
-            return null;
-        }
-
-        return round(($usage->inputTokens * (float) $prices['input'] + $usage->outputTokens * (float) $prices['output']) / 1_000_000, 6);
+        return AiCostEstimator::estimate((array) ($this->config['pricing'] ?? []), $model, $usage);
     }
 
     public function pricingReference(): ?string
     {
-        $reference = $this->config['pricing']['reference'] ?? null;
-
-        return is_string($reference) ? $reference : null;
+        return AiCostEstimator::reference((array) ($this->config['pricing'] ?? []));
     }
 
-    public function recordSuccess(string $model, ?string $runId, ?TokenUsage $usage, int $startedAt, ?string $requestId, int $httpStatus = 200, string $capability = 'text'): ?float
+    public function recordSuccess(string $model, ?string $runId, ?TokenUsage $usage, int $startedAt, ?string $requestId, int $httpStatus = 200, string $capability = 'text', ?string $responseModel = null): ?float
     {
         $cost = $this->estimateCost($model, $usage);
         $this->persist(new AiUsageRecord(
             self::PROVIDER, $model, $runId, $capability, $usage?->inputTokens, $usage?->outputTokens, $this->elapsedMs($startedAt),
             AiUsageLog::STATUS_SUCCESS, null, $httpStatus, $requestId, $cost, $cost === null ? null : $this->pricingReference(),
+            $usage, $responseModel,
         ));
 
         return $cost;

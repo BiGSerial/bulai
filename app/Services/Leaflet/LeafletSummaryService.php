@@ -182,6 +182,7 @@ final class LeafletSummaryService
                 prompt: $this->prompt($medicine, $references, $suggested, $labels),
                 system: $this->system(),
                 maxOutputTokens: (int) config('bulai.leaflet.max_output_tokens'),
+                effort: config('bulai.generation.effort'),
                 metadata: ['run_id' => $runId, 'purpose' => 'humanized_leaflet'],
             ));
         } catch (AiProviderException $exception) {

@@ -8,19 +8,29 @@ use DateTimeInterface;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/** Grava em ai_usage_logs. Falha de persistência nunca derruba a geração de texto. */
+/**
+ * Grava em ai_usage_logs, com o usuário e a origem da chamada (AiUsageAttribution) e o `usage` original do provedor.
+ * Falha de persistência nunca derruba a geração de texto.
+ */
 final class EloquentAiUsageRecorder implements AiUsageRecorder
 {
     public function record(AiUsageRecord $record): void
     {
         try {
             AiUsageLog::query()->create([
+                'user_id' => AiUsageAttribution::userId(),
+                'origin' => AiUsageAttribution::origin(),
                 'provider' => $record->provider,
                 'model' => $record->model,
+                'response_model' => $record->responseModel !== null ? mb_substr($record->responseModel, 0, 120) : null,
                 'run_id' => $record->runId,
                 'capability' => $record->capability,
                 'input_tokens' => $record->inputTokens,
                 'output_tokens' => $record->outputTokens,
+                'cache_read_tokens' => $record->usage?->cacheReadTokens,
+                'cache_write_tokens' => $record->usage?->cacheWriteTokens,
+                'reasoning_tokens' => $record->usage?->reasoningTokens,
+                'provider_usage' => $record->usage?->raw !== [] ? $record->usage?->raw : null,
                 'latency_ms' => $record->latencyMs,
                 'status' => $record->status,
                 'error_code' => $record->errorCode,

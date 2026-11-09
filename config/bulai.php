@@ -92,7 +92,7 @@ return [
         'leaflet_fallback' => [
             'enabled' => (bool) env('BULAI_LEAFLET_FALLBACK_ENABLED', true),
             'max_characters' => (int) env('BULAI_LEAFLET_FALLBACK_MAX_CHARACTERS', 150_000),
-            'max_output_tokens' => (int) env('BULAI_LEAFLET_FALLBACK_MAX_OUTPUT_TOKENS', 1500),
+            'max_output_tokens' => (int) env('BULAI_LEAFLET_FALLBACK_MAX_OUTPUT_TOKENS', 4096),
             'min_confidence' => (float) env('BULAI_LEAFLET_FALLBACK_MIN_CONFIDENCE', 0.5),
         ],
     ],
@@ -110,7 +110,7 @@ return [
     'leaflet' => [
         // Bula humanizada: seções pedidas ao modelo e padrões de seção das bulas usados na recuperação de cada uma.
         'prompt_version' => 'humanized-leaflet-v1',
-        'max_output_tokens' => (int) env('BULAI_LEAFLET_MAX_OUTPUT_TOKENS', 1400),
+        'max_output_tokens' => (int) env('BULAI_LEAFLET_MAX_OUTPUT_TOKENS', 4096),
         'evidence_per_section' => (int) env('BULAI_LEAFLET_EVIDENCE_PER_SECTION', 3),
         // `keywords`: palavras da pergunta do paciente que pedem essa seção (QuestionIntentDetector; comparação normalizada).
         'sections' => [
@@ -143,7 +143,10 @@ return [
         'enabled' => (bool) env('BULAI_GENERATION_ENABLED', true),
         // v2 (07/11/2026): tom de conversa para pessoas idosas. v3: contrato por segmentos (fato citado, limite, pergunta) e cobertura.
         'prompt_version' => 'interaction-explanation-v3',
-        'max_output_tokens' => (int) env('BULAI_GENERATION_MAX_OUTPUT_TOKENS', 1400),
+        // Teto, não meta: o raciocínio do modelo conta dentro dele. Com 1.400 as respostas eram cortadas e geradas de novo (08/11/2026).
+        'max_output_tokens' => (int) env('BULAI_GENERATION_MAX_OUTPUT_TOKENS', 4096),
+        // Esforço de raciocínio nas respostas ao paciente: a tarefa é explicar trechos já recuperados, não deduzir.
+        'effort' => env('BULAI_GENERATION_EFFORT', 'low'),
     ],
     'code_version' => env('BULAI_CODE_VERSION'),
 ];

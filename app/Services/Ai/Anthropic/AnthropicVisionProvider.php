@@ -74,7 +74,7 @@ final class AnthropicVisionProvider implements VisionProvider
         }
 
         $usage = $mapped->usage ?? new TokenUsage(null, null);
-        $cost = $this->tracker->recordSuccess($model, $runId, $usage, $startedAt, $requestId, 200, 'vision');
+        $cost = $this->tracker->recordSuccess($model, $runId, $usage, $startedAt, $requestId, 200, 'vision', $mapped->model);
         Log::info('ai_request_completed', [
             'provider' => 'anthropic', 'capability' => 'vision', 'model' => $mapped->model, 'images' => count($request->images),
             'latency_ms' => (int) ((hrtime(true) - $startedAt) / 1_000_000), 'input_tokens' => $usage->inputTokens, 'output_tokens' => $usage->outputTokens,

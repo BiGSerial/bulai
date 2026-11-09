@@ -64,7 +64,7 @@ final class AnthropicDocumentClassificationProvider implements DocumentClassific
         $content = is_array($body) ? $this->text($body) : null;
         $responseModel = is_array($body) && is_string($body['model'] ?? null) ? mb_substr($body['model'], 0, 100) : $model;
         $usage = is_array($body)
-            ? new TokenUsage(is_int($body['usage']['input_tokens'] ?? null) ? $body['usage']['input_tokens'] : null, is_int($body['usage']['output_tokens'] ?? null) ? $body['usage']['output_tokens'] : null)
+            ? TokenUsage::fromAnthropic(is_array($body['usage'] ?? null) ? $body['usage'] : null)
             : null;
 
         try {
@@ -83,7 +83,7 @@ final class AnthropicDocumentClassificationProvider implements DocumentClassific
             throw $exception;
         }
 
-        $cost = $this->tracker->recordSuccess($model, null, $usage, $startedAt, $requestId, $response->status(), self::CAPABILITY);
+        $cost = $this->tracker->recordSuccess($model, null, $usage, $startedAt, $requestId, $response->status(), self::CAPABILITY, $responseModel);
         Log::info('ai_request_completed', [
             'provider' => AnthropicUsageTracker::PROVIDER,
             'capability' => self::CAPABILITY,

@@ -4,6 +4,9 @@ namespace Tests\Feature\Evaluation;
 
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\Knowledge\DrugInteraction;
+use App\Services\Ai\AiProviderManager;
+use App\Services\Ai\Fake\FakeTextGenerationProvider;
+use App\Services\Evaluation\BaselineEvaluator;
 use App\Services\Evaluation\DatasetBuilder;
 use App\Services\Evaluation\EvaluationRunRecorder;
 use App\Services\Evaluation\IdentificationEvaluator;
@@ -88,6 +91,22 @@ final class EvaluationPipelineTest extends TestCase
         $this->assertSame(0.5, $interactions['abstention']['rate']);
         $this->assertSame(1.0, $interactions['conservative_recall']);
         $this->assertSame([], $interactions['major_interactions_missed']);
+    }
+
+    public function test_baseline_leaves_room_for_reasoning_and_records_each_pair(): void
+    {
+        app(DatasetBuilder::class)->build($this->seedWorld(), $this->directory);
+        $provider = new FakeTextGenerationProvider('{"interaction": "yes", "severity": "major"}');
+        app(AiProviderManager::class)->extend('text', 'scripted', fn (): FakeTextGenerationProvider => $provider);
+        config(['ai.text.default' => 'scripted']);
+
+        $report = app(BaselineEvaluator::class)->run($this->directory.'/interactions.v1.json', $this->directory.'/identification.v1.json', null);
+
+        $this->assertGreaterThanOrEqual(1024, $provider->requests[0]->maxOutputTokens);
+        $this->assertCount($report['items'], $report['pairs']);
+        $this->assertSame(['tp' => 2, 'fp' => 4], array_count_values(array_column($report['pairs'], 'outcome')));
+        $marevanFluconazol = collect($report['pairs'])->firstWhere(fn (array $pair): bool => $pair['a_name'].'|'.$pair['b_name'] === 'MAREVAN|FLUCONAZOL');
+        $this->assertSame(['tp', 'major', 'major'], [$marevanFluconazol['outcome'], $marevanFluconazol['gold_severity'], $marevanFluconazol['predicted_severity']]);
     }
 
     public function test_retrieval_evaluator_reports_unavailable_embedding_modes_instead_of_inventing_results(): void

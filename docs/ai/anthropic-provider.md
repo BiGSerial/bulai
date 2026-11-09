@@ -72,3 +72,19 @@ Em produção, `app`/`worker` alcançam `api.anthropic.com` pela rede `egress` d
 
 ## Limitações
 Sem tool use, thinking, prompt caching nem contagem de tokens via API; validação real limitada a 4 chamadas (sem teste de carga, 429 ou streaming contra a API real); Haiku sem preço; limite de entrada é estimativa.
+
+## Velocidade: esforço, teto de saída e cache do system (08/11/2026)
+
+**Diagnóstico** (`ai_usage_logs` e `medication_questions`, 5 dias, 93 perguntas): Perguntar com mediana de 6,7 s e p90 de 25,9 s; a busca leva ~0,5 s e o resto é geração. Várias chamadas terminavam com 1.400–1.500 tokens de saída, que era o teto: o raciocínio adaptativo do Sonnet 5.5 (esforço padrão `high`) conta dentro de `max_tokens`, a resposta saía cortada (`truncated`), era rejeitada e gerada de novo (`attempts: 2`).
+
+**Mudanças**
+- `TextGenerationRequest::$effort` (`low`|`medium`|`high`|nulo) → `output_config.effort` no payload da Anthropic (o provider OpenAI-compatível ignora).
+- `bulai.generation.effort` (`BULAI_GENERATION_EFFORT`, padrão `low`), usado em `ExplanationGenerator` (explicação e Perguntar), `LeafletEvidenceService` e `LeafletSummaryService`. O baseline de avaliação continua sem esforço explícito, para não mudar o que ele mede.
+- Tetos de saída: `BULAI_GENERATION_MAX_OUTPUT_TOKENS` 1.400 → 4.096; `BULAI_LEAFLET_MAX_OUTPUT_TOKENS` 1.400 → 4.096; `BULAI_LEAFLET_FALLBACK_MAX_OUTPUT_TOKENS` 1.500 → 4.096. É teto, não meta: só custa o que for gerado.
+- System com `cache_control: ephemeral` quando tem pelo menos `ANTHROPIC_CACHE_SYSTEM_MIN_CHARACTERS` (1.500) caracteres (mínimo cacheável do Sonnet 5.5: 512 tokens). O que varia fica na mensagem do usuário.
+
+**Medição** (`evaluation:conversation`, ibuprofeno, 9 perguntas, mesmo roteiro): total 90,1 s → 68,5 s (−24%); mediana 6,7 → 6,0 s; pior caso 21,7 → 14,6 s; 1 tentativa em todas. Pontuação: relevância 9/9, ancoragem 9/9, clareza 8/8, naturalidade 8/8; segurança 8/9 — o caso "atrapalha o exame de vista?" declara o limite ("Não consegui confirmar pela bula… o oftalmologista ou o farmacêutico podem orientar"), mas a heurística só reconhece "não consigo" e "médico ou farmacêutico" (falso negativo do avaliador, mantido no registro). Uma rodada só; variação entre execuções não medida. Registros: `storage/app/evaluation/conversation/final-ibuprofeno.json` (antes) e `effort-low-ibuprofeno.json` (depois).
+
+**Testes**: `AnthropicTextGenerationProviderTest::test_effort_and_a_long_system_prompt_go_as_output_config_and_cached_prefix`.
+
+**Próximos passos de latência**: gerar em paralelo as chamadas independentes de uma pergunta (hoje sequenciais) e mostrar o veredito da base antes do texto, com streaming (o provider já implementa `StreamingTextGenerationProvider`; nenhuma tela usa).

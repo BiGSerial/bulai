@@ -49,6 +49,7 @@ final class ExplanationGenerator
                 prompt: $this->prompt($labelA, $labelB, $structured, $references),
                 system: $this->system(),
                 maxOutputTokens: (int) config('bulai.generation.max_output_tokens'),
+                effort: config('bulai.generation.effort'),
                 metadata: ['run_id' => $runId, 'purpose' => 'interaction_explanation'],
             ));
         } catch (AiProviderException $exception) {
@@ -143,6 +144,7 @@ final class ExplanationGenerator
                     prompt: $prompt.($feedback !== null ? "\n\n".$feedback : ''),
                     system: $this->system(true),
                     maxOutputTokens: (int) config('bulai.generation.max_output_tokens'),
+                    effort: config('bulai.generation.effort'),
                     metadata: ['run_id' => $runId, 'purpose' => 'medication_question'],
                 ));
             } catch (AiProviderException $exception) {

@@ -130,6 +130,21 @@ final class AnthropicTextGenerationProviderTest extends TestCase
         });
     }
 
+    public function test_effort_and_a_long_system_prompt_go_as_output_config_and_cached_prefix(): void
+    {
+        Http::fake(['api.anthropic.com/*' => Http::response($this->message())]);
+        $system = str_repeat('Regra estável do sistema. ', 80);
+
+        $this->provider()->generate(new TextGenerationRequest('Pergunta?', $system, effort: 'low'));
+        $this->provider()->generate($this->request());
+
+        $bodies = Http::recorded()->map(fn (array $pair): array => $pair[0]->data())->values();
+        $this->assertSame(['effort' => 'low'], $bodies[0]['output_config']);
+        $this->assertSame([['type' => 'text', 'text' => $system, 'cache_control' => ['type' => 'ephemeral']]], $bodies[0]['system']);
+        $this->assertArrayNotHasKey('output_config', $bodies[1]);
+        $this->assertSame('Seja breve.', $bodies[1]['system']);
+    }
+
     public function test_missing_api_key_or_model_is_not_configured_and_nothing_is_sent(): void
     {
         Http::fake();
