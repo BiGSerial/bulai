@@ -127,7 +127,7 @@ final class RemediosDeHojeTest extends TestCase
         $context = app(TreatmentContextService::class)->for($user, $asked);
         $this->assertSame(['Fitoterápico da Vovó (sem bula cadastrada no BULA-IA)'], $context['unresolved']);
         $this->assertSame(1, $context['medications_count']);
-        $this->assertStringContainsString('Fitoterápico da Vovó (sem bula cadastrada no BULA-IA)', (string) app(TreatmentContextService::class)->asEvidenceText($context, 'MAREVAN'));
+        $this->assertNull(app(TreatmentContextService::class)->alertsText($context, 'MAREVAN'), 'sem interação nem alergia, nada do perfil vai para a resposta');
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'posso tomar marevan?')->call('perguntar')->assertSee('Não foi possível verificar: Fitoterápico da Vovó');
 
         $component->call('removerMedicamento', $medication->id);

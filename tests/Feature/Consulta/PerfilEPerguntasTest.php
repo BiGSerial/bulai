@@ -195,7 +195,7 @@ final class PerfilEPerguntasTest extends TestCase
             ->call('perguntar')->assertSee('Escreva sua pergunta')
             ->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
             ->assertSee('Falando de:')->assertSee('OMEPRAZOL')
-            ->assertSee('A bula diz que o comprimido deve ser tomado em jejum.')->assertSee('Fontes utilizadas')->assertSee('Baseado na bula')
+            ->assertSee('O comprimido deve ser tomado em jejum.')->assertSee('Fontes utilizadas')->assertSee('Baseado na bula')
             ->assertDontSee('Limitações')
             ->assertSee('Guardei esta conversa no seu');
 
@@ -203,7 +203,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame([$user->id, $medicine->id, 'OMEPRAZOL', 'omeprazol em jejum?', MedicationQuestionService::ANSWERED], [$question->user_id, $question->medicine_id, $question->medicine_name, $question->question, $question->status]);
         $this->assertSame('omeprazol', $question->medicines[0]['matched_text']);
         $this->assertSame('ok', $question->guard['category']);
-        $this->assertSame('A bula diz que o comprimido deve ser tomado em jejum.', $question->answer);
+        $this->assertSame('O comprimido deve ser tomado em jejum.', $question->answer);
         $this->assertSame(3, $question->evidences[0]['page_start']);
         $this->assertSame([0], $question->evidences[0]['supports_claims']);
         $this->assertSame(['generated', 1, 'interaction-explanation-v3:qa'], [$question->generation['status'], $question->generation['claims_accepted'], $question->generation['prompt_version']]);
@@ -272,11 +272,13 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame('ingrediente', $context['allergy_alerts'][0]['via']);
         $this->assertSame(4, $context['medications_count']);
 
-        $facts = app(TreatmentContextService::class)->asEvidenceText($context, 'MAREVAN');
+        $facts = app(TreatmentContextService::class)->alertsText($context, 'MAREVAN');
         $this->assertStringContainsString('gravidade maior entre MAREVAN e ZOCOR', $facts);
         $this->assertStringContainsString('mesmo princípio ativo', $facts);
         $this->assertStringContainsString('alergia a varfarina', $facts);
         $this->assertStringNotContainsString($user->email, $facts);
+        $this->assertStringNotContainsString('MISTERIO', $facts, 'o que não pôde ser verificado não vira alerta na resposta');
+        $this->assertStringNotContainsString('não está registrado', $facts);
 
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'posso tomar marevan?')->call('perguntar')
             ->assertSee('Com ZOCOR')->assertSee('Gravidade: Maior')->assertSee('Com TYLENOL')->assertSee('Gravidade: Menor')
@@ -285,7 +287,7 @@ final class PerfilEPerguntasTest extends TestCase
         PatientProfile::query()->update(['health_consent_at' => null]);
         $context = app(TreatmentContextService::class)->for($user->fresh(), $asked);
         $this->assertSame([false, [], []], [$context['consented'], $context['interactions'], $context['allergy_alerts']]);
-        $this->assertNull(app(TreatmentContextService::class)->asEvidenceText($context, 'MAREVAN'));
+        $this->assertNull(app(TreatmentContextService::class)->alertsText($context, 'MAREVAN'));
     }
 
     public function test_answers_can_cite_treatment_facts_and_the_record_keeps_the_context(): void
@@ -312,7 +314,7 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertSame('major', $record->treatment_context['highest_severity']);
         $this->assertSame('ZOCOR', $record->treatment_context['interactions'][0]['medicine']);
 
-        $this->actingAs($user)->get(route('consulta.pergunta', $record))->assertOk()->assertSee('posso tomar com sinvastatina?')->assertSee('Com ZOCOR')->assertSee('Também olhei os remédios e as alergias do seu perfil');
+        $this->actingAs($user)->get(route('consulta.pergunta', $record))->assertOk()->assertSee('posso tomar com sinvastatina?')->assertSee('Com ZOCOR')->assertSee('Considera também os remédios e as alergias do seu perfil');
         $this->actingAs(User::factory()->create())->get(route('consulta.pergunta', $record))->assertNotFound();
     }
 

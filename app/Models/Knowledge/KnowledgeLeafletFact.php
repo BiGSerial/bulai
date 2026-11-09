@@ -19,6 +19,12 @@ class KnowledgeLeafletFact extends Model
 {
     public const METHOD_PDF_FALLBACK_AI = 'pdf_fallback_ai';
 
+    /** Trecho localizado no PDF original relido (texto nativo), quando o texto indexado não bastava. */
+    public const METHOD_ORIGINAL_PDF_AI = 'original_pdf_ai';
+
+    /** Trecho localizado no PDF original relido com OCR. */
+    public const METHOD_ORIGINAL_OCR_AI = 'original_ocr_ai';
+
     public const REVIEW_PENDING = 'pending';
 
     public const REVIEW_VERIFIED = 'verified';

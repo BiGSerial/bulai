@@ -12,7 +12,7 @@ use App\Services\Knowledge\AnvisaCatalogNormalizer;
 final class UrgencyDetector
 {
     private const PATTERNS = [
-        'overdose' => '/\b(tomei|tomou|engoli|usei|tomamos) (muito|demais|dobrado|o dobro|a mais|dois|duas|tres|varios|varias|um monte|toda a cartela|a cartela inteira|o frasco|o vidro)\b|\boverdose\b|\bintoxic/',
+        'overdose' => '/\b(tomei|tomou|engoli|usei|tomamos) (muito|demais|dobrado|o dobro|a mais|dois|duas|tres|varios|varias|um monte|toda a cartela|a cartela inteira|o frasco|o vidro)\b|\b(tomei|tomou|engoli|engoliu|usei|tomamos|bebi|bebeu)\b.*\b(quantidade excessiva|em excesso|mais do que (devia|deveria|o indicado|o recomendado|a bula))\b|\b(overdose|superdosagem)\b|\bintoxic/',
         'alergia_grave' => '/\b(falta de ar|nao consigo respirar|dificuldade (para|pra|de) respirar|garganta (fechando|inchada|apertando)|inchou (o |a |os |as )?(rosto|labio|labios|lingua|garganta|boca)|(rosto|labio|labios|lingua|garganta|boca) (inchou|inchado|inchada|inchados|inchando|esta inchando)|rosto inchado|labios inchados|lingua inchada|manchas (vermelhas )?(pelo corpo|no corpo todo)|reacao alergica)\b/',
         'alerta' => '/\b(desmaiei|desmaio|desmaiou|dor no peito|vomitando sangue|vomitei sangue|fezes pretas|sangramento (forte|que nao para)|convulsao|convulsoes|confuso|confusao mental|muito sonolento|nao acorda)\b/',
     ];

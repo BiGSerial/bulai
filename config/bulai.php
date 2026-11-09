@@ -75,17 +75,39 @@ return [
         'general_sections' => ['para_que_serve', 'riscos'],
         'max_sections' => 4,
         'evidence_per_section' => (int) env('BULAI_QUESTION_EVIDENCE_PER_SECTION', 2),
+        // Sintomas: "para dor de cabeça" é o que a pessoa quer tratar (indicação); "dá dor de cabeça" é efeito adverso. Por isso os
+        // sintomas não ficam nas palavras-chave de efeitos colaterais: o papel deles é decidido pelo QuestionIntentDetector.
+        'symptoms' => [
+            'dor de cabeca', 'dor de dente', 'dor de garganta', 'dor nas costas', 'dor no corpo', 'dores no corpo', 'dor muscular', 'dor',
+            'dores', 'enxaqueca', 'febre', 'colica', 'colicas', 'gripe', 'resfriado', 'tosse', 'sono', 'insonia', 'tontura', 'enjoo', 'nausea',
+            'vomito', 'diarreia', 'azia', 'inflamacao', 'coceira', 'ansiedade', 'pressao alta', 'queda de cabelo', 'mal estar',
+        ],
+        // Guia de resposta por intenção canônica (QuestionIntentDetector::INTENTS), entregue ao modelo junto com a intenção
+        // principal. É o que faz a resposta começar pela pergunta feita e só acrescentar o que é pertinente.
+        'response_guides' => [
+            'INDICATION' => 'Responda na primeira frase se o remédio serve para o que foi perguntado (sim, ou que essa não é uma indicação do remédio) e para que ele é indicado. Não fale de contraindicações, efeitos colaterais, superdose nem cuidados, a menos que a pessoa tenha perguntado. Uma a três frases.',
+            'PERSONAL_USE' => 'A primeira frase responde à dúvida concreta (por exemplo, para que o remédio serve, quando a pessoa disse a finalidade). Depois, uma única frase de cautela proporcional: se é adequado para ela depende de alergias, outros remédios e condições de saúde. Nunca afirme que é seguro para ela. Sem listar todas as contraindicações. No máximo uma pergunta útil (por exemplo, se já teve reação a esse remédio).',
+            'DOSAGE' => 'Diga a dose que a bula indica para a apresentação e a população que aparecem nas evidências (adulto, criança, gotas, comprimido), com os números exatamente como estão. Não calcule dose individual. Se a dose depende de peso, idade ou apresentação que a pessoa não informou, diga isso e pergunte o que falta.',
+            'CONTRAINDICATION' => 'Comece pelo que a bula diz sobre quem não deve usar, ligado ao que a pessoa contou (por exemplo, alergia). Se a pessoa relata alergia ao próprio remédio e a bula contraindica o uso nesse caso, diga isso com clareza e que o médico ou o farmacêutico pode indicar outra opção.',
+            'ADVERSE_EFFECT' => 'Comece pelos efeitos mais comuns, em linguagem simples; cite sinais graves só se a bula os destacar. Sem sermão e sem perguntas.',
+            'DRUG_INTERACTION' => 'Responda sobre a combinação perguntada. Use o fato da base de interações (T1) quando houver. Não ter interação registrada não prova que a combinação é segura: diga isso em uma frase simples, sem alarmar. Se o outro remédio não foi dito, pergunte qual é.',
+            'DRUG_INFORMATION' => 'Explique o essencial (para que serve e o cuidado mais importante) em poucas frases.',
+            'EMERGENCY' => 'A orientação de urgência já foi mostrada. Use só o que a bula diz sobre superdose ou reação grave, sem minimizar e sem perguntas.',
+            'FOLLOW_UP' => 'Continue o assunto da conversa sem repetir o que já foi dito.',
+        ],
         // Resposta conversacional: até 3 perguntas de esclarecimento e frases de no máximo 40 palavras em média.
         'conversation' => [
             'max_asks' => 3,
             'max_facts' => 5,
             'max_fact_words' => 150,
-            // Profundidade proporcional à pergunta: perguntas simples pedem resposta curta; o modelo ordena os fatos por importância
-            // e os que passam do orçamento são descartados. Intenção => palavras de fatos (padrão: max_fact_words).
-            'fact_words_by_intent' => ['para_que_serve' => 90, 'como_usar' => 110, 'beneficios' => 90],
+            // Profundidade proporcional à pergunta, pela intenção PRINCIPAL (canônica): perguntas simples pedem resposta curta; o modelo
+            // ordena os fatos por importância e os que passam do orçamento são descartados (padrão: max_fact_words).
+            'fact_words_by_intent' => ['INDICATION' => 60, 'PERSONAL_USE' => 90, 'DOSAGE' => 110, 'CONTRAINDICATION' => 110, 'ADVERSE_EFFECT' => 110, 'DRUG_INTERACTION' => 130, 'DRUG_INFORMATION' => 90, 'EMERGENCY' => 90],
             'fact_words_general' => 110,
-            // Intenções puramente informativas (não dependem de dados da pessoa): perguntas de esclarecimento do modelo são descartadas.
-            'no_ask_intents' => ['para_que_serve', 'como_usar', 'beneficios'],
+            // Intenções principais puramente informativas: perguntas de esclarecimento do modelo são descartadas e, com cobertura
+            // completa, também os limites (não há o que ressalvar quando a bula respondeu ao que foi perguntado).
+            'no_ask_intents' => ['INDICATION', 'ADVERSE_EFFECT', 'DRUG_INFORMATION'],
+            'no_limit_intents' => ['INDICATION', 'ADVERSE_EFFECT', 'DRUG_INFORMATION'],
             'max_avg_sentence_words' => 40,
             'max_retries' => 1,
         ],
@@ -114,22 +136,22 @@ return [
         'evidence_per_section' => (int) env('BULAI_LEAFLET_EVIDENCE_PER_SECTION', 3),
         // `keywords`: palavras da pergunta do paciente que pedem essa seção (QuestionIntentDetector; comparação normalizada).
         'sections' => [
-            'para_que_serve' => ['label' => 'Para que serve', 'query' => 'indicado para tratamento de indicações', 'patterns' => ['indica', 'para que', 'como este medicamento funciona', '!contra'],
-                'keywords' => ['para que serve', 'serve para', 'serve pra', 'indicado', 'indicacao', 'trata', 'funciona', 'para que e', 'pra que']],
+            'para_que_serve' => ['label' => 'Para que serve', 'query' => 'indicado para tratamento de indicações', 'patterns' => ['indica', 'para que', 'como este medicamento funciona', '!contra', '!quantidade maior'],
+                'keywords' => ['para que serve', 'serve para', 'serve pra', 'indicado', 'indicacao', 'trata', 'funciona', 'para que e', 'pra que', 'antitermico', 'analgesico', 'alivia', 'aliviar', 'bom para', 'bom pra', 'boa para', 'boa pra']],
             'como_usar' => ['label' => 'Como usar', 'query' => 'modo de usar posologia dose administração horário', 'patterns' => ['como devo usar', 'posologia', 'modo de usar', 'como usar'],
-                'keywords' => ['como tomar', 'como devo tomar', 'como usar', 'como uso', 'como tomo', 'dose', 'doses', 'dosagem', 'quantas vezes', 'quantos comprimidos', 'horario', 'horarios', 'jejum', 'comida', 'alimento', 'alimentos', 'manha', 'noite', 'esqueci', 'esquecer', 'posologia', 'quanto tempo', 'antes de dormir', 'de estomago vazio', 'mastigar', 'partir']],
-            'beneficios' => ['label' => 'Benefícios esperados (prós)', 'query' => 'eficácia benefício alívio melhora resultado', 'patterns' => ['indica', 'resultados de efic', 'caracteristicas farmacol', 'como este medicamento funciona', '!contra'],
+                'keywords' => ['como tomar', 'como devo tomar', 'como usar', 'como uso', 'como tomo', 'dose', 'doses', 'dosagem', 'quantas vezes', 'quantos comprimidos', 'quantas gotas', 'gotas', 'quantos ml', 'quantas colheres', 'quanto posso', 'quanto devo', 'quanto tomar', 'intervalo', 'de quantas em quantas', 'quantas horas', 'por dia', 'dose maxima', 'horario', 'horarios', 'jejum', 'comida', 'alimento', 'alimentos', 'manha', 'noite', 'esqueci', 'esquecer', 'posologia', 'quanto tempo', 'antes de dormir', 'de estomago vazio', 'mastigar', 'partir']],
+            'beneficios' => ['label' => 'Benefícios esperados (prós)', 'query' => 'eficácia benefício alívio melhora resultado', 'patterns' => ['indica', 'resultados de efic', 'caracteristicas farmacol', 'como este medicamento funciona', '!contra', '!quantidade maior'],
                 'keywords' => ['beneficio', 'beneficios', 'melhora', 'resultado', 'faz efeito', 'fazer efeito', 'demora']],
             'riscos' => ['label' => 'Riscos e cuidados (contras)', 'query' => 'advertências precauções riscos cuidados gravidez idosos', 'patterns' => ['advert', 'precau', 'o que devo saber'],
                 'keywords' => ['cuidado', 'cuidados', 'risco', 'riscos', 'perigoso', 'perigosa', 'seguro', 'segura', 'dirigir', 'advertencia', 'precaucao', 'figado', 'rins', 'rim', 'pressao', 'coracao', 'diabetes', 'diabetico', 'idoso', 'idosa', 'idosos', 'gravida', 'gravidez', 'amamentando', 'amamentacao']],
             'efeitos_colaterais' => ['label' => 'Efeitos colaterais mais comuns', 'query' => 'reações adversas efeitos colaterais comuns muito comuns', 'patterns' => ['rea', 'males que este medicamento', 'efeitos'],
-                'keywords' => ['efeito', 'efeitos', 'colateral', 'colaterais', 'colatereais', 'reacao', 'reacoes', 'adversa', 'adversas', 'sono', 'tontura', 'enjoo', 'nausea', 'dor de cabeca', 'diarreia', 'engorda', 'emagrece', 'queda de cabelo', 'males', 'mal estar', 'sintoma', 'sintomas', 'da sono', 'faz mal']],
+                'keywords' => ['efeito', 'efeitos', 'colateral', 'colaterais', 'colatereais', 'reacao', 'reacoes', 'adversa', 'adversas', 'engorda', 'emagrece', 'males', 'sintoma', 'sintomas', 'faz mal']],
             'nao_use_se' => ['label' => 'Não use se', 'query' => 'contraindicações não deve ser usado hipersensibilidade alergia', 'patterns' => ['contraindica', 'quando nao devo usar', 'não devo usar'],
                 'keywords' => ['nao posso tomar', 'contraindicado', 'contraindicacao', 'contraindicacoes', 'nao pode tomar', 'quem nao pode', 'alergia', 'alergico', 'alergica', 'gravida', 'gravidez', 'amamentando', 'amamentacao', 'crianca', 'criancas']],
             'interacoes' => ['label' => 'Interações com outros remédios, álcool e alimentos', 'query' => 'interações medicamentosas álcool alimentos outros medicamentos', 'patterns' => ['interac'],
                 'keywords' => ['junto', 'juntos', 'juntas', 'cerveja', 'alcool', 'vinho', 'bebida', 'cafe', 'leite', 'interage', 'interacao', 'interacoes', 'misturar', 'mesmo tempo', 'combinar', 'outro remedio', 'outros remedios', 'tomar com', 'com o', 'com a']],
             'procure_ajuda' => ['label' => 'Procure ajuda se', 'query' => 'superdose quantidade maior do que a indicada procure socorro médico', 'patterns' => ['superdose', 'quantidade maior', 'o que fazer'],
-                'keywords' => ['superdose', 'tomei demais', 'dose maior', 'a mais', 'dobrada', 'dobrei', 'exagerei', 'intoxicacao', 'socorro', 'emergencia', 'o que fazer se', 'tomei dois', 'tomei duas']],
+                'keywords' => ['superdose', 'superdosagem', 'overdose', 'tomei demais', 'tomei muito', 'quantidade excessiva', 'em excesso', 'excesso de', 'mais do que devia', 'mais do que deveria', 'dose maior', 'a mais', 'dobrada', 'dobrei', 'exagerei', 'intoxicacao', 'socorro', 'emergencia', 'o que fazer se', 'tomei dois', 'tomei duas']],
         ],
     ],
     'retrieval' => [

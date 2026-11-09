@@ -9,11 +9,11 @@
     $usouConversa = (bool) ($resposta['generation']['conversation_context'] ?? false);
     $texto = match ($status) {
         Q::ANSWERED, Q::NEEDS_INFO => $resposta['answer'],
-        Q::UNAVAILABLE => 'Não consegui consultar o assistente nessa hora.',
+        Q::UNAVAILABLE => 'Não consegui preparar a resposta agora. Tente de novo em instantes; se for urgente, fale com um farmacêutico ou médico.',
         Q::EXCERPTS_ONLY => 'Não consegui montar uma resposta curta com segurança, mas achei na bula estas partes que falam disso. Na dúvida, pergunte ao seu farmacêutico.',
         Q::NOT_IDENTIFIED => 'Conheço o remédio, mas ainda não tenho a bula dele comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico. A equipe foi avisada para buscar a bula.',
         Q::NO_LEAFLET => 'Ainda não tenho a bula deste remédio comigo. Você confere na bula que vem na caixa ou pergunta ao farmacêutico. A equipe foi avisada para buscar a bula.',
-        default => 'Procurei na bula '.(! empty($resposta['retrieval']['fallback_consulted']) ? 'inteira ' : '').'e não localizei uma informação suficientemente clara sobre isso. Prefiro não completar a resposta com suposições; isso não quer dizer que seja seguro. Na dúvida, fale com um farmacêutico ou médico.',
+        default => 'Não tenho uma orientação clara sobre isso para este remédio, e não quero responder com suposições. Não ter essa orientação não quer dizer que seja seguro. Na dúvida, fale com um farmacêutico ou médico.',
     };
 @endphp
 <section {{ $attributes->class('grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm') }} aria-live="polite" aria-labelledby="resp-titulo" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">
@@ -31,7 +31,7 @@
     </button>
 
     @if (in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true))
-        <p class="text-base text-slate-700">Li isso na bula oficial.@if ($usouTratamento) Também olhei os remédios e as alergias do seu perfil.@endif @if ($usouConversa) Leva em conta o que você perguntou antes nesta conversa.@endif</p>
+        <p class="text-base text-slate-700">Com base na bula oficial.@if ($usouTratamento) Considera também os remédios e as alergias do seu perfil.@endif @if ($usouConversa) Leva em conta o que você perguntou antes nesta conversa.@endif</p>
     @endif
 
     @if ($status === Q::EXCERPTS_ONLY && $fontes->isNotEmpty())

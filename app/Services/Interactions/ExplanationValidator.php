@@ -13,6 +13,15 @@ final class ExplanationValidator
     /** Fração mínima dos termos significativos da afirmação que deve aparecer nos trechos citados. */
     public const MIN_GROUNDING_OVERLAP = 0.4;
 
+    /**
+     * A resposta é a bula humanizada: não narra a leitura ("li na bula", "a bula diz", "segundo a bula") nem fala do funcionamento
+     * interno ("trechos", "evidências", "chunks", "o sistema"). Comparado no texto normalizado (sem acentos, minúsculo).
+     */
+    public const NARRATION = '/\b(li na bula|li a bula|eu li|consultei|consultado|consultados|consultadas|pesquisei|procurei|trecho|trechos|evidencia|evidencias|chunk|chunks|recuperad\w*|o sistema|documento|documentos|segundo a bula|de acordo com a bula|conforme a bula|pela bula|a bula (diz|dizem|informa|indica|explica|orienta|recomenda|menciona|cita|traz|fala|afirma|descreve|nao (diz|fala|traz|menciona|informa|cita)))\b/';
+
+    /** Abertura que só narra a fonte ("Segundo a bula, …", "A bula diz que …"): é retirada e a frase começa pelo assunto. */
+    private const NARRATED_OPENING = '/^\s*(?:(?:segundo|de acordo com|conforme|pelo que diz) a bula(?: do paciente| do profissional(?: de saúde)?)?\s*,?\s*|(?:a bula|na bula)(?: do paciente| do profissional(?: de saúde)?)? (?:diz|informa|indica|explica|orienta|menciona|traz|fala|afirma|descreve)(?: que)?\s*,?\s*|(?:eu )?li na bula que\s*)/iu';
+
     private const FORBIDDEN = '/\b(suspend\w*|interromp\w*|substitu\w*|troque\w*|trocar|pare de|deixe de|evite\w*|nao (use|tome|utilize)\w*|nunca (use|tome)\w*|ajust\w+ (a |da |de |na )?dose|(aument|reduz|diminu|dobr)\w+ (a |da |de )?dose)\b/';
 
     /**
@@ -93,7 +102,7 @@ final class ExplanationValidator
      * Aceita também o formato antigo `{"insufficient":bool,"claims":[…]}` (cada claim vira um `fact`).
      *
      * @param  array<string, string>  $evidenceTexts
-     * @param  array{allow_asks?: bool, known_text?: string, max_fact_words?: int}  $options
+     * @param  array{allow_asks?: bool, known_text?: string, max_fact_words?: int, drop_limits_when_full?: bool}  $options
      * @return array{malformed: bool, declared_none: bool, dangling_opening: bool, coverage: string, facts: list<array{text: string, evidence_ids: list<string>}>, limits: list<string>, asks: list<string>, rejected: list<array{kind: string, reason: string}>}
      */
     public function validateSegments(string $raw, array $evidenceTexts, array $options = []): array
@@ -117,8 +126,16 @@ final class ExplanationValidator
         $known = $this->normalize((string) ($options['known_text'] ?? ''));
         foreach ($segments as $segment) {
             $kind = is_array($segment) ? (string) ($segment['kind'] ?? 'fact') : '';
-            $text = is_array($segment) && is_string($segment['text'] ?? null) ? trim($segment['text']) : '';
-            $reason = null;
+            $text = is_array($segment) && is_string($segment['text'] ?? null) ? $this->humanize($segment['text']) : '';
+            if (is_array($segment) && $text !== '') {
+                $segment['text'] = $text;
+            }
+            $reason = $text !== '' && preg_match(self::NARRATION, $this->normalize($text)) === 1 ? 'narrates_source' : null;
+            if ($reason !== null) {
+                $result['rejected'][] = ['kind' => $kind ?: 'unknown', 'reason' => $reason];
+
+                continue;
+            }
             if ($kind === 'fact') {
                 $reason = count($result['facts']) >= $maxFacts ? 'too_many_facts' : ($this->rejectionReason($segment, $evidenceTexts) ?? $this->denseness($text));
                 if ($reason === null) {
@@ -153,6 +170,13 @@ final class ExplanationValidator
             $result['facts'] = [];
         }
         $result['coverage'] = $result['facts'] === [] ? 'none' : ($declared === 'partial' ? 'partial' : 'full');
+        // Pergunta informativa respondida por inteiro ("serve para dor de cabeça?"): ressalvas só alongam a resposta.
+        if (($options['drop_limits_when_full'] ?? false) && $result['coverage'] === 'full') {
+            foreach ($result['limits'] as $unused) {
+                $result['rejected'][] = ['kind' => 'limit', 'reason' => 'limit_not_needed'];
+            }
+            $result['limits'] = [];
+        }
 
         // Orçamento de palavras: pergunta simples não pede despejo de bula; ficam os primeiros fatos (o modelo os ordena por importância).
         $budget = (int) ($options['max_fact_words'] ?? config('bulai.questions.conversation.max_fact_words'));
@@ -173,6 +197,18 @@ final class ExplanationValidator
         $result['dangling_opening'] = $kept !== [] && preg_match('/^(entre (eles|elas)|eles|elas|isso|essa|esse|tambem|alem disso|porem|mas|ainda|por isso|nesse caso|nesses casos|alem|ja)\b/', $this->normalize($kept[0]['text'])) === 1;
 
         return $result;
+    }
+
+    /** Tira a abertura que narra a fonte e devolve a frase começando pelo assunto, com inicial maiúscula. */
+    public function humanize(string $text): string
+    {
+        $text = trim($text);
+        $stripped = trim((string) preg_replace(self::NARRATED_OPENING, '', $text, 1));
+        if ($stripped === '' || $stripped === $text) {
+            return $text;
+        }
+
+        return mb_strtoupper(mb_substr($stripped, 0, 1)).mb_substr($stripped, 1);
     }
 
     private function plainReason(string $text, int $min, int $max): ?string
