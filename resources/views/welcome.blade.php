@@ -6,6 +6,7 @@
     $links = ['#como-funciona' => 'Como funciona', '#recursos' => 'Recursos', '#seguranca' => 'Segurança', '#perguntas' => 'Perguntas'];
     $entrar = auth()->check() ? route(auth()->user()->homeRouteName()) : route('login');
     $rotuloEntrar = auth()->check() ? 'Abrir o aplicativo' : 'Entrar no aplicativo';
+    $cadastro = route('register');
     $jsonLd = [
         '@context' => 'https://schema.org',
         '@type' => 'SoftwareApplication',
@@ -66,6 +67,10 @@
                         <a class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-accent-600 px-7 text-xl font-semibold text-white shadow-md transition hover:bg-accent-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent-500/40" href="{{ $entrar }}">{{ $rotuloEntrar }}<x-landing.icon name="arrow-right" class="size-6" /></a>
                         <a class="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-brand-700 bg-white px-7 text-xl font-semibold text-brand-900 transition hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/30" href="#como-funciona">Ver como funciona</a>
                     </div>
+                    <p class="mx-auto flex max-w-2xl items-start gap-2 rounded-2xl bg-amber-50 px-4 py-3 text-left text-base text-amber-950 ring-1 ring-amber-300 lg:mx-0">
+                        <x-landing.icon name="academic-cap" class="mt-0.5 size-6 shrink-0 text-amber-700" />
+                        <span class="min-w-0"><strong>Protótipo acadêmico (TCC).</strong> O acesso é limitado e cada cadastro passa pela aprovação da equipe do projeto.@guest <a class="font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-950" href="{{ $cadastro }}">Pedir meu acesso</a>@endguest</span>
+                    </p>
                     <ul class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-base text-slate-700 lg:justify-start" aria-label="Destaques">
                         <li class="flex items-center gap-2"><x-landing.icon name="check" class="size-5 text-emerald-700" />Gratuito</li>
                         <li class="flex items-center gap-2"><x-landing.icon name="check" class="size-5 text-emerald-700" />Funciona no celular, sem loja de aplicativos</li>
@@ -73,6 +78,25 @@
                     </ul>
                 </div>
                 <x-landing.phone-mockup class="lg:justify-self-end" />
+            </div>
+        </section>
+
+        {{-- 1b. Aviso acadêmico: em destaque logo abaixo do hero (e não só no FAQ), com o caminho do cadastro. --}}
+        <section id="projeto-academico" class="scroll-mt-20 border-y-2 border-amber-300 bg-amber-50" aria-labelledby="projeto-academico-titulo">
+            <div class="mx-auto grid max-w-6xl gap-6 px-4 py-10 sm:py-12 lg:grid-cols-[1.4fr_0.6fr] lg:items-center">
+                <div class="grid min-w-0 gap-3">
+                    <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-amber-800"><x-landing.icon name="academic-cap" class="size-6 shrink-0" />Projeto acadêmico</p>
+                    <h2 id="projeto-academico-titulo" class="text-balance text-2xl font-semibold leading-tight text-brand-900 sm:text-3xl">O BULA-IA é um protótipo de Trabalho de Conclusão de Curso</h2>
+                    <p class="text-lg leading-relaxed text-slate-800">Ele está em fase de testes, feito por estudantes com cuidado e com as bulas oficiais como base. Por isso o <strong>acesso é limitado</strong>: você faz o seu cadastro e <strong>a equipe do projeto aprova</strong> antes do primeiro uso. Quando o acesso for liberado, você recebe um e-mail.</p>
+                </div>
+                <div class="grid gap-3">
+                    @guest
+                        <a class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-700 px-6 text-xl font-semibold text-white shadow-md transition hover:bg-brand-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" href="{{ $cadastro }}">Pedir meu acesso<x-landing.icon name="arrow-right" class="size-6" /></a>
+                        <p class="text-center text-base text-slate-700">Já tem conta aprovada? <a class="font-semibold text-brand-800 underline underline-offset-2" href="{{ route('login') }}">Entrar</a></p>
+                    @else
+                        <a class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-brand-700 px-6 text-xl font-semibold text-white shadow-md transition hover:bg-brand-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" href="{{ $entrar }}">{{ $rotuloEntrar }}</a>
+                    @endguest
+                </div>
             </div>
         </section>
 
@@ -191,7 +215,7 @@
                 <x-landing.faq-item question="Preciso baixar algo na loja de aplicativos?">Não. O BULA-IA funciona no navegador do celular e pode ser adicionado à tela inicial como um aplicativo, no Android e no iPhone. Veja o passo a passo na seção "No seu celular".</x-landing.faq-item>
                 <x-landing.faq-item question="E se eu errar o nome do remédio ao digitar?">O aplicativo reconhece erros comuns de digitação, como "lozartana" ou "omeprasol", e mostra o que entendeu para você confirmar. Também dá para falar a pergunta em vez de digitar.</x-landing.faq-item>
                 <x-landing.faq-item question="Meus dados de saúde ficam seguros?">Alergias, remédios e receitas só são guardados com o seu consentimento e podem ser apagados por você a qualquer momento. Nenhum dado que identifique você é enviado ao provedor de inteligência artificial: só nomes de remédios e trechos de bula.</x-landing.faq-item>
-                <x-landing.faq-item question="O aplicativo é gratuito? Quem está por trás dele?">Sim, é gratuito. O BULA-IA é um projeto acadêmico (Trabalho de Conclusão de Curso) que aplica leitura de bulas e inteligência artificial com conferência automática, pensado primeiro para pessoas idosas e para quem cuida delas.</x-landing.faq-item>
+                <x-landing.faq-item question="O aplicativo é gratuito? Quem está por trás dele?">Sim, é gratuito. O BULA-IA é um projeto acadêmico (Trabalho de Conclusão de Curso) que aplica leitura de bulas e inteligência artificial com conferência automática, pensado primeiro para pessoas idosas e para quem cuida delas. Por ser um protótipo, o acesso é limitado: cada cadastro passa pela aprovação da equipe do projeto.</x-landing.faq-item>
             </div>
         </x-landing.section>
 
@@ -203,6 +227,9 @@
                     <div class="pointer-events-none absolute -bottom-20 -left-10 size-64 rounded-full bg-brand-400/30 blur-3xl" aria-hidden="true"></div>
                     <h2 id="cta-titulo" class="text-balance text-3xl font-semibold leading-tight sm:text-4xl">Comece hoje a entender o que você toma</h2>
                     <p class="mx-auto mt-4 max-w-2xl text-lg text-brand-100">Entre, fotografe a receita e veja seus remédios de hoje organizados em minutos.</p>
+                    @guest
+                        <p class="mx-auto mt-3 max-w-2xl text-base text-brand-100">Ainda não tem conta? <a class="font-semibold text-white underline underline-offset-2 hover:text-accent-100" href="{{ $cadastro }}">Faça o seu cadastro</a>. Por ser um projeto acadêmico, o acesso depende da aprovação da equipe.</p>
+                    @endguest
                     <div class="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
                         <a class="inline-flex min-h-14 items-center justify-center gap-2 rounded-2xl bg-accent-500 px-8 text-xl font-semibold text-white shadow-md transition hover:bg-accent-600 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50" href="{{ $entrar }}">{{ $rotuloEntrar }}<x-landing.icon name="arrow-right" class="size-6" /></a>
                         <a class="inline-flex min-h-14 items-center justify-center rounded-2xl border-2 border-white/70 px-8 text-xl font-semibold text-white transition hover:bg-white/10 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50" href="#instalar">Como instalar</a>

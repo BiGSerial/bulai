@@ -16,6 +16,7 @@
             @auth
                 <a class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-700 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2" href="{{ route(auth()->user()->homeRouteName()) }}">Abrir o aplicativo</a>
             @else
+                <a class="hidden min-h-11 items-center justify-center rounded-xl px-3 text-base font-semibold text-brand-800 transition hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:inline-flex" href="{{ route('register') }}">Criar conta</a>
                 <a class="inline-flex min-h-11 items-center justify-center rounded-xl bg-brand-700 px-4 text-base font-semibold text-white shadow-sm transition hover:bg-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2" href="{{ route('login') }}">Entrar</a>
             @endauth
 
@@ -27,6 +28,9 @@
                     @foreach ($links as $href => $label)
                         <a class="min-h-12 rounded-xl px-4 py-3 text-lg font-medium text-slate-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ $href }}">{{ $label }}</a>
                     @endforeach
+                    @guest
+                        <a class="min-h-12 rounded-xl px-4 py-3 text-lg font-semibold text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('register') }}">Criar conta</a>
+                    @endguest
                 </nav>
             </details>
         </div>

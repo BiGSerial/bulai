@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\FirstAccessController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
 use App\Http\Middleware\EnsureUserIsActive;
@@ -72,6 +73,11 @@ Route::middleware('guest')->group(function (): void {
     Route::post('/login', [AuthenticatedSessionController::class, 'store'])
         ->middleware('throttle:login')
         ->name('login.store');
+    // Cadastro pela própria pessoa: a conta nasce aguardando a aprovação de um administrador.
+    Route::get('/register', [RegisteredUserController::class, 'create'])->name('register');
+    Route::post('/register', [RegisteredUserController::class, 'store'])
+        ->middleware('throttle:register')
+        ->name('register.store');
     Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
     Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
         ->middleware('throttle:password-reset')

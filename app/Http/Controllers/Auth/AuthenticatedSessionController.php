@@ -28,18 +28,18 @@ class AuthenticatedSessionController extends Controller
         unset($credentials['remember']);
         $credentials['email'] = Str::lower(trim($credentials['email']));
 
-        // O callback só roda depois que a senha confere: a mensagem de acesso desativado
-        // não revela a existência do e-mail para quem não sabe a senha.
-        $isInactive = false;
-        $authenticated = Auth::attemptWhen($credentials, function (User $user) use (&$isInactive): bool {
-            $isInactive = ! $user->isActive();
+        // O callback só roda depois que a senha confere: as mensagens de cadastro pendente/recusado e de acesso
+        // desativado não revelam a existência do e-mail para quem não sabe a senha.
+        $blockedMessage = null;
+        $authenticated = Auth::attemptWhen($credentials, function (User $user) use (&$blockedMessage): bool {
+            $blockedMessage = $user->signInBlockedMessage();
 
-            return ! $isInactive;
+            return $blockedMessage === null;
         }, $request->boolean('remember'));
 
         if (! $authenticated) {
             throw ValidationException::withMessages([
-                'email' => $isInactive ? __('auth.inactive') : __('auth.failed'),
+                'email' => $blockedMessage ?? __('auth.failed'),
             ]);
         }
 

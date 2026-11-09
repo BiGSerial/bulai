@@ -4,6 +4,7 @@ namespace App\Livewire\Admin\Users;
 
 use App\Models\User;
 use App\Services\Users\UserAccountService;
+use App\UserApprovalStatus;
 use App\UserRole;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -32,6 +33,9 @@ class Index extends Component
 
     #[Url(except: 'all')]
     public string $role = 'all';
+
+    /** Resultado da última aprovação/recusa feita na lista. */
+    public ?string $feedback = null;
 
     #[Url(as: 'ordem', except: 'name')]
     public string $sort = 'name';
@@ -104,6 +108,30 @@ class Index extends Component
         $service->setActive($user, ! $user->isActive(), auth()->user());
     }
 
+    /** Aprova o cadastro feito pelo site e avisa a pessoa por e-mail (se o envio falhar, a aprovação continua valendo). */
+    public function approve(int $userId, UserAccountService $service): void
+    {
+        $user = $service->approve(User::query()->findOrFail($userId), auth()->user());
+        $this->feedback = $service->emailApproval($user, auth()->user())
+            ? "Cadastro de {$user->name} aprovado. Avisamos a pessoa por e-mail."
+            : "Cadastro de {$user->name} aprovado, mas o e-mail de aviso não pôde ser enviado. Avise a pessoa por outro canal.";
+    }
+
+    /** Recusa o cadastro (para registrar um motivo, recuse pela página do usuário). */
+    public function reject(int $userId, UserAccountService $service): void
+    {
+        $user = $service->reject(User::query()->findOrFail($userId), auth()->user());
+        $this->feedback = "Cadastro de {$user->name} recusado. A pessoa continua sem acesso.";
+    }
+
+    /** Atalho do aviso de cadastros pendentes: mostra só quem aguarda aprovação. */
+    public function showAwaitingApproval(): void
+    {
+        $this->reset('search', 'role');
+        $this->status = 'awaiting_approval';
+        $this->resetPage();
+    }
+
     public function render(): View
     {
         $search = trim($this->search);
@@ -115,9 +143,11 @@ class Index extends Component
                 $query->whereLike('name', "%{$search}%")
                     ->orWhereLike('email', "%{$search}%");
             }))
-            ->when($this->status === 'active', fn (Builder $query) => $query->where('active', true))
+            ->when($this->status === 'active', fn (Builder $query) => $query->where('active', true)->where('approval_status', UserApprovalStatus::Approved))
             ->when($this->status === 'inactive', fn (Builder $query) => $query->where('active', false))
             ->when($this->status === 'pending', fn (Builder $query) => $query->where('must_change_password', true))
+            ->when($this->status === 'awaiting_approval', fn (Builder $query) => $query->where('approval_status', UserApprovalStatus::Pending))
+            ->when($this->status === 'rejected', fn (Builder $query) => $query->where('approval_status', UserApprovalStatus::Rejected))
             ->when(array_key_exists($this->role, UserRole::options()), fn (Builder $query) => $query->where('role', $this->role));
 
         return view('livewire.admin.users.index', [
@@ -125,9 +155,10 @@ class Index extends Component
             'users' => (clone $query)->orderByRaw($direction === 'desc' ? "{$column} desc nulls last" : "{$column} asc")->orderBy('name')->orderBy('id')->paginate(15),
             'totals' => [
                 'all' => User::query()->count(),
-                'active' => User::query()->where('active', true)->count(),
+                'active' => User::query()->where('active', true)->where('approval_status', UserApprovalStatus::Approved)->count(),
                 'admins' => User::query()->where('role', UserRole::Admin)->where('active', true)->count(),
                 'pending' => User::query()->where('must_change_password', true)->count(),
+                'awaitingApproval' => User::query()->where('approval_status', UserApprovalStatus::Pending)->count(),
             ],
             'roleOptions' => UserRole::options(),
             'effectiveDirection' => $direction,

@@ -13,7 +13,7 @@ use Illuminate\View\View;
 
 /**
  * "Esqueci minha senha": envia o link de redefinição. A resposta é a mesma exista ou não o e-mail, e contas
- * desativadas não recebem link (nem sabem disso), para não revelar cadastros.
+ * desativadas ou com cadastro ainda não aprovado não recebem link (nem sabem disso), para não revelar cadastros.
  */
 class PasswordResetLinkController extends Controller
 {
@@ -28,7 +28,7 @@ class PasswordResetLinkController extends Controller
         $email = Str::lower(trim($validated['email']));
 
         $user = User::query()->whereRaw('lower(email) = ?', [$email])->first();
-        if ($user !== null && $user->isActive()) {
+        if ($user !== null && $user->signInBlockedMessage() === null) {
             $status = Password::sendResetLink(['email' => $user->email]);
             if ($status === Password::RESET_LINK_SENT) {
                 $service->recordPasswordResetRequested($user);

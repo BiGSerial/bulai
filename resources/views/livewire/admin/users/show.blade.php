@@ -3,13 +3,52 @@
         <x-knowledge-admin.button :href="route('admin.users.edit', $user)">Editar</x-knowledge-admin.button>
     </x-slot:actions>
 
-    <x-knowledge-admin.page-header :badge="! $user->isActive() ? 'Inativo' : ($user->must_change_password ? 'Troca de senha pendente' : 'Ativo')" :badge-tone="! $user->isActive() ? 'neutral' : ($user->must_change_password ? 'warning' : 'success')" :meta="[$user->email, $user->role->label(), $user->last_login_at ? 'Último acesso em '.$user->last_login_at->timezone(config('app.timezone'))->format('d/m/Y H:i') : 'Nunca acessou']" />
+    @php
+        [$statusLabel, $statusTone] = match (true) {
+            $user->isAwaitingApproval() => ['Aguardando aprovação', 'warning'],
+            $user->isRejected() => ['Cadastro recusado', 'danger'],
+            ! $user->isActive() => ['Inativo', 'neutral'],
+            $user->must_change_password => ['Troca de senha pendente', 'warning'],
+            default => ['Ativo', 'success'],
+        };
+        $reviewedAt = $user->approval_reviewed_at?->timezone(config('app.timezone'))->format('d/m/Y H:i');
+        $approvalFact = match (true) {
+            $user->isAwaitingApproval() => 'Aguardando aprovação',
+            $user->isRejected() => 'Recusado'.($user->approvalReviewer ? ' por '.$user->approvalReviewer->name : '').($reviewedAt ? ' em '.$reviewedAt : ''),
+            $reviewedAt !== null => 'Aprovado'.($user->approvalReviewer ? ' por '.$user->approvalReviewer->name : '').' em '.$reviewedAt,
+            default => 'Aprovado (anterior à aprovação de cadastros)',
+        };
+    @endphp
+    <x-knowledge-admin.page-header :badge="$statusLabel" :badge-tone="$statusTone" :meta="[$user->email, $user->role->label(), $user->last_login_at ? 'Último acesso em '.$user->last_login_at->timezone(config('app.timezone'))->format('d/m/Y H:i') : 'Nunca acessou']" />
 
     @if (session('userFeedback'))<x-knowledge-admin.alert tone="success">{{ session('userFeedback') }}</x-knowledge-admin.alert>@endif
     @if ($feedback)<x-knowledge-admin.alert tone="success">{{ $feedback }}</x-knowledge-admin.alert>@endif
     @error('active')<x-knowledge-admin.alert tone="danger">{{ $message }}</x-knowledge-admin.alert>@enderror
     @error('temporaryPassword')<x-knowledge-admin.alert tone="danger">{{ $message }}</x-knowledge-admin.alert>@enderror
     @error('mustChangePassword')<x-knowledge-admin.alert tone="danger">{{ $message }}</x-knowledge-admin.alert>@enderror
+    @error('approval')<x-knowledge-admin.alert tone="danger">{{ $message }}</x-knowledge-admin.alert>@enderror
+    @if (($user->isAwaitingApproval() || $user->isRejected()) && ! $isCurrentUser)
+        <div class="grid gap-3 rounded-lg bg-amber-50 px-3 py-3 ring-1 ring-amber-200" data-approval-panel>
+            <p class="text-sm text-amber-900">
+                @if ($user->isAwaitingApproval())
+                    <span class="font-semibold">Cadastro aguardando aprovação.</span> Feito pela própria pessoa no site em {{ $user->created_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') }}{{ $user->terms_accepted_at ? ', com aceite do aviso de privacidade' : '' }}. Ela só entra depois de aprovada.
+                @else
+                    <span class="font-semibold">Cadastro recusado.</span> A pessoa continua sem acesso. Se foi engano, aprove o cadastro abaixo.
+                @endif
+            </p>
+            <div class="flex flex-wrap items-end gap-3">
+                <x-knowledge-admin.confirm-modal action="approve" title="Aprovar cadastro?" :message="$user->name.' ('.$user->email.') poderá entrar no BULAI com a senha que criou no cadastro e receberá um e-mail avisando que o acesso foi liberado.'" confirm-label="Aprovar cadastro" loading="Aprovando…">
+                    <x-knowledge-admin.button>Aprovar cadastro</x-knowledge-admin.button>
+                </x-knowledge-admin.confirm-modal>
+                @if ($user->isAwaitingApproval())
+                    <x-knowledge-admin.textarea label="Recusar: motivo" optional wire:model="rejectionReason" maxlength="255" hint="Fica só no histórico; a pessoa não recebe o motivo." rows="1" wrapper-class="min-w-0 flex-1" />
+                    <div class="shrink-0 sm:pb-6"><x-knowledge-admin.confirm-modal action="reject" tone="danger" title="Recusar cadastro?" :message="$user->name.' continuará sem acesso. A conta e o histórico são mantidos e o cadastro pode ser aprovado depois.'" confirm-label="Recusar cadastro" loading="Recusando…">
+                        <x-knowledge-admin.button variant="danger">Recusar cadastro</x-knowledge-admin.button>
+                    </x-knowledge-admin.confirm-modal></div>
+                @endif
+            </div>
+        </div>
+    @endif
     @if ($isCurrentUser)<x-knowledge-admin.callout title="Este é o seu acesso.">Para trocar a sua senha ou encerrar outras sessões, use <a class="font-medium underline" href="{{ route('account') }}">Minha conta</a>.</x-knowledge-admin.callout>@endif
 
     <x-knowledge-admin.card class="grid gap-4 !p-0">
@@ -17,11 +56,12 @@
 
         {{-- Os três painéis são renderizados; só o da aba ativa fica visível. --}}
         <div id="painel-dados" role="tabpanel" aria-labelledby="aba-dados" class="grid gap-5 px-4 pb-4 sm:px-5 sm:pb-5" @if ($tab !== 'dados') hidden @endif>
-            <x-knowledge-admin.facts class="sm:grid-cols-4">
+            <x-knowledge-admin.facts class="sm:grid-cols-3">
                 <x-knowledge-admin.fact label="Situação">{{ $user->isActive() ? 'Ativo' : 'Inativo' }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Aprovação do cadastro">{{ $approvalFact }}</x-knowledge-admin.fact>
                 <x-knowledge-admin.fact label="Troca de senha">{{ $user->must_change_password ? 'Pendente (usa senha provisória)' : 'Em dia' }}</x-knowledge-admin.fact>
                 <x-knowledge-admin.fact label="Último acesso">{{ $user->last_login_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? 'Nunca acessou' }}{{ $user->last_login_ip ? ' · IP '.$user->last_login_ip : '' }}</x-knowledge-admin.fact>
-                <x-knowledge-admin.fact label="Cadastrado por">{{ $user->creator?->name ?? 'Não informado' }}{{ $user->created_at ? ' em '.$user->created_at->timezone(config('app.timezone'))->format('d/m/Y') : '' }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Cadastrado por">{{ $user->creator?->name ?? ($user->registeredThemselves() ? 'A própria pessoa, pelo site' : 'Não informado') }}{{ $user->created_at ? ' em '.$user->created_at->timezone(config('app.timezone'))->format('d/m/Y') : '' }}</x-knowledge-admin.fact>
             </x-knowledge-admin.facts>
             <div class="grid gap-2">
                 <h2 class="text-sm font-semibold text-slate-900">Uso do aplicativo</h2>
