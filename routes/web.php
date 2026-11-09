@@ -22,6 +22,7 @@ use App\Livewire\Admin\Analytics\Leaflets\Index as AnalyticsLeafletIndex;
 use App\Livewire\Admin\Analytics\Leaflets\Show as AnalyticsLeafletShow;
 use App\Livewire\Admin\Analytics\Questions\Index as AnalyticsQuestionIndex;
 use App\Livewire\Admin\Analytics\Questions\Show as AnalyticsQuestionShow;
+use App\Livewire\Admin\ApiTokens\Index as AdminApiTokenIndex;
 use App\Livewire\Admin\Documents\Create as AdminDocumentCreate;
 use App\Livewire\Admin\Documents\Index as AdminDocumentIndex;
 use App\Livewire\Admin\Documents\Show as AdminDocumentShow;
@@ -179,6 +180,9 @@ Route::prefix('admin')
         // Consumo de IA por provedor e por usuário (base para planos de preço).
         Route::get('/analytics/consumo-ia', AnalyticsAiUsageIndex::class)->name('analytics.ai-usage.index');
         Route::get('/analytics/consumo-ia/usuarios/{user}', AnalyticsAiUsageShow::class)->name('analytics.ai-usage.show');
+
+        // Tokens revogáveis da API /api/v1 (estatísticas, consumo de IA, rastreio e avaliação das respostas).
+        Route::get('/api', AdminApiTokenIndex::class)->name('api-tokens.index');
 
         // Relatórios gerados sob demanda (App\Services\Reports\ReportGenerator).
         Route::get('/relatorios', AdminReportIndex::class)->name('reports.index');

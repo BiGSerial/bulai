@@ -61,22 +61,35 @@ final class ConversationEvaluator
 
                     continue;
                 }
-                $evidences = collect($r['evidences'])->reject(fn ($e): bool => in_array($e['document_type'], ['treatment_context', 'conversation_context'], true));
-                $out[] = [
-                    'scenario' => $name, 'question' => $question, 'turn' => $index + 1, 'expects' => $scenario['expects'],
-                    'status' => $r['status'], 'coverage' => $r['coverage'] ?? null, 'medicines' => array_column($r['medicines'], 'name'),
-                    'intent' => $r['intent'] ?? [], 'answer' => $r['answer'], 'follow_up' => $r['follow_up'] ?? [],
-                    'sources' => $evidences->map(fn ($e): string => ($e['document_title'] ?? '').' | '.($e['section'] ?? '?').' | p.'.($e['page_start'] ?? '?'))->unique()->values()->all(),
-                    'raw_excerpts_shown' => $r['status'] === 'excerpts_only' ? $evidences->count() : 0,
-                    'generation' => array_intersect_key($r['generation'], array_flip(['status', 'attempts', 'claims_accepted', 'claims_rejected', 'rejection_reasons', 'coverage', 'insufficient_declared', 'error_code'])),
-                    'leaflet_read' => $r['retrieval']['leaflet_fallback']['accepted'] ?? null,
-                    'seconds' => round(microtime(true) - $started, 1),
-                ];
+                $out[] = $this->turn($name, $question, $index + 1, $scenario['expects'], $r, microtime(true) - $started);
                 $conversation[] = ['question' => $question, 'answer' => $r['answer'], 'medicine_ids' => array_column($r['medicines'], 'id'), 'topics' => $r['intent'] ?? []];
             }
         }
 
         return $out;
+    }
+
+    /**
+     * Resumo auditável de uma resposta do Perguntar no formato que `score()` pontua (também usado pela API de avaliação).
+     *
+     * @param  array<string, mixed>  $expects
+     * @param  array<string, mixed>  $r  resultado de `MedicationQuestionService::askFreeform()`
+     * @return array<string, mixed>
+     */
+    public function turn(string $scenario, string $question, int $turn, array $expects, array $r, float $seconds): array
+    {
+        $evidences = collect($r['evidences'])->reject(fn ($e): bool => in_array($e['document_type'], ['treatment_context', 'conversation_context'], true));
+
+        return [
+            'scenario' => $scenario, 'question' => $question, 'turn' => $turn, 'expects' => $expects,
+            'status' => $r['status'], 'coverage' => $r['coverage'] ?? null, 'medicines' => array_column($r['medicines'], 'name'),
+            'intent' => $r['intent'] ?? [], 'answer' => $r['answer'], 'follow_up' => $r['follow_up'] ?? [],
+            'sources' => $evidences->map(fn ($e): string => ($e['document_title'] ?? '').' | '.($e['section'] ?? '?').' | p.'.($e['page_start'] ?? '?'))->unique()->values()->all(),
+            'raw_excerpts_shown' => $r['status'] === 'excerpts_only' ? $evidences->count() : 0,
+            'generation' => array_intersect_key($r['generation'], array_flip(['status', 'attempts', 'claims_accepted', 'claims_rejected', 'rejection_reasons', 'coverage', 'insufficient_declared', 'error_code'])),
+            'leaflet_read' => $r['retrieval']['leaflet_fallback']['accepted'] ?? null,
+            'seconds' => round($seconds, 1),
+        ];
     }
 
     /**

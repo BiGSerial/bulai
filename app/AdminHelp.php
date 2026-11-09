@@ -206,6 +206,13 @@ final class AdminHelp
                 'steps' => ['Escolha o tipo e o período.', 'Gere; o arquivo fica disponível para baixar nesta tela.'],
                 'related' => [$r('admin.analytics.index', 'Analytics')],
             ],
+            'admin.api-tokens.*' => [
+                'title' => 'Acesso à API',
+                'purpose' => 'Emite e revoga tokens da API /api/v1: leitura de estatísticas, consumo de IA e rastreio das respostas, e avaliação do Perguntar com perguntas reais.',
+                'when' => 'Ao ligar um script ou um agente de avaliação ao BULAI, e sempre que um token não for mais necessário.',
+                'steps' => ['Dê um nome, escolha a permissão e a validade.', 'Copie o token mostrado uma única vez.', 'Revogue quando terminar; a próxima chamada já recebe 401.'],
+                'related' => [$r('admin.analytics.index', 'Analytics'), $r('admin.reports.index', 'Relatórios')],
+            ],
             'admin.users.create' => [
                 'title' => 'Novo usuário',
                 'purpose' => 'Cria um acesso ao sistema com perfil (administrador ou usuário comum) e senha provisória.',
