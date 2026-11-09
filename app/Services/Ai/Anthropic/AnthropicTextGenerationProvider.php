@@ -160,7 +160,13 @@ final class AnthropicTextGenerationProvider implements StreamingTextGenerationPr
         }
 
         if ($request->system !== null && $request->system !== '') {
-            $payload['system'] = $request->system;
+            // System longo e estável vira prefixo em cache (o que varia fica na mensagem do usuário); curto demais não seria cacheado.
+            $payload['system'] = mb_strlen($request->system) >= (int) config('ai.text.drivers.anthropic.cache_system_min_characters')
+                ? [['type' => 'text', 'text' => $request->system, 'cache_control' => ['type' => 'ephemeral']]]
+                : $request->system;
+        }
+        if ($request->effort !== null) {
+            $payload['output_config'] = ['effort' => $request->effort];
         }
         $payload['messages'] = [['role' => 'user', 'content' => $request->prompt]];
         if ($stream) {

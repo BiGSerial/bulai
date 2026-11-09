@@ -18,6 +18,8 @@ return [
                 // Sem modelo configurado o provedor responde NOT_CONFIGURED (não há padrão no código).
                 'model' => env('ANTHROPIC_MODEL'),
                 'max_tokens' => (int) env('ANTHROPIC_MAX_TOKENS', 2048),
+                // System a partir deste tamanho vai com cache_control (mínimo cacheável do Sonnet 5.5: 512 tokens ≈ 1.500 caracteres).
+                'cache_system_min_characters' => (int) env('ANTHROPIC_CACHE_SYSTEM_MIN_CHARACTERS', 1500),
                 'timeout' => (int) env('ANTHROPIC_TIMEOUT', 90),
                 'retries' => (int) env('ANTHROPIC_RETRIES', 2),
                 // Backoff exponencial: base * 2^tentativa + jitter (ms). 429 só é reintentado com cabeçalho retry-after.
