@@ -3,6 +3,7 @@
 namespace App\Livewire\Consulta;
 
 use App\Livewire\Consulta\Tratamento\Hoje;
+use App\Models\CaregiverLink;
 use App\Models\MedicationDoseEvent;
 use App\Models\PatientMedication;
 use App\Services\Treatment\TreatmentScheduleService;
@@ -58,6 +59,9 @@ class Inicio extends Component
             'tomadas' => $agenda->where('status', TreatmentScheduleService::DOSE_TAKEN)->count(),
             'feitas' => $agenda->whereIn('status', [TreatmentScheduleService::DOSE_TAKEN, TreatmentScheduleService::DOSE_SKIPPED])->count(),
             'naoLidos' => $user->unreadNotifications()->count(),
+            // Modo cuidador: atalhos para os remédios de quem esta conta acompanha (com permissão de ver e consentimento).
+            'cuidados' => CaregiverLink::query()->active()->where('caregiver_id', $user->id)->where('can_view_medications', true)
+                ->whereHas('patient.patientProfile', fn ($query) => $query->whereNotNull('health_consent_at'))->with('patient:id,name')->orderBy('id')->get(),
         ]);
     }
 }

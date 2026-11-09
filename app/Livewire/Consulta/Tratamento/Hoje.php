@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Consulta\Tratamento;
 
+use App\Livewire\Consulta\Concerns\AtuaComoCuidador;
+use App\Models\CaregiverLink;
 use App\Models\MedicationDoseEvent;
 use App\Models\PatientMedication;
+use App\Services\Caregiving\CaregiverLinkService;
 use App\Services\Treatment\TreatmentScheduleService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\View\View;
@@ -13,11 +16,21 @@ use Livewire\Component;
 /**
  * Remédios de hoje: cada horário programado do tratamento, agrupado por período numa linha do tempo, com "Tomei" e
  * "Pular" em um toque. Ontem/Amanhã permitem conferir ou corrigir marcações; tudo é privado do paciente.
+ *
+ * Modo cuidador (`/cuidando/{vinculo}/hoje`): a mesma tela com os dados do paciente cuidado, a faixa "Você está vendo
+ * os remédios de Fulano" e os botões de marcar só com a permissão (conferida no servidor pela policy a cada ação).
  */
 class Hoje extends Component
 {
+    use AtuaComoCuidador;
+
     /** Deslocamento em dias em relação a hoje (-1 = ontem, 0 = hoje, 1 = amanhã). */
     public int $dia = 0;
+
+    public function mount(?CaregiverLink $vinculo = null): void
+    {
+        $this->entrarNoVinculo($vinculo);
+    }
 
     public function mudarDia(int $delta): void
     {
@@ -45,7 +58,13 @@ class Hoje extends Component
         if ($medication === null) {
             return;
         }
-        $schedule->unmark(auth()->user(), $medication, CarbonImmutable::parse($horario));
+        $vinculo = $this->vinculo();
+        if ($vinculo !== null) {
+            $this->authorize('markDose', $medication);
+            app(CaregiverLinkService::class)->unmarkDose($vinculo, auth()->user(), $medication, CarbonImmutable::parse($horario));
+        } else {
+            $schedule->unmark(auth()->user(), $medication, CarbonImmutable::parse($horario));
+        }
         $this->dispatch('notify', message: 'Marcação desfeita.');
     }
 
@@ -55,18 +74,27 @@ class Hoje extends Component
         if ($medication === null) {
             return;
         }
-        $schedule->mark(auth()->user(), $medication, CarbonImmutable::parse($horario), $status);
-        $this->dispatch('notify', message: $status === MedicationDoseEvent::STATUS_TAKEN ? 'Anotado: você tomou '.$medication->displayName().'.' : 'Anotado: '.$medication->displayName().' pulado neste horário.');
+        $vinculo = $this->vinculo();
+        if ($vinculo !== null) {
+            $this->authorize('markDose', $medication);
+            app(CaregiverLinkService::class)->markDose($vinculo, auth()->user(), $medication, CarbonImmutable::parse($horario), $status);
+            $quem = CaregiverLink::firstName($vinculo->patient).' tomou ';
+        } else {
+            $schedule->mark(auth()->user(), $medication, CarbonImmutable::parse($horario), $status);
+            $quem = 'você tomou ';
+        }
+        $this->dispatch('notify', message: $status === MedicationDoseEvent::STATUS_TAKEN ? 'Anotado: '.$quem.$medication->displayName().'.' : 'Anotado: '.$medication->displayName().' pulado neste horário.');
     }
 
     private function remedio(int $medicationId): ?PatientMedication
     {
-        return PatientMedication::query()->where('user_id', auth()->id())->find($medicationId);
+        return PatientMedication::query()->where('user_id', $this->paciente()->id)->find($medicationId);
     }
 
     public function render(TreatmentScheduleService $schedule): View
     {
-        $user = auth()->user();
+        $vinculo = $this->vinculo();
+        $user = $this->paciente();
         $consentido = $user->hasHealthConsent();
         $hoje = CarbonImmutable::now($user->treatmentTimezone())->startOfDay();
         $data = $hoje->addDays($this->dia);
@@ -84,6 +112,8 @@ class Hoje extends Component
         $remedios = $consentido ? PatientMedication::query()->with('medicine:id,product_name')->where('user_id', $user->id)->orderBy('id')->get() : collect();
 
         return view('livewire.consulta.tratamento.hoje', [
+            'vinculo' => $vinculo,
+            'podeMarcar' => $this->podeGerenciar(),
             'consentido' => $consentido,
             'data' => $data,
             'titulo' => match ($this->dia) {

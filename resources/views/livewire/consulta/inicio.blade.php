@@ -45,5 +45,18 @@
         @endforeach
     </nav>
 
+    @if ($cuidados->isNotEmpty())
+        <section class="grid gap-3" aria-labelledby="cuidados-titulo">
+            <h2 id="cuidados-titulo" class="px-1 text-xl font-semibold text-brand-900">Quem você acompanha</h2>
+            @foreach ($cuidados as $cuidado)
+                <a href="{{ route('consulta.cuidando.hoje', $cuidado) }}" wire:navigate wire:key="cuidado-{{ $cuidado->id }}" class="flex min-h-20 min-w-0 items-center gap-4 rounded-2xl bg-white px-4 py-4 text-slate-900 shadow-sm ring-1 ring-accent-300 transition hover:bg-accent-50 active:scale-[0.98] focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40">
+                    <span class="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-accent-100 text-2xl font-semibold text-accent-800" aria-hidden="true">{{ mb_strtoupper(mb_substr($cuidado->patient->name, 0, 1)) }}</span>
+                    <span class="min-w-0 flex-1"><span class="block break-words text-xl font-semibold leading-tight">Remédios de {{ $cuidado->patient->name }}</span><span class="block break-words text-base text-slate-600">Ver os horários de hoje</span></span>
+                    <x-consulta.icone name="seta" plain class="size-6 shrink-0 opacity-60" />
+                </a>
+            @endforeach
+        </section>
+    @endif
+
     <x-consulta.instalar />
 </x-consulta.shell>

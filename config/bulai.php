@@ -47,6 +47,9 @@ return [
         'reminder_lead_minutes' => (int) env('BULAI_REMINDER_LEAD_MINUTES', 10),
         'late_after_minutes' => (int) env('BULAI_DOSE_LATE_AFTER_MINUTES', 60),
         'reminder_queue' => env('BULAI_REMINDER_QUEUE', 'default'),
+        // Modo cuidador: quem cuida é avisado da dose atrasada até N minutos depois de ela virar "atrasada" (evita
+        // avisar doses antigas de uma vez quando o vínculo é aprovado ou o agendador volta).
+        'caregiver_alert_window_minutes' => (int) env('BULAI_CAREGIVER_ALERT_WINDOW_MINUTES', 120),
     ],
     'questions' => [
         // Perguntas livres: gravadas (pergunta, resposta, evidências e métricas) pelo mesmo prazo das consultas.
