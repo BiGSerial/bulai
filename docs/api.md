@@ -10,7 +10,7 @@ Dar a um script ou a um agente externo (por exemplo, o agente de desenvolvimento
 - Permissões (`ingestion_tokens.scope`):
   - `api:read`: leitura (`/me`, `/stats/*`, `/questions*`).
   - `api:evaluate`: leitura **e** `POST /evaluation/ask` (consome IA de verdade).
-- Validade: 7, 30 ou 90 dias. Expirado ou revogado: `401 {"message": "Invalid, expired or revoked token."}`.
+- Validade: quantidade + unidade (minutos, horas ou dias), de 1 minuto a 90 dias. Ao fim do prazo o token deixa de funcionar sozinho; a tela mostra quando expira e quanto falta. Para dar acesso só durante uma sessão de avaliação, emita por minutos ou horas. Expirado ou revogado: `401 {"message": "Invalid, expired or revoked token."}`.
 - Auditoria: emissão e revogação entram em `user_audit_events` (`api_token_issued`, `api_token_revoked`) na trilha do admin que agiu.
 - Terminal (emergência ou sem acesso ao painel):
   - `php artisan tokens:revoke --list` lista os tokens ativos;

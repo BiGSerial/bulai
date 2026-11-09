@@ -16,16 +16,26 @@ class Index extends Component
 {
     use WithPagination;
 
-    public const VALIDITY_DAYS = [7, 30, 90];
+    /** Unidades da validade => minutos de cada uma. */
+    public const UNITS = ['minutos' => 1, 'horas' => 60, 'dias' => 1440];
+
+    /** Validade máxima de um token: 90 dias. */
+    public const MAX_MINUTES = 90 * 1440;
 
     public string $nome = '';
 
     public string $escopo = IngestionToken::SCOPE_API_READ;
 
-    public int $dias = 30;
+    /** Validade: quantidade + unidade (ex.: 2 horas). O token expira sozinho ao fim desse tempo. */
+    public int $validade = 1;
+
+    public string $unidade = 'horas';
 
     /** Token recém-emitido, exibido uma única vez. */
     public ?string $tokenNovo = null;
+
+    /** Quando o token recém-emitido expira (data e hora no fuso da aplicação). */
+    public ?string $expiraNovo = null;
 
     public ?string $mensagem = null;
 
@@ -39,12 +49,14 @@ class Index extends Component
         $this->validate([
             'nome' => ['required', 'string', 'max:120'],
             'escopo' => ['required', 'in:'.implode(',', IngestionToken::API_SCOPES)],
-            'dias' => ['required', 'integer', 'in:'.implode(',', self::VALIDITY_DAYS)],
-        ], [], ['nome' => 'nome', 'escopo' => 'permissão', 'dias' => 'validade']);
+            'unidade' => ['required', 'in:'.implode(',', array_keys(self::UNITS))],
+            'validade' => ['required', 'integer', 'min:1', 'max:'.intdiv(self::MAX_MINUTES, self::UNITS[$this->unidade] ?? 1)],
+        ], ['validade.max' => 'A validade máxima é de 90 dias.'], ['nome' => 'nome', 'escopo' => 'permissão', 'validade' => 'validade', 'unidade' => 'unidade']);
 
-        [$token, $plain] = IngestionToken::issue($this->nome, $this->escopo, now()->addDays($this->dias));
+        [$token, $plain] = IngestionToken::issue($this->nome, $this->escopo, now()->addMinutes($this->validade * self::UNITS[$this->unidade]));
         $this->audit(UserAuditEvent::EVENT_API_TOKEN_ISSUED, $token);
         $this->tokenNovo = $plain;
+        $this->expiraNovo = $token->expires_at->timezone(config('app.timezone'))->format('d/m/Y H:i');
         $this->mensagem = null;
         $this->reset('nome');
         $this->resetPage();
@@ -74,7 +86,7 @@ class Index extends Component
             'user_id' => auth()->id(),
             'actor_id' => auth()->id(),
             'event' => $event,
-            'details' => ['token_id' => $token->id, 'name' => $token->name, 'scope' => $token->scope],
+            'details' => ['token_id' => $token->id, 'name' => $token->name, 'scope' => $token->scope, 'expires_at' => $token->expires_at->toIso8601String()],
             'ip' => request()->ip(),
         ]);
     }
