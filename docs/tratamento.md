@@ -99,3 +99,7 @@ Contexto de tratamento nas respostas (`TreatmentContextService`): remédios sem 
 - Frequências semanais, dias alternados ou "conforme orientação" não geram horários: o paciente define à mão.
 - Horários de "Remédios de hoje" só existem para remédios com `dose_times`; remédio "só quando precisar" aparece numa seção à parte, sem marcação de dose.
 - A agenda não considera a hora exata de `started_at` (dia inteiro) nem pausas de tratamento.
+
+## Modo cuidador (09/11/2026)
+
+Quem cuida do paciente (outra conta, com convite aprovado por ele) pode ver a agenda em `/cuidando/{vinculo}/hoje` (a mesma tela `Hoje`, com a faixa "Você está vendo os remédios de Fulano"), marcar doses e mudar dose/horários em `/cuidando/{vinculo}/remedios`, conforme as permissões. As marcações usam `TreatmentScheduleService::mark()` com o paciente como dono (a agenda e a programação dinâmica não mudam) e cada uma é auditada. O formulário "Dose e horários" agora vive em `App\Livewire\Consulta\Concerns\EditaPosologia` + `<x-consulta.form-posologia>`, compartilhado por Meus remédios e pela tela do cuidador. Detalhes: `docs/cuidador.md`.

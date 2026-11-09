@@ -9,7 +9,7 @@
         default => ['A tomar', 'brand', 'bg-slate-300 ring-slate-100'],
     };
 @endphp
-<x-consulta.shell :title="$titulo" :back="route('consulta.inicio')">
+<x-consulta.shell :title="$titulo" :back="route('consulta.inicio')" :conta="$vinculo !== null" :cuidando="$vinculo">
     @unless ($consentido)
         <x-consulta.cartao tone="warning">
             <p class="text-xl font-semibold leading-tight">Para programar seus remédios, autorize guardar seus dados de saúde.</p>
@@ -19,6 +19,9 @@
         {{-- Seletor de dia em pílulas + data por extenso. --}}
         <x-consulta.segmentos :itens="['-1' => 'Ontem', '0' => 'Hoje', '1' => 'Amanhã']" acao="irPara" :ativo="(string) $dia" label="Dia" prefixo="dia" />
         <p class="-mt-2 px-1 text-center text-lg text-slate-700">{{ mb_convert_case($data->translatedFormat('l, j \d\e F'), MB_CASE_TITLE, 'UTF-8') }}</p>
+        @if ($vinculo !== null && ! $podeMarcar)
+            <p class="flex items-start gap-2 rounded-2xl bg-slate-100 px-4 py-3 text-base text-slate-800" role="note"><x-consulta.icone name="info" plain class="mt-0.5 size-5 shrink-0" /><span class="min-w-0 break-words">Você pode ver os horários, mas {{ \App\Models\CaregiverLink::firstName($vinculo->patient) }} não liberou marcar doses.</span></p>
+        @endif
 
         {{-- Só a lista se atualiza sozinha (estados "Agora"/"Atrasado" mudam com a hora). --}}
         <div class="grid gap-4" wire:poll.60s aria-live="polite">
@@ -67,7 +70,8 @@
                                             @endif
                                         </div>
                                     </div>
-                                    @if ($marcado)
+                                    @if (! $podeMarcar)
+                                    @elseif ($marcado)
                                         <x-consulta.botao variant="quiet" size="sm" class="justify-self-start !w-auto" wire:click="desfazer({{ $alvo }})" wire:loading.attr="disabled"><x-consulta.icone name="desfazer" plain class="size-5" />Desfazer</x-consulta.botao>
                                     @else
                                         <div class="flex flex-wrap gap-2">
@@ -81,11 +85,17 @@
                     </ol>
                 </section>
             @empty
+                @if ($vinculo !== null)
+                <x-consulta.vazio icon="relogio" titulo="Nenhum horário programado para este dia." :texto="'Os remédios com horário de '.\App\Models\CaregiverLink::firstName($vinculo->patient).' aparecem aqui.'">
+                    <x-consulta.botao variant="soft" size="md" :href="route('consulta.cuidando.remedios', $vinculo)">Ver os remédios de {{ \App\Models\CaregiverLink::firstName($vinculo->patient) }}</x-consulta.botao>
+                </x-consulta.vazio>
+                @else
                 <x-consulta.vazio icon="relogio" :titulo="$temRemedios ? 'Nenhum horário programado para este dia.' : 'Você ainda não tem remédios programados.'" :texto="$temRemedios ? 'Toque em “Informar dose e horários” em Meus remédios para definir os horários.' : 'Fotografe sua receita ou cadastre os remédios à mão.'">
                     <x-consulta.botao variant="accent" :href="route('consulta.perfil')"><x-consulta.icone name="mais" plain class="size-6" />Adicionar remédio</x-consulta.botao>
                     <x-consulta.botao variant="secondary" size="md" :href="route('consulta.receita.nova')"><x-consulta.icone name="camera" plain class="size-6" />Fotografar receita</x-consulta.botao>
                     <x-consulta.botao variant="quiet" size="sm" :href="route('consulta.perfil')">Meus remédios</x-consulta.botao>
                 </x-consulta.vazio>
+                @endif
             @endforelse
         </div>
 
@@ -103,7 +113,9 @@
             </section>
         @endif
 
-        @if ($total > 0)
+        @if ($vinculo !== null)
+            <x-consulta.botao variant="soft" size="md" :href="route('consulta.cuidando.remedios', $vinculo)"><x-consulta.icone name="remedios" plain class="size-6" />Remédios de {{ \App\Models\CaregiverLink::firstName($vinculo->patient) }}</x-consulta.botao>
+        @elseif ($total > 0)
             <x-consulta.botao variant="soft" size="md" :href="route('consulta.perfil')"><x-consulta.icone name="remedios" plain class="size-6" />Meus remédios, receitas e alergias</x-consulta.botao>
         @endif
     @endunless

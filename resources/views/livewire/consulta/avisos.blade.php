@@ -3,6 +3,8 @@
     $icone = fn (array $data): array => match ((string) ($data['kind'] ?? '')) {
         'medicine_resolved' => ['check', 'success'],
         'treatment_ending' => ['calendario', 'warning'],
+        'caregiver_late' => ['alerta', 'danger'],
+        'caregiver_request' => ['usuario', 'brand'],
         default => ['relogio', 'accent'],
     };
 @endphp

@@ -62,7 +62,8 @@ class Avisos extends Component
         $aviso->markAsRead();
         $route = (string) ($aviso->data['route'] ?? 'consulta.hoje');
 
-        return redirect()->route(Route::has($route) ? $route : 'consulta.hoje');
+        // Avisos do modo cuidador levam ao paciente certo (`route_params`); a tela confere o vínculo de novo ao abrir.
+        return Route::has($route) ? redirect()->route($route, (array) ($aviso->data['route_params'] ?? [])) : redirect()->route('consulta.hoje');
     }
 
     public function apagar(string $id): void
@@ -118,6 +119,8 @@ class Avisos extends Component
         return match ((string) ($aviso->data['route'] ?? '')) {
             'consulta.perfil' => 'Ver meus remédios',
             'consulta.bula' => 'Ver a bula simples',
+            'consulta.cuidadores' => 'Ver quem cuida de mim',
+            'consulta.cuidando.hoje' => 'Abrir os remédios de quem você cuida',
             default => 'Ver remédios de hoje',
         };
     }

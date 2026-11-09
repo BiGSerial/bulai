@@ -44,6 +44,9 @@ use App\Livewire\Admin\Users\Index as UserIndex;
 use App\Livewire\Admin\Users\Show as UserShow;
 use App\Livewire\Consulta\Avisos as ConsultaAvisos;
 use App\Livewire\Consulta\Bula as ConsultaBula;
+use App\Livewire\Consulta\Cuidado\CuidarDeAlguem as ConsultaCuidarDeAlguem;
+use App\Livewire\Consulta\Cuidado\QuemCuidaDeMim as ConsultaQuemCuidaDeMim;
+use App\Livewire\Consulta\Cuidado\Remedios as ConsultaCuidadoRemedios;
 use App\Livewire\Consulta\Historico as ConsultaHistorico;
 use App\Livewire\Consulta\Inicio as ConsultaInicio;
 use App\Livewire\Consulta\Perfil as ConsultaPerfil;
@@ -119,6 +122,11 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
     // Programação do tratamento e avisos (quinta onda).
     Route::get('/hoje', ConsultaTratamentoHoje::class)->name('consulta.hoje');
     Route::get('/avisos', ConsultaAvisos::class)->name('consulta.avisos');
+    // Modo cuidador (handshake por convite): o paciente convida e aprova; quem cuida usa o código e vê o que foi permitido.
+    Route::get('/cuidadores', ConsultaQuemCuidaDeMim::class)->name('consulta.cuidadores');
+    Route::get('/cuidar', ConsultaCuidarDeAlguem::class)->name('consulta.cuidar');
+    Route::get('/cuidando/{vinculo}/hoje', ConsultaTratamentoHoje::class)->whereNumber('vinculo')->name('consulta.cuidando.hoje');
+    Route::get('/cuidando/{vinculo}/remedios', ConsultaCuidadoRemedios::class)->whereNumber('vinculo')->name('consulta.cuidando.remedios');
 });
 
 Route::prefix('admin')

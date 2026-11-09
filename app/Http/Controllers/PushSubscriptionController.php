@@ -41,7 +41,7 @@ final class PushSubscriptionController extends Controller
         return response()->json([
             'title' => (string) ($data['title'] ?? 'Aviso do BULA-IA'),
             'body' => (string) ($data['body'] ?? 'Você tem um aviso novo. Toque para abrir.'),
-            'url' => is_string($route) && Route::has($route) ? route($route, [], false) : '/avisos',
+            'url' => is_string($route) && Route::has($route) ? route($route, (array) ($data['route_params'] ?? []), false) : '/avisos',
             'tag' => $notification?->id ?? 'bulai-aviso',
         ])->header('Cache-Control', 'no-store');
     }

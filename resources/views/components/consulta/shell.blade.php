@@ -1,4 +1,4 @@
-@props(['title' => null, 'back' => null, 'conta' => false])
+@props(['title' => null, 'back' => null, 'conta' => false, 'cuidando' => null])
 @php
     // Três destinos na barra inferior (sênior-primeiro). Histórico e conta ficam no menu do cabeçalho da Início.
     $items = [
@@ -9,6 +9,10 @@
     $active = fn (array $item): bool => request()->routeIs(...(array) $item['pattern']);
     $user = auth()->user();
     $initials = mb_strtoupper(mb_substr(trim((string) $user?->name), 0, 1)) ?: '•';
+    // Modo cuidador: pessoas cujos remédios esta conta pode abrir (vínculo ativo, "ver remédios" e consentimento de saúde).
+    $cuidados = $user !== null && ($conta || ! $back) ? \App\Models\CaregiverLink::query()->active()->where('caregiver_id', $user->id)->where('can_view_medications', true)
+        ->whereHas('patient.patientProfile', fn ($query) => $query->whereNotNull('health_consent_at'))->with('patient:id,name')->orderBy('id')->get() : collect();
+    $nomeCuidado = $cuidando?->patient?->name;
 @endphp
 {{--
     Casca do app do paciente. `app-screen` (resources/css/app.css) dá altura real da janela, corta excesso horizontal,
@@ -48,8 +52,19 @@
                     <button type="button" class="inline-flex size-14 items-center justify-center rounded-full bg-brand-50 text-xl font-semibold text-brand-900 ring-1 ring-brand-600/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" x-on:click="menu = !menu" x-bind:aria-expanded="menu" aria-haspopup="menu" aria-label="Conta de {{ $user?->name }}">{{ $initials }}</button>
                     <div x-cloak x-show="menu" x-on:click.outside="menu = false" x-transition.opacity role="menu" aria-label="Conta" class="absolute right-0 z-30 mt-1 grid w-64 max-w-[calc(100vw-1rem)] gap-0.5 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
                         <p class="truncate px-3 py-2 text-base text-slate-600" aria-hidden="true" title="{{ $user?->email }}">{{ $user?->email }}</p>
+                        @if ($cuidados->isNotEmpty())
+                            {{-- Troca de perfil: "eu" ou "cuidando de Fulano" (a tela sempre mostra de quem são os dados). --}}
+                            <p class="px-3 pt-1 text-base font-semibold text-slate-600" id="menu-perfis">Ver os remédios de</p>
+                            <a role="menuitem" class="flex min-h-12 items-center justify-between gap-2 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 {{ $cuidando === null ? 'bg-brand-50' : '' }}" href="{{ route('consulta.hoje') }}" wire:navigate @if ($cuidando === null) aria-current="true" @endif><span class="min-w-0 break-words">Eu</span>@if ($cuidando === null)<x-consulta.icone name="check" plain class="size-5 shrink-0" />@endif</a>
+                            @foreach ($cuidados as $cuidado)
+                                <a role="menuitem" class="flex min-h-12 items-center justify-between gap-2 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 {{ $cuidando?->id === $cuidado->id ? 'bg-accent-50' : '' }}" href="{{ route('consulta.cuidando.hoje', $cuidado) }}" wire:navigate @if ($cuidando?->id === $cuidado->id) aria-current="true" @endif><span class="min-w-0 break-words">Cuidando de {{ $cuidado->patient->name }}</span>@if ($cuidando?->id === $cuidado->id)<x-consulta.icone name="check" plain class="size-5 shrink-0" />@endif</a>
+                            @endforeach
+                            <hr class="my-1 border-slate-200">
+                        @endif
                         <a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.avisos') }}" wire:navigate>Meus avisos</a>
                         <a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.historico') }}" wire:navigate>Ver o que já perguntei</a>
+                        <a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.cuidadores') }}" wire:navigate>Quem cuida de mim</a>
+                        <a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.cuidar') }}" wire:navigate>Cuidar de alguém</a>
                         <a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('account') }}" wire:navigate>Minha conta</a>
                         {{-- Só aparece quando o navegador pode instalar (Chrome/Edge) ou é o Safari do iPhone, e o app ainda não está instalado. --}}
                         <button x-cloak x-show="instalar" type="button" role="menuitem" class="min-h-12 w-full rounded-lg px-3 py-3 text-left font-medium text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" x-on:click="menu = false; window.bulaiInstalarAgora()">Instalar o aplicativo</button>
@@ -60,6 +75,16 @@
                 </div>
             @endif
         </div>
+        @if ($nomeCuidado !== null)
+            {{-- Modo cuidador: sempre visível (fica presa ao topo com o cabeçalho) de quem são os dados desta tela. --}}
+            <div class="border-t-2 border-accent-300 bg-accent-50" role="status" data-cuidando="{{ $cuidando->id }}">
+                <div class="mx-auto flex max-w-3xl flex-wrap items-center gap-2 px-3 py-2 sm:px-4">
+                    <span class="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-600 text-lg font-bold text-white" aria-hidden="true">{{ mb_strtoupper(mb_substr(trim($nomeCuidado), 0, 1)) }}</span>
+                    <p class="min-w-0 flex-1 break-words text-lg font-semibold leading-snug text-accent-900">Você está vendo os remédios de {{ $nomeCuidado }}</p>
+                    <a class="inline-flex min-h-12 shrink-0 items-center rounded-xl bg-white px-3 text-base font-semibold text-brand-800 ring-1 ring-brand-600/30 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.hoje') }}" wire:navigate>Voltar para os meus</a>
+                </div>
+            </div>
+        @endif
     </header>
 
     <x-consulta.toast />
