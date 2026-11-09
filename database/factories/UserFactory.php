@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\UserApprovalStatus;
 use App\UserRole;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,7 @@ class UserFactory extends Factory
             'role' => UserRole::User,
             'active' => true,
             'must_change_password' => false,
+            'approval_status' => UserApprovalStatus::Approved,
             'remember_token' => Str::random(10),
         ];
     }
@@ -65,6 +67,24 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'must_change_password' => true,
+        ]);
+    }
+
+    /** Cadastro feito pela própria pessoa no site, ainda sem decisão do administrador. */
+    public function awaitingApproval(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'approval_status' => UserApprovalStatus::Pending,
+            'terms_accepted_at' => now(),
+        ]);
+    }
+
+    public function rejected(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'approval_status' => UserApprovalStatus::Rejected,
+            'terms_accepted_at' => now(),
+            'approval_reviewed_at' => now(),
         ]);
     }
 }

@@ -129,6 +129,19 @@ class AppServiceProvider extends ServiceProvider
                     ->withErrors(['email' => self::throttleMessage((int) ($headers['Retry-After'] ?? 60))]));
         });
 
+        // Cadastro pelo site: 3 envios por minuto e 10 por hora por IP (contém robôs e varredura de e-mails cadastrados).
+        RateLimiter::for('register', function (Request $request): array {
+            $response = fn (Request $request, array $headers): RedirectResponse => redirect()
+                ->route('register')
+                ->withInput($request->only('name', 'email'))
+                ->withErrors(['email' => self::throttleMessage((int) ($headers['Retry-After'] ?? 60))]);
+
+            return [
+                Limit::perMinute(3)->by('register|'.$request->ip())->response($response),
+                Limit::perHour(10)->by('register-hour|'.$request->ip())->response($response),
+            ];
+        });
+
         // Política de senha: 12+ caracteres com letras e números; em produção, também não constar em vazamentos conhecidos.
         Password::defaults(fn (): Password => $this->app->isProduction()
             ? Password::min(12)->letters()->numbers()->uncompromised()

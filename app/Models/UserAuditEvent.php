@@ -42,6 +42,14 @@ class UserAuditEvent extends Model
 
     public const EVENT_LOGIN_BLOCKED = 'login_blocked';
 
+    public const EVENT_SELF_REGISTERED = 'self_registered';
+
+    public const EVENT_REGISTRATION_APPROVED = 'registration_approved';
+
+    public const EVENT_REGISTRATION_REJECTED = 'registration_rejected';
+
+    public const EVENT_APPROVAL_EMAILED = 'approval_emailed';
+
     /** Valor de details.via em password_changed quando a senha provisória foi trocada na tela de primeiro acesso. */
     public const VIA_FIRST_ACCESS = 'first_access';
 
@@ -65,6 +73,10 @@ class UserAuditEvent extends Model
             self::EVENT_PASSWORD_RESET => 'Senha redefinida pelo link de e-mail',
             self::EVENT_SESSIONS_TERMINATED => 'Sessões encerradas',
             self::EVENT_LOGIN_BLOCKED => 'Login bloqueado por excesso de tentativas',
+            self::EVENT_SELF_REGISTERED => 'Cadastro feito pela própria pessoa no site',
+            self::EVENT_REGISTRATION_APPROVED => 'Cadastro aprovado',
+            self::EVENT_REGISTRATION_REJECTED => 'Cadastro recusado',
+            self::EVENT_APPROVAL_EMAILED => 'Aviso de aprovação enviado por e-mail',
             'health_consent_given' => 'Consentimento de dados de saúde registrado',
             'health_data_deleted' => 'Dados de saúde apagados pela própria pessoa',
             'consultations_deleted' => 'Consultas apagadas pela própria pessoa',

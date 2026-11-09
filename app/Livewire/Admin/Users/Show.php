@@ -27,6 +27,9 @@ class Show extends Component
     /** Motivo informado ao desativar o acesso (vai para a auditoria). */
     public string $reason = '';
 
+    /** Motivo informado ao recusar o cadastro (só vai para a auditoria; a pessoa não o recebe). */
+    public string $rejectionReason = '';
+
     /** Enviar a nova senha provisória por e-mail, além de exibi-la uma vez. */
     public bool $sendByEmail = false;
 
@@ -69,6 +72,25 @@ class Show extends Component
         $this->feedback = $wasActive ? 'Acesso desativado. A pessoa foi desconectada.' : 'Acesso reativado.';
     }
 
+    /** Aprova o cadastro feito pelo site e avisa a pessoa por e-mail (se o envio falhar, a aprovação continua valendo). */
+    public function approve(UserAccountService $service): void
+    {
+        $user = $service->approve(User::query()->findOrFail($this->userId), auth()->user());
+        if ($service->emailApproval($user, auth()->user())) {
+            $this->feedback = 'Cadastro aprovado. Avisamos a pessoa por e-mail que o acesso foi liberado.';
+        } else {
+            $this->feedback = 'Cadastro aprovado.';
+            $this->addError('approval', 'O e-mail de aviso não pôde ser enviado. Avise a pessoa por outro canal: ela já pode entrar.');
+        }
+    }
+
+    public function reject(UserAccountService $service): void
+    {
+        $service->reject(User::query()->findOrFail($this->userId), auth()->user(), $this->rejectionReason);
+        $this->reset('rejectionReason');
+        $this->feedback = 'Cadastro recusado. A pessoa continua sem acesso.';
+    }
+
     public function issueTemporaryPassword(UserAccountService $service): void
     {
         $user = User::query()->findOrFail($this->userId);
@@ -98,7 +120,7 @@ class Show extends Component
 
     public function render(): View
     {
-        $user = User::query()->with('creator:id,name')->findOrFail($this->userId);
+        $user = User::query()->with(['creator:id,name', 'approvalReviewer:id,name'])->findOrFail($this->userId);
 
         return view('livewire.admin.users.show', [
             'user' => $user,

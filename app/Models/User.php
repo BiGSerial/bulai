@@ -6,6 +6,7 @@ namespace App\Models;
 use App\Models\Consultation\InteractionConsultation;
 use App\Models\Consultation\MedicationQuestion;
 use App\Notifications\ResetPasswordNotification;
+use App\UserApprovalStatus;
 use App\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -38,6 +39,9 @@ class User extends Authenticatable
             'active' => 'boolean',
             'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
+            'approval_status' => UserApprovalStatus::class,
+            'approval_reviewed_at' => 'datetime',
+            'terms_accepted_at' => 'datetime',
         ];
     }
 
@@ -49,6 +53,42 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->active === true;
+    }
+
+    /** Cadastro liberado: criado pelo administrador, anterior à aprovação ou aprovado depois do cadastro pelo site. */
+    public function isApproved(): bool
+    {
+        return $this->approval_status === UserApprovalStatus::Approved;
+    }
+
+    public function isAwaitingApproval(): bool
+    {
+        return $this->approval_status === UserApprovalStatus::Pending;
+    }
+
+    public function isRejected(): bool
+    {
+        return $this->approval_status === UserApprovalStatus::Rejected;
+    }
+
+    /**
+     * Motivo, em linguagem simples, de a pessoa não poder entrar (cadastro aguardando aprovação, recusado ou acesso
+     * desativado); null quando pode. Só deve ser mostrado depois que a senha conferiu.
+     */
+    public function signInBlockedMessage(): ?string
+    {
+        return match (true) {
+            $this->isAwaitingApproval() => __('auth.awaiting_approval'),
+            $this->isRejected() => __('auth.rejected'),
+            ! $this->isActive() => __('auth.inactive'),
+            default => null,
+        };
+    }
+
+    /** A própria pessoa criou a conta pela tela pública de cadastro (não há administrador como autor). */
+    public function registeredThemselves(): bool
+    {
+        return $this->created_by === null && $this->terms_accepted_at !== null;
     }
 
     /**
@@ -78,6 +118,12 @@ class User extends Authenticatable
     public function creator(): BelongsTo
     {
         return $this->belongsTo(self::class, 'created_by');
+    }
+
+    /** Administrador que aprovou ou recusou o cadastro. */
+    public function approvalReviewer(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'approval_reviewed_by');
     }
 
     public function auditEvents(): HasMany

@@ -4,18 +4,22 @@ namespace App\Services\Users;
 
 use App\Models\User;
 use App\Models\UserAuditEvent;
+use App\Notifications\AccountApprovedNotification;
+use App\Notifications\RegistrationAwaitingApprovalNotification;
 use App\Notifications\TemporaryPasswordNotification;
+use App\UserApprovalStatus;
 use App\UserRole;
 use Closure;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
- * Gestão de acessos: cadastro com senha provisória, edição, ativação e troca de senha.
+ * Gestão de acessos: cadastro com senha provisória, cadastro pelo site com aprovação, edição, ativação e troca de senha.
  *
  * Toda alteração grava um evento em user_audit_events (nunca com senha ou hash). As travas de
  * administrador rodam em transação com lock nas linhas de ADMIN ativos, para que duas ações
@@ -26,6 +30,8 @@ final class UserAccountService
     public const TEMPORARY_PASSWORD_LENGTH = 16;
 
     private const DUPLICATE_EMAIL_MESSAGE = 'Este e-mail já está cadastrado para outro usuário.';
+
+    private const DUPLICATE_SELF_REGISTRATION_MESSAGE = 'Já existe um cadastro com este e-mail. Se ele é seu, entre com a sua senha ou use “Esqueci minha senha”.';
 
     /**
      * Cadastra um acesso com senha provisória e troca obrigatória no primeiro login.
@@ -49,6 +55,10 @@ final class UserAccountService
                 'active' => true,
                 'must_change_password' => true,
                 'created_by' => $actor->id,
+                // Quem o administrador cadastra já nasce aprovado (por ele mesmo).
+                'approval_status' => UserApprovalStatus::Approved,
+                'approval_reviewed_by' => $actor->id,
+                'approval_reviewed_at' => now(),
             ])->save();
 
             $this->record($user, UserAuditEvent::EVENT_CREATED, $actor, ['email' => $email, 'role' => $user->role->value]);
@@ -57,6 +67,132 @@ final class UserAccountService
         }));
 
         return [$user->refresh(), $temporaryPassword];
+    }
+
+    /**
+     * Cadastro feito pela própria pessoa na tela pública: perfil USER, senha escolhida por ela (sem troca obrigatória)
+     * e situação "aguardando aprovação". Não entra até um administrador aprovar. Registra o aceite do aviso de privacidade.
+     *
+     * @param  array{name: string, email: string, password: string}  $attributes
+     */
+    public function register(array $attributes): User
+    {
+        $email = $this->normalizeEmail($attributes['email']);
+        $this->ensureEmailIsAvailable($email, message: self::DUPLICATE_SELF_REGISTRATION_MESSAGE);
+
+        $user = $this->translateDuplicateEmail(fn (): User => DB::transaction(function () use ($attributes, $email): User {
+            $user = new User;
+            $user->forceFill([
+                'name' => Str::squish($attributes['name']),
+                'email' => $email,
+                'password' => $attributes['password'],
+                'role' => UserRole::User,
+                'active' => true,
+                'must_change_password' => false,
+                'approval_status' => UserApprovalStatus::Pending,
+                'terms_accepted_at' => now(),
+            ])->save();
+
+            $this->record($user, UserAuditEvent::EVENT_SELF_REGISTERED, $user, ['email' => $email]);
+
+            return $user;
+        }), self::DUPLICATE_SELF_REGISTRATION_MESSAGE);
+
+        return $user->refresh();
+    }
+
+    /**
+     * Avisa os administradores ativos de que há um cadastro aguardando aprovação. Falha de envio não desfaz o cadastro:
+     * fica só no log (a lista de usuários mostra os pendentes de qualquer forma).
+     */
+    public function notifyAdministratorsOfPendingRegistration(User $user): void
+    {
+        $administrators = User::query()
+            ->where('role', UserRole::Admin)
+            ->where('active', true)
+            ->where('approval_status', UserApprovalStatus::Approved)
+            ->get();
+
+        if ($administrators->isEmpty()) {
+            return;
+        }
+
+        try {
+            Notification::send($administrators, new RegistrationAwaitingApprovalNotification($user));
+        } catch (Throwable $exception) {
+            Log::warning('registration_admin_email_failed', ['user_id' => $user->id, 'message' => $exception->getMessage()]);
+        }
+    }
+
+    /**
+     * Aprova um cadastro pendente (ou antes recusado): a pessoa passa a entrar com a senha que escolheu.
+     * Guarda quem aprovou e quando.
+     */
+    public function approve(User $user, User $actor): User
+    {
+        return DB::transaction(function () use ($user, $actor): User {
+            $user = $this->lock($user);
+
+            if ($user->isApproved()) {
+                return $user;
+            }
+
+            $previousStatus = $user->approval_status;
+            $user->forceFill([
+                'approval_status' => UserApprovalStatus::Approved,
+                'approval_reviewed_by' => $actor->id,
+                'approval_reviewed_at' => now(),
+            ])->save();
+
+            $this->record($user, UserAuditEvent::EVENT_REGISTRATION_APPROVED, $actor, ['from' => $previousStatus->value]);
+
+            return $user->refresh();
+        });
+    }
+
+    /**
+     * Recusa um cadastro que aguarda aprovação. A conta é mantida (com o histórico) e pode ser aprovada depois;
+     * o motivo (opcional) vai só para a auditoria, nunca para a pessoa.
+     */
+    public function reject(User $user, User $actor, ?string $reason = null): User
+    {
+        return DB::transaction(function () use ($user, $actor, $reason): User {
+            $user = $this->lock($user);
+
+            if (! $user->isAwaitingApproval()) {
+                throw ValidationException::withMessages(['approval' => 'Só é possível recusar um cadastro que aguarda aprovação.']);
+            }
+
+            $user->forceFill([
+                'approval_status' => UserApprovalStatus::Rejected,
+                'approval_reviewed_by' => $actor->id,
+                'approval_reviewed_at' => now(),
+            ])->save();
+            $this->revokeAccess($user);
+
+            $reason = $reason !== null ? Str::limit(Str::squish($reason), 255, '') : null;
+            $this->record($user, UserAuditEvent::EVENT_REGISTRATION_REJECTED, $actor, $reason !== null && $reason !== '' ? ['reason' => $reason] : []);
+
+            return $user->refresh();
+        });
+    }
+
+    /**
+     * Envia à pessoa o e-mail "seu acesso foi liberado". Devolve false (e registra no log) se o transporte recusar:
+     * a aprovação já vale e o administrador é avisado na tela.
+     */
+    public function emailApproval(User $user, User $actor): bool
+    {
+        try {
+            $user->notify(new AccountApprovedNotification);
+        } catch (Throwable $exception) {
+            Log::warning('approval_email_failed', ['user_id' => $user->id, 'actor_id' => $actor->id, 'message' => $exception->getMessage()]);
+
+            return false;
+        }
+        $this->record($user, UserAuditEvent::EVENT_APPROVAL_EMAILED, $actor);
+
+        return true;
     }
 
     /**
@@ -276,7 +412,7 @@ final class UserAccountService
         return Str::password(self::TEMPORARY_PASSWORD_LENGTH, symbols: false);
     }
 
-    private function ensureEmailIsAvailable(string $email, ?int $ignoreUserId = null): void
+    private function ensureEmailIsAvailable(string $email, ?int $ignoreUserId = null, string $message = self::DUPLICATE_EMAIL_MESSAGE): void
     {
         $taken = User::query()
             ->whereRaw('lower(email) = ?', [$email])
@@ -284,7 +420,7 @@ final class UserAccountService
             ->exists();
 
         if ($taken) {
-            throw ValidationException::withMessages(['email' => self::DUPLICATE_EMAIL_MESSAGE]);
+            throw ValidationException::withMessages(['email' => $message]);
         }
     }
 
@@ -296,13 +432,13 @@ final class UserAccountService
      * @param  Closure(): TResult  $callback
      * @return TResult
      */
-    private function translateDuplicateEmail(Closure $callback): mixed
+    private function translateDuplicateEmail(Closure $callback, string $message = self::DUPLICATE_EMAIL_MESSAGE): mixed
     {
         try {
             return $callback();
         } catch (QueryException $exception) {
             if (in_array((string) ($exception->errorInfo[0] ?? ''), ['23505', '19'], true)) {
-                throw ValidationException::withMessages(['email' => self::DUPLICATE_EMAIL_MESSAGE]);
+                throw ValidationException::withMessages(['email' => $message]);
             }
 
             throw $exception;

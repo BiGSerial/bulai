@@ -75,6 +75,20 @@ final class LandingPageTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/combina[çc][ãa]o (é )?segura(?!\.)/iu', strip_tags($html));
     }
 
+    public function test_the_academic_prototype_notice_is_prominent_outside_the_faq_and_links_to_the_registration(): void
+    {
+        $html = $this->get('/')->assertOk()
+            ->assertSee('O BULA-IA é um protótipo de Trabalho de Conclusão de Curso')
+            ->assertSee('Protótipo acadêmico (TCC).')
+            ->getContent();
+
+        // O aviso vem antes das seções de produto (logo após o hero), não só nas perguntas frequentes.
+        $notice = strpos($html, 'id="projeto-academico"');
+        $this->assertNotFalse($notice);
+        $this->assertLessThan(strpos($html, 'id="como-funciona"'), $notice);
+        $this->assertGreaterThanOrEqual(3, substr_count($html, 'href="'.route('register').'"'));
+    }
+
     public function test_authenticated_users_are_redirected_away_from_the_landing(): void
     {
         $user = User::factory()->create();

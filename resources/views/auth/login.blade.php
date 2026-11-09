@@ -14,7 +14,9 @@
             <a class="inline-flex min-h-12 items-center justify-center font-semibold text-brand-800 underline-offset-2 hover:underline" href="{{ route('password.request') }}">Esqueci minha senha</a>
         </x-knowledge-admin.card>
     </form>
-@endsection
-@section('footer')
-    <p>Sem conta? Peça o acesso a um administrador; ele entrega uma senha provisória.</p>
+    <x-knowledge-admin.card class="grid gap-3 text-center sm:p-7">
+        <p class="font-semibold text-brand-900">Ainda não tem conta?</p>
+        <p class="text-base text-slate-700">Faça o seu cadastro. Como este é um projeto acadêmico (TCC) com acesso limitado, a equipe aprova cada pedido e avisa você por e-mail.</p>
+        <x-knowledge-admin.button variant="secondary" :href="route('register')" class="min-h-14 w-full text-lg">Criar minha conta</x-knowledge-admin.button>
+    </x-knowledge-admin.card>
 @endsection

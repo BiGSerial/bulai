@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureUserIsActive
 {
     /**
-     * Encerra a sessão de quem teve o acesso desativado e devolve ao login.
+     * Encerra a sessão de quem teve o acesso desativado (ou cujo cadastro não está aprovado) e devolve ao login.
      *
      * É a rede de segurança da desativação: mesmo que uma sessão escape da limpeza feita pelo
      * UserAccountService (driver de sessão que não é o banco), ela cai na próxima requisição.
@@ -21,13 +21,15 @@ class EnsureUserIsActive
     {
         $user = $request->user();
 
-        if ($user !== null && ! $user->isActive()) {
+        $blockedMessage = $user?->signInBlockedMessage();
+
+        if ($blockedMessage !== null) {
             Auth::guard('web')->logout();
 
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('login')->withErrors(['email' => __('auth.inactive')]);
+            return redirect()->route('login')->withErrors(['email' => $blockedMessage]);
         }
 
         return $next($request);
