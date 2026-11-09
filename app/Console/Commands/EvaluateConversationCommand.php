@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User;
 use App\Services\Evaluation\ConversationEvaluator;
+use App\Services\Evaluation\EvaluationAccount;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\File;
 #[Description('Avalia o Perguntar com o fluxo completo (modelo real) em oito cenários e pontua relevância, ancoragem, segurança, clareza e naturalidade')]
 class EvaluateConversationCommand extends Command
 {
-    public function handle(ConversationEvaluator $evaluator): int
+    public function handle(ConversationEvaluator $evaluator, EvaluationAccount $account): int
     {
         if ($this->option('score')) {
             $turns = json_decode((string) File::get((string) $this->option('score')), true) ?? [];
@@ -23,8 +23,7 @@ class EvaluateConversationCommand extends Command
                 return $turn;
             }, $turns);
         } else {
-            $user = User::query()->where('email', 'avaliacao-bulai@example.test')->first() ?? User::factory()->create(['email' => 'avaliacao-bulai@example.test', 'name' => 'Avaliação BULA-IA']);
-            $turns = $evaluator->run($user, $evaluator->scenarios((string) $this->option('medicine'), (string) $this->option('other'), (string) $this->option('second')));
+            $turns = $evaluator->run($account->get(), $evaluator->scenarios((string) $this->option('medicine'), (string) $this->option('other'), (string) $this->option('second')));
         }
 
         $scored = array_map(fn (array $turn): array => $turn + ['score' => $evaluator->score($turn)], $turns);

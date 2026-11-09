@@ -11,6 +11,15 @@ class IngestionToken extends Model
 {
     public const SCOPE_KNOWLEDGE_INGEST = 'knowledge:ingest';
 
+    /** API de leitura: estatísticas, consumo de IA e rastreio das perguntas (`/api/v1`). */
+    public const SCOPE_API_READ = 'api:read';
+
+    /** Leitura e, além dela, avaliação: faz perguntas reais ao Perguntar (consome IA) com a conta de avaliação. */
+    public const SCOPE_API_EVALUATE = 'api:evaluate';
+
+    /** Escopos que o admin emite pela tela "Acesso à API". */
+    public const API_SCOPES = [self::SCOPE_API_READ, self::SCOPE_API_EVALUATE];
+
     public $timestamps = false;
 
     protected function casts(): array
@@ -38,7 +47,8 @@ class IngestionToken extends Model
         return [$token, $plainToken];
     }
 
-    public static function findValid(string $plainToken, string $scope): ?self
+    /** @param  string|list<string>  $scope  um escopo ou qualquer um entre vários */
+    public static function findValid(string $plainToken, string|array $scope): ?self
     {
         if ($plainToken === '') {
             return null;
@@ -46,9 +56,21 @@ class IngestionToken extends Model
 
         return self::query()
             ->where('token_hash', hash('sha256', $plainToken))
-            ->where('scope', $scope)
+            ->whereIn('scope', (array) $scope)
             ->whereNull('revoked_at')
             ->where('expires_at', '>', now())
             ->first();
+    }
+
+    public function isActive(): bool
+    {
+        return $this->revoked_at === null && $this->expires_at->isFuture();
+    }
+
+    public function revoke(): void
+    {
+        if ($this->revoked_at === null) {
+            $this->forceFill(['revoked_at' => now()])->save();
+        }
     }
 }

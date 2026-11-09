@@ -101,6 +101,19 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($request->ip());
         });
 
+        // API /v1: o limitador roda antes do middleware do token, então conta pelo hash do token enviado, com um teto por IP
+        // para quem troca de token a cada chamada. Avaliação chama o modelo de verdade, então é bem mais curta.
+        $apiKey = fn (Request $request): string => hash('sha256', (string) $request->bearerToken());
+        RateLimiter::for('api-read', fn (Request $request): array => [
+            Limit::perMinute(60)->by('api:'.$apiKey($request)),
+            Limit::perMinute(120)->by('api-ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('api-evaluate', fn (Request $request): array => [
+            Limit::perMinute(6)->by('api-eval:'.$apiKey($request)),
+            Limit::perDay(300)->by('api-eval-day:'.$apiKey($request)),
+            Limit::perMinute(12)->by('api-eval-ip:'.$request->ip()),
+        ]);
+
         // Bloqueio progressivo do login por e-mail + IP: 5 tentativas por minuto e 20 por 15 minutos. Ao exceder,
         // volta ao formulário com a mensagem (e o tempo restante) no campo de e-mail, em vez da página 429.
         RateLimiter::for('login', function (Request $request): array {

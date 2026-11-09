@@ -61,6 +61,7 @@ final class AdminNavigation
             ['label' => 'Análises', 'items' => [
                 self::item('admin.analytics.index', 'Analytics', 'admin.analytics.*', 'chart', 'Métricas das respostas da IA, evidências, custos e auditoria', 'Qualidade, custos e auditoria'),
                 self::item('admin.reports.index', 'Relatórios', 'admin.reports.*', 'report', 'Gerar e baixar relatórios da base, do uso, dos custos e da auditoria', 'Gerar e baixar arquivos'),
+                self::item('admin.api-tokens.index', 'Acesso à API', 'admin.api-tokens.*', 'link', 'Tokens revogáveis para ler estatísticas e avaliar as respostas pela API', 'Tokens da API'),
             ]],
             ['label' => 'Pessoas', 'items' => [
                 self::item('admin.users.index', 'Usuários', 'admin.users.*', 'users', 'Quem acessa o BULAI e com qual perfil', 'Acessos e perfis'),
