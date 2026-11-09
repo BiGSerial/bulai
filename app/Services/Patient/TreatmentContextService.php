@@ -95,33 +95,32 @@ final class TreatmentContextService
     }
 
     /**
-     * Texto determinístico (fatos do motor estruturado) que pode ser entregue ao modelo como evidência citável.
-     * Nunca inclui dados identificáveis do usuário: apenas nomes de medicamentos e gravidades.
+     * Só os achados que justificam um alerta na resposta do Perguntar: interação registrada com um remédio em uso, mesmo
+     * princípio ativo de um remédio em uso ou alergia registrada que atinge o remédio perguntado. Sem achado devolve null e o
+     * modelo não recebe nada do perfil, então não fala de tratamento nem de alergias sem necessidade. A posologia do próprio
+     * tratamento entra só quando pedida (`$withPosology`, perguntas de dose).
      *
      * @param  array<string, mixed>  $context
      */
-    public function asEvidenceText(array $context, string $medicineName): ?string
+    public function alertsText(array $context, string $medicineName, bool $withPosology = false): ?string
     {
         if (! $context['consented']) {
             return null;
         }
         $lines = [];
-        $lines[] = $context['in_use']
-            ? sprintf('%s está registrado entre os medicamentos em uso pelo paciente%s.', $medicineName, $this->posologyText($context['posology']))
-            : sprintf('%s não está registrado entre os medicamentos em uso pelo paciente.', $medicineName);
         foreach ($context['interactions'] as $interaction) {
             $lines[] = $interaction['severity'] === 'duplicate'
-                ? sprintf('%s, em uso, tem o mesmo princípio ativo de %s (possível duplicidade; não avaliada por este sistema).', $interaction['medicine'], $medicineName)
-                : sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s, que está em uso.', mb_strtolower($interaction['severity_label']), $medicineName, $interaction['medicine']);
+                ? sprintf('%s, em uso pelo paciente, tem o mesmo princípio ativo de %s (possível duplicidade; não avaliada por este sistema).', $interaction['medicine'], $medicineName)
+                : sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s, que o paciente usa.', mb_strtolower($interaction['severity_label']), $medicineName, $interaction['medicine']);
         }
         foreach ($context['allergy_alerts'] as $alert) {
             $lines[] = sprintf('O paciente registrou alergia a %s; %s %s %s.', $alert['allergy'], $medicineName, $alert['via'] === 'classe' ? 'pertence à mesma classe de' : 'contém', $alert['ingredient']);
         }
-        if ($context['unresolved'] !== []) {
-            $lines[] = 'Não foi possível verificar interações com: '.implode(', ', $context['unresolved']).' (princípio ativo não identificado ou remédio sem bula cadastrada).';
+        if ($withPosology && $context['in_use'] && ($posology = $this->posologyText($context['posology'])) !== '') {
+            $lines[] = sprintf('No tratamento registrado pelo paciente, %s está anotado assim%s.', $medicineName, $posology);
         }
 
-        return implode(' ', $lines);
+        return $lines === [] ? null : implode(' ', $lines);
     }
 
     /** @param array{dosage: string|null, frequency: string|null, prescriber: string|null}|null $posology */

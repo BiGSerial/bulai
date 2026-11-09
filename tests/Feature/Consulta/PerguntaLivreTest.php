@@ -155,7 +155,7 @@ final class PerguntaLivreTest extends TestCase
         $this->assertSame(0, $this->providerCalls);
         $this->assertSame(MedicationQuestionService::NO_MEDICINE, MedicationQuestion::query()->sole()->status);
 
-        $component->call('corrigir', $medicine->id)->assertSee('A bula diz que pode ser tomado com ou sem alimentos.')->assertSee('OMEPRAZOL está entre os medicamentos que você usa');
+        $component->call('corrigir', $medicine->id)->assertSee('Pode ser tomado com ou sem alimentos.')->assertSee('OMEPRAZOL está entre os medicamentos que você usa');
         $this->assertSame(1, $this->providerCalls);
         $this->assertSame('escolhido', MedicationQuestion::query()->latest('id')->first()->medicines[0]['matched_text']);
     }
@@ -200,7 +200,7 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que deve ser tomado pela manhã, em jejum.', 'evidence_ids' => ['E1']]]]);
 
         $this->actingAs($user)->get('/perguntar?q='.urlencode('omeprazol em jejum pela manhã?'))->assertOk()
-            ->assertSee('omeprazol em jejum pela manhã?')->assertSee('Falando de:')->assertSee('A bula diz que deve ser tomado pela manhã, em jejum.');
+            ->assertSee('omeprazol em jejum pela manhã?')->assertSee('Falando de:')->assertSee('Deve ser tomado pela manhã, em jejum.');
         $this->assertSame(1, MedicationQuestion::count());
 
         $this->actingAs($user)->get('/perguntar?q=om')->assertOk()->assertSee('&quot;pergunta&quot;:&quot;om&quot;', false);
@@ -215,17 +215,17 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que deve ser tomado pela manhã, em jejum.', 'evidence_ids' => ['E1']]]]);
 
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
-            ->assertSee('A bula diz que deve ser tomado pela manhã, em jejum.')->assertDontSee('Perguntas anteriores');
+            ->assertSee('Deve ser tomado pela manhã, em jejum.')->assertDontSee('Perguntas anteriores');
         $this->assertStringNotContainsString(MedicationQuestionService::CONVERSATION_LABEL, (string) $this->lastPrompt);
         $this->assertSame('', $component->get('pergunta'), 'a caixa esvazia para a próxima pergunta');
 
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que café não altera a absorção.', 'evidence_ids' => ['E1']]]]);
         $component->set('pergunta', 'e com café?')->call('perguntar')
-            ->assertSee('Perguntas anteriores (1)')->assertSee('omeprazol em jejum?')->assertSee('A bula diz que café não altera a absorção.')
+            ->assertSee('Perguntas anteriores (1)')->assertSee('omeprazol em jejum?')->assertSee('Café não altera a absorção.')
             ->assertSee('Leva em conta o que você perguntou antes')->assertSee('Falando de:')->assertSee('Baseado na bula do paciente de OMEPRAZOL.');
 
         $this->assertStringContainsString(MedicationQuestionService::CONVERSATION_LABEL, (string) $this->lastPrompt);
-        $this->assertStringContainsString('Paciente perguntou: "omeprazol em jejum?" Resposta dada: "A bula diz que deve ser tomado pela manhã, em jejum."', (string) $this->lastPrompt);
+        $this->assertStringContainsString('Paciente perguntou: "omeprazol em jejum?" Resposta dada: "Deve ser tomado pela manhã, em jejum."', (string) $this->lastPrompt);
         $this->assertStringContainsString('<pergunta>e com café?</pergunta>', (string) $this->lastPrompt, 'a conversa não entra na pergunta, só no bloco de fatos');
         $record = MedicationQuestion::query()->latest('id')->first();
         $this->assertSame([['OMEPRAZOL', 'conversa']], array_map(fn (array $m): array => [$m['name'], $m['matched_text']], $record->medicines));
@@ -248,7 +248,7 @@ final class PerguntaLivreTest extends TestCase
 
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'lozartana dá tontura?')->call('perguntar')
             ->assertSee('Entendemos “lozartana” como LOSARTANA POTASSICA.')->assertSee('Não é isso?')->assertSee('Não era esse remédio')
-            ->assertSee('A bula diz que pode causar tontura no início do tratamento.');
+            ->assertSee('Pode causar tontura no início do tratamento.');
         $record = MedicationQuestion::query()->sole();
         $this->assertSame(['lozartana', true, 'losartana'], [$record->medicines[0]['matched_text'], $record->medicines[0]['fuzzy'], $record->medicines[0]['corrected']]);
 
@@ -279,7 +279,7 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = 'não é json';
 
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol e sembula de manhã?')->call('perguntar')
-            ->assertSee('Procurei na bula inteira de OMEPRAZOL')->assertDontSee('Pode ser tomado pela manhã.', 'saída inválida nunca mostra o trecho bruto')
+            ->assertSee('para OMEPRAZOL, e não quero responder com suposições.')->assertDontSee('Pode ser tomado pela manhã.', 'saída inválida nunca mostra o trecho bruto')
             ->assertDontSee('Limitações')->assertDontSee('Ainda não há bula cadastrada');
         $this->assertSame(MedicationQuestionService::NO_EVIDENCE, MedicationQuestion::query()->sole()->status);
     }
@@ -305,7 +305,7 @@ final class PerguntaLivreTest extends TestCase
 
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol antes do café da manhã?')->call('perguntar')
             ->assertDontSee('Não consegui montar uma resposta curta')->assertDontSee('Deve ser tomado pela manhã, antes do café.')->assertDontSee('estas partes que falam disso')
-            ->assertSee('Procurei na bula inteira de OMEPRAZOL')->assertSee('Prefiro não completar a resposta com suposições.')->assertSee('Como devo tomar OMEPRAZOL?')
+            ->assertSee('para OMEPRAZOL, e não quero responder com suposições.')->assertDontSee('Procurei na bula')->assertSee('Como devo tomar OMEPRAZOL?')
             ->assertSee('Falando de:')->assertSee('BULA-IA');
         $this->semJargao($component);
         $this->assertSame(MedicationQuestionService::NO_EVIDENCE, MedicationQuestion::query()->sole()->status);
@@ -322,8 +322,8 @@ final class PerguntaLivreTest extends TestCase
 
         // Sem trecho na busca, a bula inteira é lida (1 chamada); sem nada nela, a resposta é honesta e a pergunta vai para revisão humana.
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol dá sono?')->call('perguntar')
-            ->assertSee('Procurei na bula inteira de OMEPRAZOL, mas não localizei uma informação suficientemente clara sobre efeitos colaterais mais comuns.')
-            ->assertSee('Prefiro não completar a resposta com suposições.')->assertSee('Isso não quer dizer que seja seguro')
+            ->assertSee('Não tenho uma orientação clara sobre efeitos colaterais mais comuns para OMEPRAZOL, e não quero responder com suposições.')
+            ->assertDontSee('Procurei na bula')->assertSee('Não ter essa orientação não quer dizer que seja seguro')
             ->assertSee('Se você estiver sentindo algum sintoma ou teve uma reação depois de usar o remédio, vale falar com um farmacêutico ou médico.')
             ->assertSee('Registrei sua pergunta para a equipe buscar mais fontes.')
             ->assertSee('Como devo tomar OMEPRAZOL?')->assertDontSee('OMEPRAZOL dá sono?', 'não repete a pergunta atual')->assertDontSee('Conservar em temperatura ambiente');

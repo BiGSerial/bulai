@@ -210,7 +210,6 @@ class Perguntar extends Component
         $assunto = (string) (($resposta['intent'] ?? [])[0] ?? '');
         $assuntoLabel = $assunto !== '' ? mb_strtolower((string) (config('bulai.questions.intents.'.$assunto.'.label') ?? config('bulai.leaflet.sections.'.$assunto.'.label') ?? $assunto)) : '';
         $efeitos = $assunto === 'efeitos_colaterais';
-        $consultouInteira = (bool) ($resposta['retrieval']['fallback_consulted'] ?? false);
         $revisao = ' Registrei sua pergunta para a equipe buscar mais fontes.';
         $fala = ['intro' => null, 'urgencia' => null, 'texto' => '', 'fonte' => null, 'trechos' => [], 'sugestoes' => [], 'remedios' => [], 'tone' => 'neutral'];
 
@@ -224,18 +223,13 @@ class Perguntar extends Component
                 $fala['fonte'] = self::fonte($resposta, $comBula !== [] ? $comBula : $nomes, $semBula, $comBula);
                 break;
             case MedicationQuestionService::UNAVAILABLE:
-                $fala['texto'] = 'Não consegui consultar o assistente agora, e prefiro não responder sem conferir a bula. Tente de novo em instantes; se for urgente, fale com um farmacêutico ou médico.';
+                $fala['texto'] = 'Não consegui preparar a resposta agora. Tente de novo em instantes; se for urgente, fale com um farmacêutico ou médico.';
                 $fala['tone'] = 'warning';
                 break;
             case MedicationQuestionService::NO_EVIDENCE:
-                $secoes = array_values(array_filter((array) ($resposta['retrieval']['found_sections'] ?? []), 'is_string'));
-                $texto = $consultouInteira
-                    ? 'Procurei na bula inteira de '.$de($comBula).', mas não localizei uma informação suficientemente clara sobre '.($assuntoLabel !== '' ? $assuntoLabel : 'isso').'. Prefiro não completar a resposta com suposições.'
-                    : 'Procurei na bula de '.$de($comBula).' e não achei uma parte que responda a isso com segurança. Prefiro não completar a resposta com suposições.';
-                if ($secoes !== []) {
-                    $texto .= ' O que encontrei fala de '.mb_strtolower(self::listar(array_map(fn (string $s): string => Str::limit($s, 40, ''), $secoes))).', e isso não responde à sua pergunta.';
-                }
-                $texto .= ' Isso não quer dizer que seja seguro: a bula consultada só não permitiu responder.';
+                // A bula humanizada não narra a busca ("procurei", "encontrei"): diz o que falta, sem suposições.
+                $texto = 'Não tenho uma orientação clara sobre '.($assuntoLabel !== '' ? $assuntoLabel : 'isso').' para '.$de($comBula).', e não quero responder com suposições.'
+                    .' Não ter essa orientação não quer dizer que seja seguro.';
                 // Quando o modelo explicou especificamente o que não deu para confirmar, vale a explicação dele (nunca trechos soltos).
                 $fala['texto'] = filled($resposta['answer'] ?? null) ? (string) $resposta['answer'] : $texto;
                 $fala['fonte'] = ($semBula !== [] ? 'Ainda não tenho a bula de '.self::listar($semBula).' comigo. ' : '')
@@ -288,7 +282,7 @@ class Perguntar extends Component
             $fonte .= ' Ainda não tenho a bula de '.self::listar($semBula).', então respondi só sobre '.self::listar($comBula).'.';
         }
         if ($evidencias->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']))) {
-            $fonte .= ' Também olhei os remédios e as alergias do seu perfil.';
+            $fonte .= ' Considera também os remédios e as alergias do seu perfil.';
         }
         if (! empty($resposta['generation']['conversation_context'])) {
             $fonte .= ' Leva em conta o que você perguntou antes nesta conversa.';
@@ -361,7 +355,7 @@ class Perguntar extends Component
         return match ($status) {
             MedicationQuestionService::NO_LEAFLET => 'Ainda não tenho a bula de '.$nome.' comigo.',
             MedicationQuestionService::NOT_IDENTIFIED => 'Ainda não tenho a bula de '.$nome.' comigo.',
-            MedicationQuestionService::NO_EVIDENCE => 'Não achei nada sobre isso na bula de '.$nome.'.',
+            MedicationQuestionService::NO_EVIDENCE => 'Não tive uma orientação clara sobre isso para '.$nome.'.',
             MedicationQuestionService::EXCERPTS_ONLY => 'Mostrei as partes da bula de '.$nome.' que falam disso.',
             MedicationQuestionService::NEEDS_INFO => 'Preciso de mais informações para explicar sobre '.$nome.'.',
             MedicationQuestionService::UNAVAILABLE => 'Não consegui consultar o assistente nessa hora.',

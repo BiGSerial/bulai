@@ -92,7 +92,7 @@ final class MedicationQuestionService
     {
         $started = hrtime(true);
         $treatment = $user !== null ? $this->treatment->for($user, $medicine) : null;
-        $facts = $treatment !== null ? $this->treatment->asEvidenceText($treatment, $medicine->product_name) : null;
+        $facts = $treatment !== null ? $this->treatment->alertsText($treatment, $medicine->product_name, in_array('como_usar', $this->intents->topics($question), true)) : null;
         $result = $this->answerMany([$medicine->loadMissing('ingredients')], $question, $facts) + ['treatment' => $treatment, 'uuid' => null];
         $durationMs = (int) ((hrtime(true) - $started) / 1_000_000);
 
@@ -156,19 +156,32 @@ final class MedicationQuestionService
         foreach ($ordered as $medicine) {
             $treatments[] = ['medicine' => $medicine->product_name, 'context' => $this->treatment->for($user, $medicine)];
         }
-        $facts = $this->freeformFacts($ordered, $treatments);
+        $facts = $this->freeformFacts($ordered, $treatments, in_array('como_usar', $this->intents->topics($verdict->sanitized, count($ordered)), true));
 
         $lastTurn = $conversation !== [] ? $conversation[array_key_last($conversation)] : [];
-        $result = $this->answerMany($ordered, $verdict->sanitized, $facts, $this->conversationText($conversation), [
-            'previous_topics' => array_values(array_filter((array) ($lastTurn['topics'] ?? []), 'is_string')),
+        // A pessoa trocou de remédio ("e o ibuprofeno?" depois de falar da dipirona): a conversa anterior era sobre outro remédio e
+        // não entra no contexto, para o modelo não misturar os dois.
+        $currentIds = array_map(fn (array $m): int => (int) $m['id'], $medicines);
+        $switched = $previousIds !== [] && array_intersect($currentIds, $previousIds) === [];
+        $result = $this->answerMany($ordered, $verdict->sanitized, $facts, $switched ? null : $this->conversationText($conversation), [
+            'previous_topics' => $switched ? [] : array_values(array_filter((array) ($lastTurn['topics'] ?? []), 'is_string')),
             'previous_question' => isset($lastTurn['question']) ? (string) $lastTurn['question'] : null,
             'follow_up' => $medicines !== [] && collect($medicines)->every(fn (array $m): bool => $m['matched_text'] === 'conversa'),
             'urgency' => $base['urgency'],
+            'medicine_switched' => $switched,
         ]) + [
             'treatment' => $treatments[0]['context'] + ['others' => array_slice($treatments, 1)],
             'treatments' => $treatments, 'medicines' => $medicines,
         ] + $base;
         $result['urgency'] = $base['urgency'];
+        // Verificação do perfil sempre registrada (auditoria), mesmo quando nada foi alertado.
+        $result['retrieval']['treatment_check'] = [
+            'consented' => $user->hasHealthConsent(),
+            'medications' => (int) ($treatments[0]['context']['medications_count'] ?? 0),
+            'interactions' => array_sum(array_map(fn (array $t): int => count($t['context']['interactions']), $treatments)),
+            'allergy_alerts' => array_sum(array_map(fn (array $t): int => count($t['context']['allergy_alerts']), $treatments)),
+            'alerted' => $facts !== null,
+        ];
         $result['generation'] += ['conversation_turns' => count($conversation)] + ($base['urgency'] !== null ? ['urgency' => $base['urgency']['kinds']] : []);
 
         return $this->finish($user, $result, $started);
@@ -200,16 +213,20 @@ final class MedicationQuestionService
     }
 
     /**
-     * Fatos determinísticos: contexto de cada medicamento citado e, entre os citados, a interação registrada na base.
+     * Fatos determinísticos: alertas do tratamento de cada medicamento citado e, entre os citados, a interação registrada na base.
+     *
+     * O perfil (remédios em uso e alergias) é sempre verificado, mas só vira fato para o modelo quando há achado: interação
+     * registrada com um remédio em uso, duplicidade ou alergia. Sem achado, a resposta não fala do tratamento. Entre os remédios
+     * citados na própria pergunta, o resultado da base entra sempre, porque é a combinação que a pessoa perguntou.
      *
      * @param  list<AnvisaMedicine>  $medicines
      * @param  list<array{medicine: string, context: array<string, mixed>}>  $treatments
      */
-    private function freeformFacts(array $medicines, array $treatments): ?string
+    private function freeformFacts(array $medicines, array $treatments, bool $withPosology = false): ?string
     {
         $lines = [];
         foreach ($treatments as $treatment) {
-            $text = $this->treatment->asEvidenceText($treatment['context'], $treatment['medicine']);
+            $text = $this->treatment->alertsText($treatment['context'], $treatment['medicine'], $withPosology);
             if ($text !== null) {
                 $lines[] = $text;
             }
@@ -249,12 +266,22 @@ final class MedicationQuestionService
         $plan = $this->intents->plan($question, count($medicines), (array) ($context['previous_topics'] ?? []));
         $topics = $plan['topics'];
         $sections = $plan['sections'];
+        $canonical = $this->intents->canonical($topics, ! empty($context['follow_up']) || $plan['inherited'], ! empty($context['urgency']));
+        $classification = $canonical + [
+            'topics' => $topics,
+            'symptom' => $this->intents->symptom($question),
+            'presentation' => $this->intents->presentation($question),
+            'unnamed_other_medicine' => count($medicines) === 1 && $this->intents->mentionsUnnamedMedicine($question),
+            'conversation_used' => $conversation !== null,
+            'medicine_switched' => ! empty($context['medicine_switched']),
+        ];
         $unidentified = [];
         $withoutLeaflet = [];
         $streams = [];
         $coverage = [];
         $sectionMatched = false;
-        $retrieval = ['mode' => $mode, 'duration_ms' => 0, 'per_medicine' => [], 'intent' => $topics, 'sections' => $sections, 'ambiguous' => $plan['ambiguous'], 'inherited_intent' => $plan['inherited'], 'section_matched' => false, 'leaflet_fallback' => null];
+        $primaryMatched = false;
+        $retrieval = ['mode' => $mode, 'duration_ms' => 0, 'per_medicine' => [], 'intent' => $topics, 'sections' => $sections, 'ambiguous' => $plan['ambiguous'], 'inherited_intent' => $plan['inherited'], 'section_matched' => false, 'leaflet_fallback' => null, 'classification' => $classification];
         // O usuário pergunta pelo nome comercial; as bulas falam pelo princípio ativo. Os nomes dos ativos citados
         // entram na consulta de recuperação para que a bula de um cite o outro.
         $ingredientNames = collect($medicines)->flatMap(fn (AnvisaMedicine $m) => $m->ingredients->pluck('normalized_name'))->unique()->values()->all();
@@ -274,7 +301,7 @@ final class MedicationQuestionService
 
                 continue;
             }
-            $documentIds = $this->patientFirst($found['document_ids']);
+            $documentIds = $this->presentationFirst($this->patientFirst($found['document_ids']), $classification['presentation']);
             $coverage[] = ['medicine' => $medicine, 'documents' => $documentIds];
 
             // 1. Evidências já extraídas da bula inteira para este assunto (perguntas anteriores, mesma versão do documento).
@@ -285,12 +312,14 @@ final class MedicationQuestionService
             // 2. Cada seção do plano tem a sua busca (em palavras de bula, não a pergunta inteira): seção do assunto na bula do
             // paciente, depois em todas as bulas, depois sem restrição de seção (os rótulos de seção das bulas nem sempre são bons).
             $perMedicine = ['medicine' => $medicine->product_name, 'documents' => count($documentIds), 'stored_facts' => count($stored), 'found_by' => $found['method'], 'linked_now' => $found['linked_now'], 'sections' => []];
-            foreach ($sections as $section) {
+            foreach ($sections as $position => $section) {
                 $text = trim($this->intents->sectionQuery($section).' '.$names.' '.($plan['ambiguous'] ? $subject : $this->intents->searchTerms($subject)));
-                [$result, $matched] = $this->retrieve($text, $mode, $perSection, $documentIds, [$section]);
+                // A seção da intenção principal vem primeiro na intercalação e traz um trecho a mais que as demais.
+                [$result, $matched] = $this->retrieve($text, $mode, $position === 0 ? $perSection + 1 : $perSection, $documentIds, [$section]);
                 $retrieval['duration_ms'] += $result->durationMs;
                 $retrieval += $result->configuration;
                 $sectionMatched = $sectionMatched || $matched;
+                $primaryMatched = $primaryMatched || ($position === 0 && $matched);
                 $perMedicine['sections'][$section] = ['references' => count($result->references), 'section_label_matched' => $matched];
                 if ($result->references !== []) {
                     $streams[] = $result->references;
@@ -299,6 +328,7 @@ final class MedicationQuestionService
             $perMedicine['references'] = array_sum(array_column($perMedicine['sections'], 'references'));
             $retrieval['per_medicine'][] = $perMedicine;
             $sectionMatched = $sectionMatched || $stored !== [];
+            $primaryMatched = $primaryMatched || $stored !== [];
         }
 
         $limitations = [];
@@ -320,33 +350,54 @@ final class MedicationQuestionService
 
         $references = $this->interleave($streams);
         $retrieval['section_matched'] = $sectionMatched;
+        $retrieval['sufficiency'] = ['primary_section_found' => $primaryMatched || $plan['ambiguous'], 'references' => count($references), 'verdict' => 'pending', 'fallback' => 'none'];
         $label = implode(' + ', array_map(fn (AnvisaMedicine $m): string => $m->product_name, $medicines));
         $extra = ['limitations' => $limitations, 'missing' => $empty['missing'], 'intent' => $topics];
-        // Orçamento de palavras dos fatos: pergunta simples (um só assunto simples, ou geral) = resposta curta; segurança, interações e
-        // comparações pedem mais. Vale o menor dos assuntos quando há mais de um assunto simples.
+        // Tamanho e tom pela intenção PRINCIPAL: "serve para dor de cabeça?" pede 1 a 3 frases, sem perguntas e sem ressalvas;
+        // interação e uso pessoal pedem mais. A pergunta geral tem o seu próprio orçamento.
+        $primary = $classification['primary'];
         $byIntent = (array) config('bulai.questions.conversation.fact_words_by_intent');
         $factWords = $plan['ambiguous']
             ? (int) config('bulai.questions.conversation.fact_words_general')
-            : (count($topics) === 1 && isset($byIntent[$topics[0]]) ? (int) $byIntent[$topics[0]] : (int) config('bulai.questions.conversation.max_fact_words'));
+            : (int) ($byIntent[$primary] ?? config('bulai.questions.conversation.max_fact_words'));
+        $guides = (array) config('bulai.questions.response_guides');
         $genContext = ['conversation' => $conversation, 'topics' => $plan['labels'], 'ambiguous' => $plan['ambiguous'], 'urgency' => ! empty($context['urgency']), 'fact_words' => $factWords,
-            'allow_asks' => ! (count($topics) === 1 && in_array($topics[0], (array) config('bulai.questions.conversation.no_ask_intents'), true))];
+            'primary_intent' => $primary,
+            'guides' => array_values(array_filter(array_map(fn (string $intent): ?string => isset($guides[$intent]) ? (string) $guides[$intent] : null, $classification['intents']))),
+            'presentation' => $classification['presentation'],
+            'unnamed_other_medicine' => $classification['unnamed_other_medicine'],
+            'allow_asks' => $classification['unnamed_other_medicine'] || ! in_array($primary, (array) config('bulai.questions.conversation.no_ask_intents'), true),
+            'drop_limits_when_full' => in_array($primary, (array) config('bulai.questions.conversation.no_limit_intents'), true)];
 
         // 3. Primeira geração com o que a busca trouxe; é o modelo quem julga se as evidências cobrem a pergunta. Uma reformulação
-        // controlada (nível 1) acontece dentro do gerador quando a validação reprova tudo.
+        // controlada (nível 1) acontece dentro do gerador quando a validação reprova tudo. Sem nenhum trecho da seção da intenção
+        // principal (critério determinístico de suficiência), a bula inteira é consultada antes, em vez de gastar uma geração com
+        // trechos de outro assunto.
         $best = null;
         $last = null;
-        if ($references !== []) {
+        // Urgência e "outro remédio" sem nome não esperam a bula inteira: a orientação e a pergunta vêm primeiro.
+        $readWholeFirst = ! $retrieval['sufficiency']['primary_section_found'] && empty($context['urgency']) && ! $classification['unnamed_other_medicine'];
+        if ($references !== [] && ! $readWholeFirst) {
             $last = $this->generate($label, $question, $references, $facts, $retrieval, $genContext);
             $best = $this->usable($last) ? $last : null;
             if ($best !== null && $last['coverage'] === 'full' && $last['status'] === self::ANSWERED) {
+                $last['retrieval']['sufficiency']['verdict'] = 'sufficient';
+
                 return $last + $extra;
             }
         }
 
         // 4. Nível 2: a bula inteira de cada medicamento, na seção compatível com a intenção, quando a cobertura não é completa
-        // (inclusive sem nenhum fato). A segunda geração só substitui a primeira se for melhor.
+        // (inclusive sem nenhum fato). Se o texto indexado não bastar e o índice estiver incompleto ou com extração ruim, o PDF
+        // original é relido. A segunda geração só substitui a primeira se for melhor.
         $fallback = $this->consultWholeLeaflets($coverage, $question, $topics !== [] ? $topics : $sections, $plan['labels'][0] ?? '');
         $retrieval['leaflet_fallback'] = $fallback['extraction'];
+        $retrieval['sufficiency']['fallback'] = $fallback['consulted'] ? (($fallback['extraction']['original_pdf'] ?? false) ? 'original_pdf' : 'leaflet_text') : 'none';
+        if ($fallback['references'] === [] && $last === null && $references !== []) {
+            // A bula inteira não acrescentou nada: os trechos encontrados, mesmo de outra seção, ainda podem responder.
+            $last = $this->generate($label, $question, $references, $facts, $retrieval, $genContext);
+            $best = $this->usable($last) ? $last : null;
+        }
         if ($fallback['references'] !== []) {
             $merged = $fallback['references'];
             foreach ($references as $reference) {
@@ -363,8 +414,16 @@ final class MedicationQuestionService
 
         // Nível 3: o que há é parcial (fatos com cobertura parcial, ou só o que perguntar ou não confirmar): a conversa continua com isso.
         if ($best !== null) {
+            $best['retrieval'] = $retrieval;
+            $best['retrieval']['sufficiency']['verdict'] = match (true) {
+                $best['status'] === self::ANSWERED && $best['coverage'] === 'full' => 'sufficient',
+                $best['status'] === self::ANSWERED => 'partial',
+                default => 'insufficient',
+            };
+
             return $best + $extra;
         }
+        $retrieval['sufficiency']['verdict'] = 'insufficient';
 
         // Nível 4: insuficiência real. O assistente indisponível não é falta de evidência; nenhum trecho bruto vira resposta.
         $unavailable = $last !== null && ($last['generation']['status'] ?? null) === ExplanationGenerator::STATUS_UNAVAILABLE;
@@ -423,6 +482,7 @@ final class MedicationQuestionService
             $result = $this->evidence->extract(array_slice($entry['documents'], 0, 2), $question, $topics, $entry['medicine']->id, $extraction['run_id'], $topicLabel);
             $extraction['per_medicine'][] = ['medicine' => $entry['medicine']->product_name] + $result['extraction'];
             $extraction['accepted'] += count($result['references']);
+            $extraction['original_pdf'] = ($extraction['original_pdf'] ?? false) || ! empty($result['extraction']['original_pdf']);
             if (isset($result['extraction']['document_id'])) {
                 $extraction['document_id'] = $result['extraction']['document_id'];
             }
@@ -438,6 +498,25 @@ final class MedicationQuestionService
         $patient = $this->patientOnly($documentIds);
 
         return [...$patient, ...array_values(array_diff($documentIds, $patient))];
+    }
+
+    /**
+     * Pergunta sobre uma apresentação ("quantas gotas…"): as bulas cujo título cita essa apresentação vêm primeiro, mantendo a
+     * ordem relativa (bula do paciente antes). Sem apresentação na pergunta, a ordem não muda.
+     *
+     * @param  list<int>  $documentIds
+     * @return list<int>
+     */
+    private function presentationFirst(array $documentIds, ?string $presentation): array
+    {
+        if ($presentation === null || count($documentIds) < 2) {
+            return $documentIds;
+        }
+        $needle = Str::lower(Str::ascii($presentation));
+        $titles = DB::table('knowledge_documents')->whereIn('id', $documentIds)->pluck('title', 'id');
+        $matching = array_values(array_filter($documentIds, fn (int $id): bool => str_contains(Str::lower(Str::ascii((string) ($titles[$id] ?? ''))), $needle)));
+
+        return [...$matching, ...array_values(array_diff($documentIds, $matching))];
     }
 
     /** @param list<int> $documentIds @return list<int> */
