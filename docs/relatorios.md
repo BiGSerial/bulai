@@ -8,7 +8,7 @@ Gerar, sob demanda ou por comando, os relatórios que sustentam a operação e o
 | --- | --- | --- | --- | --- |
 | `analytics` | Analytics do período | JSON, CSV | sim | `AnalyticsService::overview` + linhas anonimizadas por par e por pergunta (mesmo conteúdo de `analytics:export`) |
 | `knowledge_inventory` | Inventário da base de conhecimento | CSV | não | um documento por linha: título, chave, tipo, origem, idioma, situação de PDF/texto/índice, trechos, trechos com vetor, princípios ativos ligados, hash, datas |
-| `ai_usage` | Consumo e custo de IA | CSV | sim | por dia × provedor × modelo × capacidade: chamadas, falhas, tokens, custo estimado, latência média |
+| `ai_usage` | Consumo e custo de IA | CSV | sim | por dia × usuário × provedor × modelo × capacidade: chamadas, falhas, tokens (entrada, cache lido/gravado, saída, raciocínio), custo estimado, latência média |
 | `user_audit` | Auditoria de usuários | CSV | sim | `user_audit_events` com e-mail do usuário e do ator, IP e detalhes (campos com `pass/senha/token/secret/hash` são removidos) |
 | `evaluation` | Registros de avaliação | JSON | não | todos os arquivos de `storage/app/evaluation/runs` em um único JSON |
 

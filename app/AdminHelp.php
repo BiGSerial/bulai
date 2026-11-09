@@ -185,6 +185,13 @@ final class AdminHelp
                 'steps' => ['Ordene pelas mais vistas.', 'Abra a bula para comparar cada seção com o trecho original.'],
                 'related' => [$r('admin.analytics.index', 'Analytics'), $r('admin.knowledge.documents.index', 'Documentos')],
             ],
+            'admin.analytics.ai-usage.*' => [
+                'title' => 'Consumo de IA',
+                'purpose' => 'Tokens e custo de cada provedor de IA, separados, e de cada usuário: médias por pessoa, modelos, telas que geraram as chamadas e o registro original devolvido pela API.',
+                'when' => 'Para acompanhar o custo, achar quem mais consome e estimar planos de preço.',
+                'steps' => ['Escolha o período e, se quiser, um provedor.', 'Compare as médias por usuário com o custo total.', 'Abra um usuário para ver cada chamada e o uso informado pela API.'],
+                'related' => [$r('admin.analytics.index', 'Analytics'), $r('admin.reports.index', 'Relatórios'), $r('admin.users.index', 'Usuários')],
+            ],
             'admin.analytics.*' => [
                 'title' => 'Analytics',
                 'purpose' => 'Métricas das respostas da IA (ancoragem nas bulas, recusas, latência), custos por provedor e auditoria das consultas, perguntas e bulas simples.',

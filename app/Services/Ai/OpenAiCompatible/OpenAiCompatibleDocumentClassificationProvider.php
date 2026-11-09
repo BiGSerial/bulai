@@ -4,6 +4,7 @@ namespace App\Services\Ai\OpenAiCompatible;
 
 use App\Data\Ai\DocumentClassificationRequest;
 use App\Data\Ai\DocumentClassificationResponse;
+use App\Data\Ai\TokenUsage;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\DocumentClassificationProvider;
 
@@ -55,7 +56,7 @@ final class OpenAiCompatibleDocumentClassificationProvider implements DocumentCl
             throw $this->client->invalidResponse('classify', $model, $startedAt);
         }
 
-        $this->client->logSuccess('classify', $response->model, null, $startedAt);
+        $this->client->logSuccess('classify', $model, TokenUsage::fromOpenAi(is_array($body['usage'] ?? null) ? $body['usage'] : null), $startedAt, $response->model);
 
         return $response;
     }

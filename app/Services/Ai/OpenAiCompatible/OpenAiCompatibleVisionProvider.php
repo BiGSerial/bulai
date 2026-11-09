@@ -45,11 +45,8 @@ final class OpenAiCompatibleVisionProvider implements VisionProvider
             throw $this->client->invalidResponse('analyze', $model, $startedAt);
         }
 
-        $usage = new TokenUsage(
-            is_int($body['usage']['prompt_tokens'] ?? null) ? $body['usage']['prompt_tokens'] : null,
-            is_int($body['usage']['completion_tokens'] ?? null) ? $body['usage']['completion_tokens'] : null,
-        );
-        $this->client->logSuccess('analyze', $model, $usage, $startedAt);
+        $usage = TokenUsage::fromOpenAi(is_array($body['usage'] ?? null) ? $body['usage'] : null);
+        $this->client->logSuccess('analyze', $model, $usage, $startedAt, is_string($body['model'] ?? null) ? $body['model'] : null);
 
         return new VisionResponse($content, is_string($body['model'] ?? null) ? $body['model'] : $model, $usage, ['provider' => $this->client->provider]);
     }

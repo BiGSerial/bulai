@@ -21,7 +21,7 @@ Item de menu "Analytics" em `App\AdminNavigation::items()` (ícone `chart`).
 - `interaction_pair_results` (join com a consulta para o período): `verdict`, `severity`, `explanation`, `evidences` (array JSON; `method` de cada evidência), `generation->>'status'|'claims_accepted'|'claims_rejected'`, `generation->'rejection_reasons'` (objeto motivo → n), `timings->>'lookup_ms'|'retrieval_ms'|'generation_ms'`.
 - `medication_questions`: `status`, `user_id`, `duration_ms`, `generation` (idem), `treatment_context->>'consented'`, `treatment_context->'interactions'`.
 - `medicine_leaflet_summaries`: `status`, `views`, `duration_ms`, `generation` (idem).
-- `ai_usage_logs`: `provider`, `model`, `capability`, `status`, `error_code`, `input_tokens`, `output_tokens`, `estimated_cost_usd`, `latency_ms`, `created_at`.
+- `ai_usage_logs`: `provider`, `model`, `capability`, `status`, `error_code`, `input_tokens`, `output_tokens`, `estimated_cost_usd`, `latency_ms`, `created_at`. O consumo por usuário e por provedor, com cache, raciocínio e o `usage` original da API, tem aba própria: ver `docs/ai/consumo-por-usuario.md`.
 
 Nunca lidos: `users.name`, `users.email`, texto de prompts (não existem no banco), alergias.
 

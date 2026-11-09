@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AttributeAiUsageToUser;
 use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
         ]);
+
+        // Atribui o consumo de IA ao usuário e à tela da requisição (segue para os jobs pelo Context).
+        $middleware->appendToGroup('web', AttributeAiUsageToUser::class);
 
         $middleware->redirectGuestsTo('/login');
 

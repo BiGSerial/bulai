@@ -40,12 +40,12 @@ final class AiProviderManager
 
     public function __construct()
     {
-        $client = fn (array $config, string $capability): OpenAiCompatibleClient => new OpenAiCompatibleClient('openai_compatible', $capability, $config);
+        $client = fn (array $config, string $capability): OpenAiCompatibleClient => new OpenAiCompatibleClient('openai_compatible', $capability, $config, app(AiUsageRecorder::class));
         $this->extend(self::TEXT, 'openai_compatible', fn (array $config) => new OpenAiCompatibleTextGenerationProvider($client($config, self::TEXT)));
         $this->extend(self::EMBEDDING, 'openai_compatible', fn (array $config) => new OpenAiCompatibleEmbeddingProvider($client($config, self::EMBEDDING)));
         $this->extend(self::VISION, 'openai_compatible', fn (array $config) => new OpenAiCompatibleVisionProvider($client($config, self::VISION)));
         // llamafile expõe API compatível com OpenAI; o driver é um alias com configuração própria (ai.classifier.drivers.llamafile).
-        $this->extend(self::CLASSIFIER, 'llamafile', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider(new OpenAiCompatibleClient('llamafile', self::CLASSIFIER, $config)));
+        $this->extend(self::CLASSIFIER, 'llamafile', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider(new OpenAiCompatibleClient('llamafile', self::CLASSIFIER, $config, app(AiUsageRecorder::class))));
         $this->extend(self::CLASSIFIER, 'openai_compatible', fn (array $config) => new OpenAiCompatibleDocumentClassificationProvider($client($config, self::CLASSIFIER)));
         $this->extend(self::CLASSIFIER, 'fake', fn () => new FakeDocumentClassificationProvider);
         $this->extend(self::CLASSIFIER, 'anthropic', fn (array $config) => new AnthropicDocumentClassificationProvider(

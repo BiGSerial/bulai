@@ -44,10 +44,7 @@ final class AnthropicResponseMapper
             throw new AiProviderException(AiProviderException::INVALID_RESPONSE, $correlationId, 200, $requestId);
         }
 
-        $usage = new TokenUsage(
-            is_int($body['usage']['input_tokens'] ?? null) ? $body['usage']['input_tokens'] : null,
-            is_int($body['usage']['output_tokens'] ?? null) ? $body['usage']['output_tokens'] : null,
-        );
+        $usage = TokenUsage::fromAnthropic(is_array($body['usage'] ?? null) ? $body['usage'] : null);
 
         return new TextGenerationResponse($text, is_string($body['model'] ?? null) ? $body['model'] : $requestedModel, $usage, [
             'provider' => 'anthropic',

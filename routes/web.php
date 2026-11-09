@@ -12,6 +12,8 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Livewire\Admin\Analytics\AiUsage\Index as AnalyticsAiUsageIndex;
+use App\Livewire\Admin\Analytics\AiUsage\Show as AnalyticsAiUsageShow;
 use App\Livewire\Admin\Analytics\Consultations\Index as AnalyticsConsultationIndex;
 use App\Livewire\Admin\Analytics\Consultations\Show as AnalyticsConsultationShow;
 use App\Livewire\Admin\Analytics\Dashboard as AnalyticsDashboard;
@@ -160,6 +162,9 @@ Route::prefix('admin')
         Route::get('/analytics/perguntas/{question:uuid}', AnalyticsQuestionShow::class)->name('analytics.questions.show');
         Route::get('/analytics/bulas', AnalyticsLeafletIndex::class)->name('analytics.leaflets.index');
         Route::get('/analytics/bulas/{summary:uuid}', AnalyticsLeafletShow::class)->name('analytics.leaflets.show');
+        // Consumo de IA por provedor e por usuário (base para planos de preço).
+        Route::get('/analytics/consumo-ia', AnalyticsAiUsageIndex::class)->name('analytics.ai-usage.index');
+        Route::get('/analytics/consumo-ia/usuarios/{user}', AnalyticsAiUsageShow::class)->name('analytics.ai-usage.show');
 
         // Relatórios gerados sob demanda (App\Services\Reports\ReportGenerator).
         Route::get('/relatorios', AdminReportIndex::class)->name('reports.index');
