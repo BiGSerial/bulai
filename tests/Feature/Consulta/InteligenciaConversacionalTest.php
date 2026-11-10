@@ -313,6 +313,86 @@ final class InteligenciaConversacionalTest extends TestCase
         $this->assertSame('DRUG_INTERACTION', $result['retrieval']['classification']['primary']);
         $this->assertStringContainsString('não registra interação entre DIPIRONA e ACETILCISTEINA; isso não comprova que a combinação seja segura', $this->generationPrompt());
         $this->assertStringContainsString('não prova que a combinação é segura', $this->generationPrompt());
+        $this->assertStringContainsString('não liste interações com outros remédios que ela não citou', $this->generationPrompt(), 'a primeira frase trata do par perguntado (avaliação de 09/11, D2)');
+    }
+
+    /**
+     * Avaliação em produção de 09/11/2026 (docs/qa/avaliacao-api-2026-11-09.md): "Tomei 10 comprimidos…" saiu sem a
+     * orientação de socorro, porque o detector só conhecia quantidades por extenso logo após o verbo.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function overdoses(): array
+    {
+        return [
+            'algarismo e de uma vez' => ['Tomei 10 comprimidos de dipirona de uma vez, o que eu faço?', 'overdose_quantidade'],
+            'algarismo' => ['Engoli 3 comprimidos de dipirona', 'overdose_quantidade'],
+            'caixa inteira' => ['Minha mãe tomou a caixa toda de dipirona', 'overdose_quantidade'],
+            'criança' => ['Meu filho engoliu um comprimido de dipirona', 'ingestao_acidental'],
+        ];
+    }
+
+    #[DataProvider('overdoses')]
+    public function test_an_overdose_with_a_number_is_an_emergency_answered_with_the_poison_center_first(string $question, string $kind): void
+    {
+        $this->dipirona();
+        $this->scripted = $this->reply('partial', [['kind' => 'fact', 'text' => 'Em caso de superdose da dipirona podem ocorrer náuseas, vômitos e sonolência.', 'evidence_ids' => ['ALL']]]);
+
+        $result = $this->ask(User::factory()->create(), $question);
+
+        $this->assertContains($kind, $result['urgency']['kinds']);
+        $this->assertStringContainsString('0800 722 6001', $result['urgency']['message']);
+        $this->assertSame('EMERGENCY', $result['retrieval']['classification']['primary']);
+    }
+
+    public function test_an_answer_built_on_the_overdose_section_always_carries_the_poison_center_even_when_the_question_was_not_flagged(): void
+    {
+        $this->dipirona();
+        $this->scripted = $this->reply('full', [['kind' => 'fact', 'text' => 'Em caso de superdose da dipirona podem ocorrer náuseas, vômitos e sonolência.', 'evidence_ids' => ['ALL']]]);
+
+        $result = $this->ask(User::factory()->create(), 'E se alguém usar dipirona em excesso?');
+
+        $this->assertNull(app(UrgencyDetector::class)->detect('E se alguém usar dipirona em excesso?'), 'a pergunta em si não é reconhecida como urgência');
+        $this->assertContains('O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO?', $this->sections($result));
+        $this->assertSame(['secao_superdose'], $result['urgency']['kinds']);
+        $this->assertStringContainsString('0800 722 6001', $result['urgency']['message']);
+    }
+
+    public function test_when_the_first_fact_is_rejected_the_next_one_never_opens_with_a_loose_pronoun(): void
+    {
+        $this->dipirona();
+        $this->scripted = $this->reply('full', [
+            ['kind' => 'fact', 'text' => 'A dipirona cura infecções bacterianas resistentes em poucas horas.', 'evidence_ids' => ['ALL']],
+            ['kind' => 'fact', 'text' => 'Ela é indicada como analgésico, para o alívio da dor, e como antitérmico, para reduzir a febre.', 'evidence_ids' => ['ALL']],
+        ]);
+
+        $result = $this->ask(User::factory()->create(), 'Dipirona é pra quê?');
+
+        $this->assertStringStartsWith('A dipirona é indicada como analgésico', (string) $result['answer']);
+        $this->assertSame(1, $result['generation']['rejection_reasons']['not_grounded_in_cited_evidence'] ?? null);
+    }
+
+    public function test_how_it_is_used_is_a_dosage_question(): void
+    {
+        $this->assertSame(['como_usar'], app(QuestionIntentDetector::class)->topics('Como se usa a dipirona?'));
+    }
+
+    public function test_a_combination_found_for_a_single_named_ingredient_is_announced_in_the_answer(): void
+    {
+        $combination = AnvisaMedicine::factory()->create(['product_name' => 'LOSARTANA POTÁSSICA + HIDROCLOROTIAZIDA', 'normalized_product_name' => 'losartana potassica + hidroclorotiazida', 'active_ingredient' => 'LOSARTANA POTÁSSICA + HIDROCLOROTIAZIDA', 'normalized_active_ingredient' => 'losartana potassica + hidroclorotiazida']);
+        foreach (['LOSARTANA POTÁSSICA', 'HIDROCLOROTIAZIDA'] as $ingredient) {
+            $combination->ingredients()->attach(ActiveIngredient::factory()->create(['canonical_name' => $ingredient, 'normalized_name' => mb_strtolower($ingredient)])->id, ['component_text' => $ingredient, 'method' => 'alias', 'confidence' => 1]);
+        }
+        $this->leaflet($combination, ['INDICAÇÕES' => 'A losartana potássica associada à hidroclorotiazida é indicada para o tratamento da hipertensão.']);
+        $this->scripted = $this->reply('full', [['kind' => 'fact', 'text' => 'A losartana com hidroclorotiazida é indicada para o tratamento da hipertensão.', 'evidence_ids' => ['ALL']]]);
+
+        $result = $this->ask(User::factory()->create(), 'Para que serve a losartana potássica e hidroclorotiazida?');
+        $this->assertNull($result['retrieval']['classification']['combination'], 'citou os dois: não há aviso');
+
+        $this->requests = [];
+        $single = $this->ask(User::factory()->create(), 'Para que serve a losartana?');
+        $this->assertSame(['LOSARTANA POTÁSSICA', 'HIDROCLOROTIAZIDA'], $single['retrieval']['classification']['combination']);
+        $this->assertStringContainsString('O remédio encontrado é a combinação losartana potássica + hidroclorotiazida, e a pessoa citou só parte dela', $this->generationPrompt());
     }
 
     public function test_the_profile_is_always_checked_but_only_reaches_the_answer_when_there_is_a_finding(): void

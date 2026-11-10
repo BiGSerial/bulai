@@ -173,7 +173,9 @@ final class MedicationQuestionService
             'treatment' => $treatments[0]['context'] + ['others' => array_slice($treatments, 1)],
             'treatments' => $treatments, 'medicines' => $medicines,
         ] + $base;
-        $result['urgency'] = $base['urgency'];
+        // A resposta usou a seção de superdose da bula sem a pergunta ter sido reconhecida como urgência: a orientação de
+        // socorro (Disque-Intoxicação/SAMU) entra mesmo assim.
+        $result['urgency'] = $base['urgency'] ?? $this->urgencies->fromEvidence($result['evidences'] ?? []);
         // Verificação do perfil sempre registrada (auditoria), mesmo quando nada foi alertado.
         $result['retrieval']['treatment_check'] = [
             'consented' => $user->hasHealthConsent(),
@@ -182,7 +184,7 @@ final class MedicationQuestionService
             'allergy_alerts' => array_sum(array_map(fn (array $t): int => count($t['context']['allergy_alerts']), $treatments)),
             'alerted' => $facts !== null,
         ];
-        $result['generation'] += ['conversation_turns' => count($conversation)] + ($base['urgency'] !== null ? ['urgency' => $base['urgency']['kinds']] : []);
+        $result['generation'] += ['conversation_turns' => count($conversation)] + ($result['urgency'] !== null ? ['urgency' => $result['urgency']['kinds']] : []);
 
         return $this->finish($user, $result, $started);
     }
@@ -272,6 +274,7 @@ final class MedicationQuestionService
             'symptom' => $this->intents->symptom($question),
             'presentation' => $this->intents->presentation($question),
             'unnamed_other_medicine' => count($medicines) === 1 && $this->intents->mentionsUnnamedMedicine($question),
+            'combination' => count($medicines) === 1 ? $this->intents->partialCombination($question, $medicines[0]->loadMissing('ingredients')->ingredients->pluck('canonical_name')->map(fn ($name): string => (string) $name)->all()) : null,
             'conversation_used' => $conversation !== null,
             'medicine_switched' => ! empty($context['medicine_switched']),
         ];
@@ -366,6 +369,7 @@ final class MedicationQuestionService
             'guides' => array_values(array_filter(array_map(fn (string $intent): ?string => isset($guides[$intent]) ? (string) $guides[$intent] : null, $classification['intents']))),
             'presentation' => $classification['presentation'],
             'unnamed_other_medicine' => $classification['unnamed_other_medicine'],
+            'combination' => $classification['combination'],
             'allow_asks' => $classification['unnamed_other_medicine'] || ! in_array($primary, (array) config('bulai.questions.conversation.no_ask_intents'), true),
             'drop_limits_when_full' => in_array($primary, (array) config('bulai.questions.conversation.no_limit_intents'), true)];
 

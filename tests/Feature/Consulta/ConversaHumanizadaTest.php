@@ -246,6 +246,26 @@ final class ConversaHumanizadaTest extends TestCase
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'A dipirona atrapalha o exame de vista?')->call('perguntar')->assertDontSee('estas partes que falam disso');
     }
 
+    /**
+     * A pergunta enviada aparece na hora como balão da pessoa (antes da resposta), e a chegada da resposta rola a tela até o
+     * começo da fala do BULA-IA, não até a pergunta.
+     */
+    public function test_the_sent_question_shows_at_once_and_the_screen_scrolls_to_the_start_of_the_answer(): void
+    {
+        $this->dipirona();
+        $this->scripted = $this->reply('full', [['kind' => 'fact', 'text' => 'A dipirona é indicada para o alívio da dor e para reduzir a febre.', 'evidence_ids' => ['ALL']]]);
+
+        $component = Livewire::actingAs(User::factory()->create())->test(Perguntar::class)
+            ->assertSeeHtml('data-testid="pergunta-pendente"')
+            ->assertSeeHtml('wire:target="perguntar"')
+            ->assertSeeHtml("\$dispatch('pergunta-enviada'")
+            ->assertSeeHtml('x-on:pergunta-enviada.window');
+
+        $component->set('pergunta', 'Para que serve a dipirona?')->call('perguntar')
+            ->assertSeeHtml('data-testid="resposta-atual"')
+            ->assertSeeHtml("scrollIntoView({ block: 'start'");
+    }
+
     public function test_scenario_7_a_follow_up_keeps_the_subject_and_searches_with_the_previous_question(): void
     {
         $this->dipirona();

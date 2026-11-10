@@ -159,6 +159,28 @@ final class QuestionIntentDetector
     }
 
     /** "Quantas gotas…", "comprimido", "xarope": a apresentação que a pessoa citou, quando citou. */
+    /**
+     * O remédio encontrado é uma combinação e a pessoa citou só parte dela ("losartana" achou "losartana + hidroclorotiazida").
+     * Devolve os princípios ativos da combinação, para a resposta avisar de qual bula está falando; null quando não é o caso.
+     *
+     * @param  list<string>  $ingredients  nomes dos princípios ativos do remédio encontrado
+     * @return list<string>|null
+     */
+    public function partialCombination(string $question, array $ingredients): ?array
+    {
+        if (count($ingredients) < 2) {
+            return null;
+        }
+        $text = ' '.$this->normalizer->text($question).' ';
+        $named = array_filter($ingredients, function (string $ingredient) use ($text): bool {
+            $first = strtok($this->normalizer->text($ingredient), ' ');
+
+            return $first !== false && mb_strlen($first) >= 4 && str_contains($text, ' '.$first);
+        });
+
+        return $named !== [] && count($named) < count($ingredients) ? array_values($ingredients) : null;
+    }
+
     public function presentation(string $question): ?string
     {
         $text = ' '.$this->normalizer->text($question).' ';

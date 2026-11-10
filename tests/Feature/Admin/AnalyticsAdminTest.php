@@ -86,6 +86,22 @@ final class AnalyticsAdminTest extends TestCase
         $this->assertSame(2, $overview['ai']['daily'][0]['calls']);
     }
 
+    /** Cobertura em três dimensões separadas (análise crítica do TCC): base DDInter, bulas dos dois remédios e evidência. */
+    public function test_coverage_separates_the_structured_base_the_leaflets_and_the_evidence(): void
+    {
+        $consultation = InteractionConsultationFactory::new()->create();
+        InteractionPairResultFactory::new()->create(['consultation_id' => $consultation->id, 'position' => 0, 'retrieval' => ['directions' => [['documents' => 1], ['documents' => 2]]]]);
+        InteractionPairResultFactory::new()->create(['consultation_id' => $consultation->id, 'position' => 1, 'evidences' => [], 'retrieval' => ['directions' => [['documents' => 1], ['documents' => 0]]]]);
+        InteractionPairResultFactory::new()->notFound()->create(['consultation_id' => $consultation->id, 'position' => 2, 'retrieval' => ['directions' => [['documents' => 0], ['documents' => 0]]]]);
+        MedicationQuestionFactory::new()->create();
+        MedicationQuestionFactory::new()->create(['status' => 'no_leaflet', 'answer' => null, 'evidences' => []]);
+
+        $coverage = app(AnalyticsService::class)->overview()['coverage'];
+
+        $this->assertSame(['total' => 3, 'ddinter_record' => 2, 'ddinter_rate' => 0.6667, 'both_leaflets' => 1, 'leaflets_rate' => 0.3333, 'with_evidence' => 1, 'evidence_rate' => 0.3333], $coverage['pairs']);
+        $this->assertSame(['total' => 2, 'without_leaflet' => 1, 'not_identified' => 0, 'with_evidence' => 1, 'evidence_rate' => 0.5], $coverage['questions']);
+    }
+
     public function test_dashboard_shows_kpis_and_filters_by_period(): void
     {
         $this->seedActivity();

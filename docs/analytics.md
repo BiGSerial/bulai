@@ -43,6 +43,17 @@ Nunca lidos: `users.name`, `users.email`, texto de prompts (não existem no banc
 
 O filtro de período aplica `created_at >= hoje − N dias` (0 = tudo).
 
+### Cobertura em três dimensões (`overview.coverage`)
+
+São três medidas diferentes, mostradas separadas no painel (seção "Cobertura") e na API (`/api/v1/stats/overview`), porque uma não implica a outra:
+
+- `pairs.ddinter_record`: o par tem registro na base estruturada (`interaction_pair_results.structured`).
+- `pairs.both_leaflets`: a base tem bula dos dois remédios (`retrieval.directions[*].documents > 0`).
+- `pairs.with_evidence`: havia trecho de bula para sustentar a explicação (`evidences` não vazio).
+- `questions`: perguntas livres sem bula (`no_leaflet`), sem princípio ativo (`not_identified`) e com evidência.
+
+Cada contagem vem com a taxa sobre o total do período (`*_rate`, de 0 a 1, ou `null` sem dados).
+
 ## Exportação para o TCC
 ```bash
 php artisan analytics:export                      # JSON em storage/app/evaluation/analytics-<data>.json

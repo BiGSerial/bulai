@@ -5,7 +5,9 @@
     técnicos (partes da bula, o que foi considerado) ficam recolhidos. A caixa de texto fica fixa embaixo (slot sticky).
 --}}
 <x-consulta.shell title="Perguntar" :back="route('consulta.inicio')">
-    <div class="grid grid-cols-[minmax(0,1fr)] gap-4" aria-label="Conversa com o BULA-IA">
+    {{-- `pendente`: a pergunta recém-enviada aparece na hora como balão da pessoa, antes de a resposta chegar. --}}
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-4" aria-label="Conversa com o BULA-IA" x-data="{ pendente: '' }"
+        x-on:pergunta-enviada.window="pendente = $event.detail.texto; setTimeout(() => $refs.pendente?.scrollIntoView({ block: 'end', behavior: 'smooth' }), 60)">
         @if ($resposta === null && $conversa === [])
             <x-consulta.balao>
                 <p class="break-words" id="perg-titulo">Oi! Sou o BULA-IA. Qual é a sua dúvida sobre um remédio?</p>
@@ -48,7 +50,7 @@
             @php($status = $resposta['status'])
             <x-consulta.balao de="eu" wire:key="pe-{{ count($conversa) }}">{{ $resposta['pergunta'] }}</x-consulta.balao>
 
-            <x-consulta.balao :tone="$fala['tone']" wire:key="ba-{{ count($conversa) }}-{{ $status }}" x-init="$nextTick(() => $el.scrollIntoView({ block: 'end', behavior: 'smooth' }))" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }">
+            <x-consulta.balao :tone="$fala['tone']" wire:key="ba-{{ count($conversa) }}-{{ $status }}" class="scroll-mt-24" x-init="$nextTick(() => requestAnimationFrame(() => $el.scrollIntoView({ block: 'start', behavior: 'smooth' })))" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }" data-testid="resposta-atual">
                 {{-- 1. O que o BULA-IA diz, em letras grandes (com uma frase de abertura quando a bula inteira foi consultada ou o assunto são efeitos). --}}
                 @if ($fala['intro'])<p class="break-words text-lg text-slate-700" data-testid="fala-intro">{{ $fala['intro'] }}</p>@endif
                 @if ($fala['urgencia'])<p role="alert" class="break-words rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-3 text-lg font-semibold text-rose-900" data-testid="urgencia">{{ $fala['urgencia'] }}</p>@endif
@@ -183,6 +185,11 @@
             @endif
         @endif
 
+        {{-- A pergunta enviada aparece na hora; some quando a resposta chega (ela volta junto com a resposta). --}}
+        <div wire:loading.flex wire:target="perguntar" class="hidden justify-end pl-6 sm:pl-16" x-ref="pendente" data-testid="pergunta-pendente">
+            <p class="min-w-0 max-w-full break-words [overflow-wrap:anywhere] rounded-2xl rounded-br-md bg-brand-700 px-4 py-3 text-lg leading-relaxed text-white shadow-sm" aria-label="Sua pergunta" x-text="pendente"></p>
+        </div>
+
         {{-- "Digitando…" enquanto procura na bula. --}}
         <div wire:loading.flex wire:target="perguntar,corrigir,remover" class="hidden items-end gap-2 pr-12" aria-live="polite" aria-label="O BULA-IA está procurando na bula">
             <span class="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-white ring-1 ring-brand-600/20" aria-hidden="true"><img class="size-7" src="/brand/bulai-simbolo.svg" alt=""></span>
@@ -199,9 +206,9 @@
     </div>
 
     <x-slot:sticky>
-        <form class="grid gap-2" wire:submit="perguntar" x-data="ditado({ aplicar: (t) => { $refs.pergunta.value = t }, confirmar: (t) => $wire.set('pergunta', t, false), texto: () => $refs.pergunta.value })" aria-label="Fazer uma pergunta">
+        <form class="grid gap-2" wire:submit="perguntar" x-on:submit="$refs.pergunta.value.trim() !== '' && $dispatch('pergunta-enviada', { texto: $refs.pergunta.value.trim() })" x-data="ditado({ aplicar: (t) => { $refs.pergunta.value = t }, confirmar: (t) => $wire.set('pergunta', t, false), texto: () => $refs.pergunta.value })" aria-label="Fazer uma pergunta">
             <label for="pergunta" class="sr-only">Sua pergunta sobre um remédio</label>
-            <textarea id="pergunta" x-ref="pergunta" rows="1" class="ui-control max-h-36 min-h-12 resize-none text-lg leading-snug [field-sizing:content]" wire:model="pergunta" maxlength="{{ $maximo }}" autocomplete="off" enterkeyhint="send" placeholder="{{ $resposta || $conversa !== [] ? 'Continue a conversa…' : 'Ex.: posso tomar omeprazol com café?' }}" x-on:keydown.enter.prevent="$wire.set('pergunta', $refs.pergunta.value, false); $wire.perguntar()"></textarea>
+            <textarea id="pergunta" x-ref="pergunta" rows="1" class="ui-control max-h-36 min-h-12 resize-none text-lg leading-snug [field-sizing:content]" wire:model="pergunta" maxlength="{{ $maximo }}" autocomplete="off" enterkeyhint="send" placeholder="{{ $resposta || $conversa !== [] ? 'Continue a conversa…' : 'Ex.: posso tomar omeprazol com café?' }}" x-on:keydown.enter.prevent="$refs.pergunta.value.trim() !== '' && $dispatch('pergunta-enviada', { texto: $refs.pergunta.value.trim() }); $wire.set('pergunta', $refs.pergunta.value, false); $wire.perguntar()"></textarea>
             <p x-cloak x-show="parcial !== ''" class="px-1 text-base italic text-slate-500" aria-live="polite" x-text="parcial"></p>
             <p x-cloak x-show="erro !== ''" role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-base font-medium text-amber-900" x-text="erro"></p>
             <p x-cloak x-show="! suportado" class="px-1 text-base text-slate-600">Para falar a pergunta, use o microfone do teclado do celular.</p>

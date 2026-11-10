@@ -12,7 +12,7 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
-#[Signature('evaluation:run {task : identification|interactions|retrieval|generation|baseline} {--dataset= : Caminho do dataset (padrão por tarefa)} {--mode=lexical : Recuperação: lexical|vector|hybrid (retrieval aceita lista separada por vírgula)} {--limit= : Máximo de itens} {--seed=42 : Semente da amostragem (baseline)} {--label= : Rótulo da execução}')]
+#[Signature('evaluation:run {task : identification|interactions|retrieval|generation|baseline} {--dataset= : Caminho do dataset (padrão por tarefa)} {--mode=lexical : Recuperação: lexical|vector|hybrid (retrieval aceita lista separada por vírgula)} {--limit= : Máximo de itens} {--seed=42 : Semente da amostragem (baseline)} {--label= : Rótulo da execução} {--provider= : Driver de texto para esta execução (ex.: anthropic, local); padrão AI_TEXT_DRIVER} {--pairs-from= : generation: repete exatamente os pares de um registro anterior (comparação controlada entre modelos)}')]
 #[Description('Executa uma avaliação reproduzível e grava o registro em storage/app/evaluation/runs')]
 class EvaluationRunCommand extends Command
 {
@@ -40,14 +40,27 @@ class EvaluationRunCommand extends Command
             return self::FAILURE;
         }
 
+        if ($this->option('provider')) {
+            config(['ai.text.default' => (string) $this->option('provider')]);
+        }
+        $reference = null;
+        if ($task === 'generation' && $this->option('pairs-from')) {
+            $record = json_decode((string) @file_get_contents(base_path((string) $this->option('pairs-from'))), true);
+            $reference = is_array($record['results']['pairs'] ?? null) ? $record['results']['pairs'] : null;
+            if ($reference === null) {
+                $this->components->error('O registro não tem a lista de pares (results.pairs): '.$this->option('pairs-from'));
+
+                return self::FAILURE;
+            }
+        }
         $mode = (string) $this->option('mode');
         $limit = $this->option('limit') !== null ? (int) $this->option('limit') : null;
-        $run = $recorder->begin($task, $dataset, ['mode' => $mode, 'limit' => $limit, 'seed' => (int) $this->option('seed')]);
+        $run = $recorder->begin($task, $dataset, ['mode' => $mode, 'limit' => $limit, 'seed' => (int) $this->option('seed'), 'provider' => $this->option('provider'), 'pairs_from' => $this->option('pairs-from')]);
 
         $results = match ($task) {
             'identification' => app(IdentificationEvaluator::class)->run($dataset),
             'interactions' => app(InteractionEvaluator::class)->run($dataset, $mode, $limit),
-            'generation' => app(GenerationEvaluator::class)->run($dataset, $mode, $limit, (int) $this->option('seed')),
+            'generation' => app(GenerationEvaluator::class)->run($dataset, $mode, $limit, (int) $this->option('seed'), $reference),
             'baseline' => app(BaselineEvaluator::class)->run($dataset, base_path(self::DEFAULT_DATASETS['identification']), $limit, (int) $this->option('seed')),
             'retrieval' => app(RetrievalEvaluator::class)->run($dataset, array_map('trim', explode(',', $mode))),
         };
