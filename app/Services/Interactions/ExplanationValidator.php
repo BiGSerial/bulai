@@ -323,10 +323,13 @@ final class ExplanationValidator
         return trim((string) preg_replace('/[^a-z0-9]+/', ' ', Str::lower(Str::ascii($text))));
     }
 
+    /** Palavras que não afirmam nada sobre o remédio ("tem como princípio ativo", "em geral", "o que inclui"). */
+    private const GENERIC_TERMS = ['principio', 'principios', 'ativo', 'ativos', 'geral', 'gerais', 'inclui', 'incluindo', 'remedio', 'remedios', 'medicamento', 'medicamentos', 'porque', 'tambem'];
+
     /** @return list<string> */
     private function significantTerms(string $text): array
     {
-        return array_values(array_unique(array_filter(explode(' ', $this->normalize($text)), fn (string $term): bool => strlen($term) >= 5)));
+        return array_values(array_unique(array_filter(explode(' ', $this->normalize($text)), fn (string $term): bool => strlen($term) >= 5 && ! in_array($term, self::GENERIC_TERMS, true))));
     }
 
     private function stripFences(string $raw): string

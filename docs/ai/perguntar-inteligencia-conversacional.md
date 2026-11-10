@@ -215,6 +215,16 @@ Custo: uma chamada a mais por pergunta, de saída curta. Cabe medir a latência 
 
 Testes: `tests/Feature/Consulta/InterpretacaoDaPerguntaTest.php`, que cobre os casos das capturas, remédio inventado pela IA, remédio fora do catálogo, falha do provedor, urgência, ressalva de combinação e ancoragem com palavras da pergunta.
 
+### Ajustes da 2ª avaliação em produção (`docs/qa/avaliacao-api-2026-11-10.md`)
+
+- **Marca × princípio ativo (N1):** "A Novalgina serve para dor de cabeça?" ficava sem resposta.
+  - Os trechos vêm da bula de dipirona, e a afirmação "a dipirona da Novalgina…" era recusada por citar o princípio ativo.
+  - Agora os princípios ativos do remédio perguntado (`subject_terms`) contam como palavras da pergunta na ancoragem.
+  - Palavras que não afirmam nada ("princípio", "ativo", "geral", "inclui", "medicamento", "porque", "também") saem da conta (`ExplanationValidator::GENERIC_TERMS`).
+- **Exame (N2):** "atrapalha o exame?" é `DRUG_INFORMATION`, não interação. `DRUG_INTERACTION` vale só para outro remédio, álcool ou alimento.
+- **Rastreio (N3):** a interpretação fica gravada também quando nenhum remédio é encontrado (`no_medicine`).
+- Testes: `InterpretacaoDaPerguntaTest::test_a_brand_question_is_grounded_on_the_active_ingredient_leaflet` e `…_interpretation_is_recorded_even_when_no_medicine_is_found`.
+
 ## 3. Antes e depois (classificação e seções)
 
 | Pergunta | Antes | Depois |

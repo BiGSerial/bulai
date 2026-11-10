@@ -165,7 +165,7 @@ final class ExplanationGenerator
             $truncated = (bool) ($response->metadata['truncated'] ?? false);
             $generation['truncated'] = $truncated;
 
-            $validation = $this->validator->validateSegments($truncated ? '' : $response->content, $texts, ['allow_asks' => ! $urgency && ($context['allow_asks'] ?? true), 'known_text' => (string) $conversation, 'drop_limits_when_full' => (bool) ($context['drop_limits_when_full'] ?? false), 'subject' => preg_match('/\s(e|\+)\s|,/u', $medicine) === 1 ? '' : $medicine, 'asked_text' => $medicine.' '.$question, 'single_medicine' => preg_match('/\s(e|\+)\s|,/u', $medicine) !== 1 && ($context['primary_intent'] ?? null) !== 'DRUG_INTERACTION'] + (isset($context['fact_words']) ? ['max_fact_words' => (int) $context['fact_words']] : []));
+            $validation = $this->validator->validateSegments($truncated ? '' : $response->content, $texts, ['allow_asks' => ! $urgency && ($context['allow_asks'] ?? true), 'known_text' => (string) $conversation, 'drop_limits_when_full' => (bool) ($context['drop_limits_when_full'] ?? false), 'subject' => preg_match('/\s(e|\+)\s|,/u', $medicine) === 1 ? '' : $medicine, 'asked_text' => $medicine.' '.(is_string($context['subject_terms'] ?? null) ? $context['subject_terms'] : '').' '.$question, 'single_medicine' => preg_match('/\s(e|\+)\s|,/u', $medicine) !== 1 && ($context['primary_intent'] ?? null) !== 'DRUG_INTERACTION'] + (isset($context['fact_words']) ? ['max_fact_words' => (int) $context['fact_words']] : []));
             foreach ($validation['rejected'] as $rejected) {
                 $reasons[] = $rejected['reason'];
             }
