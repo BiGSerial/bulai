@@ -136,6 +136,7 @@ final class MedicationQuestionService
 
         // 1. A IA interpreta a pergunta com a conversa (remédios, pergunta completa, intenção). Só orienta a busca.
         $interpretation = $this->interpreter->interpret($verdict->sanitized, $this->interpretationTurns($conversation));
+        $base['retrieval'] = ['interpretation' => $interpretation];
         if ($base['urgency'] === null && ($interpretation['urgency'] ?? null) !== null) {
             $base['urgency'] = $this->urgencies->fromInterpretation($interpretation['urgency']);
         }
@@ -424,6 +425,8 @@ final class MedicationQuestionService
             'unnamed_other_medicine' => $classification['unnamed_other_medicine'],
             'combination' => $classification['combination'],
             'asked_question' => $asked !== $question ? $asked : null,
+            // Marca e princípio ativo são o mesmo assunto: "a Novalgina (dipirona) é analgésico" ancora num trecho da bula de dipirona.
+            'subject_terms' => collect($medicines)->flatMap(fn (AnvisaMedicine $m) => $m->ingredients->pluck('canonical_name'))->filter()->unique()->implode(' '),
             'allow_asks' => $classification['unnamed_other_medicine'] || ! in_array($primary, (array) config('bulai.questions.conversation.no_ask_intents'), true),
             'drop_limits_when_full' => in_array($primary, (array) config('bulai.questions.conversation.no_limit_intents'), true)];
 

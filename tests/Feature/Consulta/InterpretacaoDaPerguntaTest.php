@@ -222,4 +222,31 @@ final class InterpretacaoDaPerguntaTest extends TestCase
         $this->assertCount(1, $validate('Sim, a dipirona é indicada como analgésico, para dor em geral, o que inclui a dor de cabeça.')['facts']);
         $this->assertSame([['kind' => 'fact', 'reason' => 'not_grounded_in_cited_evidence']], $validate('A dipirona cura enxaqueca crônica e protege o cérebro contra derrame.')['rejected']);
     }
+
+    /**
+     * Avaliação de 10/11/2026 (N1): a Novalgina é marca de dipirona e os trechos vêm da bula de dipirona. "A Novalgina, que
+     * tem dipirona, é analgésico e serve para dor de cabeça" não pode ser recusada só por citar o princípio ativo.
+     */
+    public function test_a_brand_question_is_grounded_on_the_active_ingredient_leaflet(): void
+    {
+        $novalgina = $this->medicine('NOVALGINA', 'DIPIRONA');
+        $this->leaflet($novalgina, ['PARA QUE ESTE MEDICAMENTO É INDICADO?' => 'Este medicamento é indicado como analgésico (para dor) e antitérmico (para febre).']);
+        $this->interpretation = ['medicines' => ['Novalgina'], 'follow_up' => true, 'question' => 'A Novalgina serve para dor de cabeça?', 'intent' => 'INDICATION', 'presentation' => null, 'urgency' => null];
+        $this->answer = '{"coverage":"full","segments":[{"kind":"fact","text":"Sim, a dipirona da Novalgina funciona como analgésico para a dor de cabeça.","evidence_ids":["ALL"]}]}';
+
+        $result = $this->ask('Tá mas serve para dor de cabeça?', [['question' => 'E Novalgina? Serve para dor de cabeça?', 'answer' => 'A novalgina também é indicada para baixar a febre.', 'medicine_ids' => [$novalgina->id]]]);
+
+        $this->assertSame(MedicationQuestionService::ANSWERED, $result['status']);
+        $this->assertStringStartsWith('Sim, a dipirona da Novalgina funciona como analgésico', (string) $result['answer']);
+    }
+
+    public function test_the_interpretation_is_recorded_even_when_no_medicine_is_found(): void
+    {
+        $this->interpretation = ['medicines' => ['Zentrovax'], 'follow_up' => false, 'question' => 'Para que serve o Zentrovax?', 'intent' => 'INDICATION', 'presentation' => null, 'urgency' => null];
+
+        $result = $this->ask('Para que serve o Zentrovax?');
+
+        $this->assertSame(MedicationQuestionService::NO_MEDICINE, $result['status']);
+        $this->assertSame(['Zentrovax'], $result['retrieval']['interpretation']['medicines']);
+    }
 }
