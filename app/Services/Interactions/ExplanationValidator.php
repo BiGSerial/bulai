@@ -51,7 +51,12 @@ final class ExplanationValidator
     }
 
     /** @param array<string, string> $evidenceTexts */
-    private function rejectionReason(mixed $claim, array $evidenceTexts): ?string
+    /**
+     * @param  array<string, string>  $evidenceTexts
+     * @param  string  $askedText  pergunta e nome do remédio: palavras que a afirmação repete da própria pergunta ("dor de
+     *                             cabeça", "dipirona") não contam contra a ancoragem; o restante continua tendo de estar no trecho
+     */
+    private function rejectionReason(mixed $claim, array $evidenceTexts, string $askedText = ''): ?string
     {
         if (! is_array($claim) || ! is_string($claim['text'] ?? null) || ! is_array($claim['evidence_ids'] ?? null)) {
             return 'malformed_claim';
@@ -74,7 +79,10 @@ final class ExplanationValidator
             return 'forbidden_recommendation';
         }
 
-        $terms = $this->significantTerms($claim['text']);
+        $asked = array_flip(array_map($this->stem(...), $this->significantTerms($askedText)));
+        $terms = array_values(array_filter($this->significantTerms($claim['text']), fn (string $term): bool => ! isset($asked[$this->stem($term)])));
+        // Se só sobram palavras da pergunta ("pode dar tosse?" → "pode dar tosse seca"), elas mesmas são verificadas no trecho.
+        $terms = $terms !== [] ? $terms : $this->significantTerms($claim['text']);
         if ($terms === []) {
             return 'no_verifiable_terms';
         }
@@ -158,7 +166,7 @@ final class ExplanationValidator
      * Aceita também o formato antigo `{"insufficient":bool,"claims":[…]}` (cada claim vira um `fact`).
      *
      * @param  array<string, string>  $evidenceTexts
-     * @param  array{allow_asks?: bool, known_text?: string, max_fact_words?: int, drop_limits_when_full?: bool, subject?: string}  $options
+     * @param  array{allow_asks?: bool, known_text?: string, max_fact_words?: int, drop_limits_when_full?: bool, subject?: string, single_medicine?: bool, asked_text?: string}  $options
      * @return array{malformed: bool, declared_none: bool, dangling_opening: bool, coverage: string, facts: list<array{text: string, evidence_ids: list<string>}>, limits: list<string>, asks: list<string>, rejected: list<array{kind: string, reason: string}>}
      */
     public function validateSegments(string $raw, array $evidenceTexts, array $options = []): array
@@ -193,12 +201,17 @@ final class ExplanationValidator
                 continue;
             }
             if ($kind === 'fact') {
-                $reason = count($result['facts']) >= $maxFacts ? 'too_many_facts' : ($this->rejectionReason($segment, $evidenceTexts) ?? $this->denseness($text));
+                $reason = count($result['facts']) >= $maxFacts ? 'too_many_facts' : ($this->rejectionReason($segment, $evidenceTexts, (string) ($options['asked_text'] ?? '')) ?? $this->denseness($text));
                 if ($reason === null) {
                     $result['facts'][] = ['text' => $text, 'evidence_ids' => array_values(array_unique($segment['evidence_ids']))];
                 }
             } elseif ($kind === 'limit') {
                 $reason = $this->plainReason($text, 10, 320) ?? (preg_match('/\d\s?(mg|mcg|ml|g|ui|%|comprimidos?|gotas)\b/u', Str::lower($text)) === 1 ? 'limit_with_dose' : null);
+                // Pergunta sobre um remédio só, que não é de interação: ressalva genérica de "combinação" é ruído (o alerta do
+                // perfil, quando existe, sai à parte, nomeando o remédio).
+                if ($reason === null && ($options['single_medicine'] ?? false) && preg_match('/\b(combinac\w+|usar (os dois|cada um) junt\w*|juntos?)\b/', $this->normalize($text)) === 1) {
+                    $reason = 'combination_off_topic';
+                }
                 if ($reason === null) {
                     $result['limits'][] = $text;
                 }

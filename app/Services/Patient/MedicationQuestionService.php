@@ -83,6 +83,7 @@ final class MedicationQuestionService
         private readonly QuestionIntentDetector $intents,
         private readonly LeafletEvidenceService $evidence,
         private readonly UrgencyDetector $urgencies,
+        private readonly QuestionInterpreter $interpreter,
     ) {}
 
     /**
@@ -131,10 +132,28 @@ final class MedicationQuestionService
         }
 
         $excluded = fn (array $items): array => array_values(array_filter($items, fn (array $m): bool => ! in_array($m['id'], $excludedMedicineIds, true)));
-        $medicines = $excluded($this->detector->detect($verdict->sanitized, $user, $forcedMedicineIds));
         $previousIds = array_values(array_diff(array_map('intval', $conversation !== [] ? ($conversation[array_key_last($conversation)]['medicine_ids'] ?? []) : []), $excludedMedicineIds));
-        if ($medicines === [] && $previousIds !== []) {
-            $medicines = array_map(fn (array $m): array => in_array($m['id'], $previousIds, true) && ! in_array($m['id'], $forcedMedicineIds, true) ? ['matched_text' => 'conversa'] + $m : $m, $excluded($this->detector->detect($verdict->sanitized, $user, $previousIds)));
+
+        // 1. A IA interpreta a pergunta com a conversa (remédios, pergunta completa, intenção). Só orienta a busca.
+        $interpretation = $this->interpreter->interpret($verdict->sanitized, $this->interpretationTurns($conversation));
+        if ($base['urgency'] === null && ($interpretation['urgency'] ?? null) !== null) {
+            $base['urgency'] = $this->urgencies->fromInterpretation($interpretation['urgency']);
+        }
+        // Com interpretação, a detecção procura os remédios que a IA apontou (e conferiu na pergunta/conversa), não as palavras
+        // soltas da pergunta: "e na versão gotas?" não vira o remédio VERSA. Sem remédio apontado e com conversa, vale a conversa.
+        $named = $interpretation['medicines'] ?? [];
+        $detectionText = $named !== [] ? implode(' e ', $named) : $verdict->sanitized;
+        $medicines = $interpretation !== null && $named === [] && $previousIds !== [] && $forcedMedicineIds === []
+            ? []
+            : $excluded($this->detector->detect($detectionText, $user, $forcedMedicineIds));
+        if ($interpretation !== null && $named !== [] && $medicines !== []) {
+            $literal = $this->normalizerText($verdict->sanitized);
+            $medicines = array_map(fn (array $m): array => in_array($m['id'], $previousIds, true) && ! str_contains($literal, $this->normalizerText((string) $m['matched_text'])) ? ['matched_text' => 'conversa'] + $m : $m, $medicines);
+        }
+        // Volta ao remédio da conversa só quando a pergunta não citou outro: se a IA apontou um remédio que o catálogo não tem,
+        // a resposta não pode falar do remédio anterior no lugar dele.
+        if ($medicines === [] && $previousIds !== [] && $named === []) {
+            $medicines = array_map(fn (array $m): array => in_array($m['id'], $previousIds, true) && ! in_array($m['id'], $forcedMedicineIds, true) ? ['matched_text' => 'conversa'] + $m : $m, $excluded($this->detector->detect($interpretation !== null ? '' : $verdict->sanitized, $user, $previousIds)));
         }
         if ($medicines === []) {
             $suggestions = $user->hasHealthConsent()
@@ -144,7 +163,7 @@ final class MedicationQuestionService
                 : [];
 
             // Nada reconhecido: nomes parecidos com o que foi escrito ("você quis dizer…?") e os remédios em uso, para a pessoa tocar.
-            $guesses = array_values(array_filter($this->detector->guesses($verdict->sanitized), fn (array $g): bool => ! in_array($g['id'], $excludedMedicineIds, true)));
+            $guesses = array_values(array_filter($this->detector->guesses($detectionText), fn (array $g): bool => ! in_array($g['id'], $excludedMedicineIds, true)));
 
             return $this->finish($user, ['status' => self::NO_MEDICINE, 'suggestions' => $suggestions, 'guesses' => $guesses] + $base, $started);
         }
@@ -156,7 +175,7 @@ final class MedicationQuestionService
         foreach ($ordered as $medicine) {
             $treatments[] = ['medicine' => $medicine->product_name, 'context' => $this->treatment->for($user, $medicine)];
         }
-        $facts = $this->freeformFacts($ordered, $treatments, in_array('como_usar', $this->intents->topics($verdict->sanitized, count($ordered)), true));
+        $facts = $this->freeformFacts($ordered, $treatments, ($interpretation['intent'] ?? null) === 'DOSAGE' || in_array('como_usar', $this->intents->topics($interpretation['question'] ?? $verdict->sanitized, count($ordered)), true));
 
         $lastTurn = $conversation !== [] ? $conversation[array_key_last($conversation)] : [];
         // A pessoa trocou de remédio ("e o ibuprofeno?" depois de falar da dipirona): a conversa anterior era sobre outro remédio e
@@ -169,6 +188,7 @@ final class MedicationQuestionService
             'follow_up' => $medicines !== [] && collect($medicines)->every(fn (array $m): bool => $m['matched_text'] === 'conversa'),
             'urgency' => $base['urgency'],
             'medicine_switched' => $switched,
+            'interpretation' => $interpretation,
         ]) + [
             'treatment' => $treatments[0]['context'] + ['others' => array_slice($treatments, 1)],
             'treatments' => $treatments, 'medicines' => $medicines,
@@ -176,6 +196,7 @@ final class MedicationQuestionService
         // A resposta usou a seção de superdose da bula sem a pergunta ter sido reconhecida como urgência: a orientação de
         // socorro (Disque-Intoxicação/SAMU) entra mesmo assim.
         $result['urgency'] = $base['urgency'] ?? $this->urgencies->fromEvidence($result['evidences'] ?? []);
+        $result['retrieval']['interpretation'] = $interpretation;
         // Verificação do perfil sempre registrada (auditoria), mesmo quando nada foi alertado.
         $result['retrieval']['treatment_check'] = [
             'consented' => $user->hasHealthConsent(),
@@ -187,6 +208,29 @@ final class MedicationQuestionService
         $result['generation'] += ['conversation_turns' => count($conversation)] + ($result['urgency'] !== null ? ['urgency' => $result['urgency']['kinds']] : []);
 
         return $this->finish($user, $result, $started);
+    }
+
+    /**
+     * Trocas anteriores no formato do intérprete, com os nomes dos remédios de cada uma (a conversa guarda só os ids).
+     *
+     * @param  list<array<string, mixed>>  $conversation
+     * @return list<array{question: string, answer: string|null, medicines: list<string>}>
+     */
+    private function interpretationTurns(array $conversation): array
+    {
+        $ids = array_values(array_unique(array_merge(...array_map(fn (array $turn): array => array_map('intval', (array) ($turn['medicine_ids'] ?? [])), $conversation ?: [[]]))));
+        $names = $ids === [] ? collect() : AnvisaMedicine::query()->whereIn('id', $ids)->pluck('product_name', 'id');
+
+        return array_map(fn (array $turn): array => [
+            'question' => (string) ($turn['question'] ?? ''),
+            'answer' => isset($turn['answer']) ? (string) $turn['answer'] : null,
+            'medicines' => array_values(array_filter(array_map(fn ($id): ?string => $names[(int) $id] ?? null, (array) ($turn['medicine_ids'] ?? [])))),
+        ], $conversation);
+    }
+
+    private function normalizerText(string $text): string
+    {
+        return ' '.trim((string) preg_replace('/[^a-z0-9]+/', ' ', Str::lower(Str::ascii($text)))).' ';
     }
 
     /**
@@ -265,14 +309,23 @@ final class MedicationQuestionService
         $empty = ['answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'limitations' => [], 'follow_up' => [], 'limits' => [], 'coverage' => 'none'];
         $mode = (string) config('bulai.retrieval.mode');
         $perSection = (int) config('bulai.questions.evidence_per_section');
-        $plan = $this->intents->plan($question, count($medicines), (array) ($context['previous_topics'] ?? []));
+        // Com a interpretação da IA, a pergunta completa ("Como usar o Berotec em gotas?") orienta tudo daqui em diante e a
+        // intenção apontada vem primeiro; o assunto da troca anterior não é herdado (a reescrita já carrega o contexto).
+        $interpretation = is_array($context['interpretation'] ?? null) ? $context['interpretation'] : null;
+        $asked = $question;
+        $question = $interpretation['question'] ?? $question;
+        $preferred = QuestionIntentDetector::INTENTS[$interpretation['intent'] ?? ''] ?? null;
+        $plan = $this->intents->plan($question, count($medicines), $interpretation !== null ? [] : (array) ($context['previous_topics'] ?? []), $preferred);
         $topics = $plan['topics'];
         $sections = $plan['sections'];
-        $canonical = $this->intents->canonical($topics, ! empty($context['follow_up']) || $plan['inherited'], ! empty($context['urgency']));
+        $canonical = $this->intents->canonical($topics, ! empty($context['follow_up']) || $plan['inherited'] || ! empty($interpretation['follow_up']), ! empty($context['urgency']));
+        if (($interpretation['intent'] ?? null) !== null && empty($context['urgency'])) {
+            $canonical = ['primary' => $interpretation['intent'], 'intents' => array_values(array_unique([$interpretation['intent'], ...$canonical['intents']]))];
+        }
         $classification = $canonical + [
             'topics' => $topics,
             'symptom' => $this->intents->symptom($question),
-            'presentation' => $this->intents->presentation($question),
+            'presentation' => $this->intents->presentation($question) ?? $interpretation['presentation'] ?? null,
             'unnamed_other_medicine' => count($medicines) === 1 && $this->intents->mentionsUnnamedMedicine($question),
             'combination' => count($medicines) === 1 ? $this->intents->partialCombination($question, $medicines[0]->loadMissing('ingredients')->ingredients->pluck('canonical_name')->map(fn ($name): string => (string) $name)->all()) : null,
             'conversation_used' => $conversation !== null,
@@ -290,7 +343,7 @@ final class MedicationQuestionService
         $ingredientNames = collect($medicines)->flatMap(fn (AnvisaMedicine $m) => $m->ingredients->pluck('normalized_name'))->unique()->values()->all();
         $names = implode(' ', $ingredientNames);
         // Pergunta de acompanhamento ("mas por quê?"): a busca usa também a pergunta anterior, que diz o assunto.
-        $subject = trim($question.' '.(! empty($context['follow_up']) ? (string) ($context['previous_question'] ?? '') : ''));
+        $subject = trim($question.' '.(! empty($context['follow_up']) && $interpretation === null ? (string) ($context['previous_question'] ?? '') : ''));
 
         foreach ($medicines as $medicine) {
             // Bulas pelo princípio ativo ligado (ligando o catálogo na hora se preciso) ou, na falta dele, pelo nome.
@@ -370,6 +423,7 @@ final class MedicationQuestionService
             'presentation' => $classification['presentation'],
             'unnamed_other_medicine' => $classification['unnamed_other_medicine'],
             'combination' => $classification['combination'],
+            'asked_question' => $asked !== $question ? $asked : null,
             'allow_asks' => $classification['unnamed_other_medicine'] || ! in_array($primary, (array) config('bulai.questions.conversation.no_ask_intents'), true),
             'drop_limits_when_full' => in_array($primary, (array) config('bulai.questions.conversation.no_limit_intents'), true)];
 

@@ -158,7 +158,6 @@ final class QuestionIntentDetector
         return ['primary' => $intents[0], 'intents' => $intents];
     }
 
-    /** "Quantas gotas…", "comprimido", "xarope": a apresentação que a pessoa citou, quando citou. */
     /**
      * O remédio encontrado é uma combinação e a pessoa citou só parte dela ("losartana" achou "losartana + hidroclorotiazida").
      * Devolve os princípios ativos da combinação, para a resposta avisar de qual bula está falando; null quando não é o caso.
@@ -181,6 +180,7 @@ final class QuestionIntentDetector
         return $named !== [] && count($named) < count($ingredients) ? array_values($ingredients) : null;
     }
 
+    /** "Quantas gotas…", "comprimido", "xarope": a apresentação que a pessoa citou, quando citou. */
     public function presentation(string $question): ?string
     {
         $text = ' '.$this->normalizer->text($question).' ';
@@ -205,9 +205,13 @@ final class QuestionIntentDetector
      * @param  list<string>  $inherited  intenções da troca anterior (usadas quando esta não diz o assunto)
      * @return array{topics: list<string>, sections: list<string>, labels: list<string>, ambiguous: bool, inherited: bool}
      */
-    public function plan(string $question, int $medicines = 1, array $inherited = []): array
+    public function plan(string $question, int $medicines = 1, array $inherited = [], ?string $preferred = null): array
     {
         $topics = $this->topics($question, $medicines);
+        // Assunto apontado pela interpretação da pergunta (IA): vem primeiro, e "posso tomar" genérico não o empurra para trás.
+        if ($preferred !== null) {
+            $topics = array_values(array_unique([$preferred, ...array_diff($topics, $preferred !== self::PERSONAL_USE_TOPIC ? [self::PERSONAL_USE_TOPIC] : [])]));
+        }
         $isInherited = false;
         if ($topics === [] && $inherited !== []) {
             $topics = $inherited;

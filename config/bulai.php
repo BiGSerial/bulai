@@ -88,7 +88,7 @@ return [
         // Guia de resposta por intenção canônica (QuestionIntentDetector::INTENTS), entregue ao modelo junto com a intenção
         // principal. É o que faz a resposta começar pela pergunta feita e só acrescentar o que é pertinente.
         'response_guides' => [
-            'INDICATION' => 'Responda na primeira frase se o remédio serve para o que foi perguntado (sim, ou que essa não é uma indicação do remédio) e para que ele é indicado. Não fale de contraindicações, efeitos colaterais, superdose nem cuidados, a menos que a pessoa tenha perguntado. Uma a três frases.',
+            'INDICATION' => 'Responda na primeira frase se o remédio serve para o que foi perguntado (sim, ou que essa não é uma indicação do remédio) e para que ele é indicado. Se a bula indica o remédio para dor em geral (analgésico) ou para febre (antitérmico), uma dor comum (de cabeça, de dente, muscular, de garganta) ou a febre estão dentro dessa indicação: diga que sim, explicando que ele é indicado para dor ou febre em geral, sem afirmar que a bula cita essa dor pelo nome. Não fale de contraindicações, efeitos colaterais, superdose nem cuidados, a menos que a pessoa tenha perguntado. Uma a três frases.',
             'PERSONAL_USE' => 'A primeira frase responde à dúvida concreta (por exemplo, para que o remédio serve, quando a pessoa disse a finalidade). Depois, uma única frase de cautela proporcional: se é adequado para ela depende de alergias, outros remédios e condições de saúde. Nunca afirme que é seguro para ela. Sem listar todas as contraindicações. No máximo uma pergunta útil (por exemplo, se já teve reação a esse remédio).',
             'DOSAGE' => 'Diga a dose que a bula indica para a apresentação e a população que aparecem nas evidências (adulto, criança, gotas, comprimido), com os números exatamente como estão. Não calcule dose individual. Se a dose depende de peso, idade ou apresentação que a pessoa não informou, diga isso e pergunte o que falta.',
             'CONTRAINDICATION' => 'Comece pelo que a bula diz sobre quem não deve usar, ligado ao que a pessoa contou (por exemplo, alergia). Se a pessoa relata alergia ao próprio remédio e a bula contraindica o uso nesse caso, diga isso com clareza e que o médico ou o farmacêutico pode indicar outra opção.',
@@ -164,6 +164,16 @@ return [
         'excerpt_max_characters' => (int) env('BULAI_RETRIEVAL_EXCERPT_MAX', 1200),
         'sections' => ['interac', 'advertencias', 'precaucoes', 'contraindica'],
     ],
+    // Interpretação da pergunta pela IA antes da busca (App\Services\Patient\QuestionInterpreter): remédios citados ou
+    // herdados da conversa, pergunta reescrita, intenção e apresentação. Só orienta a busca; nunca é fonte de fatos.
+    'interpretation' => [
+        'enabled' => (bool) env('BULAI_INTERPRETATION_ENABLED', true),
+        // Vazio = o mesmo modelo de texto configurado (AI_TEXT_DRIVER). Um modelo menor reduz a latência desta etapa.
+        'model' => env('BULAI_INTERPRETATION_MODEL'),
+        'max_output_tokens' => (int) env('BULAI_INTERPRETATION_MAX_OUTPUT_TOKENS', 600),
+        'effort' => env('BULAI_INTERPRETATION_EFFORT', 'low'),
+    ],
+
     'generation' => [
         'enabled' => (bool) env('BULAI_GENERATION_ENABLED', true),
         // v2 (07/11/2026): tom de conversa para pessoas idosas. v3: contrato por segmentos (fato citado, limite, pergunta) e cobertura.
