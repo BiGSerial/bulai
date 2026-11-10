@@ -9,9 +9,12 @@ use App\Services\Ai\Fake\FakeTextGenerationProvider;
 use App\Services\Evaluation\BaselineEvaluator;
 use App\Services\Evaluation\DatasetBuilder;
 use App\Services\Evaluation\EvaluationRunRecorder;
+use App\Services\Evaluation\GenerationEvaluator;
 use App\Services\Evaluation\IdentificationEvaluator;
 use App\Services\Evaluation\InteractionEvaluator;
 use App\Services\Evaluation\RetrievalEvaluator;
+use App\Services\Interactions\PairAnalyzer;
+use App\Services\Interactions\PairVerdict;
 use App\Services\Knowledge\ActiveIngredientCatalogBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\File;
@@ -118,6 +121,31 @@ final class EvaluationPipelineTest extends TestCase
         $this->assertSame('executed', $report['modes']['lexical']['status']);
         $this->assertSame('not_executed', $report['modes']['vector']['status']);
         $this->assertStringContainsString('AI_NOT_CONFIGURED', $report['modes']['hybrid']['reason']);
+    }
+
+    /**
+     * Comparação controlada entre modelos (análise crítica do TCC): a segunda execução repete exatamente os pares da primeira,
+     * na mesma ordem, e informa se os trechos recuperados foram os mesmos, em vez de sortear pares de novo.
+     */
+    public function test_generation_can_repeat_the_exact_pairs_of_a_previous_run_and_checks_the_evidence_is_the_same(): void
+    {
+        foreach (['100000001', '100000002', '100000003'] as $registration) {
+            AnvisaMedicine::factory()->create(['registration_number' => $registration]);
+        }
+        $this->mock(PairAnalyzer::class, function ($mock): void {
+            $mock->shouldReceive('analyze')->andReturnUsing(fn (array $a, array $b): array => [
+                'verdict' => PairVerdict::InteractionFound,
+                'evidences' => [['chunk_id' => $b['id'] === AnvisaMedicine::query()->where('registration_number', '100000003')->value('id') ? 99 : 7]],
+                'generation' => ['status' => 'generated', 'claims_accepted' => 1, 'claims_rejected' => 0],
+                'timings' => ['generation_ms' => 10],
+            ]);
+        });
+        $reference = [['a' => '100000001', 'b' => '100000002', 'evidence_chunk_ids' => [7]], ['a' => '100000001', 'b' => '100000003', 'evidence_chunk_ids' => [8]]];
+
+        $results = app(GenerationEvaluator::class)->run($this->directory.'/unused.json', 'hybrid', null, 42, $reference);
+
+        $this->assertSame([['a' => '100000001', 'b' => '100000002', 'evidence_chunk_ids' => [7], 'status' => 'generated'], ['a' => '100000001', 'b' => '100000003', 'evidence_chunk_ids' => [99], 'status' => 'generated']], $results['pairs']);
+        $this->assertSame(['reference_pairs' => 2, 'same_evidence' => 1], $results['controlled'], 'o segundo par recuperou outro trecho: a comparação avisa');
     }
 
     public function test_run_record_captures_everything_needed_to_reproduce_the_run(): void

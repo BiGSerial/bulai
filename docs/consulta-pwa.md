@@ -280,3 +280,9 @@ Correção de digitação ("Entendemos 'lozartana' como Losartana. Não é isso?
 ## Modo cuidador (09/11/2026)
 
 Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões, histórico, tirar o acesso), `/cuidar` (Cuidar de alguém: usar o código, pessoas acompanhadas), `/cuidando/{vinculo}/hoje` e `/cuidando/{vinculo}/remedios` (dados do paciente cuidado). O menu do avatar ganhou o seletor "Ver os remédios de: Eu / Cuidando de Fulano" e os itens "Quem cuida de mim" e "Cuidar de alguém"; o shell aceita `cuidando` (vínculo) e mostra a faixa fixa "Você está vendo os remédios de Fulano · Voltar para os meus"; a Início lista "Quem você acompanha". Componentes novos: `x-consulta.form-posologia`, `x-consulta.cuidado-permissoes`, `x-consulta.cuidado-historico`. Detalhes: `docs/cuidador.md`.
+
+## Envio da pergunta e rolagem (09/11/2026)
+
+- Ao enviar (botão ou Enter), o texto vira na hora o balão da pessoa (`data-testid="pergunta-pendente"`, evento `pergunta-enviada`), com o "digitando…" abaixo. Antes, o balão só aparecia junto com a resposta.
+- Quando a resposta chega, a tela rola até o **começo** da fala do BULA-IA (`scrollIntoView({ block: 'start' })`, com `scroll-mt-24` para o cabeçalho). Antes, a tela parava na pergunta e a pessoa precisava rolar para ler a resposta.
+- Teste: `ConversaHumanizadaTest::test_the_sent_question_shows_at_once_and_the_screen_scrolls_to_the_start_of_the_answer`.

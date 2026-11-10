@@ -179,7 +179,7 @@ final class ConversationEvaluator
         $naturalness = null;
         if ($answer !== '') {
             $wordCount = count(preg_split('/\s+/u', $answer) ?: []);
-            $dangling = preg_match('/^(entre (eles|elas)|eles|elas|isso|tambem|alem disso|porem|mas|o sistema|a base de interacoes)\b/', $this->plain($answer)) === 1;
+            $dangling = preg_match('/^(entre (eles|elas)|eles|elas|ela|ele|isso|tambem|alem disso|porem|mas|o sistema|a base de interacoes)\b/', $this->plain($answer)) === 1;
             $duplicated = count((array) ($turn['medicines'] ?? [])) !== count(array_unique((array) ($turn['medicines'] ?? [])));
             $maxWords = ! empty($expects['follow_up']) || ! empty($expects['limit']) ? 230 : 140;
             $naturalness = ! $dangling && ! $duplicated && $wordCount <= $maxWords && count(array_filter(explode("\n\n", $answer))) <= 3;

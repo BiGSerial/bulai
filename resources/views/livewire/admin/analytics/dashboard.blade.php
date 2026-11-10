@@ -57,6 +57,16 @@
             <x-knowledge-admin.kpi label="Custo estimado de IA" :value="'US$ '.$n($ai['estimated_cost_usd'], 4)" :hint="$n($ai['calls']).' chamadas · '.$n($ai['failed']).' falhas · latência média '.$ms($ai['latency_avg_ms'])" tone="brand" />
         </section>
 
+        @php($cov = $overview['coverage'])
+        <x-knowledge-admin.section title="Cobertura" description="Três medidas diferentes: a base de interações (DDInter) tem registro do par, a base tem a bula dos dois remédios, e havia trecho de bula para explicar. Uma não implica a outra.">
+            <div class="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="Cobertura no período">
+                <x-knowledge-admin.kpi label="Pares com registro no DDInter" :value="$pct($cov['pairs']['ddinter_rate'])" :hint="$n($cov['pairs']['ddinter_record']).' de '.$n($cov['pairs']['total']).' pares'" />
+                <x-knowledge-admin.kpi label="Pares com as duas bulas" :value="$pct($cov['pairs']['leaflets_rate'])" :hint="$n($cov['pairs']['both_leaflets']).' de '.$n($cov['pairs']['total']).' pares'" />
+                <x-knowledge-admin.kpi label="Pares com evidência de bula" :value="$pct($cov['pairs']['evidence_rate'])" :hint="$n($cov['pairs']['with_evidence']).' de '.$n($cov['pairs']['total']).' pares'" />
+                <x-knowledge-admin.kpi label="Perguntas com evidência de bula" :value="$pct($cov['questions']['evidence_rate'])" :hint="$n($cov['questions']['without_leaflet']).' sem bula · '.$n($cov['questions']['not_identified']).' sem princípio ativo'" />
+            </div>
+        </x-knowledge-admin.section>
+
         <x-knowledge-admin.section title="Atividade diária" :description="$period > 0 ? 'Consultas, perguntas e bulas humanizadas por dia no período.' : 'Consultas, perguntas e bulas humanizadas por dia (últimos 90 dias).'">
             <x-knowledge-admin.chart kind="line" :categories="$dayLabels" :series="[['label' => 'Consultas', 'data' => $t['consultations'], 'tone' => 'brand'], ['label' => 'Perguntas', 'data' => $t['questions'], 'tone' => 'accent'], ['label' => 'Bulas humanizadas', 'data' => $t['leaflets'], 'tone' => 'info']]" height="h-64" aria-label="Atividade diária" empty="Nenhuma atividade no período." />
         </x-knowledge-admin.section>

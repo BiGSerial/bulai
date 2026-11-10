@@ -149,6 +149,28 @@ A detecção do remédio funcionou (`Diporona` vira `DIPIRONA`, com `fuzzy: true
   `source` = `index` ou `original_pdf`, motivo, `status`, método, qualidade, `cached`, `skipped` e `not_used`.
 - Já existiam: modelo/provedor (`generation`, `pipeline`), duração, evidências com documento, versão, seção e página, e fila de revisão.
 
+### Correções da avaliação em produção de 09/11/2026 (`docs/qa/avaliacao-api-2026-11-09.md`)
+
+- **Superdose com número (crítico):** "Tomei 10 comprimidos de dipirona de uma vez" saía sem orientação de socorro. Causa: o detector só reconhecia quantidades por extenso logo após o verbo.
+  - O `UrgencyDetector` ganhou o tipo `overdose_quantidade`: 3 ou mais unidades em algarismo ou por extenso, "de uma vez", "a caixa/cartela toda".
+  - Ganhou também o tipo `ingestao_acidental` (criança que engoliu, "tomou sem querer").
+  - Defesa em profundidade: `fromEvidence()`. Se a resposta usou a seção de superdose da bula e a pergunta não foi reconhecida, o resultado leva a orientação do Disque-Intoxicação/SAMU mesmo assim (tipo `secao_superdose`).
+  - "Tomei 2 comprimidos" e "20 gotas" não disparam (dose comum).
+- **Pronome solto ("Ela é…"):** acontecia quando a primeira afirmação era recusada e a seguinte, com pronome, abria a resposta. O validador agora troca "Ela/Ele" inicial pelo nome do remédio, no gênero do pronome (`ExplanationValidator::nameSubject`, opção `subject`). Nada vai de novo ao modelo. A heurística de naturalidade passou a contar "ela/ele".
+- **Interação com dois remédios citados:** o guia `DRUG_INTERACTION` exige que a primeira frase trate do par perguntado. Ele proíbe listar interações com remédios não citados e manda dizer em um `limit` quando nada fala do par.
+- **Combinação achada para um único princípio ativo:** "losartana" achava losartana + hidroclorotiazida. Agora `QuestionIntentDetector::partialCombination` detecta o caso, e o prompt manda dizer na primeira frase que a orientação é da combinação (`classification.combination`).
+- **"Como se usa":** entrou nas palavras-chave de `como_usar`, junto com "como se toma", "modo de uso" e "jeito de usar".
+- **Seções da bula do paciente:** os títulos em forma de pergunta ("6. COMO DEVO USAR ESTE MEDICAMENTO?") eram descartados por terminar em "?", e o trecho herdava a seção anterior ("INTERAÇÕES MEDICAMENTOSAS").
+  - O `KnowledgeSectionDetector` aceita título em maiúsculas terminado em "?" e junta títulos quebrados em duas linhas.
+  - **Vale só para bulas processadas depois desta versão.** Para corrigir as já carregadas: `php artisan knowledge:process-document {id} --force --sync`, depois `php artisan knowledge:index-embeddings`.
+- **Validador (análise crítica do TCC):** além da sobreposição de 40%, são recusados:
+  - números de dose ausentes do trecho citado (`dose_number_not_in_evidence`);
+  - polaridade invertida, como "deve ser usado" contra "não deve ser usado" (`negation_inverted`);
+  - negação que não existe em nenhum trecho citado (`negation_not_in_evidence`).
+
+  Continua sendo **validação heurística de ancoragem textual**: barra as inversões mais comuns e não prova correção farmacológica. Os resultados do TCC foram medidos antes dessas checagens.
+- **Tela:** a pergunta enviada aparece na hora como balão da pessoa, com o "digitando…" abaixo. Quando a resposta chega, a tela rola até o começo da fala do BULA-IA (`resources/views/livewire/consulta/perguntar.blade.php`).
+
 ## 3. Antes e depois (classificação e seções)
 
 | Pergunta | Antes | Depois |

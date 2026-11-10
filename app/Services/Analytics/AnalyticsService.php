@@ -30,6 +30,7 @@ final class AnalyticsService
      *   questions: array{total: int, by_status: array<string, int>, distinct_users: int, duration: array{avg: float|null, p50: float|null, p95: float|null}, grounding: array{accepted: int, rejected: int, rate: float|null}, rejection_reasons: array<string, int>, with_treatment_context: int, with_treatment_interaction: int},
      *   leaflets: array{total: int, by_status: array<string, int>, views: int, cache_hits: int, duration: array{avg: float|null, p50: float|null, p95: float|null}, grounding: array{accepted: int, rejected: int, rate: float|null}},
      *   ai: array{calls: int, succeeded: int, failed: int, input_tokens: int, output_tokens: int, estimated_cost_usd: float, latency_avg_ms: float|null, latency_p95_ms: float|null, by_model: list<array{provider: string, model: string|null, capability: string|null, calls: int, input_tokens: int, output_tokens: int, estimated_cost_usd: float, latency_avg_ms: float|null}>, failures_by_error: array<string, int>, daily: list<array{day: string, calls: int, failed: int, input_tokens: int, output_tokens: int, estimated_cost_usd: float}>}
+     *   coverage: array{pairs: array<string, int|float|null>, questions: array<string, int|float|null>},
      *   timeline: array{days: list<string>, consultations: list<int>, questions: list<int>, leaflets: list<int>}
      * }
      */
@@ -42,6 +43,7 @@ final class AnalyticsService
             'questions' => $this->questions($from, $to),
             'leaflets' => $this->leaflets($from, $to),
             'ai' => $this->aiUsage($from, $to),
+            'coverage' => $this->coverage($from, $to),
             'timeline' => $this->timeline($from, $to),
         ];
     }
@@ -185,6 +187,51 @@ final class AnalyticsService
             'with_explanation' => $base()->whereNotNull('p.explanation')->count(),
             'with_evidence' => $base()->whereRaw("jsonb_typeof(p.evidences) = 'array' and jsonb_array_length(p.evidences) > 0")->count(),
             'evidence_methods' => $this->evidenceMethods($base()),
+        ];
+    }
+
+    /**
+     * Cobertura em três dimensões separadas, que não são a mesma capacidade: (1) a base estruturada (DDInter) tem registro
+     * para o par; (2) há bula dos dois remédios do par na base; (3) havia trecho de bula para sustentar a explicação. Nas
+     * perguntas livres: remédio sem bula cadastrada, princípio ativo não identificado e resposta com evidência.
+     *
+     * @return array{pairs: array{total: int, ddinter_record: int, ddinter_rate: float|null, both_leaflets: int, leaflets_rate: float|null, with_evidence: int, evidence_rate: float|null}, questions: array{total: int, without_leaflet: int, not_identified: int, with_evidence: int, evidence_rate: float|null}}
+     */
+    private function coverage(?CarbonInterface $from, ?CarbonInterface $to): array
+    {
+        $pairs = $this->pairBase($from, $to)->selectRaw(
+            "count(*) as total,
+            sum(case when p.structured is not null and p.structured::text <> 'null' then 1 else 0 end) as ddinter_record,
+            sum(case when coalesce((p.retrieval->'directions'->0->>'documents')::int, 0) > 0 and coalesce((p.retrieval->'directions'->1->>'documents')::int, 0) > 0 then 1 else 0 end) as both_leaflets,
+            sum(case when jsonb_typeof(p.evidences) = 'array' and jsonb_array_length(p.evidences) > 0 then 1 else 0 end) as with_evidence"
+        )->first();
+        $questions = $this->period(DB::table('medication_questions'), $from, $to)->selectRaw(
+            "count(*) as total,
+            sum(case when status = 'no_leaflet' then 1 else 0 end) as without_leaflet,
+            sum(case when status = 'not_identified' then 1 else 0 end) as not_identified,
+            sum(case when jsonb_typeof(evidences::jsonb) = 'array' and jsonb_array_length(evidences::jsonb) > 0 then 1 else 0 end) as with_evidence"
+        )->first();
+        $rate = fn (int $part, int $total): ?float => $total > 0 ? round($part / $total, 4) : null;
+        $pairTotal = (int) ($pairs->total ?? 0);
+        $questionTotal = (int) ($questions->total ?? 0);
+
+        return [
+            'pairs' => [
+                'total' => $pairTotal,
+                'ddinter_record' => (int) ($pairs->ddinter_record ?? 0),
+                'ddinter_rate' => $rate((int) ($pairs->ddinter_record ?? 0), $pairTotal),
+                'both_leaflets' => (int) ($pairs->both_leaflets ?? 0),
+                'leaflets_rate' => $rate((int) ($pairs->both_leaflets ?? 0), $pairTotal),
+                'with_evidence' => (int) ($pairs->with_evidence ?? 0),
+                'evidence_rate' => $rate((int) ($pairs->with_evidence ?? 0), $pairTotal),
+            ],
+            'questions' => [
+                'total' => $questionTotal,
+                'without_leaflet' => (int) ($questions->without_leaflet ?? 0),
+                'not_identified' => (int) ($questions->not_identified ?? 0),
+                'with_evidence' => (int) ($questions->with_evidence ?? 0),
+                'evidence_rate' => $rate((int) ($questions->with_evidence ?? 0), $questionTotal),
+            ],
         ];
     }
 

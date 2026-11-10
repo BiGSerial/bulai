@@ -14,6 +14,21 @@ php artisan evaluation:run generation --limit=12                      # exige AI
 php artisan evaluation:run baseline --limit=60 --seed=42              # mesmo LLM, sem RAG e sem base estruturada
 ```
 
+### Comparação controlada entre modelos (`--provider`, `--pairs-from`)
+
+A geração sorteia pares com interação registrada e evidência de bula. Por isso, duas execuções com modelos ou recuperações diferentes podem avaliar pares diferentes, o que aconteceu na comparação Qwen × Claude do TCC. Para uma comparação controlada:
+
+```bash
+php artisan evaluation:run generation --mode=hybrid --provider=anthropic --limit=12 --label=gen-claude
+php artisan evaluation:run generation --mode=hybrid --provider=local \
+  --pairs-from=storage/app/evaluation/runs/<registro-da-primeira>.json --label=gen-qwen-mesmos-pares
+```
+
+- Cada registro de `generation` guarda `results.pairs`: registros ANVISA do par, ids dos trechos usados e status.
+- Com `--pairs-from`, a execução repete exatamente esses pares, na mesma ordem e com o mesmo gabarito. `results.controlled.same_evidence` informa em quantos pares a recuperação trouxe os mesmos trechos.
+- Se não for igual ao número de pares, a diferença não pode ser atribuída só ao modelo.
+- `--provider` troca o driver de texto (`AI_TEXT_DRIVER`) só nessa execução, e o registro grava o driver usado.
+
 ## Datasets (`database/evaluation/`)
 | Arquivo | Conteúdo | Origem do rótulo |
 | --- | --- | --- |

@@ -49,6 +49,14 @@ final class KnowledgeSectionDetector
                 if ($heading !== null) {
                     $this->appendParagraph($currentBlocks, $paragraph, $page->number);
                     $paragraph = [];
+                    // Título quebrado em duas linhas ("4. O QUE DEVO SABER ANTES DE" + "USAR ESTE MEDICAMENTO?"): a segunda
+                    // linha completa o título anterior, que ainda não tem texto e não terminou.
+                    if ($currentBlocks === [] && $currentName !== null && ! preg_match('/[?:]$/u', (string) $currentOriginalTitle) && ! isset(self::KNOWN_SECTIONS[$this->key($currentName)]) && ! isset(self::KNOWN_SECTIONS[$this->key($heading[0])])) {
+                        $currentName .= ' '.$heading[0];
+                        $currentOriginalTitle .= ' '.$heading[1];
+
+                        continue;
+                    }
                     if ($currentBlocks !== []) {
                         $sections[] = new KnowledgeSection($currentName, $currentOriginalTitle, $currentBlocks);
                     }
@@ -74,9 +82,7 @@ final class KnowledgeSectionDetector
     private function detectHeading(string $line): ?array
     {
         $withoutNumber = trim(preg_replace('/^\s*(?:\d+(?:\.\d+)*[.\-)\s]+|[IVXLCDM]+[.\-)\s]+)/iu', '', $line) ?? $line);
-        $key = mb_strtoupper(Str::ascii($withoutNumber));
-        $key = preg_replace('/\s+/u', ' ', $key) ?? $key;
-        $key = rtrim($key, ':');
+        $key = $this->key($withoutNumber);
 
         if (isset(self::KNOWN_SECTIONS[$key])) {
             return [self::KNOWN_SECTIONS[$key], $line];
@@ -87,9 +93,18 @@ final class KnowledgeSectionDetector
             && mb_strlen($letters) >= 3
             && ! preg_match('/\d/u', $withoutNumber)
             && $letters === mb_strtoupper($letters)
-            && ! preg_match('/[.!?;]$/u', $withoutNumber);
+            // Títulos da bula do paciente são perguntas em maiúsculas ("PARA QUE ESTE MEDICAMENTO É INDICADO?").
+            && ! preg_match('/[.!;]$/u', $withoutNumber);
 
         return $isGenericHeading ? [$withoutNumber, $line] : null;
+    }
+
+    private function key(string $title): string
+    {
+        $key = mb_strtoupper(Str::ascii($title));
+        $key = preg_replace('/\s+/u', ' ', $key) ?? $key;
+
+        return rtrim($key, ':');
     }
 
     /** @param list<KnowledgeTextBlock> $blocks @param list<string> $paragraph */

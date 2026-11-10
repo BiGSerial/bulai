@@ -83,7 +83,63 @@ final class ExplanationValidator
         $citedStems = array_flip(array_map($this->stem(...), $this->significantTerms($cited)));
         $overlap = count(array_filter($terms, fn (string $term): bool => isset($citedStems[$this->stem($term)]))) / count($terms);
 
-        return $overlap < self::MIN_GROUNDING_OVERLAP ? 'not_grounded_in_cited_evidence' : null;
+        if ($overlap < self::MIN_GROUNDING_OVERLAP) {
+            return 'not_grounded_in_cited_evidence';
+        }
+
+        return $this->doseNumbersReason($claim['text'], $cited) ?? $this->polarityReason($claim['text'], $cited);
+    }
+
+    /**
+     * Quantidade de dose na afirmação (número com unidade: mg, ml, gotas, comprimidos, vezes, horas…) que não aparece nos
+     * trechos citados. A sobreposição de palavras não percebe "20 a 40 gotas" trocado por "20 a 60 gotas".
+     */
+    private function doseNumbersReason(string $claim, string $cited): ?string
+    {
+        $numbers = fn (string $text): array => array_map(
+            fn (string $number): string => str_replace(',', '.', $number),
+            preg_match_all('/(?<![\d.,])(\d+(?:[.,]\d+)?)(?=(?:\s*(?:a|e|ou|-)\s*\d+(?:[.,]\d+)?)*\s*(?:mg|mcg|ml|g|ui|%|gotas?|comprimidos?|capsulas?|drageas?|vezes|horas?|h)\b)/u', Str::lower(Str::ascii($text)), $matches) > 0 ? $matches[1] : [],
+        );
+        $inClaim = $numbers($claim);
+        if ($inClaim === []) {
+            return null;
+        }
+        preg_match_all('/\d+(?:[.,]\d+)?/u', $cited, $all);
+        $available = array_flip(array_map(fn (string $number): string => str_replace(',', '.', $number), $all[0]));
+        foreach ($inClaim as $number) {
+            if (! isset($available[$number])) {
+                return 'dose_number_not_in_evidence';
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Polaridade: a afirmação diz "deve/pode ser usado" e os trechos só dizem "não deve/pode ser usado" (ou o contrário), ou
+     * a afirmação nega algo e nenhum trecho citado tem negação. Heurística: não prova a correção, só barra a inversão mais comum.
+     */
+    private function polarityReason(string $claim, string $cited): ?string
+    {
+        $claimText = ' '.$this->normalize($claim).' ';
+        $citedText = ' '.$this->normalize($cited).' ';
+        $negation = '/\b(nao|nunca|jamais|nenhum|nenhuma)\b/';
+        if (preg_match($negation, $claimText) === 1 && preg_match($negation, $citedText) !== 1) {
+            return 'negation_not_in_evidence';
+        }
+        $modal = '/\b(nao\s+)?(?:\w+\s+)?(deve|devem|pode|podem|devera|deverao)\s+(?:ser\s+)?(usad|utilizad|tomad|administrad|aplicad|ingerid)\w*/';
+        $polarities = function (string $text) use ($modal): array {
+            preg_match_all($modal, $text, $matches);
+
+            return array_values(array_unique(array_map(fn (string $negated): string => $negated !== '' ? 'neg' : 'pos', $matches[1])));
+        };
+        $inClaim = $polarities($claimText);
+        $inCited = $polarities($citedText);
+        if (count($inClaim) === 1 && $inCited !== [] && ! in_array($inClaim[0], $inCited, true)) {
+            return 'negation_inverted';
+        }
+
+        return null;
     }
 
     private function stem(string $term): string
@@ -102,7 +158,7 @@ final class ExplanationValidator
      * Aceita também o formato antigo `{"insufficient":bool,"claims":[…]}` (cada claim vira um `fact`).
      *
      * @param  array<string, string>  $evidenceTexts
-     * @param  array{allow_asks?: bool, known_text?: string, max_fact_words?: int, drop_limits_when_full?: bool}  $options
+     * @param  array{allow_asks?: bool, known_text?: string, max_fact_words?: int, drop_limits_when_full?: bool, subject?: string}  $options
      * @return array{malformed: bool, declared_none: bool, dangling_opening: bool, coverage: string, facts: list<array{text: string, evidence_ids: list<string>}>, limits: list<string>, asks: list<string>, rejected: list<array{kind: string, reason: string}>}
      */
     public function validateSegments(string $raw, array $evidenceTexts, array $options = []): array
@@ -192,14 +248,30 @@ final class ExplanationValidator
             $used += $words;
             $kept[] = $fact;
         }
+        // A primeira afirmação recusada deixa a seguinte abrindo a resposta com um pronome ("Ela é um analgésico…"): o pronome
+        // vira o nome do remédio, no gênero do próprio pronome ("A dipirona é um analgésico…").
+        if ($kept !== [] && ($options['subject'] ?? '') !== '') {
+            $kept[0]['text'] = $this->nameSubject($kept[0]['text'], (string) $options['subject']);
+        }
         $result['facts'] = $kept;
         // Abertura solta ("Entre eles estão…", "Também…"): o primeiro fato precisa fazer sentido sozinho.
-        $result['dangling_opening'] = $kept !== [] && preg_match('/^(entre (eles|elas)|eles|elas|isso|essa|esse|tambem|alem disso|porem|mas|ainda|por isso|nesse caso|nesses casos|alem|ja)\b/', $this->normalize($kept[0]['text'])) === 1;
+        $result['dangling_opening'] = $kept !== [] && preg_match('/^(entre (eles|elas)|eles|elas|ela|ele|isso|essa|esse|tambem|alem disso|porem|mas|ainda|por isso|nesse caso|nesses casos|alem|ja)\b/', $this->normalize($kept[0]['text'])) === 1;
 
         return $result;
     }
 
     /** Tira a abertura que narra a fonte e devolve a frase começando pelo assunto, com inicial maiúscula. */
+    /** "Ela é…" / "Ele pode…" no início vira "A dipirona é…" / "O ibuprofeno pode…". */
+    public function nameSubject(string $text, string $subject): string
+    {
+        if (preg_match('/^(Ela|Ele)\b\s*/u', $text, $match) !== 1) {
+            return $text;
+        }
+        $name = mb_strtoupper($subject) === $subject ? mb_strtolower($subject) : $subject;
+
+        return ($match[1] === 'Ela' ? 'A ' : 'O ').$name.' '.mb_substr($text, mb_strlen($match[0]));
+    }
+
     public function humanize(string $text): string
     {
         $text = trim($text);

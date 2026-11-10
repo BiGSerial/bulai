@@ -31,7 +31,7 @@ Todos respondem JSON. Os períodos usam `from` e `to` no formato `AAAA-MM-DD` (d
 | Método e rota | Escopo | O que devolve |
 |---|---|---|
 | `GET /api/v1/me` | read | Token (id, nome, escopo, validade), `evaluation_user_id` e fuso. |
-| `GET /api/v1/stats/overview` | read | O mesmo de `AnalyticsService::overview`: consultas, pares, perguntas (ancoragem, recusas, duração), bulas, IA (chamadas, tokens, custo, latência, por modelo, falhas, diário) e série diária. |
+| `GET /api/v1/stats/overview` | read | O mesmo de `AnalyticsService::overview`: consultas, pares, perguntas (ancoragem, recusas, duração), bulas, IA (chamadas, tokens, custo, latência, por modelo, falhas, diário), **cobertura em três dimensões** (`coverage`: registro no DDInter, bulas dos dois remédios, evidência para explicar; ver `docs/analytics.md`) e série diária. |
 | `GET /api/v1/stats/ai-usage?provider=` | read | Por provedor e modelo, médias por usuário, consumo sem usuário e uma linha por usuário (até 100), **só com `user_id`**, sem nome nem e-mail. |
 | `GET /api/v1/questions?status=&user_id=&per_page=` | read | Perguntas, das mais novas às mais antigas (paginado, até 100 por página): pergunta, resposta, status, intenção principal, suficiência, se leu a bula inteira ou o PDF original, afirmações aceitas e recusadas, revisão. |
 | `GET /api/v1/questions/{uuid}` | read | Registro completo para auditoria: `medicines`, `guard`, `treatment_context`, `generation`, `retrieval` (classificação, suficiência, `treatment_check`, `leaflet_fallback`), `pipeline` e `evidences`. |
@@ -109,6 +109,10 @@ Por isso:
 
 - `tests/Feature/Api/ApiAccessTest.php`: token válido, expirado, revogado e de outro escopo; leitura contra avaliação; estatísticas sem nome nem e-mail; rastreio das perguntas; avaliação pelo fluxo real com o provedor roteirizado; validação; limite por token; `tokens:revoke`.
 - `tests/Feature/Admin/ApiTokensAdminTest.php`: só admin acessa; token mostrado uma vez, só o hash no banco; revogação imediata e auditoria; a tela não aceita outros escopos nem mexe em tokens de ingestão.
+
+## Clientes automatizados
+
+O site fica atrás do Cloudflare, que bloqueia a assinatura padrão de clientes como `Python-urllib` (erro 1010, `403`, sem chegar ao servidor). Envie um `User-Agent` próprio (ex.: `BULAI-Avaliacao/1.0`); o `curl` passa sem ajuste.
 
 ## Limitações
 
