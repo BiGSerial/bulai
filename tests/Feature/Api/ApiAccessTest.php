@@ -8,6 +8,8 @@ use App\Models\AiUsageLog;
 use App\Models\Consultation\MedicationQuestion;
 use App\Models\Knowledge\ActiveIngredient;
 use App\Models\Knowledge\AnvisaMedicine;
+use App\Models\Knowledge\DrugInteraction;
+use App\Models\Knowledge\ExternalLabel;
 use App\Models\Knowledge\IngestionToken;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeSource;
@@ -76,6 +78,45 @@ final class ApiAccessTest extends TestCase
         $this->assertStringNotContainsString('ana@example.test', $usage->getContent());
         $this->assertStringNotContainsString('Ana Paciente', $usage->getContent());
         $this->withToken($plain)->getJson('/api/v1/stats/overview?from=09/11/2026')->assertUnprocessable();
+    }
+
+    public function test_knowledge_inventory_counts_what_this_environment_can_answer_with(): void
+    {
+        [$withLeafletA, $withLeafletB, $withoutLeaflet] = [ActiveIngredient::factory()->create(['canonical_name' => 'DIPIRONA']), ActiveIngredient::factory()->create(['canonical_name' => 'IBUPROFENO']), ActiveIngredient::factory()->create(['canonical_name' => 'OMEPRAZOL'])];
+        $source = KnowledgeSource::query()->create(['name' => 'ANVISA', 'type' => 'document', 'active' => true]);
+        foreach ([$withLeafletA, $withLeafletB] as $ingredient) {
+            $document = KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => 'k'.$ingredient->id, 'title' => $ingredient->canonical_name.' — Bula', 'document_type' => 'bula_paciente', 'language' => 'pt-BR', 'metadata' => [], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'PENDING', 'content_hash' => 'h'.$ingredient->id]);
+            DB::table('knowledge_document_ingredients')->insert(['document_id' => $document->id, 'ingredient_id' => $ingredient->id, 'method' => 'registration', 'confidence' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => 'falhou', 'title' => 'Falhou', 'document_type' => 'bula', 'language' => 'pt-BR', 'metadata' => [], 'content_status' => 'FAILED', 'file_status' => 'READY', 'embedding_status' => 'PENDING', 'content_hash' => 'f']);
+        $attach = fn (AnvisaMedicine $medicine, ActiveIngredient ...$ingredients) => $medicine->ingredients()->attach(collect($ingredients)->mapWithKeys(fn (ActiveIngredient $i): array => [$i->id => ['component_text' => $i->canonical_name, 'method' => 'alias', 'confidence' => 1]])->all());
+        $attach(AnvisaMedicine::factory()->create(), $withLeafletA);
+        $attach(AnvisaMedicine::factory()->create(), $withLeafletA, $withoutLeaflet);
+        $attach(AnvisaMedicine::factory()->create(), $withoutLeaflet);
+        AnvisaMedicine::factory()->create();
+        DrugInteraction::factory()->create(['drug_a_ingredient_id' => $withLeafletA->id, 'drug_b_ingredient_id' => $withLeafletB->id, 'severity' => 'major']);
+        DrugInteraction::factory()->create(['drug_a_ingredient_id' => $withLeafletA->id, 'drug_b_ingredient_id' => $withoutLeaflet->id, 'severity' => 'moderate']);
+        DrugInteraction::factory()->create(['severity' => 'minor']);
+        ExternalLabel::factory()->create(['ingredient_id' => $withoutLeaflet->id, 'retrieved_via' => ExternalLabel::VIA_OPENFDA, 'title' => 'PRILOSEC (OMEPRAZOLE)']);
+        ExternalLabel::factory()->create(['ingredient_id' => $withLeafletA->id, 'status' => ExternalLabel::STATUS_NOT_FOUND]);
+        [, $plain] = $this->token();
+
+        $this->withToken($plain)->getJson('/api/v1/stats/knowledge')
+            ->assertOk()
+            ->assertJsonPath('documents.total', 3)
+            ->assertJsonPath('documents.ready', 2)
+            ->assertJsonPath('documents.ready_linked', 2)
+            ->assertJsonPath('leaflets.0.ingredients', ['DIPIRONA'])
+            ->assertJsonPath('ingredients.with_leaflet_names', ['DIPIRONA', 'IBUPROFENO'])
+            ->assertJsonPath('catalog', ['medicines' => 4, 'identified' => 3, 'with_leaflet' => 2, 'fully_covered' => 1])
+            ->assertJsonPath('interactions.total', 3)
+            ->assertJsonPath('interactions.linked', 2)
+            ->assertJsonPath('interactions.involving_leaflet', 2)
+            ->assertJsonPath('interactions.between_leaflets', 1)
+            ->assertJsonPath('interactions.between_leaflets_by_severity', ['major' => 1])
+            ->assertJsonPath('external_labels.by_status', ['ready' => 1, 'not_found' => 1])
+            ->assertJsonPath('external_labels.ready', [['ingredient' => 'OMEPRAZOL', 'title' => 'PRILOSEC (OMEPRAZOLE)', 'via' => ExternalLabel::VIA_OPENFDA]]);
+        $this->withoutToken()->getJson('/api/v1/stats/knowledge')->assertUnauthorized();
     }
 
     public function test_questions_list_and_trace_each_answer(): void

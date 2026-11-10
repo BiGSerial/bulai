@@ -27,6 +27,7 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
         Route::get('/me', [StatsController::class, 'me'])->name('me');
         Route::get('/stats/overview', [StatsController::class, 'overview'])->name('stats.overview');
         Route::get('/stats/ai-usage', [StatsController::class, 'aiUsage'])->name('stats.ai-usage');
+        Route::get('/stats/knowledge', [StatsController::class, 'knowledge'])->name('stats.knowledge');
         Route::get('/questions', [QuestionController::class, 'index'])->name('questions.index');
         Route::get('/questions/{uuid}', [QuestionController::class, 'show'])->whereUuid('uuid')->name('questions.show');
     });

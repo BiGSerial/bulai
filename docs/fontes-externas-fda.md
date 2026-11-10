@@ -51,6 +51,7 @@ As bulas brasileiras cadastradas costumam ser deficientes em **interações medi
   - Interação de um remédio só: os primeiros trechos da seção.
   - O prompt avisa o modelo, que diz na resposta que a informação vem da bula dos Estados Unidos. A validação de ancoragem continua valendo sobre o texto traduzido.
   - O rastreio fica em `retrieval.external`.
+  - **Remédio sem bula brasileira:** para esses dois assuntos a pergunta não para em `no_leaflet`; segue direto para o nível 2b, e a resposta vem só da bula dos EUA, com a limitação "Ainda não há bula cadastrada" e a origem dizendo que a bula brasileira ainda não existe na base. Sem bula dos EUA pronta, a resposta continua `no_leaflet`. Outros assuntos (indicação, uso, dose) nunca vêm da bula dos EUA.
 - **Consulta de interações (pares)** (`PairAnalyzer`): só quando nenhuma bula brasileira traz trecho sobre o par, e só com trechos que citam o outro remédio.
   - A gravidade continua vindo do DDInter.
   - Sem registro estruturado, o resultado continua "evidência insuficiente".
@@ -86,6 +87,7 @@ Em produção: `sudo bulai-deploy artisan knowledge:import-fda-labels --used`. O
 - tradução recusada quando um número muda, sem virar evidência;
 - princípio ativo não aprovado nos EUA registrado como `not_found`;
 - Perguntar usando a bula dos EUA só para efeitos adversos, com o crédito, e nunca para indicação;
+- remédio sem bula brasileira respondido pela bula dos EUA em efeitos adversos, e `no_leaflet` para indicação;
 - par usando só trechos que citam o outro remédio;
 - fila de importação para o princípio ativo sem bula estrangeira;
 - comando.

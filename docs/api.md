@@ -33,6 +33,7 @@ Todos respondem JSON. Os períodos usam `from` e `to` no formato `AAAA-MM-DD` (d
 | `GET /api/v1/me` | read | Token (id, nome, escopo, validade), `evaluation_user_id` e fuso. |
 | `GET /api/v1/stats/overview` | read | O mesmo de `AnalyticsService::overview`: consultas, pares, perguntas (ancoragem, recusas, duração), bulas, IA (chamadas, tokens, custo, latência, por modelo, falhas, diário), **cobertura em três dimensões** (`coverage`: registro no DDInter, bulas dos dois remédios, evidência para explicar; ver `docs/analytics.md`) e série diária. |
 | `GET /api/v1/stats/ai-usage?provider=` | read | Por provedor e modelo, médias por usuário, consumo sem usuário e uma linha por usuário (até 100), **só com `user_id`**, sem nome nem e-mail. |
+| `GET /api/v1/stats/knowledge` | read | Tamanho da base **deste ambiente** (`KnowledgeInventoryService`): documentos por situação e tipo, prontos e vinculados a princípio ativo, trechos e embeddings; cada bula pronta com os seus princípios ativos; princípios ativos com bula; produtos do catálogo da ANVISA (identificados, com bula de algum ativo, com bula de todos); interações do DDInter (total, ligadas ao catálogo, por gravidade, com bula de um lado, entre princípios ativos com bula e a gravidade delas); bulas dos EUA por situação e origem, trechos por situação da tradução e a lista das prontas. É a fonte dos números de relatório: eles precisam vir do ambiente que responde, não da máquina de desenvolvimento. |
 | `GET /api/v1/questions?status=&user_id=&per_page=` | read | Perguntas, das mais novas às mais antigas (paginado, até 100 por página): pergunta, resposta, status, intenção principal, suficiência, se leu a bula inteira ou o PDF original, afirmações aceitas e recusadas, revisão. |
 | `GET /api/v1/questions/{uuid}` | read | Registro completo para auditoria: `medicines`, `guard`, `treatment_context`, `generation`, `retrieval` (classificação, suficiência, `treatment_check`, `leaflet_fallback`), `pipeline` e `evidences`. |
 | `POST /api/v1/evaluation/ask` | evaluate | Roda a pergunta no fluxo completo (`MedicationQuestionService::askFreeform`) e pontua. |
@@ -98,6 +99,7 @@ Por isso:
 ## Arquivos
 
 - Rotas: `routes/api.php` (grupo `v1`).
+- Inventário da base: `app/Services/Analytics/KnowledgeInventoryService.php`.
 - Controllers: `app/Http/Controllers/Api/V1/StatsController.php`, `QuestionController.php`, `EvaluationController.php`.
 - Token: `app/Models/Knowledge/IngestionToken.php` (escopos `api:*`, `isActive()`, `revoke()`) e `app/Http/Middleware/AuthenticateIngestionToken.php` (aceita vários escopos).
 - Limites: `app/Providers/AppServiceProvider.php` (`api-read`, `api-evaluate`).
@@ -107,7 +109,7 @@ Por isso:
 
 ## Testes
 
-- `tests/Feature/Api/ApiAccessTest.php`: token válido, expirado, revogado e de outro escopo; leitura contra avaliação; estatísticas sem nome nem e-mail; rastreio das perguntas; avaliação pelo fluxo real com o provedor roteirizado; validação; limite por token; `tokens:revoke`.
+- `tests/Feature/Api/ApiAccessTest.php`: token válido, expirado, revogado e de outro escopo; leitura contra avaliação; estatísticas sem nome nem e-mail; inventário da base (bulas, catálogo, interações entre princípios ativos com bula, bulas dos EUA); rastreio das perguntas; avaliação pelo fluxo real com o provedor roteirizado; validação; limite por token; `tokens:revoke`.
 - `tests/Feature/Admin/ApiTokensAdminTest.php`: só admin acessa; token mostrado uma vez, só o hash no banco; revogação imediata e auditoria; a tela não aceita outros escopos nem mexe em tokens de ingestão.
 
 ## Clientes automatizados

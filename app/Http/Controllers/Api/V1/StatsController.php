@@ -7,6 +7,7 @@ use App\Models\Knowledge\IngestionToken;
 use App\Models\User;
 use App\Services\Analytics\AiConsumptionService;
 use App\Services\Analytics\AnalyticsService;
+use App\Services\Analytics\KnowledgeInventoryService;
 use App\Services\Evaluation\EvaluationAccount;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -57,6 +58,12 @@ class StatsController extends Controller
             ])->values()->all(),
             'users_total' => $users->total(),
         ]);
+    }
+
+    /** Tamanho da base de conhecimento deste ambiente: bulas, princípios ativos, catálogo, interações e bulas dos EUA. */
+    public function knowledge(KnowledgeInventoryService $inventory): JsonResponse
+    {
+        return response()->json(['generated_at' => now()->toIso8601String()] + $inventory->inventory());
     }
 
     /**
