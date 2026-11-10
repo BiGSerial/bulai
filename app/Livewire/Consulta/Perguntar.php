@@ -6,6 +6,7 @@ use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\PatientMedication;
 use App\Services\Interactions\MedicationSearchService;
+use App\Services\Knowledge\External\ExternalEvidenceService;
 use App\Services\Patient\MedicationQuestionService;
 use App\Services\Patient\TreatmentContextService;
 use Illuminate\Contracts\View\View;
@@ -278,6 +279,12 @@ class Perguntar extends Component
             'bula_paciente' => 'do paciente', 'bula_profissional' => 'do profissional de saúde', default => ''
         })->filter()->values();
         $fonte = $tipos->isEmpty() ? 'Baseado na bula de '.self::listar($nomes).'.' : 'Baseado na bula '.$tipos->join(' e na bula ').' de '.self::listar($nomes).'.';
+        // Bula dos EUA (FDA) como complemento: sempre com o crédito e o aviso de que a bula brasileira não traz a informação.
+        $estrangeira = $bulas->contains(fn ($e): bool => ($e['document_type'] ?? null) === ExternalEvidenceService::DOCUMENT_TYPE);
+        if ($estrangeira) {
+            $credito = 'traduzida automaticamente. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine). A bula brasileira cadastrada não traz essa informação.';
+            $fonte = $tipos->isEmpty() ? 'Baseado na bula dos EUA (FDA) de '.self::listar($nomes).', '.$credito : $fonte.' Parte vem da bula dos EUA (FDA), '.$credito;
+        }
         if ($semBula !== []) {
             $fonte .= ' Ainda não tenho a bula de '.self::listar($semBula).', então respondi só sobre '.self::listar($comBula).'.';
         }

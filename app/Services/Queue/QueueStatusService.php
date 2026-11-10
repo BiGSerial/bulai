@@ -156,6 +156,7 @@ final class QueueStatusService
         'GenerateReport' => 'Gerar relatório',
         'RunInteractionConsultation' => 'Consulta de interações de um paciente',
         'ExtractPrescription' => 'Ler receita por foto',
+        'ImportExternalLabel' => 'Importar bula dos EUA (FDA)',
     ];
 
     /** Quantas tarefas à espera a lista mostra (o total vem à parte). */
@@ -221,6 +222,7 @@ final class QueueStatusService
             'state' => $state,
             'document_id' => $id('documentId'),
             'item_id' => $id('itemId'),
+            'ingredient_id' => $id('ingredientId'),
             'reference' => $id('consultationId') ?? $id('prescriptionId') ?? $id('reportId') ?? $id('importId') ?? $id('catalogImportId') ?? $id('batchId'),
             'attempts' => (int) ($decoded['attempts'] ?? 0),
             'queued_at' => isset($decoded['createdAt']) ? (int) $decoded['createdAt'] : null,
@@ -238,11 +240,13 @@ final class QueueStatusService
     {
         $documents = DB::table('knowledge_documents')->whereIn('id', array_filter(array_column($tasks, 'document_id')))->pluck('title', 'id');
         $files = DB::table('ingestion_batch_items')->whereIn('id', array_filter(array_column($tasks, 'item_id')))->pluck('original_filename', 'id');
+        $ingredients = DB::table('active_ingredients')->whereIn('id', array_filter(array_column($tasks, 'ingredient_id')))->pluck('canonical_name', 'id');
 
-        return array_map(function (array $task) use ($documents, $files): array {
+        return array_map(function (array $task) use ($documents, $files, $ingredients): array {
             $task['subject'] = match (true) {
                 $task['document_id'] !== null => (string) ($documents[$task['document_id']] ?? 'Documento #'.$task['document_id']),
                 $task['item_id'] !== null => (string) ($files[$task['item_id']] ?? 'Arquivo #'.$task['item_id']),
+                $task['ingredient_id'] !== null => (string) ($ingredients[$task['ingredient_id']] ?? 'Princípio ativo #'.$task['ingredient_id']),
                 $task['reference'] !== null => '#'.$task['reference'],
                 default => '—',
             };
