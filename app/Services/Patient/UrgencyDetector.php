@@ -22,7 +22,7 @@ final class UrgencyDetector
     ];
 
     /** Tipos que pedem a orientação do Disque-Intoxicação. */
-    private const OVERDOSE_KINDS = ['overdose', 'overdose_quantidade', 'ingestao_acidental', 'secao_superdose'];
+    private const OVERDOSE_KINDS = ['overdose', 'overdose_quantidade', 'ingestao_acidental', 'secao_superdose', 'interpretacao_superdose'];
 
     /** Títulos de seção da bula sobre superdose ("O que fazer se alguém usar uma quantidade maior do que a indicada"). */
     private const OVERDOSE_SECTION = '/quantidade maior do que a indicada|superdose|superdosagem|overdose/';
@@ -45,6 +45,17 @@ final class UrgencyDetector
         }
 
         return null;
+    }
+
+    /**
+     * Urgência reconhecida pela interpretação da pergunta (IA) que as regras não pegaram. Só soma: nunca apaga uma urgência
+     * detectada pelas regras.
+     *
+     * @return array{level: string, kinds: list<string>, message: string}
+     */
+    public function fromInterpretation(string $kind): array
+    {
+        return $this->urgency(['interpretacao_'.$kind]);
     }
 
     /** @return array{level: string, kinds: list<string>, message: string}|null */

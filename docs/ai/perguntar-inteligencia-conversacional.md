@@ -171,6 +171,50 @@ A detecção do remédio funcionou (`Diporona` vira `DIPIRONA`, com `fuzzy: true
   Continua sendo **validação heurística de ancoragem textual**: barra as inversões mais comuns e não prova correção farmacológica. Os resultados do TCC foram medidos antes dessas checagens.
 - **Tela:** a pergunta enviada aparece na hora como balão da pessoa, com o "digitando…" abaixo. Quando a resposta chega, a tela rola até o começo da fala do BULA-IA (`resources/views/livewire/consulta/perguntar.blade.php`).
 
+### A IA interpreta a pergunta antes da busca (`QuestionInterpreter`, 10/11/2026)
+
+Motivo: em perguntas de conversa as regras fixas erravam (capturas de 10/11/2026).
+- "Ela serve para dores de cabeça?", depois de uma pergunta sobre efeitos adversos, herdou o assunto "efeitos" e ficou sem resposta.
+- "E na versão gotas para nebulização?", depois do Berotec, virou o remédio VERSA, por busca aproximada de "versao".
+- "Tá, mas serve para dor de cabeça?" ficou sem resposta, porque a bula diz "analgésico", não "dor de cabeça".
+
+Agora o fluxo é:
+1. **Triagem e urgência por regras**, sobre o texto original (como antes; nada disso depende da IA).
+2. **Interpretação pela IA:** o modelo recebe a pergunta e as últimas trocas (pergunta, remédios e resposta resumida) e devolve um JSON com:
+   - `medicines`: o remédio da pergunta ou o herdado da conversa;
+   - `question`: a pergunta reescrita completa;
+   - `intent` e `presentation`;
+   - `urgency`.
+
+   Ele não responde e não traz fatos.
+3. **Conferência:**
+   - Cada remédio apontado precisa aparecer, com grafia próxima, na pergunta ou na conversa. Senão é descartado e registrado em `dropped`.
+   - A detecção no catálogo procura só esses nomes.
+   - Se a IA apontou um remédio que o catálogo não tem, o sistema não responde com o remédio anterior.
+   - A urgência apontada pela IA só soma: nunca apaga a das regras.
+4. **Busca e resposta:**
+   - O planejamento, a busca, a apresentação e o prompt usam a pergunta reescrita.
+   - A intenção da IA vem primeiro, e o assunto da troca anterior deixa de ser herdado.
+   - O prompt também mostra o que a pessoa escreveu.
+
+Ajustes que acompanham a etapa:
+- **Guia INDICATION:** se a bula indica o remédio para dor ou febre em geral, uma dor comum está incluída. A resposta diz que sim, sem afirmar que a bula cita a dor pelo nome.
+- **Validador, palavras da pergunta:** palavras repetidas da própria pergunta ("dipirona", "dor de cabeça") não contam contra a ancoragem. O restante da afirmação continua tendo de estar no trecho. Se só sobrarem palavras da pergunta, elas mesmas são verificadas.
+- **Validador, ressalva de combinação:** em pergunta sobre um remédio só e que não é de interação, a ressalva genérica de "combinação" é recusada (`combination_off_topic`). O alerta do perfil, quando existe, sai à parte e nomeia o remédio (quadro de risco).
+
+Configuração (`config/bulai.php`, `interpretation`):
+- `BULAI_INTERPRETATION_ENABLED` (padrão `true`; desligado em `phpunit.xml`, cada teste liga quando precisa).
+- `BULAI_INTERPRETATION_MODEL`: vazio usa o mesmo modelo de texto; um modelo menor, como `claude-haiku-5-5`, reduz a latência.
+- `BULAI_INTERPRETATION_MAX_OUTPUT_TOKENS` (600) e `BULAI_INTERPRETATION_EFFORT` (`low`).
+
+Se o modelo falhar ou responder fora do formato, a interpretação devolve `null` e o fluxo segue com as regras de antes.
+
+Rastreio: `medication_questions.retrieval.interpretation` guarda a pergunta reescrita, os remédios, os descartados, a intenção, a apresentação, a urgência, o modelo, os tokens e a duração. A API de avaliação devolve esse rastreio em `retrieval`.
+
+Custo: uma chamada a mais por pergunta, de saída curta. Cabe medir a latência na próxima bateria de avaliação.
+
+Testes: `tests/Feature/Consulta/InterpretacaoDaPerguntaTest.php`, que cobre os casos das capturas, remédio inventado pela IA, remédio fora do catálogo, falha do provedor, urgência, ressalva de combinação e ancoragem com palavras da pergunta.
+
 ## 3. Antes e depois (classificação e seções)
 
 | Pergunta | Antes | Depois |
