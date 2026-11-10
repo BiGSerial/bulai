@@ -37,6 +37,52 @@
             <li class="ml-auto text-xs text-slate-500">Sondado às {{ ($observed ? \Illuminate\Support\Carbon::createFromTimestamp($observed) : now())->timezone(config('app.timezone'))->format('H:i:s') }}</li>
         </ul>
 
+        {{-- Cada tarefa da fila: a que está rodando agora no topo e as que esperam, na ordem em que serão processadas. --}}
+        @php($taskRows = [...$tasks['running'], ...$tasks['waiting']])
+        @php($ago = fn (?int $timestamp): string => $timestamp === null ? '—' : (abs(now()->getTimestamp() - $timestamp) < 60 ? 'menos de 1 min' : \Illuminate\Support\Carbon::createFromTimestamp($timestamp)->diffForHumans(syntax: \Carbon\CarbonInterface::DIFF_ABSOLUTE, parts: 2)))
+        <x-knowledge-admin.toolbar :count="($tasks['running'] === [] ? 'Nada rodando' : (count($tasks['running']) === 1 ? '1 rodando agora' : count($tasks['running']).' rodando agora')).' · '.($tasks['waiting_total'] === 1 ? '1 esperando' : $tasks['waiting_total'].' esperando').($tasks['waiting_total'] > count($tasks['waiting']) ? ' (mostrando as '.count($tasks['waiting']).' primeiras)' : '')">
+            <p class="text-sm font-semibold text-slate-800">Tarefas na fila</p>
+        </x-knowledge-admin.toolbar>
+
+        <x-knowledge-admin.data-table :columns="[['label' => 'Ordem', 'align' => 'right'], ['label' => 'Tarefa'], ['label' => 'Sobre'], ['label' => 'Situação'], ['label' => 'Tempo', 'align' => 'right']]" dense data-testid="queue-tasks">
+            @foreach ($taskRows as $task)
+                @php($position = $task['state'] === 'running' ? null : $loop->index - count($tasks['running']) + 1)
+                <tr wire:key="task-{{ $task['uuid'] }}" class="{{ $task['state'] === 'running' ? 'bg-brand-50/60' : '' }}" data-state="{{ $task['state'] }}">
+                    <td class="text-right tabular-nums text-slate-500">{{ $position ?? '▶' }}</td>
+                    <td class="font-medium text-slate-900">{{ $task['label'] }}</td>
+                    <td class="max-w-xs">
+                        @if ($task['document_id'] !== null)
+                            <a class="block truncate text-brand-700 hover:underline" href="{{ route('admin.documents.show', $task['document_id']) }}" wire:navigate title="{{ $task['subject'] }}">{{ $task['subject'] }}</a>
+                        @else
+                            <span class="block truncate text-slate-700" title="{{ $task['subject'] }}">{{ $task['subject'] }}</span>
+                        @endif
+                    </td>
+                    <td>
+                        @if ($task['state'] === 'running')
+                            <x-knowledge-admin.badge tone="info">Processando agora</x-knowledge-admin.badge>
+                        @elseif ($task['state'] === 'delayed')
+                            <x-knowledge-admin.badge tone="neutral">Agendada</x-knowledge-admin.badge>
+                        @else
+                            <x-knowledge-admin.badge tone="neutral">Na fila</x-knowledge-admin.badge>
+                        @endif
+                        @if ($task['attempts'] > 1)<span class="text-xs text-amber-800"> · tentativa {{ $task['attempts'] }}</span>@endif
+                    </td>
+                    <td class="whitespace-nowrap text-right text-xs tabular-nums text-slate-500">
+                        @if ($task['state'] === 'running')
+                            há {{ $ago($task['started_at']) }}
+                        @elseif ($task['state'] === 'delayed')
+                            começa em {{ $ago($task['available_at']) }}
+                        @else
+                            esperando há {{ $ago($task['queued_at']) }}
+                        @endif
+                    </td>
+                </tr>
+            @endforeach
+            @if ($taskRows === [])
+                <x-slot:empty>A fila está vazia. Cada tarefa aparece aqui assim que entra na fila, e a que estiver rodando fica no topo.</x-slot:empty>
+            @endif
+        </x-knowledge-admin.data-table>
+
         {{-- Só a forma de uma linha daqui em diante: o compilador do Blade engole tudo entre a diretiva de uma linha acima e o próximo fechamento de bloco PHP. --}}
         @php($documents = $queue['documents'])
         @php($documentsStale = count(array_filter($documents, fn (array $document): bool => $document['stale'])))
