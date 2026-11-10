@@ -11,6 +11,7 @@ use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Interactions\ExplanationGenerator;
 use App\Services\Interactions\InteractionLookup;
+use App\Services\Knowledge\External\ExternalEvidenceService;
 use App\Services\Knowledge\LeafletEvidenceService;
 use App\Services\Knowledge\MedicineLeafletFinder;
 use App\Services\Retrieval\KnowledgeRetriever;
@@ -84,6 +85,7 @@ final class MedicationQuestionService
         private readonly LeafletEvidenceService $evidence,
         private readonly UrgencyDetector $urgencies,
         private readonly QuestionInterpreter $interpreter,
+        private readonly ExternalEvidenceService $external,
     ) {}
 
     /**
@@ -209,6 +211,23 @@ final class MedicationQuestionService
         $result['generation'] += ['conversation_turns' => count($conversation)] + ($result['urgency'] !== null ? ['urgency' => $result['urgency']['kinds']] : []);
 
         return $this->finish($user, $result, $started);
+    }
+
+    /**
+     * Trechos da bula dos EUA para a pergunta: efeitos adversos de cada remédio; interação de um par só com trechos que
+     * citam o outro remédio; interação de um remédio só (sem o outro dito), os primeiros trechos da seção.
+     *
+     * @param  list<AnvisaMedicine>  $medicines
+     * @return list<EvidenceReference>
+     */
+    private function foreignEvidence(array $medicines, string $intent): array
+    {
+        $ids = fn (AnvisaMedicine $medicine): array => $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
+        if ($intent === 'ADVERSE_EFFECT') {
+            return $this->external->adverseReactions(array_merge(...array_map($ids, $medicines)));
+        }
+
+        return count($medicines) >= 2 ? $this->external->forPair($ids($medicines[0]), $ids($medicines[1])) : $this->external->interactions($ids($medicines[0]));
     }
 
     /**
@@ -470,6 +489,20 @@ final class MedicationQuestionService
             $last = $second;
             if ($this->usable($second) && ($best === null || $this->rank($second) >= $this->rank($best))) {
                 $best = $second;
+            }
+        }
+
+        // Nível 2b: bula dos EUA (FDA, via openFDA/DailyMed), traduzida, como complemento. Só para interações e efeitos
+        // adversos, em que as bulas brasileiras costumam ser deficientes, e só quando elas não cobriram a pergunta por inteiro.
+        if (in_array($primary, ['ADVERSE_EFFECT', 'DRUG_INTERACTION'], true) && ($best === null || ($best['coverage'] ?? 'none') !== 'full') && $this->external->enabled()) {
+            $foreign = $this->foreignEvidence($medicines, $primary);
+            $retrieval['external'] = ['consulted' => true, 'references' => count($foreign)];
+            if ($foreign !== []) {
+                $third = $this->generate($label, $question, [...$foreign, ...array_slice($references, 0, self::MAX_EVIDENCES - count($foreign))], $facts, $retrieval, $genContext);
+                $last = $third;
+                if ($this->usable($third) && ($best === null || $this->rank($third) > $this->rank($best))) {
+                    $best = $third;
+                }
             }
         }
 

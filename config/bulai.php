@@ -164,6 +164,33 @@ return [
         'excerpt_max_characters' => (int) env('BULAI_RETRIEVAL_EXCERPT_MAX', 1200),
         'sections' => ['interac', 'advertencias', 'precaucoes', 'contraindica'],
     ],
+    // Bulas estrangeiras como complemento (App\Services\Knowledge\External): bulas de prescrição da FDA pelo openFDA (CC0), as
+    // mesmas da DailyMed (NLM). Só interações e reações adversas, traduzidas e com a origem; usadas apenas quando as bulas
+    // brasileiras não trazem o assunto. Sem chave: 1.000 consultas por dia por IP; com OPENFDA_API_KEY: 120.000 por dia.
+    'external_labels' => [
+        'enabled' => (bool) env('BULAI_EXTERNAL_LABELS_ENABLED', true),
+        'openfda' => [
+            'url' => env('OPENFDA_LABEL_URL', 'https://api.fda.gov/drug/label.json'),
+            'api_key' => env('OPENFDA_API_KEY'),
+            'timeout' => (int) env('OPENFDA_TIMEOUT', 30),
+            // Bulas candidatas examinadas por princípio ativo; fica a de prescrição, de princípio ativo único, com mais texto.
+            'max_candidates' => (int) env('OPENFDA_MAX_CANDIDATES', 25),
+        ],
+        // Reserva: a API da DailyMed (NLM), com as mesmas bulas em XML, quando o openFDA falha ou não tem bula aceitável.
+        'dailymed' => [
+            'base_url' => env('DAILYMED_BASE_URL', 'https://dailymed.nlm.nih.gov/dailymed/services/v2'),
+            'timeout' => (int) env('DAILYMED_TIMEOUT', 30),
+            'max_candidates' => (int) env('DAILYMED_MAX_CANDIDATES', 6),
+        ],
+        // Trechos guardados por seção (reações adversas podem ser muito longas) e tamanho de cada trecho.
+        'max_chunks_per_section' => (int) env('BULAI_EXTERNAL_MAX_CHUNKS_PER_SECTION', 12),
+        'chunk_chars' => (int) env('BULAI_EXTERNAL_CHUNK_CHARS', 1500),
+        // Vazio = o mesmo modelo de texto configurado.
+        'translation_model' => env('BULAI_EXTERNAL_TRANSLATION_MODEL'),
+        // Trechos estrangeiros por resposta (Perguntar) e por par (consulta de interações).
+        'evidence_limit' => (int) env('BULAI_EXTERNAL_EVIDENCE_LIMIT', 3),
+    ],
+
     // Interpretação da pergunta pela IA antes da busca (App\Services\Patient\QuestionInterpreter): remédios citados ou
     // herdados da conversa, pergunta reescrita, intenção e apresentação. Só orienta a busca; nunca é fonte de fatos.
     'interpretation' => [

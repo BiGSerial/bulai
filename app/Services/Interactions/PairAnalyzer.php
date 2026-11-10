@@ -3,6 +3,7 @@
 namespace App\Services\Interactions;
 
 use App\Data\Knowledge\EvidenceReference;
+use App\Services\Knowledge\External\ExternalEvidenceService;
 use Illuminate\Support\Str;
 
 /**
@@ -15,6 +16,7 @@ class PairAnalyzer
         private readonly InteractionLookup $lookup,
         private readonly PairEvidenceRetriever $evidence,
         private readonly ExplanationGenerator $generator,
+        private readonly ExternalEvidenceService $external,
     ) {}
 
     /**
@@ -51,10 +53,18 @@ class PairAnalyzer
         $retrieval = $this->evidence->forPair($idsA, $idsB, $retrievalMode);
         $timings['retrieval_ms'] = $this->elapsed($started);
         $references = $retrieval['references'];
+        // Nenhuma bula brasileira cadastrada descreve o par: a bula dos EUA (FDA), traduzida, entra como complemento, só com
+        // trechos que citam o outro remédio pelo nome.
+        $foreign = $references === [] && $this->external->enabled();
+        if ($foreign) {
+            $references = $this->external->forPair($idsA, $idsB);
+            $retrieval['meta']['external'] = ['consulted' => true, 'references' => count($references)];
+        }
+        $foreign = $foreign && $references !== [];
         $evidences = array_map(fn (EvidenceReference $reference): array => $reference->toArray(), $references);
 
         if ($structured === null) {
-            return array_replace($base, $this->withoutStructured($references, $evidences, $retrieval['meta'], $timings));
+            return array_replace($base, $this->withoutStructured($references, $evidences, $retrieval['meta'], $timings, $foreign));
         }
 
         $generated = ['explanation' => null, 'claims' => [], 'status' => ExplanationGenerator::STATUS_UNAVAILABLE, 'generation' => ['run_id' => $runId]];
@@ -67,6 +77,9 @@ class PairAnalyzer
         $limitations = ['A gravidade segue a classificação da base DDInter; não é uma avaliação clínica individual.'];
         if ($structured->divergentSeverities) {
             $limitations[] = 'A base registra variantes com gravidades muito diferentes (ex.: por via de administração); exibimos a mais alta.';
+        }
+        if ($foreign) {
+            $limitations[] = 'Nenhuma bula brasileira cadastrada descreve esta interação; a explicação usa a bula dos EUA (FDA), traduzida automaticamente. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine).';
         }
         if ($references === []) {
             $limitations[] = 'Nenhum trecho das bulas cadastradas descreve esta interação; a explicação textual não está disponível.';
@@ -95,13 +108,16 @@ class PairAnalyzer
      * @param  array<string, int>  $timings
      * @return array<string, mixed>
      */
-    private function withoutStructured(array $references, array $evidences, array $meta, array $timings): array
+    private function withoutStructured(array $references, array $evidences, array $meta, array $timings, bool $foreign = false): array
     {
         if ($references !== []) {
             return [
                 'verdict' => PairVerdict::InsufficientEvidence,
                 'evidences' => $evidences,
-                'limitations' => ['Trechos de bulas citam o outro medicamento, mas a base estruturada não registra a interação. Não é possível concluir; os trechos abaixo precisam de avaliação profissional.'],
+                'limitations' => array_values(array_filter([
+                    'Trechos de bulas citam o outro medicamento, mas a base estruturada não registra a interação. Não é possível concluir; os trechos abaixo precisam de avaliação profissional.',
+                    $foreign ? 'Os trechos são da bula dos EUA (FDA), traduzidos automaticamente; nenhuma bula brasileira cadastrada descreve esta combinação. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine).' : null,
+                ])),
                 'retrieval' => $meta, 'timings' => $timings,
             ];
         }

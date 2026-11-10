@@ -78,6 +78,7 @@ Tables created:
 - `ingestion_batches`: logical import batches for assisted or bulk ingestion.
 - `knowledge_documents`: document-level metadata, independent content/file/embedding states, private file reference, and SHA-256.
 - `knowledge_chunks`: recoverable document fragments with section and page traceability.
+- `external_labels` / `external_label_sections`: FDA prescription labels (openFDA, DailyMed as backup) per active ingredient, drug interactions and adverse reactions only, original text plus checked Portuguese translation, with origin; used only as a fallback (see `docs/fontes-externas-fda.md`).
 - `ingestion_tokens`: hashed, scoped, expiring, revocable Bearer Tokens for internal ingestion (`knowledge:ingest`) and for the statistics/evaluation API (`api:read`, `api:evaluate`, see `docs/api.md`).
 - `users.role`: string-backed application role for `ADMIN` and `USER` access control.
 

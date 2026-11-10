@@ -26,6 +26,6 @@
         </nav>
     </div>
     <div class="border-t border-brand-100/70">
-        <p class="mx-auto max-w-6xl px-4 py-5 text-sm text-slate-600">© {{ now()->year }} BULA-IA · Fontes: catálogo de medicamentos da ANVISA e base de interações DDInter (uso acadêmico).</p>
+        <p class="mx-auto max-w-6xl px-4 py-5 text-sm text-slate-600">© {{ now()->year }} BULA-IA · Fontes: catálogo de medicamentos e bulas da ANVISA, base de interações DDInter (uso acadêmico) e, como complemento traduzido, bulas da FDA via openFDA e DailyMed (U.S. National Library of Medicine).</p>
     </div>
 </footer>
