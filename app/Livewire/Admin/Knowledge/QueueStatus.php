@@ -67,6 +67,7 @@ class QueueStatus extends Component
     {
         return view('livewire.admin.knowledge.queue-status', [
             'queue' => $queue->snapshot(),
+            'tasks' => $queue->tasks(),
             'services' => $health->all(),
             'restartable' => ['local_ai' => $restarter->canRestart('local_ai'), 'ocr' => $restarter->canRestart('ocr')],
             // Arquivos que deixaram de estar pendentes hoje (associados, ignorados, duplicados ou com erro).

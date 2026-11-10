@@ -143,6 +143,123 @@ final class QueueStatusService
         return ['page' => $ocr->progress['page'], 'total' => $ocr->progress['total']];
     }
 
+    /** Nome das tarefas, em português, para a lista da fila. */
+    private const TASK_LABELS = [
+        'ProcessKnowledgeDocument' => 'Processar bula',
+        'IndexKnowledgeDocumentEmbeddings' => 'Indexar bula para a busca',
+        'LinkKnowledgeDocumentIngredients' => 'Vincular princípios ativos',
+        'ClassifyPendingDocument' => 'Analisar arquivo importado',
+        'ReanalyzePendingKnowledgeBatch' => 'Reanalisar importação',
+        'BuildActiveIngredientCatalog' => 'Montar catálogo de princípios ativos',
+        'ImportAnvisaCatalog' => 'Importar catálogo ANVISA',
+        'ImportDrugInteractions' => 'Importar interações (DDInter)',
+        'GenerateReport' => 'Gerar relatório',
+        'RunInteractionConsultation' => 'Consulta de interações de um paciente',
+        'ExtractPrescription' => 'Ler receita por foto',
+    ];
+
+    /** Quantas tarefas à espera a lista mostra (o total vem à parte). */
+    private const TASKS_SHOWN = 200;
+
+    /**
+     * Cada tarefa da fila, uma por linha: as que estão rodando agora e as que esperam, na ordem em que serão processadas,
+     * com o assunto (título da bula ou nome do arquivo). Tarefas de pacientes (consulta, receita) mostram só o número
+     * interno, nunca dados do paciente.
+     *
+     * @return array{running: list<array<string, mixed>>, waiting: list<array<string, mixed>>, waiting_total: int}
+     */
+    public function tasks(): array
+    {
+        $running = [];
+        $waiting = [];
+        $total = 0;
+        $driver = $this->driver();
+        if ($driver === 'redis') {
+            $redis = $this->redis();
+            $retryAfter = (int) config('queue.connections.'.config('queue.default').'.retry_after', 90);
+            foreach ($this->queueNames() as $queue) {
+                $key = 'queues:'.$queue;
+                foreach ((array) $redis->zrange($key.':reserved', 0, -1, ['withscores' => true]) as $payload => $expiresAt) {
+                    $running[] = $this->task((string) $payload, 'running', startedAt: (int) $expiresAt - $retryAfter);
+                }
+                $total += (int) $redis->llen($key) + (int) $redis->zcard($key.':delayed');
+                foreach ((array) $redis->lrange($key, 0, self::TASKS_SHOWN - 1) as $payload) {
+                    $waiting[] = $this->task((string) $payload, 'waiting');
+                }
+                foreach ((array) $redis->zrange($key.':delayed', 0, self::TASKS_SHOWN - 1, ['withscores' => true]) as $payload => $availableAt) {
+                    $waiting[] = $this->task((string) $payload, 'delayed', availableAt: (int) $availableAt);
+                }
+            }
+        } elseif ($driver === 'database') {
+            $table = $this->table();
+            foreach (DB::table($table)->whereNotNull('reserved_at')->orderBy('reserved_at')->get(['payload', 'reserved_at']) as $row) {
+                $running[] = $this->task((string) $row->payload, 'running', startedAt: (int) $row->reserved_at);
+            }
+            $total = DB::table($table)->whereNull('reserved_at')->count();
+            foreach (DB::table($table)->whereNull('reserved_at')->orderBy('available_at')->orderBy('id')->limit(self::TASKS_SHOWN)->get(['payload', 'available_at']) as $row) {
+                $delayed = (int) $row->available_at > now()->getTimestamp();
+                $waiting[] = $this->task((string) $row->payload, $delayed ? 'delayed' : 'waiting', availableAt: $delayed ? (int) $row->available_at : null);
+            }
+        }
+
+        return ['running' => $this->withSubjects($running), 'waiting' => $this->withSubjects(array_slice($waiting, 0, self::TASKS_SHOWN)), 'waiting_total' => $total];
+    }
+
+    /** @return array<string, mixed> */
+    private function task(string $payload, string $state, ?int $startedAt = null, ?int $availableAt = null): array
+    {
+        $decoded = json_decode($payload, true);
+        $decoded = is_array($decoded) ? $decoded : [];
+        $class = class_basename((string) ($decoded['displayName'] ?? 'Tarefa'));
+        $command = (string) ($decoded['data']['command'] ?? '');
+        $id = fn (string $property): ?int => preg_match('/s:'.strlen($property).':"'.$property.'";i:(\d+);/', $command, $match) === 1 ? (int) $match[1] : null;
+
+        return [
+            'uuid' => (string) ($decoded['uuid'] ?? md5($payload)),
+            'job' => $class,
+            'label' => self::TASK_LABELS[$class] ?? $class,
+            'state' => $state,
+            'document_id' => $id('documentId'),
+            'item_id' => $id('itemId'),
+            'reference' => $id('consultationId') ?? $id('prescriptionId') ?? $id('reportId') ?? $id('importId') ?? $id('catalogImportId') ?? $id('batchId'),
+            'attempts' => (int) ($decoded['attempts'] ?? 0),
+            'queued_at' => isset($decoded['createdAt']) ? (int) $decoded['createdAt'] : null,
+            'started_at' => $startedAt,
+            'available_at' => $availableAt,
+            'subject' => null,
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $tasks
+     * @return list<array<string, mixed>>
+     */
+    private function withSubjects(array $tasks): array
+    {
+        $documents = DB::table('knowledge_documents')->whereIn('id', array_filter(array_column($tasks, 'document_id')))->pluck('title', 'id');
+        $files = DB::table('ingestion_batch_items')->whereIn('id', array_filter(array_column($tasks, 'item_id')))->pluck('original_filename', 'id');
+
+        return array_map(function (array $task) use ($documents, $files): array {
+            $task['subject'] = match (true) {
+                $task['document_id'] !== null => (string) ($documents[$task['document_id']] ?? 'Documento #'.$task['document_id']),
+                $task['item_id'] !== null => (string) ($files[$task['item_id']] ?? 'Arquivo #'.$task['item_id']),
+                $task['reference'] !== null => '#'.$task['reference'],
+                default => '—',
+            };
+
+            return $task;
+        }, $tasks);
+    }
+
+    /** @return list<string> */
+    private function queueNames(): array
+    {
+        return array_values(array_unique(array_filter([
+            (string) config('queue.connections.'.config('queue.default').'.queue', 'default'),
+            (string) config('bulai.consultation.queue'),
+        ])));
+    }
+
     /** Remove da fila os jobs ainda não iniciados deste item (evita análise duplicada ou indesejada). */
     public function removeWaitingJobs(int $itemId): int
     {

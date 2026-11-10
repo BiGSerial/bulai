@@ -3,11 +3,16 @@
 namespace Tests\Feature\Admin;
 
 use App\Jobs\ClassifyPendingDocument;
+use App\Jobs\GenerateReport;
+use App\Jobs\IndexKnowledgeDocumentEmbeddings;
+use App\Jobs\ProcessKnowledgeDocument;
+use App\Jobs\RunInteractionConsultation;
 use App\Livewire\Admin\Knowledge\Pending\Index as PendingIndex;
 use App\Livewire\Admin\Knowledge\Pending\Review;
 use App\Livewire\Admin\Knowledge\QueueStatus;
 use App\Models\Knowledge\IngestionBatch;
 use App\Models\Knowledge\IngestionBatchItem;
+use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
 use App\Models\Knowledge\KnowledgeSource;
 use App\Models\User;
@@ -17,6 +22,7 @@ use App\Services\Queue\WorkerHeartbeat;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Redis;
@@ -274,5 +280,59 @@ final class QueueStatusTest extends TestCase
         $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/queue')->assertOk()
             ->assertSeeInOrder(['Na fila', 'Processando', 'Com falha', 'Resolvidos hoje'])
             ->assertSee('Arquivos que saíram da fila hoje')->assertSee('a.pdf')->assertDontSee('b.pdf');
+    }
+
+    /** Cada tarefa da fila aparece: a que roda agora no topo e as que esperam na ordem, com o assunto e sem dados de paciente. */
+    public function test_tasks_list_every_queued_job_in_order_with_the_one_running_now(): void
+    {
+        config()->set('queue.default', 'database');
+        $source = KnowledgeSource::query()->firstOrCreate(['name' => 'ANVISA', 'organization' => 'ANVISA'], ['active' => true]);
+        $make = fn (string $title): KnowledgeDocument => KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => uniqid('d_'), 'title' => $title, 'document_type' => 'bula_paciente', 'language' => 'pt-BR', 'metadata' => [], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'PENDING', 'content_hash' => uniqid('h_')]);
+        $dipirona = $make('DIPIRONA — Bula do paciente');
+        $naprix = $make('NAPRIX D — Bula do paciente');
+        [, $item] = $this->pendingItem('importado.pdf');
+        ProcessKnowledgeDocument::dispatch($dipirona->id, true);
+        ProcessKnowledgeDocument::dispatch($naprix->id, true);
+        ClassifyPendingDocument::dispatch($item->ingestion_batch_id, $item->id);
+        RunInteractionConsultation::dispatch(77);
+        DB::table('jobs')->orderBy('id')->limit(1)->update(['reserved_at' => now()->subSeconds(40)->getTimestamp(), 'attempts' => 1]);
+
+        $tasks = app(QueueStatusService::class)->tasks();
+
+        $this->assertSame([['Processar bula', 'DIPIRONA — Bula do paciente', 'running']], array_map(fn (array $task): array => [$task['label'], $task['subject'], $task['state']], $tasks['running']));
+        $this->assertSame(
+            [['Processar bula', 'NAPRIX D — Bula do paciente'], ['Analisar arquivo importado', 'importado.pdf'], ['Consulta de interações de um paciente', '#77']],
+            array_map(fn (array $task): array => [$task['label'], $task['subject']], $tasks['waiting']),
+        );
+        $this->assertSame(3, $tasks['waiting_total']);
+
+        Http::fake(['*' => Http::response(['status' => 'ok', 'busy' => false])]);
+        $this->actingAs(User::factory()->admin()->create())->get('/admin/knowledge/queue')->assertOk()
+            ->assertSee('Tarefas na fila')->assertSee('1 rodando agora · 3 esperando')
+            ->assertSeeInOrder(['Processando agora', 'NAPRIX D — Bula do paciente', 'importado.pdf', '#77']);
+    }
+
+    public function test_tasks_read_running_waiting_and_scheduled_jobs_from_redis(): void
+    {
+        config()->set('queue.default', 'redis');
+        config()->set('queue.connections.redis.retry_after', 600);
+        $source = KnowledgeSource::query()->firstOrCreate(['name' => 'ANVISA', 'organization' => 'ANVISA'], ['active' => true]);
+        $document = KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => 'dip', 'title' => 'DIPIRONA — Bula do paciente', 'document_type' => 'bula_paciente', 'language' => 'pt-BR', 'metadata' => [], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'PENDING', 'content_hash' => 'h']);
+        $payload = fn (object $job, int $attempts = 0): string => (string) json_encode(['uuid' => uniqid(), 'displayName' => $job::class, 'attempts' => $attempts, 'createdAt' => now()->subMinutes(3)->getTimestamp(), 'data' => ['command' => serialize($job)]]);
+        $running = $payload(new ProcessKnowledgeDocument($document->id, true), 1);
+        $connection = \Mockery::mock();
+        $connection->shouldReceive('zrange')->with('queues:default:reserved', 0, -1, ['withscores' => true])->andReturn([$running => now()->addSeconds(540)->getTimestamp()]);
+        $connection->shouldReceive('llen')->with('queues:default')->andReturn(1);
+        $connection->shouldReceive('zcard')->with('queues:default:delayed')->andReturn(1);
+        $connection->shouldReceive('lrange')->with('queues:default', 0, 199)->andReturn([$payload(new IndexKnowledgeDocumentEmbeddings($document->id))]);
+        $connection->shouldReceive('zrange')->with('queues:default:delayed', 0, 199, ['withscores' => true])->andReturn([$payload(new GenerateReport(5)) => now()->addMinutes(2)->getTimestamp()]);
+        Redis::shouldReceive('connection')->with('default')->andReturn($connection);
+
+        $tasks = app(QueueStatusService::class)->tasks();
+
+        $this->assertSame('Processar bula', $tasks['running'][0]['label']);
+        $this->assertEqualsWithDelta(now()->subSeconds(60)->getTimestamp(), $tasks['running'][0]['started_at'], 2, 'início = expiração da reserva − retry_after');
+        $this->assertSame([['Indexar bula para a busca', 'DIPIRONA — Bula do paciente', 'waiting'], ['Gerar relatório', '#5', 'delayed']], array_map(fn (array $task): array => [$task['label'], $task['subject'], $task['state']], $tasks['waiting']));
+        $this->assertSame(2, $tasks['waiting_total']);
     }
 }
