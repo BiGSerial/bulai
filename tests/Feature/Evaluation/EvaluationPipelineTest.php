@@ -147,6 +147,7 @@ final class EvaluationPipelineTest extends TestCase
         $source = KnowledgeSource::query()->create(['name' => 'ANVISA', 'type' => 'document', 'active' => true]);
         $document = KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => 'omeprazol', 'title' => 'Omeprazol — Bula', 'document_type' => 'bula_paciente', 'language' => 'pt-BR', 'metadata' => [], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'READY', 'content_hash' => 'h']);
         $ingredient = ActiveIngredient::query()->create(['canonical_name' => 'Omeprazole', 'normalized_name' => 'omeprazole']);
+        $ingredient->aliases()->create(['alias' => 'omeprazol', 'normalized_alias' => 'omeprazol', 'language' => 'pt', 'origin' => 'document', 'review_status' => 'pending_review']);
         DB::table('knowledge_document_ingredients')->insert(['document_id' => $document->id, 'ingredient_id' => $ingredient->id, 'method' => 'manual', 'confidence' => 1, 'created_at' => now(), 'updated_at' => now()]);
         foreach ([['INDICAÇÕES', 'O omeprazol é indicado para tratar úlcera do estômago e azia.'], ['5. ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO?', 'Guardar o omeprazol em temperatura ambiente, protegido da luz e da umidade.'], ['REAÇÕES ADVERSAS', 'Pode causar dor de cabeça, diarreia e náusea.']] as $index => [$section, $content]) {
             DB::table('knowledge_chunks')->insert(['document_id' => $document->id, 'chunk_index' => $index, 'section' => $section, 'page_start' => 1, 'page_end' => 1, 'content' => $content, 'created_at' => now(), 'updated_at' => now()]);
@@ -156,13 +157,14 @@ final class EvaluationPipelineTest extends TestCase
                 'armazenamento' => ['question' => 'Como devo guardar o {name}?', 'sections' => 'ARMAZENAMENTO|ONDE, COMO E POR QUANTO TEMPO'],
                 'superdose' => ['question' => 'Tomei {name} a mais, o que acontece?', 'sections' => 'SUPERDOSE'],
             ],
-            'items' => [['ingredient' => 'Omeprazole', 'name' => 'omeprazol'], ['ingredient' => 'Riluzole', 'name' => 'riluzol']],
+            // "Omeprazol" é o nome de um duplicado já fundido: chega ao mesmo princípio pelo alias e não conta duas vezes.
+            'items' => [['ingredient' => 'Omeprazole', 'name' => 'omeprazol'], ['ingredient' => 'Riluzole', 'name' => 'riluzol'], ['ingredient' => 'Omeprazol', 'name' => 'omeprazol']],
         ]));
 
         $report = app(RetrievalEvaluator::class)->run($this->directory.'/subjects.json', ['lexical']);
 
         $this->assertSame(1, $report['items']);
-        $this->assertSame(['listed' => 2, 'with_leaflet' => 1], $report['ingredients']);
+        $this->assertSame(['listed' => 3, 'with_leaflet' => 1], $report['ingredients']);
         $this->assertSame(['armazenamento' => 1], $report['by_subject']);
         $this->assertSame(1.0, $report['modes']['lexical']['hit@1']['rate']);
         $this->assertSame(1.0, $report['modes']['lexical']['mrr']);

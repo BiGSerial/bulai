@@ -18,13 +18,13 @@ howard.cruz@faesa.br
 
 ## RESUMO
 
-As bulas de medicamentos usam linguagem técnica e extensa, de difícil compreensão para os pacientes, e a polifarmácia amplia o risco de interações medicamentosas. Este trabalho desenvolveu e avaliou o BULA-IA, aplicação web progressiva que combina as bulas do Bulário Eletrônico da Agência Nacional de Vigilância Sanitária, a base de interações DDInter e um modelo de linguagem de grande escala (LLM) com geração aumentada por recuperação (RAG). Na arquitetura proposta, a existência e a gravidade de uma interação são decididas pela base estruturada; o RAG recupera trechos de bula, e o modelo apenas os explica, sob uma validação heurística de ancoragem textual. A avaliação, automatizada e versionada, usou uma base restrita: 18 bulas, que cobrem 6 dos 55 produtos estudados. A identificação dos princípios ativos acertou 89,4% das consultas reservadas (IC 95%: 77,4%–95,4%). A verificação dos 1.483 pares concordou integralmente com o DDInter, resultado que valida a integração da aplicação com a base, e não a correção clínica, pois o gabarito provém da mesma fonte; ao ampliar a base de 8 para 14 grupos anatômicos, constatou-se que 89% dos pares antes tidos como sem interação registrada eram lacunas de cobertura. Com o modelo de produção, 8 de 12 explicações passaram na validação heurística, e as respostas foram mais legíveis que os trechos citados pelo Índice de Flesch adaptado (mediana de 60,2 contra 25,6), o que mede a forma do texto, e não a compreensão. Sem recuperação, o mesmo modelo não apontou interações ausentes da base, mas deixou de reconhecer 26 das 56 interações registradas que avaliou, sem indicar fontes. Não houve avaliação por profissionais de saúde nem por usuários; a compreensão efetiva permanece não medida.
+As bulas de medicamentos usam linguagem técnica e extensa, de difícil compreensão para os pacientes, e a polifarmácia amplia o risco de interações medicamentosas. Este trabalho desenvolveu e avaliou o BULA-IA, aplicação web progressiva que combina as bulas do Bulário Eletrônico da Agência Nacional de Vigilância Sanitária, a base de interações DDInter e um modelo de linguagem de grande escala (LLM) com geração aumentada por recuperação (RAG). Na arquitetura proposta, a existência e a gravidade de uma interação são decididas pela base estruturada; o RAG recupera trechos de bula, e o modelo apenas os explica, sob uma validação heurística de ancoragem textual. A avaliação, automatizada e versionada, foi executada no servidor de produção em 11 nov. 2026, sobre a base publicada: 82 bulas divididas em 5.652 trechos, 39.416 registros do catálogo da ANVISA e 234.981 interações do DDInter. A identificação dos princípios ativos acertou 93,6% das consultas reservadas (IC 95%: 82,8%–97,8%). A verificação de 1.483 pares não produziu falso positivo, mas deixou de acusar 81 interações registradas, 5 delas graves, e se absteve em 25 pares; a causa foram princípios ativos duplicados em português, criados ao vincular bulas antes do catálogo, que desligavam dois produtos do DDInter — defeito de dados corrigido após a medição. Na recuperação por assunto (369 consultas), a busca híbrida trouxe um trecho da seção certa entre os três primeiros em 40,1% das consultas, contra 20,6% da lexical. Em 234 perguntas ao sistema publicado, 170 das 196 sobre bulas brasileiras foram respondidas, 55,6% das 820 afirmações propostas pelo modelo passaram na validação e nenhum trecho cru foi exibido; as respostas foram mais legíveis que os trechos que as sustentam em 98,1% de 269 pares pelo Índice de Flesch adaptado (mediana de 58,3 contra 29,4), o que mede a forma do texto, e não a compreensão. Sem recuperação, o mesmo modelo não apontou interações ausentes da base, mas não reconheceu 50 das 114 interações registradas sobre as quais se pronunciou. Não houve avaliação por profissionais de saúde nem por usuários.
 
 **Palavras-chave:** Bulas de medicamentos. Interações medicamentosas. Modelos de linguagem de grande escala. Geração aumentada por recuperação.
 
 ## ABSTRACT
 
-Medication package inserts use technical, lengthy language that is hard for patients to understand, and polypharmacy increases the risk of drug interactions. This study developed and evaluated BULA-IA, a progressive web application that combines the package inserts of the Brazilian Health Regulatory Agency, the DDInter drug interaction database and a large language model (LLM) with retrieval-augmented generation (RAG). In the proposed architecture, the existence and severity of an interaction are decided by the structured database; RAG retrieves package insert passages, and the model only explains them, under a heuristic textual-anchoring validation. The automated, versioned evaluation used a restricted corpus: 18 package inserts, covering 6 of the 55 products studied. Active ingredient identification was correct in 89.4% of held-out queries (95% CI: 77.4%–95.4%). Checking of the 1,483 pairs fully agreed with DDInter, a result that validates the application's integration with the database rather than clinical correctness, since the reference standard comes from the same source; expanding the database from 8 to 14 anatomical groups showed that 89% of the pairs previously without a recorded interaction were coverage gaps. With the production model, 8 of 12 explanations passed the heuristic validation, and answers were more readable than the cited passages according to the Portuguese-adapted Flesch Reading Ease (median 60.2 versus 25.6), a measure of text form rather than comprehension. Without retrieval, the same model flagged no interaction absent from the database but missed 26 of the 56 recorded interactions it assessed, without citing sources. No evaluation by health professionals or users was carried out; actual comprehension remains unmeasured.
+Medication package inserts use technical, lengthy language that is hard for patients to understand, and polypharmacy increases the risk of drug interactions. This study developed and evaluated BULA-IA, a progressive web application that combines the package inserts of the Brazilian Health Regulatory Agency, the DDInter drug interaction database and a large language model (LLM) with retrieval-augmented generation (RAG). In the proposed architecture, the existence and severity of an interaction are decided by the structured database; RAG retrieves package insert passages, and the model only explains them, under a heuristic textual-anchoring validation. The automated, versioned evaluation was run on the production server on 11 Nov 2026, over the published data: 82 package inserts split into 5,652 passages, 39,416 records of the ANVISA catalogue and 234,981 DDInter interactions. Active ingredient identification was correct in 93.6% of held-out queries (95% CI: 82.8%–97.8%). Checking 1,483 pairs produced no false positive, but missed 81 recorded interactions, 5 of them major, and abstained on 25 pairs; the cause was duplicated active ingredients in Portuguese, created when package inserts were linked before the catalogue, which disconnected two products from DDInter — a data defect fixed after the measurement. In subject-based retrieval (369 queries), hybrid search placed a passage from the right section among the top three in 40.1% of the queries, against 20.6% for lexical search. In 234 questions put to the published system, 170 of the 196 about Brazilian package inserts were answered, 55.6% of the 820 statements proposed by the model passed the validation and no raw passage was shown; answers were more readable than their supporting passages in 98.1% of 269 pairs according to the Portuguese-adapted Flesch Reading Ease (median 58.3 versus 29.4), a measure of text form rather than comprehension. Without retrieval, the same model flagged no interaction absent from the database but did not recognise 50 of the 114 recorded interactions it assessed. No evaluation by health professionals or users was carried out.
 
 **Keywords:** Package inserts. Drug interactions. Large language models. Retrieval-augmented generation.
 
@@ -135,21 +135,23 @@ O referencial teórico baseou-se em quatro tipos de fonte: documentos de órgão
 
 ### 3.3 Fontes de dados e recorte da base
 
-As bulas, em PDF, foram obtidas no Bulário Eletrônico da ANVISA (AGÊNCIA NACIONAL DE VIGILÂNCIA SANITÁRIA, 2020a) e inseridas no sistema por envio em lote, com revisão humana da classificação de cada documento. Na data da avaliação final (7 nov. 2026), a base reunia 18 bulas — 13 destinadas a profissionais de saúde e 5 a pacientes —, divididas em 799 trechos. Essas bulas cobrem apenas 11 princípios ativos: azitromicina, amoxicilina com clavulanato, codeína, ibuprofeno, levotiroxina, nimesulida, omeprazol, pantoprazol, paracetamol, pseudoefedrina e sinvastatina. A lista completa, com o tipo de bula, o número de trechos e o identificador de versão de cada documento, está no Apêndice A.
+Todos os dados deste trabalho foram medidos na instância de produção do sistema, publicada em `https://bulai.vixforge.com.br`, em 11 nov. 2026; nenhum resultado vem do ambiente de desenvolvimento. As bulas, em PDF, foram obtidas no Bulário Eletrônico da ANVISA (AGÊNCIA NACIONAL DE VIGILÂNCIA SANITÁRIA, 2020a) e inseridas pela administração do sistema, com revisão humana da classificação, da identificação do medicamento e do vínculo de cada documento. Na data da avaliação, a base reunia 83 documentos, dos quais 82 bulas prontas para consulta — 38 destinadas a profissionais de saúde, 33 a pacientes e 11 sem classificação de público —, divididas em 5.652 trechos, todos com *embedding*. Todas as 82 bulas estavam vinculadas a princípio ativo, num total de 56 princípios ativos com bula. A lista completa, com o título, os princípios ativos vinculados, o tipo de bula, o número de trechos e o *hash* de cada documento, está no Apêndice A.
 
-Na avaliação de 7 nov. 2026, 4 das 18 bulas (nº 7, 9, 10 e 13 do Apêndice A) não estavam vinculadas a princípio ativo no sistema. Esse vínculo é o caminho pelo qual a verificação de interações chega às bulas: os trechos que explicam um par são buscados apenas nas bulas vinculadas aos princípios ativos desse par (`app/Services/Interactions/PairEvidenceRetriever.php`). Uma bula sem vínculo, portanto, não é encontrada a partir do princípio ativo e não pode fornecer explicação para nenhuma interação; nas perguntas livres, ela só é localizada pela comparação do nome do produto (`app/Services/Knowledge/MedicineLeafletFinder.php`). O efeito foi maior para a levotiroxina, cuja única bula (nº 13) estava sem vínculo; a nimesulida e o omeprazol tinham outras bulas vinculadas. Na reconstrução do catálogo de princípios ativos feita em 8 nov. 2026, após a importação dos 14 grupos do DDInter e antes dos experimentos dessa data, as bulas 7, 10 e 13 passaram a ter vínculo, e apenas a bula 9, cujo título não foi extraído, permaneceu sem ele.
+O vínculo entre bula e princípio ativo é o caminho pelo qual o sistema chega às bulas: tanto as perguntas livres quanto a verificação de interações buscam trechos apenas nas bulas vinculadas aos princípios ativos do medicamento consultado (`app/Services/Interactions/PairEvidenceRetriever.php`). Por isso, a administração permite corrigir a identificação e o vínculo de cada bula. A avaliação revelou um defeito nesse caminho. As bulas processadas antes de o catálogo conhecer o nome em português de seu princípio ativo criaram registros novos, em português e sem nenhuma interação, como “Ibuprofeno”, “Besilato De Anlodipino” e “Losartana Potássica”; a reconstrução seguinte do catálogo encontrou esses nomes e passou a ligar a eles os medicamentos da ANVISA, em vez dos princípios ativos do DDInter (*ibuprofen*, *amlodipine*, *losartan*). Dos 56 princípios ativos com bula, portanto, alguns são duplicados de outros. O efeito desse defeito é medido nas seções 5.1 e 5.2; sua correção, que reaproveita o princípio ativo existente e funde os duplicados no do DDInter, foi feita depois da medição e é descrita no Apêndice B.
 
-Para associar o nome comercial informado pelo usuário aos princípios ativos, utilizou-se o catálogo de medicamentos da ANVISA disponível no Portal de Dados Abertos (AGÊNCIA NACIONAL DE VIGILÂNCIA SANITÁRIA, 2026), com 39.416 registros. As interações vêm do DDInter (XIONG et al., 2022), cujos arquivos de exportação são organizados por grupo anatômico da classificação ATC. Na primeira versão da base, foram importados oito grupos (A, B, D, H, L, P, R e V), com 160.235 pares de fármacos. Em 8 nov. 2026, foram acrescentados os seis grupos que faltavam — C (aparelho cardiovascular), G (aparelho geniturinário e hormônios sexuais), J (anti-infecciosos de uso sistêmico), M (sistema musculoesquelético), N (sistema nervoso) e S (órgãos dos sentidos) —, conferidos pelo *hash* SHA-256 de cada arquivo. A base passou a ter 234.981 pares: 39.082 com gravidade *major*, 143.748 *moderate*, 9.736 *minor* e 42.415 *unknown*. Mesmo com os 14 grupos, ela não equivale à exportação integral do DDInter 2.0, que declara 302.516 interações; a ausência de registro, portanto, continua não significando ausência de interação. A comparação entre as duas versões da base é apresentada na seção 5.2. O projeto previa o DrugBank 6.0, substituído por exigir licença para uso além do acadêmico.
+Para associar o nome comercial informado pelo usuário aos princípios ativos, utilizou-se o catálogo de medicamentos da ANVISA disponível no Portal de Dados Abertos (AGÊNCIA NACIONAL DE VIGILÂNCIA SANITÁRIA, 2026), com 39.416 registros; na avaliação, 25.682 deles tinham ao menos um princípio ativo identificado, 5.826 tinham bula de algum de seus princípios ativos e 4.492, de todos. As interações vêm do DDInter (XIONG et al., 2022), cujos arquivos de exportação são organizados por grupo anatômico da classificação ATC. Foram importados os 14 grupos — A, B, C, D, G, H, J, L, M, N, P, R, S e V —, conferidos pelo *hash* SHA-256 de cada arquivo, com 234.981 pares de fármacos: 39.082 com gravidade *major*, 143.748 *moderate*, 9.736 *minor* e 42.415 *unknown*; 234.333 deles estavam ligados a princípios ativos do catálogo. Desses pares, 23.087 envolvem um princípio ativo com bula na base, e 613 ocorrem entre dois princípios ativos com bula. Mesmo com os 14 grupos, a base não equivale à exportação integral do DDInter 2.0, que declara 302.516 interações; a ausência de registro, portanto, não significa ausência de interação. O projeto previa o DrugBank 6.0, substituído por exigir licença para uso além do acadêmico.
+
+Quando um medicamento não tem bula brasileira na base, o sistema pode recorrer à bula norte-americana do mesmo princípio ativo, obtida da base pública openFDA e traduzida, e a resposta avisa que a informação vem da bula dos Estados Unidos. Na avaliação, havia 42 dessas bulas prontas, e 12 princípios ativos não foram encontrados nela.
 
 Como o catálogo usa nomes em português e o DDInter em inglês, foi criada uma tabela de correspondência entre os dois idiomas, construída por regras de grafia e, para os nomes não resolvidos pelas regras, por tradução assistida pelo modelo de linguagem, com registro das traduções para revisão. Por fim, como o DDInter registra apenas a gravidade, a explicação de cada interação é buscada nas bulas, e os níveis *major*, *moderate* e *minor* foram tratados como grave, moderada e leve, e *unknown* como gravidade não classificada pela fonte (Quadro 1).
 
 O recorte tem uma consequência que precisa ser explicitada antes dos resultados: a cobertura do sistema não é uma capacidade única, mas três dimensões distintas, que não devem ser somadas.
 
-a) Cobertura da base de interações: dos 59 produtos do conjunto de ajuste, 55 têm o princípio ativo esperado no DDInter (seção 3.5.2); dos 1.483 pares formados por eles, 1.424 têm interação registrada na base de 14 grupos. A própria base importada, com 234.981 pares, não equivale às 302.516 interações declaradas pelo DDInter 2.0.
-b) Cobertura de bulas: dos 55 produtos, apenas 6 têm bula na base (Tylenol, Omeprazol, Pantoprazol, Amoxicilina, Azitromicina e Ibuprofeno); dos 1.483 pares, só 309 têm bula de pelo menos um dos fármacos, e apenas 15 têm bula de ambos.
-c) Disponibilidade de evidência para a explicação: ter bula não basta, pois é preciso que uma bula vinculada a um dos fármacos contenha trecho que cite o outro. Essa proporção não foi medida sobre os 1.483 pares; a geração (seção 3.5.4) foi avaliada apenas em pares sorteados entre os que tinham trechos recuperados, e houve consultas em que a bula existia, mas nenhum trecho citava o outro fármaco (seção 5.4).
+a) Cobertura da base de interações: dos 59 produtos do conjunto de ajuste, 55 têm o princípio ativo esperado no DDInter (seção 3.5.2); dos 1.483 pares formados por eles, 1.424 têm interação registrada. A própria base importada, com 234.981 pares, não equivale às 302.516 interações declaradas pelo DDInter 2.0.
+b) Cobertura de bulas: dos 55 produtos, 25 têm bula de algum de seus princípios ativos na base; dos 1.483 pares, 1.048 têm bula de pelo menos um dos fármacos, e 298, de ambos, segundo a contagem do próprio avaliador no banco medido.
+c) Disponibilidade de evidência para a explicação: ter bula não basta, pois é preciso que uma bula vinculada a um dos fármacos contenha trecho que cite o outro. Essa proporção não foi medida sobre os 1.483 pares.
 
-Assim, para a maior parte dos pares, o sistema pode informar a existência e a gravidade registradas no DDInter, mas não dispõe de trecho de bula para explicá-las.
+Assim, para parte dos pares, o sistema pode informar a existência e a gravidade registradas no DDInter, mas não dispõe de trecho de bula para explicá-las.
 
 ### 3.4 Desenvolvimento
 
@@ -157,52 +159,58 @@ O desenvolvimento ocorreu de setembro a novembro de 2026, com o código versiona
 
 ### 3.5 Procedimentos de avaliação
 
-A avaliação foi feita por experimentos automatizados, executados por comandos do próprio sistema (`evaluation:run` e `evaluation:conversation`). Cada execução grava um registro com a versão do código, o *hash* SHA-256 do conjunto de teste, um *hash* do conjunto de bulas, os *hashes* dos arquivos do DDInter, os modelos utilizados, os parâmetros e os resultados. Os resultados apresentados na seção 5 vêm da reexecução de todos os experimentos em 7 nov. 2026 sobre o código na versão `272b765` e sobre a base de 18 bulas descrita em 3.3. Os experimentos que dependem do DDInter (interações, geração e modelo sem recuperação) foram refeitos em 8 nov. 2026, após a importação dos 14 grupos, sobre a mesma versão do código acrescida da correção do avaliador descrita em 3.5.6; os registros e as instruções para reexecutá-los estão no Apêndice B. Os experimentos são resumidos no Quadro 3 e detalhados a seguir.
+A avaliação foi feita por experimentos automatizados, todos executados no servidor de produção em 11 nov. 2026. Os experimentos sobre conjuntos de teste foram executados pelo comando do próprio sistema `evaluation:run`, chamado dentro do contêiner da aplicação (`sudo bulai-deploy artisan evaluation:run`), sobre o código na versão `947ea4e` e a base descrita em 3.3. As perguntas livres foram feitas ao sistema publicado pela sua API de avaliação, e a legibilidade foi calculada pela API de auditoria. Cada execução do comando grava um registro com o *hash* SHA-256 do conjunto de teste, os modelos utilizados, os parâmetros e os resultados; a versão do código não fica gravada, porque a imagem de produção não contém o repositório Git, e foi conferida pela publicação. Os registros e as instruções para reexecutá-los estão no Apêndice B. Os experimentos são resumidos no Quadro 3 e detalhados a seguir.
 
-**Quadro 3 – Experimentos de avaliação**
+**Quadro 3 – Experimentos de avaliação (servidor de produção, 11 nov. 2026)**
 
 | Experimento | O que mede | Amostra | Métricas |
 | --- | --- | --- | --- |
 | Identificação do medicamento | Associação do nome digitado aos princípios ativos | 59 consultas de ajuste e 47 reservadas | Acerto exato, precisão, recall e F1 |
 | Verificação de interações | Integração da aplicação com o DDInter (teste de integração) | 1.483 pares de 55 produtos; protocolo de 30 pares | Matriz de confusão, abstenção, recall conservador e concordância de gravidade |
-| Recuperação de trechos | Ordenação dos trechos de bula | 4 consultas, 3 trechos relevantes | P@k, R@k e MRR nos modos lexical, vetorial e híbrido |
-| Geração com validação | Formato e ancoragem textual das explicações (validação heurística) | 12 pares com interação e trechos | Explicações aceitas e afirmações rejeitadas |
-| Legibilidade | Facilidade de leitura das respostas em relação aos trechos citados | 66 respostas da versão atual do motor | Índice de Flesch adaptado ao português |
-| Modelo sem recuperação | Comportamento do LLM sem base estruturada nem trechos | 60 pares sorteados (57 com e 3 sem interação registrada no DDInter) | Precisão, recall, F1, acurácia e concordância de gravidade |
+| Recuperação de trechos | Ordenação dos trechos das bulas do princípio ativo para a pergunta do paciente | 369 consultas (53 princípios ativos com bula × até 7 assuntos) | Acerto@k, P@k, R@k e MRR nos modos lexical, vetorial e híbrido |
+| Perguntas livres ao sistema publicado | Identificação, fontes, validação e qualidade automática das respostas | 234 perguntas | Proporções com intervalo de confiança e tempo de resposta |
+| Legibilidade | Facilidade de leitura das respostas em relação aos trechos que as sustentam | 269 pares resposta–trechos (todas as respostas registradas em produção) | Índice de Flesch adaptado ao português |
+| Modelo sem recuperação | Comportamento do LLM sem base estruturada nem trechos | 120 pares sorteados (116 com e 4 sem interação registrada no DDInter) | Precisão, recall, F1, acurácia e concordância de gravidade |
 
 Fonte: Elaborado pelos autores (2026).
 
 #### 3.5.1 Identificação do medicamento
 
-Os autores definiram manualmente, antes de qualquer medição, os princípios ativos esperados para dois conjuntos de consultas. O conjunto de ajuste, com 59 consultas presentes no catálogo, foi usado durante o desenvolvimento para corrigir o normalizador de nomes; o conjunto reservado, com 47 consultas de outros fármacos, foi medido sem que seus erros fossem corrigidos. A identificação foi medida no nível do princípio ativo, por precisão, recall e F1, e no nível da consulta, pelo acerto exato, que exige o mesmo conjunto de princípios ativos do gabarito.
+Os autores definiram manualmente, antes de qualquer medição, os princípios ativos esperados para dois conjuntos de consultas. O conjunto de ajuste, com 59 consultas presentes no catálogo, foi usado durante o desenvolvimento para corrigir o normalizador de nomes; o conjunto reservado, com 47 consultas de outros fármacos, foi medido sem que seus erros fossem corrigidos. A identificação foi medida no nível do princípio ativo, por precisão, recall e F1, e no nível da consulta, pelo acerto exato, que exige o mesmo conjunto de princípios ativos do gabarito. O gabarito usa os nomes do DDInter; um princípio ativo correto, mas registrado com outro nome, conta como erro.
 
 #### 3.5.2 Verificação de interações: teste de integração com o DDInter
 
-Dos 59 produtos do conjunto de ajuste, foram excluídos os 4 cujo princípio ativo esperado não existe no DDInter (Lexotan, Dorflex, Novalgina e Benegrip), restando 55. Foram formados todos os pares entre esses produtos, exceto os dois compostos por produtos com o mesmo princípio ativo (Aspirina e AAS; Cataflam e Voltaren), totalizando 1.483 pares. Com os 14 grupos do DDInter, 1.424 desses pares têm interação registrada e 59 não têm; com os 8 grupos da primeira versão, eram 938 e 545. Os rótulos foram gerados novamente sobre os mesmos pares (gabarito v2), e o gabarito anterior (v1) foi mantido para a comparação. Também foi aplicado o protocolo de 30 pares previsto no projeto, amostrado com semente fixa dos mesmos 1.483: 10 interações graves, 5 moderadas, 5 leves e 10 pares sem interação registrada. Por ter sido sorteado do mesmo universo de pares, formado a partir do conjunto de ajuste e usado nas correções do sistema, o protocolo não constitui validação independente: é uma subamostra estratificada por gravidade do mesmo teste de integração, útil para conferir cada nível de gravidade, mas não para estimar o desempenho fora desse universo.
+Dos 59 produtos do conjunto de ajuste, foram excluídos os 4 cujo princípio ativo esperado não existe no DDInter (Lexotan, Dorflex, Novalgina e Benegrip), restando 55. Foram formados todos os pares entre esses produtos, exceto os dois compostos por produtos com o mesmo princípio ativo (Aspirina e AAS; Cataflam e Voltaren), totalizando 1.483 pares, dos quais 1.424 têm interação registrada no DDInter e 59 não têm. Também foi aplicado o protocolo de 30 pares previsto no projeto, amostrado com semente fixa dos mesmos 1.483: 10 interações graves, 5 moderadas, 5 leves e 10 pares sem interação registrada. Por ter sido sorteado do mesmo universo de pares, o protocolo não constitui validação independente: é uma subamostra estratificada por gravidade do mesmo teste de integração.
 
-O rótulo de cada par foi obtido consultando o DDInter com os princípios ativos do gabarito manual, e não com os identificados pelo sistema. Como o sistema consulta a mesma base, **este experimento é um teste de integração**: verifica se a cadeia produto → princípio ativo → par → registro no DDInter funciona, e não se a informação está clinicamente correta. Uma concordância de 100% é o resultado esperado de uma implementação correta, e qualquer divergência indica falha de identificação ou de consulta. As respostas foram comparadas ao rótulo por precisão, recall e F1; as respostas inconclusivas (evidência insuficiente, medicamento não identificado ou erro técnico) foram contadas como abstenção e mantidas fora da matriz de confusão. Calcularam-se também o recall conservador, que conta as abstenções sobre pares positivos como erro, e a concordância de gravidade.
+O rótulo de cada par foi obtido consultando o DDInter com os princípios ativos do gabarito manual, e não com os identificados pelo sistema. Como o sistema consulta a mesma base, **este experimento é um teste de integração**: verifica se a cadeia produto → princípio ativo → par → registro no DDInter funciona, e não se a informação está clinicamente correta. Uma concordância de 100% é o resultado esperado de uma implementação e de dados corretos, e qualquer divergência indica falha de identificação, de vínculo ou de consulta. As respostas foram comparadas ao rótulo por precisão, recall e F1; as respostas inconclusivas (evidência insuficiente, medicamento não identificado ou erro técnico) foram contadas como abstenção e mantidas fora da matriz de confusão. Calcularam-se também o recall conservador, que conta as abstenções sobre pares positivos como erro, e a concordância de gravidade.
 
-Há ainda uma sobreposição que limita esse experimento: os 55 produtos vêm do conjunto de ajuste da identificação, e uma versão anterior do sistema foi corrigida a partir de falhas observadas nesses mesmos pares (seção 5.2). O resultado, portanto, não estima o desempenho em produtos novos; essa estimativa cabe ao conjunto reservado da identificação.
+Há ainda uma sobreposição que limita esse experimento: os 55 produtos vêm do conjunto de ajuste da identificação, usado nas correções do sistema durante o desenvolvimento. O resultado, portanto, não estima o desempenho em produtos novos; essa estimativa cabe ao conjunto reservado da identificação.
 
 #### 3.5.3 Recuperação de trechos
 
-A recuperação foi avaliada com quatro consultas e três trechos julgados relevantes pelos próprios autores, a partir dos candidatos retornados pela busca lexical. Foram usadas três métricas: o P@k, fração dos k primeiros trechos que são relevantes; o R@k, fração dos trechos relevantes encontrados até a posição k; e o MRR, média do inverso da posição do primeiro trecho relevante. Pela dimensão da amostra e pela forma de julgamento, este experimento tem caráter apenas indicativo. Há, além disso, um viés de seleção declarado: como os trechos julgados foram escolhidos entre os candidatos da busca lexical, um trecho relevante encontrado apenas pela busca vetorial não poderia ser contado como acerto, o que favorece os modos lexical e híbrido em relação ao vetorial. Com quatro consultas, três trechos relevantes e esse viés, o experimento é insuficiente para estabelecer a superioridade de qualquer modo de busca, inclusive do híbrido.
+A recuperação foi avaliada por um conjunto de julgamentos por assunto, montado no próprio banco medido (`database/evaluation/retrieval.subjects.v1.json`). O conjunto lista 56 princípios ativos e sete assuntos de pergunta do paciente — indicação, posologia, efeitos indesejáveis, contraindicação, armazenamento, advertências e superdose —, cada um com um modelo de pergunta (por exemplo, “Como devo guardar o {nome}?”) e um padrão para o título das seções da bula que tratam do assunto. Para cada princípio ativo com bula pronta e cada assunto, a consulta é a pergunta preenchida com o nome em português, os trechos candidatos são os das bulas vinculadas ao princípio ativo, como faz o sistema, e os relevantes são os trechos dessas bulas cuja seção corresponde ao padrão do assunto. Combinações sem trecho relevante ficaram fora, o que resultou em 369 consultas sobre 53 princípios ativos. Os três modos de busca foram comparados sobre os mesmos candidatos, sem o filtro por seção que o sistema aplica nas perguntas livres, de modo que o experimento mede apenas a ordenação.
 
-#### 3.5.4 Geração com validação
+Foram usadas quatro métricas: o acerto@k, fração das consultas com pelo menos um trecho relevante entre os k primeiros, com intervalo de confiança; o P@k, fração dos k primeiros trechos que são relevantes; o R@k, fração dos trechos relevantes encontrados até a posição k; e o MRR, média do inverso da posição do primeiro trecho relevante. Como a relevância é decidida pelo título da seção, e não por leitura humana, os julgamentos não favorecem nenhum modo de busca, mas são aproximados: um trecho que responde à pergunta fora da seção esperada conta como erro, e uma seção longa tem muitos trechos relevantes, o que reduz o R@k.
 
-Foram sorteados, com semente fixa, pares com interação registrada no DDInter e com trechos de bula recuperados, até completar 12 pares. Para cada um, o modelo recebeu a gravidade informada pela base e os trechos, e deveria produzir afirmações curtas, cada uma ligada a um trecho. O validador aceita uma afirmação apenas se a referência existir, se houver sobreposição lexical mínima de 40% com o trecho citado e se não houver recomendação de conduta (por exemplo, suspender ou ajustar dose). Trata-se de uma validação heurística de ancoragem textual: o critério de sobreposição verifica se as palavras da afirmação estão no trecho, e não se o sentido foi preservado, de modo que uma afirmação que inverta uma negação, omita uma condição ou altere uma consequência descrita no trecho pode ser aceita. O experimento foi executado com o modelo local Qwen2.5-1.5B-Instruct (YANG et al., 2024), em 4 nov. 2026, com recuperação lexical e o gabarito de 8 grupos, e com o modelo de produção, Claude Sonnet 5.5, em 7 e 8 nov. 2026, com recuperação híbrida e, em 8 nov., o gabarito de 14 grupos. As duas execuções correspondem, portanto, a configurações distintas do sistema, e não a uma comparação controlada entre modelos; uma reexecução com a mesma recuperação e os mesmos pares não foi feita. O experimento mede formato e ancoragem textual, e não a correção factual nem a fidelidade semântica das explicações.
+#### 3.5.4 Perguntas livres ao sistema publicado
+
+Para avaliar a geração com validação no uso previsto, foram feitas 234 perguntas ao sistema publicado, escritas pelos autores e enviadas uma por vez à API de avaliação (`POST /api/v1/evaluation/ask`), com uma conta própria e intervalo mínimo de 10,5 s entre elas: 196 sobre medicamentos com bula brasileira (49 medicamentos, cada um com 4 de 8 assuntos em rodízio: indicação, posologia, efeitos, contraindicação, armazenamento, gravidez, interação e superdose), 14 por nome comercial, 6 sobre medicamentos sem bula brasileira, 3 sobre nomes inexistentes, 2 com sinais de urgência, 1 fora do escopo e 6 conversas de dois turnos. As perguntas foram feitas em 11 nov. 2026, das 01h50 às 02h53, quando a produção estava na versão `ab1d851`, anterior à usada nos demais experimentos.
+
+Para cada resposta, registraram-se a situação (respondida, pedido de esclarecimento, sem evidência, sem bula ou medicamento não encontrado), o medicamento identificado, a bula e a seção de cada fonte citada, o resultado do validador e uma rubrica automática. O validador aceita uma afirmação apenas se o trecho citado existir, se houver sobreposição lexical mínima de 40% com ele, se não houver recomendação de conduta (por exemplo, suspender ou ajustar dose) e se a afirmação não inverter uma negação do trecho nem narrar a fonte (“a bula diz”). Trata-se de uma validação heurística de ancoragem textual: o critério de sobreposição verifica se as palavras da afirmação estão no trecho, e não se o sentido foi preservado. A rubrica automática (`app/Services/Evaluation/ConversationEvaluator.php`) classifica a relevância, a ancoragem, a segurança, a clareza e a naturalidade de cada resposta por regras, e não substitui a leitura por profissional. Os scripts das perguntas e da análise estão versionados em `scripts/evaluation/`, e as respostas, em `docs/qa/`.
+
+O experimento de geração de explicações para pares de interação (`evaluation:run generation`), previsto com 40 pares, não teve registro concluído em produção até a redação deste texto e não é apresentado; o validador usado nos pares é o mesmo das perguntas livres.
 
 #### 3.5.5 Legibilidade
 
-Calculou-se o Índice de Facilidade de Leitura de Flesch adaptado ao português (MARTINS et al., 1996) para cada resposta gerada pelo motor de perguntas livres na versão atual (66 respostas registradas em 7 nov. 2026) e para o conjunto dos trechos de bula citados como fonte da mesma resposta, formando 66 pares. As frases foram delimitadas por pontuação final (ponto, exclamação, interrogação, ponto e vírgula e dois-pontos) e por quebras de linha, e as sílabas foram contadas por uma rotina heurística de núcleos vocálicos, verificada manualmente em palavras de controle. A mesma rotina foi aplicada aos dois textos de cada par, o que torna a comparação válida mesmo que a contagem absoluta tenha pequenos desvios. Essa rotina foi executada como script de análise à parte e não está versionada no repositório do sistema, o que limita a reprodutibilidade deste experimento em relação aos demais. O índice foi usado sem truncamento: os valores negativos, que a fórmula produz em textos de palavras muito longas, foram mantidos no cálculo da mediana e da amplitude e contados na faixa “muito difícil”. As respostas vieram das rodadas de avaliação do motor, com perguntas escritas pelos autores e repetidas entre rodadas, sobre quatro princípios ativos (ibuprofeno, omeprazol, paracetamol e nimesulida), e não de usuários reais.
+Calculou-se o Índice de Facilidade de Leitura de Flesch adaptado ao português (MARTINS et al., 1996) para cada resposta registrada em produção e para o conjunto dos trechos de bula que sustentam suas afirmações aceitas, formando 269 pares. O cálculo é feito pelo próprio sistema (`app/Services/Audit/ReadabilityService.php`, exposto em `GET /api/v1/audit/readability`): as frases são delimitadas por pontuação final (ponto, exclamação, interrogação, ponto e vírgula e dois-pontos) e por quebras de linha, e as sílabas são contadas por núcleos vocálicos. A mesma rotina é aplicada aos dois textos de cada par, o que torna a comparação válida mesmo que a contagem absoluta tenha pequenos desvios. O índice foi usado sem truncamento: os valores negativos, que a fórmula produz em textos de palavras muito longas, foram mantidos e contados na faixa “muito difícil”. As respostas incluem as 234 perguntas da seção 3.5.4 e as demais feitas ao sistema publicado, todas escritas pelos autores, e não por usuários reais.
 
 #### 3.5.6 Modelo sem recuperação
 
-Para estimar o comportamento do modelo de linguagem usado isoladamente, foram sorteados, com semente 42, 60 dos 1.483 pares, dos quais 57 têm interação registrada no DDInter com 14 grupos e 3 não têm (com 8 grupos, eram 39 e 21). Para cada par, o modelo recebeu apenas os nomes dos princípios ativos, sem base estruturada nem trechos de bula, e respondeu em JSON se havia interação e qual a gravidade. O experimento foi executado com o Qwen2.5-1.5B-Instruct e com o Claude Sonnet 5.5. Na primeira execução com o Claude, 43 das 60 chamadas falharam porque o avaliador limitava a resposta a 60 *tokens* e o modelo consome parte desse limite em raciocínio interno antes de responder. O avaliador foi corrigido para 1.024 *tokens*, com teste automatizado, e passou a gravar a resposta de cada par; o experimento foi refeito com o mesmo enunciado e a mesma amostra, sem nenhuma falha de chamada, e é essa execução que se apresenta. O Qwen2.5-1.5B foi avaliado em 4 nov. 2026 com o gabarito de 8 grupos, e o avaliador da época não gravava as respostas por par, de modo que seu resultado não pôde ser recalculado com o gabarito atual. Como o rótulo é o próprio DDInter, as divergências do modelo foram analisadas uma a uma, distinguindo erros do modelo de lacunas da base.
+Para estimar o comportamento do modelo de linguagem usado isoladamente, foram sorteados, com semente 42, 120 dos 1.483 pares, dos quais 116 têm interação registrada no DDInter e 4 não têm. Para cada par, o Claude Sonnet 5.5 recebeu apenas os nomes dos princípios ativos do gabarito, sem base estruturada nem trechos de bula, e respondeu em JSON se havia interação e qual a gravidade, com limite de 1.024 *tokens* por resposta. Como o rótulo é o próprio DDInter, as divergências do modelo foram analisadas por gravidade, distinguindo erros do modelo de lacunas da base.
 
 #### 3.5.7 Tratamento estatístico
 
-Para as proporções, foram calculados intervalos de confiança de 95% pelo método de Wilson (WILSON, 1927), adequado a amostras pequenas e a proporções próximas de 0 ou de 100%. Não se realizaram testes de hipótese entre modos de busca ou entre modelos, pois as amostras não têm tamanho para isso; as comparações são descritivas.
+Para as proporções, foram calculados intervalos de confiança de 95% pelo método de Wilson (WILSON, 1927), adequado a amostras pequenas e a proporções próximas de 0 ou de 100%. Não se realizaram testes de hipótese entre modos de busca ou entre modelos; as comparações são descritivas e se apoiam na sobreposição dos intervalos.
 
 ### 3.6 Avaliações com pessoas não realizadas
 
@@ -210,7 +218,7 @@ Foram definidos dois protocolos: a aplicação da *System Usability Scale* (SUS)
 
 ### 3.7 Limitações do recorte
 
-O protótipo tem limitações que condicionam todos os resultados: a base reúne 18 bulas de 11 princípios ativos, e apenas 6 dos 55 produtos avaliados têm bula, de modo que a cobertura de interações, a de bulas e a de evidência para explicação diferem (seção 3.3); mesmo com os 14 grupos ATC, a base importada do DDInter não equivale à sua exportação integral; a ausência de uma interação na base não comprova que a combinação seja segura; os gabaritos foram elaborados pelos autores, sem validação profissional; e as amostras de recuperação, geração e legibilidade são pequenas. Além disso, o sistema não realiza diagnóstico nem substitui a orientação profissional.
+O protótipo tem limitações que condicionam todos os resultados: a base reúne 82 bulas de 56 princípios ativos, dos quais alguns são duplicados em português, e 25 dos 55 produtos avaliados têm bula, de modo que a cobertura de interações, a de bulas e a de evidência para explicação diferem (seção 3.3); a base importada do DDInter não equivale à sua exportação integral; a ausência de uma interação na base não comprova que a combinação seja segura; os gabaritos e as perguntas foram elaborados pelos autores, sem validação profissional nem perguntas de usuários reais; a relevância dos trechos e a rubrica das respostas são automáticas; e cada experimento foi executado uma vez, numa única data, com um modelo de linguagem não determinístico. Além disso, o sistema não realiza diagnóstico nem substitui a orientação profissional.
 
 ## 4 DESENVOLVIMENTO DO BULA-IA
 
@@ -253,7 +261,7 @@ Para perguntas livres sobre um medicamento (por exemplo, “para que serve?” o
 
 ### 4.3 Tecnologias utilizadas
 
-O sistema foi desenvolvido como aplicação web progressiva (PWA), em PHP 8.4 com Laravel 13 e Livewire 4, e utiliza o PostgreSQL com a extensão pgvector para armazenar os dados, o índice textual e os vetores. O OCR utiliza o PaddleOCR, e os *embeddings* são gerados localmente pelo modelo BGE-M3 (CHEN et al., 2024), com 1.024 dimensões. Em produção, as respostas são geradas pelo Claude Sonnet 5.5, da Anthropic; o Qwen2.5-1.5B-Instruct (YANG et al., 2024), executado localmente, foi usado nos primeiros experimentos e mantido como referência descritiva, sem comparação controlada com o modelo de produção. Em relação ao projeto, Python, LangChain, ChromaDB, GPT-4o e o aplicativo nativo foram substituídos, pois o pgvector dispensou um banco vetorial separado e a PWA atendeu ao uso em celular.
+O sistema foi desenvolvido como aplicação web progressiva (PWA), em PHP 8.4 com Laravel 13 e Livewire 4, e utiliza o PostgreSQL com a extensão pgvector para armazenar os dados, o índice textual e os vetores. O OCR utiliza o PaddleOCR, e os *embeddings* são gerados localmente pelo modelo BGE-M3 (CHEN et al., 2024), com 1.024 dimensões. Em produção, as respostas são geradas pelo Claude Sonnet 5.5, e a interpretação das perguntas livres, pelo Claude Haiku 5.5, ambos da Anthropic. Em relação ao projeto, Python, LangChain, ChromaDB, GPT-4o e o aplicativo nativo foram substituídos, pois o pgvector dispensou um banco vetorial separado e a PWA atendeu ao uso em celular.
 
 ### 4.4 Privacidade e segurança
 
@@ -274,81 +282,108 @@ As medidas ainda necessárias para uma operação em escala, não implementadas 
 
 ## 5 RESULTADOS E DISCUSSÃO
 
-A seguir, apresentam-se e discutem-se os resultados dos experimentos descritos na Metodologia. Todos os números vêm dos registros de execução listados no Apêndice B, que guardam a versão do código e dos dados utilizados.
+A seguir, apresentam-se e discutem-se os resultados dos experimentos descritos na Metodologia. Todos os números vêm do servidor de produção, em 11 nov. 2026, e dos registros listados no Apêndice B.
 
 ### 5.1 Identificação dos medicamentos
 
-A Tabela 1 separa o conjunto de ajuste, usado para corrigir o normalizador de nomes, do conjunto reservado, medido sem ajustes.
+A Tabela 1 separa o conjunto de ajuste, usado para corrigir o normalizador de nomes durante o desenvolvimento, do conjunto reservado, medido sem ajustes.
 
-**Tabela 1 – Desempenho na identificação dos princípios ativos**
+**Tabela 1 – Desempenho na identificação dos princípios ativos (produção, 11 nov. 2026)**
 
-| Conjunto | Consultas | Acerto exato (IC 95%) | Parcial | Não resolvida | Precisão | Recall | F1 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| Ajuste | 59 | 55 (93,2%; 83,8–97,3) | 2 | 2 | 1,000 | 0,937 | 0,967 |
-| Reservado | 47 | 42 (89,4%; 77,4–95,4) | 1 | 4 | 0,977 | 0,915 | 0,945 |
+| Conjunto | Consultas | Acerto exato (IC 95%) | Parcial | Errada | Não resolvida | Precisão | Recall | F1 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Ajuste | 59 | 52 (88,1%; 77,5–94,1) | 3 | 3 | 1 | 0,905 | 0,905 | 0,905 |
+| Reservado | 47 | 44 (93,6%; 82,8–97,8) | 2 | 0 | 1 | 0,958 | 0,979 | 0,968 |
 
 Fonte: Elaborado pelos autores a partir dos experimentos (2026).
-Nota: “Parcial” indica que parte dos princípios ativos esperados foi identificada; “não resolvida”, que nenhum foi. Precisão, recall e F1 são calculados por princípio ativo.
+Nota: “Parcial” indica que parte dos princípios ativos do produto coincide com o gabarito; “errada”, que nenhum coincide; “não resolvida”, que nenhum foi identificado. Precisão, recall e F1 são calculados por princípio ativo.
 
-O ganho do conjunto de ajuste durante o desenvolvimento, de 86,4% para 93,2% de acerto exato, decorre da correção de seus próprios erros e não estima o desempenho futuro. Essa estimativa cabe ao conjunto reservado, cujo acerto de 89,4% não mudou com o último ajuste e foi reproduzido sem alteração na reexecução final. Com 47 consultas, porém, o intervalo de confiança vai de cerca de 77% a 95%, o que impede afirmar um desempenho mais preciso que esse.
+No conjunto reservado, os três erros são artefatos do gabarito ou lacunas da fonte, e não falhas de identificação: para “Metformina” e “Gentamicina”, o produto escolhido no catálogo é uma associação (dapagliflozina com metformina; betametasona com gentamicina), e o sistema identificou corretamente os dois princípios ativos de cada um; a domperidona não existe no DDInter. Com 47 consultas, porém, o intervalo de confiança vai de cerca de 83% a 98%, o que impede afirmar um desempenho mais preciso que esse. Na busca pelo nome digitado, o produto correto apareceu na primeira posição em 72,3% das consultas reservadas e entre os cinco primeiros em 87,2%.
 
-Os erros vieram de três origens: regras de grafia ainda não tratadas na conversão para o inglês, como em alopurinol e hidroxicloroquina; ingrediente em formato não reconhecido, como o hemitartarato de zolpidem; e lacunas das fontes, como a ausência da dipirona e da domperidona no DDInter. O único caso parcial do conjunto reservado é um artefato do gabarito: para a consulta “Gentamicina”, o produto escolhido no catálogo é uma associação de betametasona com gentamicina, e o sistema identificou corretamente os dois princípios ativos. Na busca pelo nome digitado, o produto correto apareceu na primeira posição em 72,3% das consultas reservadas e entre os cinco primeiros em 87,2%.
+O conjunto de ajuste teve 7 erros, de três origens. Três vêm do defeito descrito na seção 3.3: Ibuprofeno e Norvasc foram ligados aos registros duplicados “ibuprofeno” e “besilato de anlodipino”, e não a *ibuprofen* e *amlodipine*, e Losartana potássica foi ligada aos dois registros, o duplicado e o do DDInter. Outros três envolvem a dipirona, que o DDInter não traz: o gabarito espera o nome *metamizole*, e o sistema liga Novalgina, Dorflex e Benegrip ao princípio ativo “dipirona monoidratada”, criado a partir das bulas para que as perguntas livres as encontrem — divergência em relação ao gabarito, e não perda de interação, que não existiria de todo modo. O último, Lexotan, não foi resolvido porque o bromazepam não está no catálogo derivado do DDInter. Assim, o único erro de identificação com efeito sobre a segurança é o dos duplicados, que a seção 5.2 mede.
 
 ### 5.2 Verificação de interações: teste de integração com o DDInter
 
-Conforme a seção 3.5.2, os resultados desta seção medem a integração da aplicação com o DDInter, e não a correção clínica. Na verificação dos 1.483 pares com a base de 14 grupos, não houve falso positivo, falso negativo nem abstenção (Tabela 2).
+Conforme a seção 3.5.2, os resultados desta seção medem a integração da aplicação com o DDInter, e não a correção clínica. Na verificação dos 1.483 pares, não houve falso positivo, mas houve 81 falsos negativos e 25 abstenções (Tabela 2).
 
-**Tabela 2 – Matriz de confusão do teste de integração com o DDInter (1.483 pares)**
+**Tabela 2 – Matriz de confusão do teste de integração com o DDInter (1.483 pares; produção, 11 nov. 2026)**
 
 | Rótulo (DDInter) | Sistema: com interação | Sistema: não identificada | Abstenção | Total |
 | --- | --- | --- | --- | --- |
-| Com interação | 1.424 | 0 | 0 | 1.424 |
-| Sem interação registrada no DDInter | 0 | 59 | 0 | 59 |
+| Com interação | 1.319 | 81 | 24 | 1.424 |
+| Sem interação registrada no DDInter | 0 | 58 | 1 | 59 |
 
 Fonte: Elaborado pelos autores a partir dos experimentos (2026).
-Nota: IC 95% do acerto nos pares com interação: 99,7%–100%; nos pares sem interação registrada: 93,9%–100%. As classes referem-se apenas ao gabarito extraído do DDInter; um par da segunda linha não é um par clinicamente seguro, e sim um par sem registro na base importada. Com a base de 8 grupos (7 nov. 2026), o resultado foi de 938/938 e 539/545, com 6 abstenções.
+Nota: precisão de 1,000 (IC 95%: 99,7%–100%); recall de 0,942 (1.319/1.400; IC 95%: 92,9%–95,3%); recall conservador, que conta as abstenções como erro, de 0,926 (1.319/1.424; IC 95%: 91,2%–93,9%); F1 de 0,970. As 25 abstenções (1,7%) são todas por evidência insuficiente. As classes referem-se apenas ao gabarito extraído do DDInter; um par da segunda linha não é um par clinicamente seguro, e sim um par sem registro na base importada.
 
-A gravidade coincidiu com a do DDInter em todos os 666 pares com gravidade classificada: as 110 interações graves, as 482 moderadas e as 74 leves foram atribuídas à mesma categoria; nos demais 758 pares com interação, a fonte não classifica a gravidade, e o sistema informa isso ao usuário. No protocolo de 30 pares, sorteado novamente sobre o gabarito atual, não houve erro nem abstenção (IC 95%: 88,6%–100%); por ser subamostra do mesmo universo de pares (seção 3.5.2), esse resultado confirma o anterior por nível de gravidade, mas não o valida de forma independente. Na base de 8 grupos, houvera 6 abstenções (0,4%), todas em pares então sem registro cujas bulas citavam o outro fármaco; com os 14 grupos, esses pares passaram a ter interação registrada, o que confirma que o sistema agira bem ao declarar evidência insuficiente em vez de ausência de interação.
+A gravidade coincidiu com a do DDInter em todos os 613 pares com gravidade classificada que o sistema acusou (IC 95%: 99,4%–100%): 103 graves, 439 moderadas e 71 leves; nos demais 706 pares acusados, a fonte não classifica a gravidade, e o sistema informa isso ao usuário. No protocolo de 30 pares, com busca híbrida, não houve erro nem abstenção (IC 95%: 88,6%–100%): as 10 graves, as 5 moderadas e as 5 leves foram acusadas com a gravidade da fonte, e os 10 pares sem registro foram informados como interação não identificada nas fontes consultadas. Por ser subamostra do mesmo universo, esse resultado não valida o anterior de forma independente.
 
-A importância deste teste aparece em uma versão anterior do sistema, executada sobre os mesmos pares em 4 nov. 2026. Ela deixou 54 pares sem resposta por não identificar um dos medicamentos; somados às 6 abstenções por evidência insuficiente, foram 60 pares sem resposta (4,05%). Desses 60, 22 eram pares com interação registrada, o que resulta em um recall conservador de 916/938 = 0,977. Entre eles estava a interação grave entre amitriptilina e ondansetrona, perdida por faltar uma regra de grafia na conversão do nome para o inglês. Esse é o erro mais perigoso que o sistema pode cometer: a interação grave pode causar complicações potencialmente fatais (BRUNTON; HILAL-DANDAN; KNOLLMANN, 2018), e a falta de alerta tende a ser lida como segurança. A falha foi corrigida a partir desse mesmo conjunto, o que caracteriza ajuste sobre os dados de teste: o resultado de 100% da Tabela 2 confirma que a correção funcionou nesses pares, mas não garante que falhas semelhantes não ocorram com produtos fora do conjunto.
+As divergências da Tabela 2 são o resultado mais importante desta seção. Sete interações graves não foram acusadas: varfarina (Marevan), ácido acetilsalicílico (Aspirina e AAS) e rivaroxabana (Xarelto) com ibuprofeno, e anlodipino (Norvasc) com carbamazepina (Tegretol), fenobarbital (Gardenal) e itraconazol. Todas envolvem Ibuprofeno ou Norvasc, os dois produtos que a seção 5.1 mostrou ligados a registros duplicados em português. Como esses registros não têm interações, o sistema não encontra o par no DDInter: quando nenhuma bula cita o outro fármaco, informa que a interação não foi identificada; quando uma bula o cita, declara evidência insuficiente, o que explica parte das abstenções. Esse é o erro mais perigoso que o sistema pode cometer: a interação entre varfarina e anti-inflamatórios, por exemplo, aumenta o risco de sangramento (BRUNTON; HILAL-DANDAN; KNOLLMANN, 2018), e a falta de alerta tende a ser lida como segurança.
 
-A comparação entre as duas versões da base é o resultado mais importante desta seção. Dos 545 pares que a base de 8 grupos dava como sem interação registrada, 486 (89,2%; IC 95%: 86,3%–91,5%) têm interação registrada nos grupos acrescentados: 44 graves, 200 moderadas, 15 leves e 227 sem gravidade classificada. Entre as graves estão combinações frequentes em idosos, como losartana com captopril, valsartana com espironolactona, captopril com espironolactona e azitromicina com haloperidol. Nenhum dos 938 pares que já tinham registro mudou de gravidade. Ou seja, a versão anterior não errava ao consultar a base, mas a base deixava passar quase todas as interações entre fármacos cardiovasculares, do sistema nervoso e anti-infecciosos — e, como o teste de integração usa a própria base como gabarito, essa lacuna não aparecia como erro. Isso confirma a ressalva da seção 3.5.2: concordância de 100% com a fonte não mede a correção clínica.
+O defeito não estava no código de consulta, e sim nos dados produzidos pela operação do sistema: as bulas foram vinculadas antes de o catálogo conhecer os nomes em português, e a correção manual dos vínculos na administração não o tornava visível. O teste de integração cumpriu exatamente o papel previsto na seção 3.5.2 — uma divergência em relação à fonte indica falha na cadeia —, enquanto o uso comum não o mostrava: as perguntas livres sobre o ibuprofeno continuaram respondidas com a bula do próprio medicamento (seção 5.4), pois a bula estava ligada ao registro duplicado. A correção (Apêndice B) impede a criação do duplicado quando o nome já leva a um princípio ativo, inclusive pelas regras de grafia, e funde os duplicados existentes no princípio ativo do DDInter na reconstrução do catálogo; a reexecução deste experimento após a correção não integra este texto. O registro exposto pela API resume as listas por par, e só as interações graves perdidas vêm nomeadas; não foi possível, portanto, atribuir cada uma das demais divergências a um produto.
 
-Os 59 pares restantes, sem interação registrada no DDInter, são verdadeiros negativos apenas no sentido da classificação em relação ao gabarito: indicam só ausência de registro, comunicada como interação não identificada nas fontes consultadas, e não segurança clínica da combinação. Eles se concentram em dois produtos, Xarelto (rivaroxabana), presente em 33 pares, e Gardenal (fenobarbital), em 17, o que sugere cobertura ainda desigual para alguns fármacos. Como a base de 14 grupos não equivale à exportação integral do DDInter (seção 3.3), parte desses negativos pode ser lacuna, e a ausência de registro não pode ser comunicada como segurança. A seção 5.6 mostra que a cobertura também altera a leitura do experimento com o modelo isolado.
+Os 58 pares sem interação registrada que o sistema informou como tal são verdadeiros negativos apenas no sentido da classificação em relação ao gabarito: indicam ausência de registro, e não segurança clínica da combinação. No gabarito, os 59 pares sem registro se concentram em dois produtos, Xarelto (rivaroxabana), presente em 33 deles, e Gardenal (fenobarbital), em 17, o que sugere cobertura desigual da base para alguns fármacos. A seção 5.6 mostra que a cobertura também condiciona a leitura do experimento com o modelo isolado.
 
 ### 5.3 Recuperação de trechos
 
-A Tabela 3 compara os modos de busca, com *embeddings* do BGE-M3 (CHEN et al., 2024) e fusão por RRF (CORMACK; CLARKE; BÜTTCHER, 2009). Os valores devem ser lidos como indicativos: a amostra tem quatro consultas e três trechos relevantes, julgados pelos autores sobre candidatos da busca lexical.
+A Tabela 3 compara os modos de busca, com *embeddings* do BGE-M3 (CHEN et al., 2024) e fusão por RRF (CORMACK; CLARKE; BÜTTCHER, 2009), sobre as 369 consultas por assunto.
 
-**Tabela 3 – Desempenho da recuperação por modo de busca (4 consultas, 3 trechos relevantes; resultado indicativo)**
+**Tabela 3 – Desempenho da recuperação por modo de busca (369 consultas; 53 princípios ativos; produção, 11 nov. 2026)**
 
-| Modo | P@1 / R@1 | P@3 / R@3 | P@5 / R@5 | MRR |
-| --- | --- | --- | --- | --- |
-| Lexical | 0,250 / 0,500 | 0,083 / 0,500 | 0,150 / 1,000 | 0,313 |
-| Vetorial | 0,000 / 0,000 | 0,000 / 0,000 | 0,100 / 0,500 | 0,063 |
-| Híbrido | 0,250 / 0,500 | 0,250 / 1,000 | 0,150 / 1,000 | 0,375 |
+| Modo | Acerto@1 (IC 95%) | Acerto@3 (IC 95%) | Acerto@5 (IC 95%) | P@5 | R@5 | MRR |
+| --- | --- | --- | --- | --- | --- | --- |
+| Lexical | 11,9% (9,0–15,6) | 20,6% (16,8–25,0) | 27,9% (23,6–32,7) | 0,115 | 0,120 | 0,173 |
+| Vetorial | 19,0% (15,3–23,3) | 36,0% (31,3–41,1) | 52,6% (47,5–57,6) | 0,145 | 0,287 | 0,299 |
+| Híbrido | 20,3% (16,5–24,7) | 40,1% (35,2–45,2) | 50,1% (45,1–55,2) | 0,164 | 0,247 | 0,312 |
+
+Fonte: Elaborado pelos autores a partir dos experimentos (2026).
+Nota: acerto@k é a fração das consultas com pelo menos um trecho da seção do assunto entre os k primeiros. Consultas por assunto: 53 de indicação, posologia, contraindicação, advertências e superdose e 52 de efeitos e armazenamento.
+
+A busca lexical foi a mais fraca em todas as métricas, com intervalos de confiança que não se sobrepõem aos dos outros dois modos a partir de k = 3: perguntas em linguagem leiga (“Como devo guardar…?”) têm poucas palavras em comum com o texto técnico da bula (“Conservar em temperatura ambiente…”). A busca vetorial e a híbrida ficaram próximas: a híbrida teve valores maiores no acerto@1, no acerto@3, no P@5 e no MRR, e a vetorial, no acerto@5 e no R@5, sempre com intervalos sobrepostos. O resultado sustenta, portanto, a preferência por um modo com componente vetorial em vez do lexical, mas não estabelece a superioridade da busca híbrida sobre a vetorial. A híbrida foi mantida como padrão por não ter perdido de forma clara para nenhum modo e por preservar a precisão da busca lexical para nomes de fármacos, que esta avaliação por assunto não mede.
+
+Os valores absolutos são baixos e devem ser lidos como um limite inferior do sistema, por três razões. Primeiro, o experimento não aplica o filtro por seção que o sistema usa nas perguntas livres; com esse filtro, 99,4% das respostas da seção 5.4 tiveram pelo menos uma fonte da seção do assunto. Segundo, a relevância é decidida pelo título da seção: um trecho que responde à pergunta em outra seção, como a posologia descrita nas características farmacológicas de uma bula profissional, conta como erro. Terceiro, seções longas têm muitos trechos relevantes, o que reduz o R@k mesmo quando os primeiros resultados são todos relevantes.
+
+### 5.4 Perguntas livres ao sistema publicado
+
+A Tabela 4 mostra a situação das 234 respostas por grupo de perguntas.
+
+**Tabela 4 – Situação das respostas às perguntas livres (234 perguntas; produção, 11 nov. 2026)**
+
+| Grupo | Respondida | Esclarecimento | Sem evidência | Sem bula | Medicamento não encontrado | Não identificado | Total |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Bula brasileira | 170 | 7 | 2 | 4 | 10 | 3 | 196 |
+| Nome comercial | 12 | 1 | 1 | 0 | 0 | 0 | 14 |
+| Sem bula brasileira | 3 | 0 | 1 | 2 | 0 | 0 | 6 |
+| Nome inexistente | 0 | 0 | 0 | 0 | 3 | 0 | 3 |
+| Urgência | 2 | 0 | 0 | 0 | 0 | 0 | 2 |
+| Fora do escopo | 0 | 0 | 0 | 0 | 1 | 0 | 1 |
+| Conversa (dois turnos) | 12 | 0 | 0 | 0 | 0 | 0 | 12 |
+| **Total** | **199** | **8** | **4** | **6** | **14** | **3** | **234** |
 
 Fonte: Elaborado pelos autores a partir dos experimentos (2026).
 
-O modo híbrido encontrou todos os trechos relevantes até a terceira posição e obteve o maior MRR; o vetorial foi o mais fraco. A comparação, porém, não sustenta conclusões gerais: um único trecho altera as métricas, os candidatos julgados vieram da busca lexical, o que penaliza o vetorial, duas das quatro consultas não têm trecho relevante no corpus, e a vantagem do híbrido em R@3 decorre de uma única consulta. Os valores foram idênticos na base de 17 e na de 18 bulas. Como os julgamentos partiram apenas dos candidatos lexicais (seção 3.5.3), a comparação carrega um viés de seleção contra o modo vetorial e, com quatro consultas, é insuficiente para estabelecer a superioridade do híbrido. O modo híbrido foi adotado como padrão por não ter perdido para o lexical em nenhuma métrica, decisão de engenharia, e não conclusão experimental, que deve ser revista com um conjunto de julgamentos maior, formado a partir dos candidatos de todos os modos.
+Das 196 perguntas sobre bulas brasileiras, 170 foram respondidas (86,7%). Das 26 restantes, 13 caíram na identificação: “AAS” (3) e “dabigatrana” (4) não foram reconhecidos, o primeiro por ser uma sigla curta demais para a regra de nomes e o segundo porque o catálogo o registra como “etexilato de dabigatrana”, falhas corrigidas na versão seguinte; a pseudoefedrina (3) só existe no catálogo em associações e foi tratada como ambígua; e o anlodipino (3) não teve princípio ativo identificado. As demais foram pedidos de esclarecimento (7), interações sem bula (4) e falta de evidência (2). Os nomes inexistentes e a pergunta fora do escopo não receberam resposta, as perguntas de urgência receberam, acima da resposta, a orientação fixa de procurar o Disque-Intoxicação e o SAMU, e as segundas perguntas das conversas permaneceram no medicamento da primeira. Para medicamentos sem bula brasileira, três perguntas foram respondidas com a bula dos Estados Unidos, com o aviso correspondente. A Tabela 5 resume os indicadores das respostas.
 
-### 5.4 Geração e fundamentação das respostas
+**Tabela 5 – Indicadores das respostas às perguntas livres (produção, 11 nov. 2026)**
 
-A Tabela 4 apresenta as execuções da geração com o modelo local e com o modelo de produção. Como se explicou na seção 3.5.4, elas correspondem a duas configurações distintas do sistema, que diferem no modelo, no modo de recuperação, no gabarito e, possivelmente, nos pares avaliados; a tabela não constitui uma comparação controlada entre modelos.
-
-**Tabela 4 – Geração de explicações com validação heurística de ancoragem textual (12 pares; duas configurações do sistema)**
-
-| Configuração (modelo; recuperação; gabarito) | Explicações aceitas (IC 95%) | Afirmações aceitas / rejeitadas | Motivo das rejeições |
-| --- | --- | --- | --- |
-| Qwen2.5-1.5B-Instruct (local); lexical; 8 grupos | 3 de 12 (25,0%; 8,9–53,2) | 9 / 9 | Formato inválido |
-| Claude Sonnet 5.5 (produção); híbrida; 14 grupos | 8 de 12 (66,7%; 39,1–86,2) | 21 / 3 | Sobreposição lexical insuficiente com o trecho citado |
+| Indicador | Resultado (IC 95%) |
+| --- | --- |
+| Medicamento certo identificado (bula brasileira, nome comercial e conversa) | 206/222 = 92,8% (88,6–95,5) |
+| Respostas com pelo menos uma fonte da seção do assunto perguntado | 176/177 = 99,4% (96,9–99,9) |
+| Respostas em que todas as fontes são bulas do medicamento perguntado | 150/180 = 83,3% (77,2–88,1) |
+| Afirmações propostas pelo modelo aceitas pelo validador | 456/820 = 55,6% (52,2–59,0) |
+| Respostas com pelo menos uma afirmação aceita | 199/199 = 100% (98,1–100) |
+| Trechos de bula exibidos sem reescrita | 0 |
+| Respostas que exigiram a leitura da bula inteira | 82 |
+| Rubrica automática: relevância, ancoragem e segurança | 199/199 = 100% (98,1–100) cada |
+| Rubrica automática: clareza / naturalidade | 98,5% (95,7–99,5) / 91,5% (86,8–94,6) |
+| Tempo de resposta no servidor | mediana de 12,9 s; p95 de 29,1 s; máximo de 53,7 s |
 
 Fonte: Elaborado pelos autores a partir dos experimentos (2026).
-Nota: as duas execuções sortearam os pares com a mesma semente, mas o modelo local foi avaliado em 4 nov. 2026, com recuperação lexical, o gabarito de 8 grupos e a base ainda com 17 bulas, e o de produção com a recuperação híbrida; como só entram pares com trechos recuperados, os conjuntos de pares podem diferir. Por isso, a diferença entre 25,0% e 66,7% não pode ser atribuída apenas ao modelo, e os intervalos de confiança se sobrepõem. O resultado do Claude é o da execução de 8 nov. 2026, com a base de 14 grupos; em 7 nov., com 8 grupos, foram também 8 de 12 explicações aceitas, com 19 afirmações aceitas e 4 rejeitadas. O tempo de geração foi de 57,9 s para os 12 pares (cerca de 4,8 s por par).
 
-Os contrastes a seguir descrevem cada execução, e não estabelecem a superioridade de um modelo sobre o outro. Na execução com o modelo local, todas as rejeições foram por formato inválido, e nenhuma saída malformada chegou ao usuário. Na execução com o modelo de produção, não houve erro de formato: as três afirmações rejeitadas citavam um trecho que não as sustentava lexicalmente, e as quatro explicações não aceitas foram substituídas pela gravidade registrada e pelos trechos da bula. Em nenhum dos casos o modelo decidiu a existência ou a gravidade da interação. As explicações aceitas passaram em filtros automáticos — referência válida, ancoragem lexical e ausência de recomendação de conduta —, que são heurísticos: verificam a presença das palavras do trecho, e não a preservação do sentido (negações, condições e consequências), e a correção factual dessas explicações não foi verificada por profissional de saúde.
+O validador recusou 44,4% das afirmações propostas pelo modelo. Os motivos mais frequentes foram a afirmação que o trecho citado não sustenta lexicalmente (181), o excesso de palavras (66), a recomendação de conduta (51), a inclusão de limite desnecessário (21) e a negação ausente do trecho (19); houve ainda 6 negações invertidas e 13 afirmações que narravam a fonte. Mesmo assim, todas as respostas exibidas tiveram pelo menos uma afirmação aceita, e nenhuma exibiu trecho cru da bula: quando as afirmações aceitas não bastaram, o sistema leu a bula inteira para responder (82 perguntas) ou se absteve. Em todo o uso registrado em produção até a data da avaliação, que inclui essas perguntas, a proporção de afirmações aceitas foi semelhante, de 606 em 1.115 (54,3%; IC 95%: 51,4%–57,3%).
 
-O comportamento diante da falta de informação foi observado em consultas manuais com o modelo de produção, em 5 nov. 2026. Na consulta de azitromicina com sinvastatina, nenhum trecho citava o outro fármaco, e o modelo nem foi acionado: o sistema exibiu apenas a gravidade registrada no DDInter. Nas consultas sobre ibuprofeno com paracetamol e sobre omeprazol em jejum, o modelo declarou os trechos insuficientes, e o sistema exibiu só os trechos. A pergunta sobre reações adversas do omeprazol foi respondida com quatro afirmações aceitas e nenhuma rejeitada. Assim, diante da falta de informação, o sistema se abstém ou informa que a interação não foi identificada nas fontes consultadas, sem que o modelo preencha a lacuna (Figuras 1 e 2).
+Quanto às fontes, 99,4% das respostas tiveram pelo menos uma fonte da seção do assunto. Em 16,7%, porém, nem todas as fontes eram bulas do próprio medicamento: na maioria dos casos, a fonte era uma associação que contém o princípio ativo (78 das 555 fontes citadas, como uma associação com paracetamol numa pergunta sobre paracetamol), e em 8 fontes, a bula de outro medicamento, nas perguntas sobre losartana, respondidas também com a bula da hidroclorotiazida por meio da associação entre as duas. A resposta avisa quando fala de uma associação, mas o sistema deveria preferir a bula do medicamento isolado. A rubrica automática verifica relevância, ancoragem, segurança, clareza e naturalidade por regras; ela confirma que as respostas seguem o formato previsto, mas não substitui a verificação de seu conteúdo por profissional, que não foi feita.
 
 **Figura 1 – Resposta a uma pergunta sobre interação entre ibuprofeno e losartana**
 
@@ -366,42 +401,38 @@ Na Figura 1, a expressão “gravidade classificada pelo sistema” refere-se à
 
 ### 5.5 Legibilidade das respostas
 
-A Tabela 5 compara o Índice de Flesch das respostas com o dos trechos de bula citados como fonte de cada uma.
+A Tabela 6 compara o Índice de Flesch das respostas registradas em produção com o dos trechos de bula que sustentam cada uma.
 
-**Tabela 5 – Legibilidade das respostas e dos trechos citados (66 pares)**
+**Tabela 6 – Legibilidade das respostas e dos trechos que as sustentam (269 pares; produção, 11 nov. 2026)**
 
-| Texto | IFL (mediana) | IFL (mín.–máx.) | Palavras por frase (mediana) | Sílabas por palavra (mediana) | Faixa predominante |
-| --- | --- | --- | --- | --- | --- |
-| Trechos de bula citados | 25,6 | −4,0 a 45,0 | 11,3 | 2,49 | Difícil (39) e muito difícil (27) |
-| Respostas do BULA-IA | 60,2 | 38,2 a 73,6 | 17,4 | 2,01 | Fácil (47) e difícil (19) |
+| Texto | IFL (mediana) | IFL (mín.–máx.) | Muito fácil | Fácil | Difícil | Muito difícil |
+| --- | --- | --- | --- | --- | --- | --- |
+| Trechos de bula | 29,4 | −34,7 a 71,4 | 0 | 41 | 126 | 102 |
+| Respostas do BULA-IA | 58,3 | 5,4 a 88,2 | 21 | 184 | 60 | 4 |
 
 Fonte: Elaborado pelos autores a partir dos experimentos (2026).
-Nota: IFL = Índice de Facilidade de Leitura de Flesch adaptado ao português (MARTINS et al., 1996). Valores negativos foram mantidos sem truncamento e contados na faixa “muito difícil”. Para referência, a mediana dos 799 trechos da base foi de 31,7.
+Nota: IFL = Índice de Facilidade de Leitura de Flesch adaptado ao português (MARTINS et al., 1996). Valores negativos foram mantidos sem truncamento e contados na faixa “muito difícil”.
 
-Em todos os 66 pares, a resposta foi mais legível que os trechos citados, com diferença mediana de 28,7 pontos, o que a desloca da faixa “difícil” ou “muito difícil” para a faixa “fácil” em 47 casos. A melhora vem do vocabulário: as respostas usam palavras mais curtas (2,01 contra 2,49 sílabas por palavra), ao substituir termos como “gastrintestinal” por “no estômago ou no intestino”. As frases das respostas, por outro lado, são mais longas que as dos trechos, em parte porque a bula se divide em títulos e itens curtos, o que indica espaço para encurtar as frases geradas. Esse resultado indica, neste trabalho, que as respostas são mais legíveis que os trechos da bula segundo um índice de forma; não indica que o conteúdo seja mais bem compreendido.
+Em 264 dos 269 pares (98,1%; IC 95%: 95,7%–99,2%), a resposta foi mais legível que os trechos que a sustentam, com diferença mediana de 27,8 pontos, o que desloca o texto da faixa “difícil” para a faixa “fácil”: 205 das 269 respostas ficaram nas faixas “fácil” ou “muito fácil”, contra 41 dos 269 conjuntos de trechos. Nos outros 5 pares, a resposta não foi mais legível que os trechos, com diferença de até 21,1 pontos a favor dos trechos. Esse resultado indica que as respostas são mais legíveis que os trechos da bula segundo um índice de forma; não indica que o conteúdo seja mais bem compreendido.
 
-O resultado deve ser lido com três ressalvas. Primeiro, o índice mede a forma do texto, e não a compreensão: uma resposta legível pode estar incompleta ou errada, e a correção das respostas não foi avaliada por profissional. Segundo, as 66 respostas não são independentes nem representam o uso real: vêm de rodadas de avaliação do próprio motor, com perguntas escritas pelos próprios autores e repetidas entre rodadas, concentradas em quatro princípios ativos (ibuprofeno, omeprazol, paracetamol e nimesulida). Terceiro, os textos comparados têm extensões muito diferentes (mediana de 147 palavras na resposta contra 1.243 nos trechos de origem), de modo que a comparação não isola o efeito da reescrita: parte da diferença decorre da simplificação textual, isto é, do vocabulário e da construção das frases, e parte da seleção e da redução do conteúdo, que o índice não distingue. A redução é desejável para o leitor, mas exige verificar se nada essencial foi omitido, o que não foi feito.
+O resultado deve ser lido com três ressalvas. Primeiro, o índice mede a forma do texto, e não a compreensão: uma resposta legível pode estar incompleta ou errada, e a correção das respostas não foi avaliada por profissional. Segundo, as respostas não representam o uso real: vêm de perguntas escritas pelos autores, ainda que sobre 49 medicamentos e oito assuntos, e não de usuários. Terceiro, os textos comparados têm extensões diferentes, de modo que a comparação não isola o efeito da reescrita: parte da diferença decorre da simplificação do vocabulário e das frases, e parte da seleção e da redução do conteúdo, que o índice não distingue. A redução é desejável para o leitor, mas exige verificar se nada essencial foi omitido, o que não foi feito.
 
 ### 5.6 Comparação com o modelo sem recuperação
 
-A Tabela 6 apresenta o desempenho dos dois modelos quando consultados sem base estruturada nem trechos de bula, tomando o DDInter como rótulo.
+A Tabela 7 apresenta o desempenho do Claude Sonnet 5.5 quando consultado sem base estruturada nem trechos de bula, tomando o DDInter como rótulo.
 
-**Tabela 6 – Modelo de linguagem sem recuperação (60 pares; rótulo: DDInter)**
+**Tabela 7 – Modelo de linguagem sem recuperação (120 pares; rótulo: DDInter; produção, 11 nov. 2026)**
 
 | Modelo | VP / FP | VN / FN | Abstenção | Precisão | Recall | F1 | Acurácia (IC 95%) |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Qwen2.5-1.5B-Instruct (rótulo com 8 grupos) | 33 / 18 | 3 / 6 | 0 | 0,647 | 0,846 | 0,733 | 60,0% (47,4–71,4) |
-| Claude Sonnet 5.5 (rótulo com 8 grupos) | 19 / 11 | 10 / 18 | 2 | 0,633 | 0,514 | 0,567 | 48,3% (36,2–60,7) |
-| Claude Sonnet 5.5 (rótulo com 14 grupos) | 30 / 0 | 3 / 26 | 1 | 1,000 | 0,536 | 0,698 | 55,0% (42,5–66,9) |
+| Claude Sonnet 5.5 | 64 / 0 | 4 / 50 | 2 | 1,000 | 0,561 | 0,719 | 56,7% (47,7–65,2) |
 
 Fonte: Elaborado pelos autores a partir dos experimentos (2026).
-Nota: VP, FP, VN e FN referem-se à classificação em relação ao rótulo extraído do DDInter, e não à segurança clínica dos pares. A acurácia considera as abstenções como erro. Um classificador trivial que sempre indicasse interação teria acurácia de 65,0% (39/60) com o rótulo de 8 grupos e de 95,0% (57/60) com o de 14 grupos. As duas linhas do Claude com 8 grupos e com 14 grupos vêm de execuções distintas sobre os mesmos 60 pares (7 e 8 nov. 2026); repontuadas com o rótulo de 14 grupos, as respostas de 7 nov. dão VP 30, FP 0, VN 3, FN 25 e 2 abstenções, o que indica pouca variação entre execuções. IC 95%: precisão 88,6%–100%; recall 40,7%–66,0%.
+Nota: VP, FP, VN e FN referem-se à classificação em relação ao rótulo extraído do DDInter, e não à segurança clínica dos pares. A acurácia considera as abstenções, ambas em pares com interação registrada, como erro. Um classificador trivial que sempre indicasse interação teria acurácia de 96,7% (116/120). IC 95%: precisão 94,3%–100%; recall 47,0%–64,9%. Nenhuma chamada ao modelo falhou.
 
-O modelo local apontou interação em quase todos os pares e elevou onze interações moderadas ou leves a grave: dos 17 pares com gravidade classificada que reconheceu, acertou a gravidade de apenas 4. Com o rótulo de 8 grupos, o modelo de produção parecia errar muito: 11 falsos positivos e acurácia abaixo da do classificador trivial. A análise par a par já indicava que vários desses falsos positivos eram interações descritas na farmacologia, como diazepam com fenobarbital, atenolol com propranolol e sertralina com clonazepam, ausentes da base por envolverem fármacos dos grupos então não importados.
+Sem recuperação, o modelo foi conservador: toda interação que apontou está registrada no DDInter (precisão de 1,000), e os 4 pares sem registro foram dados como sem interação. Sua falha foi deixar de reconhecer 50 das 114 interações registradas sobre as quais se pronunciou (recall de 0,561). A distribuição dessas falhas por gravidade é reveladora: as 9 interações graves da amostra foram todas reconhecidas, assim como 33 das 37 moderadas e 6 das 7 leves; das 52 interações não reconhecidas ou com abstenção, 47 são pares que o DDInter registra sem gravidade classificada. Entre as 48 interações classificadas que reconheceu, o modelo concordou com a gravidade da fonte em 36 (75,0%; IC 95%: 61,2%–85,1%): 6 das 9 graves (as outras 3, rebaixadas a moderadas), 29 das 33 moderadas e 1 das 6 leves, 5 delas elevadas a moderadas. A acurácia de 56,7%, muito abaixo dos 96,7% do classificador trivial, reflete a composição da amostra, quase toda de pares com interação, e não deve ser lida isoladamente.
 
-A ampliação da base confirmou essa leitura. Com o rótulo de 14 grupos, os 11 falsos positivos desapareceram: toda interação apontada pelo modelo de produção está registrada no DDInter (precisão de 1,000). Ou seja, esses falsos positivos decorriam de lacunas da base usada como rótulo — a importação incompleta do DDInter, sem os grupos C, G, J, M, N e S —, e não de interações apontadas pelo modelo sem registro na fonte; isso não demonstra que as respostas do modelo estejam clinicamente corretas, apenas que concordam com a base ampliada. O modelo também concordou com a gravidade do DDInter em 21 dos 26 pares classificados que reconheceu (80,8%; IC 95%: 62,1%–91,5%). Sua falha é de outra natureza: deixou de reconhecer 26 das 56 interações registradas sobre as quais se pronunciou (recall de 0,536). Dessas 26, 24 são pares que o DDInter registra sem gravidade classificada, como amoxicilina com haloperidol ou ácido acetilsalicílico com rosuvastatina, e 2 são moderadas (atorvastatina com metronidazol e clonazepam com carvedilol). A acurácia de 55,0%, abaixo dos 95,0% do classificador trivial, reflete sobretudo a amostra, que passou a ter só 3 pares sem interação, e não deve ser lida isoladamente.
-
-Esse resultado tem duas consequências. A primeira reforça a crítica à avaliação da seção 5.2: um rótulo extraído de uma base incompleta pode fazer uma resposta coincidente com a base ampliada parecer erro, e só a ampliação da base revelou isso. A segunda sustenta a arquitetura adotada, agora com um motivo quantitativo: sem recuperação, o modelo de produção é conservador — quando afirma uma interação, ela existe na base —, mas deixa passar quase metade das interações registradas, justamente as de relevância menos estabelecida, que a consulta à base estruturada, por construção, reproduz em todos os casos. Além disso, suas respostas não indicam fonte, mudam entre modelos — o modelo local e o de produção divergiram de forma oposta nos mesmos pares — e não podem ser auditadas. Com a divisão de responsabilidades, cada resposta do BULA-IA pode ser rastreada até o registro do DDInter e o trecho de bula que a sustentam, e as lacunas ficam visíveis como lacunas da fonte, em vez de serem preenchidas por conhecimento paramétrico não verificável. A comparação continua descritiva: com 60 pares e só 3 negativos, ela mostra o risco que a arquitetura evita, e não uma superioridade estatística demonstrada.
+Esse resultado sustenta a arquitetura adotada com um motivo quantitativo: sem recuperação, o modelo reconhece as interações de relevância estabelecida, mas deixa passar quase metade das registradas, justamente as menos caracterizadas, e erra a gravidade em um quarto das que reconhece, enquanto a consulta à base estruturada não produziu nenhum falso positivo e reproduziu a gravidade registrada em todos os pares classificados que acusou (seção 5.2). Além disso, suas respostas não indicam fonte e não podem ser auditadas. A seção 5.2 mostra o limite dessa garantia: ela vale enquanto a cadeia de identificação e de vínculo estiver correta, e um defeito de dados nessa cadeia produziu perdas da mesma natureza que as do modelo isolado, com a diferença de que foram detectáveis, rastreáveis e corrigíveis. A comparação continua descritiva: com 120 pares e só 4 negativos, ela mostra o risco que a arquitetura evita, e não uma superioridade estatística demonstrada.
 
 ### 5.7 Síntese: o que os resultados mostram e o que não mostram
 
@@ -411,30 +442,30 @@ O Quadro 6 resume o alcance de cada resultado.
 
 | Aspecto | O que foi demonstrado | O que não foi demonstrado |
 | --- | --- | --- |
-| Identificação | Acerto exato de 89,4% (IC 95%: 77,4–95,4) em consultas não usadas nos ajustes | Desempenho em larga escala e em nomes digitados com erro por usuários reais |
-| Interações | Integração correta com o DDInter em 1.483 pares, sem abstenção; a ampliação para 14 grupos revelou que 89% dos pares antes sem interação registrada eram lacunas | Correção clínica; cobertura integral do DDInter; validação independente (o protocolo de 30 pares é subamostra do mesmo universo) |
-| Cobertura | Existência e gravidade informadas para os 1.424 pares registrados; bula de pelo menos um fármaco em 309 pares e de ambos em 15 | Proporção de pares com trecho de bula disponível para a explicação |
-| Recuperação | Indício fraco, sujeito a viés de seleção (julgamentos sobre candidatos lexicais) | Superioridade da busca híbrida, que exigiria amostra adequada e julgamentos sobre todos os modos |
-| Geração | Validação heurística de ancoragem textual impede saídas malformadas ou sem trecho; 8 de 12 explicações aceitas na configuração de produção | Correção factual e fidelidade semântica das explicações; superioridade de um modelo sobre outro (configurações distintas) |
-| Legibilidade | Respostas mais legíveis que os trechos citados em 66 de 66 pares, pelo índice de Flesch | Compreensão efetiva pelos usuários; separação entre simplificação textual e redução do conteúdo |
-| Modelo isolado | Sem fonte e não auditável; com 14 grupos, precisão de 1,000, mas recall de 0,536 | Que o modelo isolado erre mais que a base em termos clínicos |
+| Identificação | Acerto exato de 93,6% (IC 95%: 82,8–97,8) em consultas não usadas nos ajustes; nas perguntas livres, medicamento certo em 92,8% | Desempenho em larga escala e em nomes digitados com erro por usuários reais |
+| Interações | Nenhum falso positivo em 1.483 pares e gravidade igual à da fonte nos 613 pares classificados acusados; o teste revelou um defeito de dados que fez perder 7 interações graves | Correção clínica; cobertura integral do DDInter; validação independente; o resultado após a correção do defeito |
+| Cobertura | Existência e gravidade informadas para os pares registrados; bula de pelo menos um fármaco em 1.048 dos 1.483 pares e de ambos em 298 | Proporção de pares com trecho de bula disponível para a explicação |
+| Recuperação | Com 369 consultas por assunto, os modos com componente vetorial superaram o lexical | Superioridade da busca híbrida sobre a vetorial; relevância julgada por pessoas |
+| Geração | Validação heurística impediu afirmações sem trecho ou com recomendação de conduta (55,6% de 820 aceitas) e nenhum trecho cru foi exibido em 199 respostas | Correção factual e fidelidade semântica das respostas |
+| Legibilidade | Respostas mais legíveis que os trechos que as sustentam em 98,1% de 269 pares, pelo índice de Flesch | Compreensão efetiva pelos usuários; separação entre simplificação textual e redução do conteúdo |
+| Modelo isolado | Sem fonte e não auditável; precisão de 1,000, mas recall de 0,561 e gravidade divergente em 25% das interações classificadas reconhecidas | Que o modelo isolado erre mais que a base em termos clínicos |
 | Validação humana | — | Avaliação por profissional de saúde, de usabilidade percebida (SUS) e de compreensão do conteúdo: não realizadas |
 
 Fonte: Elaborado pelos autores (2026).
 
-Os resultados sustentam parcialmente a hipótese da Introdução. Com a decisão sobre a interação fora do modelo, as respostas tornaram-se rastreáveis, a gravidade passou a ser a da fonte, e, diante da falta de informação, o sistema preferiu a abstenção, comportamento seguro, a completar lacunas. As respostas também se mostraram mais legíveis que a bula pelo índice de Flesch, o que não equivale a compreensão. Por outro lado, a hipótese de uma detecção “mais confiável” não pôde ser verificada em termos clínicos, pois o único gabarito disponível é a própria base consultada, cuja cobertura é parcial — como mostrou a ampliação de 8 para 14 grupos, que mudou 486 rótulos. Sobretudo, a validação por profissional de saúde não foi realizada; logo, nenhuma explicação teve a correção factual verificada.
+Os resultados sustentam parcialmente a hipótese da Introdução. Com a decisão sobre a interação fora do modelo, as respostas tornaram-se rastreáveis, a gravidade passou a ser a da fonte, e, diante da falta de informação, o sistema preferiu a abstenção ou o aviso de que a interação não foi identificada nas fontes consultadas, em vez de completar lacunas. As respostas também se mostraram mais legíveis que a bula pelo índice de Flesch, o que não equivale a compreensão. Por outro lado, a hipótese de uma detecção “mais confiável” não pôde ser verificada em termos clínicos, pois o único gabarito disponível é a própria base consultada, cuja cobertura é parcial. Sobretudo, a validação por profissional de saúde não foi realizada; logo, nenhuma resposta teve a correção factual verificada.
 
-Em síntese, a principal contribuição demonstrada é arquitetural: a separação entre a identificação da interação e de sua gravidade, a cargo de uma fonte estruturada, a recuperação de evidência documental nas bulas e a explicação em linguagem natural, com rastreabilidade de cada resposta até o registro e o trecho que a sustentam e com explicitação das lacunas de cobertura, em vez de seu preenchimento pelo modelo. A ampliação de 8 para 14 grupos ATC, em que 486 dos 545 pares antes sem interação registrada passaram a ter registro sem nenhuma mudança no código de consulta, é a evidência mais clara obtida de que, nessa arquitetura, a completude dos dados determina a qualidade da resposta.
+Em síntese, a principal contribuição demonstrada é arquitetural: a separação entre a identificação da interação e de sua gravidade, a cargo de uma fonte estruturada, a recuperação de evidência documental nas bulas e a explicação em linguagem natural, com rastreabilidade de cada resposta até o registro e o trecho que a sustentam. A medição em produção mostrou também o custo dessa arquitetura: sua confiabilidade depende da cadeia de dados que liga o nome digitado ao registro da fonte, e um defeito nessa cadeia, introduzido pela operação, e não pelo código, fez o sistema perder interações graves sem nenhum sinal visível ao usuário. Por isso, o teste de integração com a fonte não é apenas um experimento deste trabalho, mas um controle que deve ser repetido a cada alteração da base.
 
 ## 6 CONSIDERAÇÕES FINAIS
 
-Este trabalho investigou como os LLMs, apoiados por recuperação de fontes oficiais, podem apoiar a compreensão das bulas e a identificação de interações medicamentosas de forma rastreável. A arquitetura mostrou-se tecnicamente viável quando a base estruturada decide sobre a interação, o RAG recupera os trechos de bula e o modelo apenas os explica, sob uma validação heurística de ancoragem textual.
+Este trabalho investigou como os LLMs, apoiados por recuperação de fontes oficiais, podem apoiar a compreensão das bulas e a identificação de interações medicamentosas de forma rastreável. A arquitetura mostrou-se tecnicamente viável quando a base estruturada decide sobre a interação, o RAG recupera os trechos de bula e o modelo apenas os explica, sob uma validação heurística de ancoragem textual. Todos os resultados foram medidos no sistema publicado, sobre a base em uso.
 
-Quanto aos objetivos específicos, as bulas da ANVISA, o catálogo de medicamentos e o DDInter foram reunidos, e as bulas, indexadas em PostgreSQL para busca lexical, vetorial e híbrida. Na identificação dos medicamentos, o sistema chegou aos princípios ativos corretos em 89,4% das consultas reservadas, com intervalo de confiança entre cerca de 77% e 95%. O teste de integração com o DDInter confirmou que a aplicação reproduz fielmente a base nos 1.483 pares avaliados, inclusive as 110 interações graves; o mesmo teste revelou, numa versão anterior, a perda de uma interação grave por falha de identificação, o risco mais sério do sistema. A ampliação da base de 8 para 14 grupos ATC mostrou que 486 dos 545 pares antes tidos como sem interação registrada eram lacunas de cobertura, o que evidencia que a completude da fonte determina a qualidade das respostas do sistema. Na geração, nenhuma explicação malformada ou sem trecho chegou ao usuário, e a configuração de produção teve 8 de 12 explicações aceitas pela validação heurística, resultado que, por ter sido obtido com recuperação e gabarito diferentes dos da execução com o modelo local, não permite atribuir a diferença apenas ao modelo. As respostas foram mais legíveis que os trechos de bula citados em todos os 66 pares analisados, segundo o índice de Flesch, sem que isso meça a compreensão. Sem recuperação, o modelo de produção não apontou interações inexistentes na base, mas deixou de reconhecer quase metade das registradas, e respondeu sem fonte, o que reforça a separação entre quem decide e quem explica.
+Quanto aos objetivos específicos, as bulas da ANVISA, o catálogo de medicamentos e o DDInter foram reunidos, e as 82 bulas da base, divididas em 5.652 trechos, foram indexadas em PostgreSQL para busca lexical, vetorial e híbrida. Na identificação dos medicamentos, o sistema chegou aos princípios ativos corretos em 93,6% das consultas reservadas, com intervalo de confiança entre cerca de 83% e 98%. O teste de integração com o DDInter, em 1.483 pares, não produziu nenhum falso positivo e reproduziu a gravidade da fonte em todos os pares classificados acusados, mas revelou que princípios ativos duplicados em português, criados ao vincular bulas antes do catálogo, desligavam dois produtos da base e faziam o sistema perder sete interações graves; o defeito foi corrigido após a medição. Na recuperação, com 369 consultas por assunto, os modos com componente vetorial superaram claramente o lexical, sem diferença estabelecida entre o híbrido e o vetorial. Nas 234 perguntas feitas ao sistema publicado, o medicamento certo foi identificado em 92,8% dos casos, 99,4% das respostas citaram a seção do assunto, e a validação descartou 44,4% das afirmações propostas pelo modelo sem que nenhum trecho cru chegasse ao usuário. As respostas foram mais legíveis que os trechos que as sustentam em 98,1% de 269 pares, segundo o índice de Flesch, sem que isso meça a compreensão. Sem recuperação, o modelo não apontou interações inexistentes na base, mas deixou de reconhecer 50 das 114 registradas sobre as quais se pronunciou, errou a gravidade de um quarto das que reconheceu e respondeu sem fonte, o que reforça a separação entre quem decide e quem explica.
 
-A principal contribuição é a arquitetura, e não uma nova base farmacológica: a identificação e a gravidade da interação ficam com a fonte estruturada, a recuperação de evidência documental fica com o RAG sobre as bulas, e a explicação em linguagem natural fica com o modelo, de modo que cada resposta pode ser rastreada até sua fonte e as lacunas de cobertura ficam explícitas. Como limitações, a base reúne 18 bulas, que cobrem só 6 dos 55 produtos avaliados, de modo que o sistema informa a existência e a gravidade de muito mais pares do que consegue explicar com trecho de bula; o DDInter importado, mesmo com 14 grupos ATC, não equivale à exportação integral da base, de modo que a ausência de registro jamais pode ser comunicada como segurança; o gabarito de interações provém da própria base consultada, o que impede medir a correção clínica; e a compreensão dos usuários, que motivou o problema, foi estimada apenas por um índice de legibilidade, e não medida.
+A principal contribuição é a arquitetura, e não uma nova base farmacológica: a identificação e a gravidade da interação ficam com a fonte estruturada, a recuperação de evidência documental fica com o RAG sobre as bulas, e a explicação em linguagem natural fica com o modelo, de modo que cada resposta pode ser rastreada até sua fonte e as lacunas de cobertura ficam explícitas. A medição em produção acrescentou uma lição: nessa arquitetura, a segurança das respostas depende da cadeia de dados entre o nome digitado e o registro da fonte, que precisa ser verificada continuamente. Como limitações, a base reúne 82 bulas, que cobrem 25 dos 55 produtos avaliados, de modo que o sistema informa a existência e a gravidade de muito mais pares do que consegue explicar com trecho de bula; o DDInter importado não equivale à exportação integral da base, de modo que a ausência de registro jamais pode ser comunicada como segurança; o gabarito de interações provém da própria base consultada, o que impede medir a correção clínica; as perguntas foram escritas pelos autores; e a compreensão dos usuários, que motivou o problema, foi estimada apenas por um índice de legibilidade, e não medida.
 
-Como trabalhos futuros, propõem-se: a validação das respostas por profissional de saúde; a avaliação, junto a usuários leigos, da usabilidade percebida, com a escala SUS, e, separadamente, da compreensão, com perguntas sobre o conteúdo das respostas e da bula, ambas após consulta ao Comitê de Ética em Pesquisa sobre o enquadramento dessas atividades; um gabarito de interações independente do DDInter, revisado por profissional; a importação da exportação integral do DDInter e de critérios específicos para idosos; uma comparação controlada entre modelos, com a mesma recuperação e os mesmos pares; uma verificação da fidelidade semântica das explicações, além da ancoragem lexical; amostras maiores de recuperação, geração e legibilidade, com julgamentos independentes e perguntas de usuários reais; o versionamento da rotina de legibilidade no repositório; e a ampliação da base de bulas. Assim, o BULA-IA pode consolidar-se como camada de acesso rastreável à informação sobre medicamentos, sem substituir a orientação profissional.
+Como trabalhos futuros, propõem-se: a reexecução do teste de integração após a correção dos princípios ativos duplicados e sua inclusão como verificação automática a cada alteração da base; a validação das respostas por profissional de saúde; a avaliação, junto a usuários leigos, da usabilidade percebida, com a escala SUS, e, separadamente, da compreensão, com perguntas sobre o conteúdo das respostas e da bula, ambas após consulta ao Comitê de Ética em Pesquisa sobre o enquadramento dessas atividades; um gabarito de interações independente do DDInter, revisado por profissional; a importação da exportação integral do DDInter e de critérios específicos para idosos; julgamentos de relevância feitos por pessoas para a recuperação; a preferência pela bula do medicamento isolado quando a pergunta não trata de uma associação; uma verificação da fidelidade semântica das explicações, além da ancoragem lexical; e a ampliação da base de bulas. Assim, o BULA-IA pode consolidar-se como camada de acesso rastreável à informação sobre medicamentos, sem substituir a orientação profissional.
 
 ## REFERÊNCIAS
 
@@ -490,38 +521,101 @@ WORLD HEALTH ORGANIZATION. **Medication safety in polypharmacy**: technical repo
 
 XIONG, Guoli *et al*. DDInter: an online drug–drug interaction database towards improving clinical decision-making and patient safety. **Nucleic Acids Research**, Oxford, v. 50, n. D1, p. D1200-D1207, 2022. DOI: 10.1093/nar/gkab880.
 
-YANG, An *et al*. **Qwen2.5 technical report**. [*S. l.*]: arXiv, 2024. Preprint arXiv:2412.15115. DOI: 10.48550/arXiv.2412.15115. Disponível em: https://arxiv.org/abs/2412.15115. Acesso em: 6 nov. 2026.
 
 ZHAO, Wayne Xin *et al*. **A survey of large language models**. [*S. l.*]: arXiv, 2023. Preprint arXiv:2303.18223. DOI: 10.48550/arXiv.2303.18223. Disponível em: https://arxiv.org/abs/2303.18223. Acesso em: 6 nov. 2026.
 
 ## APÊNDICE A – RECORTE DA BASE AVALIADA
 
-**Quadro A.1 – Bulas da base na avaliação final (7 nov. 2026)**
+**Quadro A.1 – Bulas da base de produção na avaliação (11 nov. 2026)**
 
-| Nº | Princípio(s) ativo(s) | Tipo de bula | Trechos | Versão (início do *hash* do conteúdo) | Vinculada a princípio ativo no sistema |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Azitromicina di-hidratada | Paciente | 15 | fff8adf8983d | Sim |
-| 2 | Pantoprazol sódico sesqui-hidratado | Profissional | 44 | 0e10e7d1d237 | Sim |
-| 3 | Omeprazol sódico 40 mg | Profissional | 27 | c86ce1333e68 | Sim |
-| 4 | Omeprazol | Profissional | 93 | 3f53898fddc2 | Sim |
-| 5 | Sinvastatina | Profissional | 44 | 8e5dea95bb2b | Sim |
-| 6 | Amoxicilina + clavulanato de potássio | Profissional | 76 | caa802b748fc | Sim |
-| 7 | Nimesulida | Profissional | 29 | 65939b77e9f1 | Não |
-| 8 | Ibuprofeno | Paciente | 37 | 3a80239e96c7 | Sim |
-| 9 | Paracetamol 500 mg, pó para preparação extemporânea (genérico, EMS S/A; identificado pelo conteúdo, pois o título não foi extraído: documento “Bula 1790900554429”) | Profissional | 19 | 8e9020baa136 | Não |
-| 10 | Omeprazol sódico 40 mg | Paciente | 29 | 3a8b6353da99 | Não |
-| 11 | Omeprazol | Paciente | 45 | 83bfa638fba8 | Sim |
-| 12 | Paracetamol | Profissional | 26 | 9b845ee53d3c | Sim |
-| 13 | Levotiroxina sódica | Profissional | 35 | 0c121c749e72 | Não |
-| 14 | Paracetamol + fosfato de codeína | Profissional | 61 | 1981b3beff3c | Sim |
-| 15 | Paracetamol + codeína | Profissional | 100 | d2c9ee33b02d | Sim |
-| 16 | Paracetamol + cloridrato de pseudoefedrina | Profissional | 65 | 002d3d176eb8 | Sim |
-| 17 | Ibuprofeno | Profissional | 37 | 8d1dda657920 | Sim |
-| 18 | Nimesulida | Paciente | 17 | 40fcc7d3f951 | Sim |
-| | **Total** | 13 profissional, 5 paciente | **799** | | 14 de 18 |
+| Nº | Doc. | Título no sistema | Princípio(s) ativo(s) vinculado(s) | Tipo de bula | Trechos | SHA-256 do PDF (início) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 1 | digoxina | digoxina | Profissional | 36 | e91e35c201b0 |
+| 2 | 2 | excipientes q.s.p…………………………………………………………….…………......1 comp… | fenitoína | Profissional | 41 | 9813a7be40d3 |
+| 3 | 3 | RENITEC® | enalapril | Profissional | 38 | 789188cb4ce6 |
+| 4 | 4 | Aspirina® | ácido acetilsalicílico | Profissional | 87 | d8ebfd281899 |
+| 5 | 5 | COZAAR® | losartana | Profissional | 54 | cb4d2895b334 |
+| 6 | 6 | LOSEC MUPS® | omeprazol | Profissional | 60 | eecd91c9e0ba |
+| 7 | 7 | DAFORIN® cloridrato de fluoxetina | fluoxetina | Profissional | 110 | 82489feeca8b |
+| 8 | 8 | Amoxil | amoxicilina | Profissional | 93 | ba1962f29ac4 |
+| 9 | 9 | hidroclorotiazida | hidroclorotiazida | Profissional | 50 | 7d09a6c57053 |
+| 10 | 10 | sinvastatina | sinvastatina | Profissional | 148 | aeb941f138b8 |
+| 11 | 11 | clonazepam | clonazepam | Profissional | 57 | 8476ccff5055 |
+| 12 | 12 | ANCORON | amiodarona | Profissional | 55 | 40366a931e7d |
+| 13 | 14 | Glifage | metformina | Profissional | 47 | 8cf14752aec1 |
+| 14 | 15 | TEGRETOL® CR | carbamazepina | Profissional | 223 | 82f5d6107593 |
+| 15 | 16 | NOVALGINA® | dipirona | Profissional | 283 | 1c77b2515c08 |
+| 16 | 17 | KLARICID | claritromicina | Profissional | 284 | 70592c84e86d |
+| 17 | 18 | Levotiroxina Purant4 Bula Profissional | levotiroxina | Não classificada | 108 | b7f43bf313b5 |
+| 18 | 19 | ZOLOFT | sertralina | Profissional | 122 | 007ece1863e6 |
+| 19 | 20 | Alivium | ibuprofeno | Profissional | 113 | 2e9581af693d |
+| 20 | 21 | DIPIRONA | dipirona | Paciente | 35 | 2e4ea8e20a53 |
+| 21 | 22 | ACETILCISTEINA | acetilcisteína | Paciente | 37 | a11ddd473b0a |
+| 22 | 23 | ACETILCISTEINA | acetilcisteína | Profissional | 39 | 4893ea35641d |
+| 23 | 24 | Bula 1793933368611 | dipirona | Profissional | 69 | 138d7ccea2a1 |
+| 24 | 25 | losartana potássica | losartana | Paciente | 34 | edbfe7b9ec40 |
+| 25 | 26 | ibuprofeno | ibuprofeno | Profissional | 30 | ef4214c69236 |
+| 26 | 27 | ibuprofeno | ibuprofeno | Paciente | 31 | e47ef0048c90 |
+| 27 | 28 | NAPRIX A | anlodipino + ramipril | Profissional | 30 | 8a9a2d471261 |
+| 28 | 29 | losartana potássica | losartana | Profissional | 50 | 170f04dd2e48 |
+| 29 | 30 | losartana potássica + hidroclorotiazida | hidroclorotiazida + losartana | Profissional | 72 | 843aea183c25 |
+| 30 | 31 | Losartana Potassica Paciente | hidroclorotiazida + losartana | Paciente | 47 | 0387226ea55b |
+| 31 | 32 | DORFLEX® DIP | dipirona | Profissional | 36 | 79507751289f |
+| 32 | 33 | NAPRIX A | anlodipino + ramipril | Paciente | 26 | 3a0b5f1ff277 |
+| 33 | 34 | NAPRIX D | hidroclorotiazida + ramipril | Paciente | 60 | 47353b1c9e80 |
+| 34 | 35 | NAPRIX D | hidroclorotiazida + ramipril | Profissional | 90 | e9921fe6247a |
+| 35 | 36 | Omeprazol Pac | omeprazol | Paciente | 28 | 18d9d87954ae |
+| 36 | 37 | Omeprazol Pro | omeprazol | Profissional | 34 | b6dbeb772e09 |
+| 37 | 38 | NAPRIX | ramipril | Paciente | 38 | 744a04f5c74b |
+| 38 | 39 | Naprix Pro | ramipril | Não classificada | 41 | b604c3163808 |
+| 39 | 40 | Torsilax | cafeína + carisoprodol + diclofenaco + paracetamol | Paciente | 44 | c7da4eefb048 |
+| 40 | 41 | Torsilax | cafeína + carisoprodol + diclofenaco + paracetamol | Profissional | 55 | a8f456729663 |
+| 41 | 42 | Dorflex Pac | cafeína + dipirona + orfenadrina | Não classificada | 164 | 438c20bd278a |
+| 42 | 43 | DORFLEX MAX® | cafeína + dipirona + orfenadrina | Profissional | 150 | ce7a52c3dce9 |
+| 43 | 44 | DORFLEX ® UNO | dipirona | Profissional | 80 | 344678b7fba5 |
+| 44 | 45 | DORFLEX® UNO | dipirona | Paciente | 83 | 9fda3f07709c |
+| 45 | 46 | Atrovent® N e Atrovent® | ipratrópio | Profissional | 47 | e917a0adb1ee |
+| 46 | 47 | BEROTEC | fenoterol | Profissional | 47 | b8077102b6ff |
+| 47 | 48 | BEROTEC | fenoterol | Paciente | 27 | 6b5d24738b30 |
+| 48 | 49 | DIPIRONA SODICA | dipirona | Paciente | 29 | f117c8fa91b4 |
+| 49 | 50 | DIPIRONA SÓDICA | dipirona | Profissional | 42 | 58696531239b |
+| 50 | 51 | Buscopan® Composto | dipirona + escopolamina | Profissional | 35 | b102ff84198d |
+| 51 | 52 | TYLENOL SINUS | paracetamol + pseudoefedrina | Paciente | 42 | 22bad83ce135 |
+| 52 | 53 | Bula 1794355324532 | levotiroxina | Não classificada | 102 | 07807a19cc89 |
+| 53 | 54 | Bula 1794354896812 | paracetamol + pseudoefedrina | Não classificada | 51 | c5e421e77d6d |
+| 54 | 55 | ciprofibrato | ciprofibrato | Paciente | 24 | d13674b0e1fa |
+| 55 | 56 | Bula 1794356010156 | amoxicilina | Paciente | 87 | c79815cbdb39 |
+| 56 | 57 | Glifage | metformina | Paciente | 57 | 7d8052c702a5 |
+| 57 | 58 | Bula 1794356209646 | isotretinoína | Paciente | 37 | 84f8c8c991bf |
+| 58 | 59 | Bula 1794355126111 | dipirona | Não classificada | 284 | e947a7e67a1d |
+| 59 | 60 | dexametasona | dexametasona | Profissional | 47 | b4646c52deaa |
+| 60 | 61 | Bula 1794357390631 | ácido acetilsalicílico | Profissional | 33 | 280845309fa1 |
+| 61 | 62 | Bula 1794357533352 | omeprazol | Não classificada | 71 | 4c72aa52f5fa |
+| 62 | 63 | COMBIGAN | brimonidina + timolol | Paciente | 32 | 936feb47fefa |
+| 63 | 64 | Bactrim | sulfametoxazol + trimetoprima | Paciente | 86 | 4f9cb4afbd38 |
+| 64 | 65 | PRADAXA® | dabigatrana | Paciente | 35 | 12800b14f70a |
+| 65 | 66 | Bactrim | sulfametoxazol + trimetoprima | Profissional | 64 | cfcf16927c4d |
+| 66 | 67 | Nome comercial: Xalatan® | latanaprosta | Paciente | 20 | e88218c779ac |
+| 67 | 68 | Norvasc Pac | anlodipino | Profissional | 50 | c4b957f30774 |
+| 68 | 69 | FOSAMAX® D | alendronato de sódio + colecalciferol | Paciente | 31 | ea9afd18164c |
+| 69 | 70 | PROLIA® | denosumabe | Paciente | 36 | 6eab743f942c |
+| 70 | 71 | Norvasc Pro | anlodipino | Não classificada | 59 | 14e26163618c |
+| 71 | 72 | Bula 1794371100884 | riluzol | Paciente | 28 | e53c83af93bb |
+| 72 | 73 | atenolol | atenolol | Paciente | 33 | 1349ddcd7961 |
+| 73 | 74 | indapamida | indapamida | Paciente | 34 | b600241670b8 |
+| 74 | 75 | DIAMICRON MR 30mg | gliclazida | Paciente | 89 | 883be104672b |
+| 75 | 76 | Jardiance Duo | empagliflozina + metformina | Paciente | 56 | 6fb878bd2d3b |
+| 76 | 77 | Jardiance | empagliflozina | Paciente | 93 | 978d16bbc852 |
+| 77 | 78 | Bula 1794370211702 | dapagliflozina | Não classificada | 62 | c3b902a07b6e |
+| 78 | 79 | LANTUS® | insulina glargina | Paciente | 84 | d7b8683da334 |
+| 79 | 80 | LÍPITOR | atorvastatina | Paciente | 69 | 034af481892c |
+| 80 | 81 | CRESTOR | rosuvastatina | Paciente | 48 | 48afbc49d7a6 |
+| 81 | 82 | Bula 1794370379700 | esomeprazole | Não classificada | 38 | 5c4a19bcabcd |
+| 82 | 83 | Bula 1794370358384 | pantoprazol | Não classificada | 131 | 68db8de6c114 |
+| | | **Total: 82 bulas** | 82 vinculadas | 11 não classificada, 33 paciente, 38 profissional | **5652** | |
 
-Fonte: Elaborado pelos autores a partir da base do sistema (2026).
-Nota: as bulas 1 a 17 foram processadas em 18 out. 2026 e a 18 em 6 nov. 2026. A coluna de vínculo reflete a avaliação de 7 nov. 2026; na reconstrução do catálogo de 8 nov. 2026, as bulas 7, 10 e 13 passaram a ter vínculo, e só a 9 permaneceu sem ele (seção 3.3). O documento 9 foi identificado pelos trechos de composição e dizeres legais (paracetamol 500 mg em sachês de 5 g, registro MS 1.0235.0764); seu texto segue o formato de perguntas e respostas da bula do paciente, embora tenha sido classificado como bula do profissional, classificação que deve ser revista. Antes da publicação, recomenda-se completar este quadro com a data de publicação de cada bula no Bulário Eletrônico.
+Fonte: Elaborado pelos autores a partir da base de produção (`GET /api/v1/stats/knowledge` e `GET /api/v1/audit/documents`, 11 nov. 2026).
+Nota: os princípios ativos aparecem em português; os que vêm do DDInter têm nome canônico em inglês no sistema. A bula 2 tem como título no sistema um trecho de sua composição (“excipientes q.s.p…”), extraído de forma incorreta, e deve ser renomeada na administração; as 11 bulas “não classificadas” não tiveram o público (paciente ou profissional) identificado. Os registros “ibuprofeno”, “besilato de anlodipino”, “losartana potássica” e “dipirona monoidratada” são os duplicados em português descritos na seção 3.3. Antes da publicação, recomenda-se completar este quadro com a data de publicação de cada bula no Bulário Eletrônico.
 
 **Quadro A.2 – Produtos da avaliação de interações (55) e cobertura**
 
@@ -529,47 +623,47 @@ Nota: as bulas 1 a 17 foram processadas em 18 out. 2026 e a 18 em 6 nov. 2026. A
 | --- | --- | --- |
 | Marevan | warfarin | Não |
 | Tylenol | acetaminophen | Sim |
-| Aspirina | acetylsalicylic acid | Não |
-| AAS | acetylsalicylic acid | Não |
-| Losartana potássica | losartan | Não |
-| Cataflam | diclofenac | Não |
-| Voltaren | diclofenac | Não |
+| Aspirina | acetylsalicylic acid | Sim |
+| AAS | acetylsalicylic acid | Sim |
+| Losartana potássica | losartan | Sim |
+| Cataflam | diclofenac | Sim |
+| Voltaren | diclofenac | Sim |
 | Omeprazol | omeprazole | Sim |
 | Pantoprazol | pantoprazole | Sim |
 | Amoxicilina | amoxicillin | Sim |
-| Azitromicina | azithromycin | Sim |
+| Azitromicina | azithromycin | Não |
 | Ciprofloxacino | ciprofloxacin | Não |
-| Glifage | metformin | Não |
+| Glifage | metformin | Sim |
 | Diovan | valsartan | Não |
-| Norvasc | amlodipine | Não |
-| Atenolol | atenolol | Não |
+| Norvasc | amlodipine | Sim |
+| Atenolol | atenolol | Sim |
 | Captopril | captopril | Não |
-| Maleato de enalapril | enalapril | Não |
+| Maleato de enalapril | enalapril | Sim |
 | Lasix | furosemide | Não |
-| Hidroclorotiazida | hydrochlorothiazide | Não |
-| Cloridrato de sertralina | sertraline | Não |
-| Cloridrato de fluoxetina | fluoxetine | Não |
-| Rivotril | clonazepam | Não |
+| Hidroclorotiazida | hydrochlorothiazide | Sim |
+| Cloridrato de sertralina | sertraline | Sim |
+| Cloridrato de fluoxetina | fluoxetine | Sim |
+| Rivotril | clonazepam | Sim |
 | Diazepam | diazepam | Não |
 | Haldol | haloperidol | Não |
-| Tegretol | carbamazepine | Não |
+| Tegretol | carbamazepine | Sim |
 | Gardenal | phenobarbital | Não |
 | Lamictal | lamotrigine | Não |
 | Neurontin | gabapentin | Não |
 | Prednisona | prednisone | Não |
-| Dexametasona | dexamethasone | Não |
-| Digoxina | digoxin | Não |
-| Cloridrato de amiodarona | amiodarone | Não |
+| Dexametasona | dexamethasone | Sim |
+| Digoxina | digoxin | Sim |
+| Cloridrato de amiodarona | amiodarone | Sim |
 | Bissulfato de clopidogrel | clopidogrel | Não |
 | Xarelto | rivaroxaban | Não |
-| Rosuvastatina cálcica | rosuvastatin | Não |
-| Atorvastatina cálcica | atorvastatin | Não |
+| Rosuvastatina cálcica | rosuvastatin | Sim |
+| Atorvastatina cálcica | atorvastatin | Sim |
 | Viagra | sildenafil | Não |
 | Fluconazol | fluconazole | Não |
 | Cetoconazol | ketoconazole | Não |
 | Itraconazol | itraconazole | Não |
 | Metronidazol | metronidazole | Não |
-| Claritromicina | clarithromycin | Não |
+| Claritromicina | clarithromycin | Sim |
 | Estolato de eritromicina | erythromycin | Não |
 | Ibuprofeno | ibuprofen | Sim |
 | Naproxeno | naproxen | Não |
@@ -584,37 +678,30 @@ Nota: as bulas 1 a 17 foram processadas em 18 out. 2026 e a 18 em 6 nov. 2026. A
 | Loratadina | loratadine | Não |
 
 Fonte: Elaborado pelos autores a partir dos conjuntos de teste (2026).
-Nota: excluídos por ausência do princípio ativo esperado no DDInter: Lexotan (bromazepam), Dorflex, Novalgina e Benegrip (dipirona). Pares com bula de pelo menos um fármaco: 309 de 1.483; de ambos: 15.
+Nota: excluídos por ausência do princípio ativo esperado no DDInter: Lexotan (bromazepam), Dorflex, Novalgina e Benegrip (dipirona). “Bula na base” refere-se à produção em 11 nov. 2026; Ibuprofeno e Norvasc chegavam às suas bulas pelos registros duplicados em português (seção 3.3). Pares com bula de pelo menos um fármaco: 1.048 de 1.483; de ambos: 298.
 
 ## APÊNDICE B – REGISTROS DE EXECUÇÃO DOS EXPERIMENTOS
 
-Todos os registros estão em `storage/app/evaluation/runs/` e guardam a versão do código, o conjunto de 18 bulas (*hash* `8c2eff89d180…`) e os *hashes* SHA-256 dos arquivos do DDInter usados. Os de 7 nov. 2026 usam o código `272b765` sem alterações locais e os 8 grupos do DDInter; os de 8 nov. 2026 usam a mesma versão com a correção do avaliador do modelo sem recuperação e os 14 grupos.
+Todos os experimentos foram executados no servidor de produção em 11 nov. 2026. Os registros do comando `evaluation:run` estão em `storage/app/evaluation/runs/` no servidor e podem ser consultados, em forma resumida, por `GET /api/v1/audit/evaluations`; cada um guarda o *hash* SHA-256 do conjunto de teste, os modelos, os parâmetros e os resultados. As execuções usaram o código na versão `947ea4e`; as perguntas livres, feitas antes, a versão `ab1d851`.
 
-| Experimento | Registro | Data |
-| --- | --- | --- |
-| Identificação (ajuste) | `20261107-172905-tcc-identification-v1-7786f8d3.json` | 7 nov. 2026 |
-| Identificação (reservado) | `20261107-172906-tcc-identification-heldout-d5196b2e.json` | 7 nov. 2026 |
-| Interações (1.483 pares, 14 grupos) | `20261108-181838-ddinter14-v2-a577c9d1.json` | 8 nov. 2026 |
-| Interações (protocolo de 30 pares, busca híbrida, 14 grupos) | `20261108-192514-ddinter14-protocol30-hybrid-b1b39c1f.json` | 8 nov. 2026 |
-| Geração (Claude Sonnet 5.5, 14 grupos) | `20261108-182107-ddinter14-generation-claude-22d34939.json` | 8 nov. 2026 |
-| Modelo sem recuperação (Claude, 14 grupos, resultado por par) | `20261108-192731-ddinter14-baseline-norag-claude-035df9dd.json` | 8 nov. 2026 |
-| Respostas de 7 nov. repontuadas com o rótulo de 14 grupos | `20261108-baseline-norag-claude-rescored-v2.json` | 8 nov. 2026 |
-| Interações (1.483 pares, 8 grupos) | `20261107-172952-tcc-interactions-v1-9bfebe2e.json` | 7 nov. 2026 |
-| Interações (protocolo de 30 pares, busca híbrida, 8 grupos) | `20261107-172958-tcc-interactions-protocol30-hybrid-cf0ebd77.json` | 7 nov. 2026 |
-| Recuperação (três modos) | `20261107-173000-tcc-retrieval-modes-a8f42789.json` | 7 nov. 2026 |
-| Geração (Claude Sonnet 5.5, 8 grupos) | `20261107-173630-tcc-generation-claude-1a0500e8.json` | 7 nov. 2026 |
-| Modelo sem recuperação (Claude, limite de 60 *tokens*; descartado) | `20261107-173148-tcc-baseline-norag-claude-ab1754b6.json` | 7 nov. 2026 |
-| Modelo sem recuperação (Claude, limite de 1.024 *tokens*, 8 grupos, resultado por par) | `20261107-baseline-norag-claude-1024-items.json` | 7 nov. 2026 |
-| Geração (Qwen2.5-1.5B) | `20261104-002136-generation-qwen15b-be2a4984.json` | 4 nov. 2026 |
-| Modelo sem recuperação (Qwen2.5-1.5B) | `20261104-002240-baseline-norag-qwen15b-2d16a6f2.json` | 4 nov. 2026 |
-| Versão anterior das interações (54 não identificados) | `20261104-002352-interactions-lexical-final-0576d52b.json` | 4 nov. 2026 |
-| Legibilidade (respostas do motor de perguntas) | tabela `medication_questions`, versão de *prompt* `interaction-explanation-v3:qa` (cálculo do índice por script não versionado) | 7 nov. 2026 |
+| Experimento | Registro ou fonte | Conjunto de teste (início do SHA-256) | Parâmetros |
+| --- | --- | --- | --- |
+| Identificação (ajuste) | `20261111-082042-prod-identificacao-ajuste-5a135fd9.json` | `identification.v2.json` (`a5f54b221e1a`) | — |
+| Identificação (reservado) | `20261111-082047-prod-identificacao-reservado-6ada6bd2.json` | `identification.heldout.json` (`d3519d0ae8b0`) | — |
+| Interações (1.483 pares) | `20261111-082209-prod-interacoes-1483-0d46ca9e.json` | `interactions.v2.json` (`62d2ed86ce1a`) | `--mode=lexical` |
+| Interações (protocolo de 30 pares) | `20261111-082248-prod-protocolo30-hibrido-7cdf5716.json` | `interactions.protocol30.v2.json` (`fa993eeddb40`) | `--mode=hybrid` |
+| Recuperação por assunto | `20261111-083312-prod-recuperacao-assuntos-87d8519f.json` | `retrieval.subjects.v1.json` (`5e2b54ee712c`) | `--mode=lexical,vector,hybrid` |
+| Modelo sem recuperação | `20261111-083815-prod-sem-recuperacao-120-9d8c430b.json` | `interactions.v2.json` (`62d2ed86ce1a`) | `--limit=120 --seed=42` |
+| Perguntas livres (234) | `docs/qa/avaliacao-producao-2026-11-11.json` e `.analise.json` | perguntas em `scripts/evaluation/bateria.py` | API `POST /api/v1/evaluation/ask` |
+| Legibilidade (269 pares) | `GET /api/v1/audit/readability` | respostas registradas em produção | — |
+| Inventário da base | `GET /api/v1/stats/knowledge` e `GET /api/v1/audit/tcc` | — | — |
 
 Fonte: Elaborado pelos autores (2026).
 
-Os identificadores acima permitem localizar e conferir cada registro, mas não bastam, sozinhos, para reproduzir os resultados. A reexecução depende de restaurar o mesmo estado dos dados e de usar os comandos do sistema, descritos a seguir; não houve reexecução por terceiros.
+Os identificadores acima permitem localizar e conferir cada registro, mas não bastam, sozinhos, para reproduzir os resultados. A reexecução depende do estado dos dados e dos comandos do sistema, descritos a seguir; não houve reexecução por terceiros.
 
-a) Estado dos dados: o conjunto das 18 bulas do Apêndice A (*hash* `8c2eff89d180…`, conferível no registro de cada execução), o catálogo da ANVISA e os arquivos do DDInter com os *hashes* SHA-256 gravados nos registros. Os arquivos do DDInter são importados com `php artisan knowledge:import-drug-interactions <pasta>`, e o catálogo de princípios ativos e os vínculos são reconstruídos com `php artisan knowledge:build-ingredients`. Bulas incluídas depois da avaliação alteram o *hash* do conjunto e devem ser retiradas para reproduzir os resultados.
-b) Conjuntos de teste: gerados a partir do gabarito manual com `php artisan evaluation:build-datasets` (versão v1, com os arquivos `identification.v1.json`, `interactions.v1.json` e `interactions.protocol30.v1.json` em `database/evaluation/`), `php artisan evaluation:build-datasets --name=v2` (gabarito de 14 grupos) e `php artisan evaluation:build-datasets --seed=database/evaluation/identification.heldout.seed.json --name=heldout --identification-only` (conjunto reservado). Os *hashes* SHA-256 dos arquivos gerados constam dos registros.
-c) Execuções: `php artisan evaluation:run <tarefa>`, com a tarefa `identification`, `interactions`, `retrieval`, `generation` ou `baseline` e as opções `--dataset` (caminho do conjunto de teste), `--mode` (`lexical`, `vector` ou `hybrid`; na recuperação, lista separada por vírgula), `--limit`, `--seed` (padrão 42) e `--label`. Os parâmetros de cada execução estão gravados no próprio registro; por exemplo, a geração de 8 nov. 2026 usou `php artisan evaluation:run generation --mode=hybrid --limit=12 --seed=42`, o protocolo de 30 pares `--dataset=database/evaluation/interactions.protocol30.v2.json --mode=hybrid`, a recuperação `--mode=lexical,vector,hybrid` e o modelo sem recuperação `--limit=60 --seed=42`. O comando grava cada registro em `storage/app/evaluation/runs/`. A avaliação do motor de perguntas livres com o modelo real é feita por `php artisan evaluation:conversation` (opções `--medicine`, `--other`, `--second`, `--label` e `--score`, esta para apenas repontuar um resultado já gerado), com resultados em `storage/app/evaluation/conversation/`.
-d) Limites da reprodução: as execuções que chamam o modelo de produção dependem de credencial do provedor e não são determinísticas, de modo que a geração e o modelo sem recuperação podem variar entre execuções (a Tabela 6 mostra essa variação); a versão padrão dos conjuntos de teste do comando passou a ser a v2, e as execuções sobre a v1 exigem `--dataset`; os registros de 8 nov. 2026 foram gravados com alterações locais sobre `272b765` (a correção do avaliador, depois incorporada ao histórico do repositório no *commit* `ac749e6`); os registros `20261107-baseline-norag-claude-1024-items.json` e `20261108-baseline-norag-claude-rescored-v2.json` não foram gerados pelo comando, mas por script à parte (o primeiro antes da correção do avaliador; o segundo apenas repontua as respostas do primeiro contra o gabarito v2, sem nova chamada ao modelo); e o cálculo do índice de legibilidade não está versionado no repositório.
+a) Estado dos dados: a base de produção descrita na seção 3.3 e no Apêndice A. Os arquivos do DDInter são importados com `knowledge:import-drug-interactions <pasta>`, e o catálogo de princípios ativos e os vínculos são reconstruídos com `knowledge:build-ingredients`. Bulas incluídas ou corrigidas depois da avaliação alteram os resultados.
+b) Conjuntos de teste: versionados em `database/evaluation/` e gerados a partir do gabarito manual com `evaluation:build-datasets --name=v2` (identificação e interações) e `evaluation:build-datasets --seed=database/evaluation/identification.heldout.seed.json --name=heldout --identification-only` (conjunto reservado); o conjunto por assunto (`retrieval.subjects.v1.json`) foi escrito à mão e se resolve no banco medido. Os *hashes* SHA-256 constam dos registros.
+c) Execuções: no servidor, `sudo bulai-deploy artisan evaluation:run <tarefa>`, com a tarefa `identification`, `interactions`, `retrieval`, `generation` ou `baseline` e as opções `--dataset`, `--mode` (`lexical`, `vector` ou `hybrid`; na recuperação, lista separada por vírgula), `--limit`, `--seed` (padrão 42) e `--label`. As perguntas livres são refeitas com `python3 scripts/evaluation/bateria.py <token> saida.json` e analisadas com `scripts/evaluation/analisar.py` e `relatorio.py`, com um *token* de API de escopo `api:evaluate`.
+d) Limites da reprodução: as execuções que chamam o modelo de linguagem não são determinísticas; a API de avaliação limita as perguntas a 300 por dia; e os resultados das seções 5.1 e 5.2 refletem a base antes da correção dos princípios ativos duplicados.
+e) Correção posterior à medição: a versão seguinte do sistema impede que o vínculo de uma bula ou a administração criem um princípio ativo em português quando o nome já leva, inclusive pelas regras de grafia, a um princípio ativo existente (`ActiveIngredientResolver::resolveAndLearn`), e funde os duplicados existentes no do DDInter durante `knowledge:build-ingredients` (`app/Services/Knowledge/DuplicateIngredientMerger.php`), movendo os vínculos de bulas e de medicamentos. Após publicá-la, executam-se `knowledge:build-ingredients` e, de novo, a identificação e as interações.

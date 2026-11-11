@@ -19,6 +19,7 @@ final class ActiveIngredientCatalogBuilder
         private readonly IngredientNameNormalizer $normalizer,
         private readonly ActiveIngredientResolver $resolver,
         private readonly IngredientTranslationService $translation,
+        private readonly DuplicateIngredientMerger $merger,
     ) {}
 
     /**
@@ -70,7 +71,7 @@ final class ActiveIngredientCatalogBuilder
     }
 
     /**
-     * @return array{ingredients: int, aliases_curated: int, curated_skipped: list<string>, components: int, components_linked: int, components_ambiguous: int, medicines_linked: int, medicines_total: int, interactions_linked: int, interactions_total: int}
+     * @return array{ingredients: int, aliases_curated: int, curated_skipped: list<string>, merged: list<array{from: string, into: string}>, components: int, components_linked: int, components_ambiguous: int, medicines_linked: int, medicines_total: int, interactions_linked: int, interactions_total: int}
      */
     public function build(?string $curatedCsvPath = null): array
     {
@@ -79,6 +80,8 @@ final class ActiveIngredientCatalogBuilder
 
         [$stats['aliases_curated'], $stats['curated_skipped']] = $this->loadCuratedAliases($curatedCsvPath ?? database_path('data/ingredient_aliases.csv'));
         $this->resolver->flush();
+
+        $stats['merged'] = $this->merger->merge();
 
         $stats += $this->linkMedicines();
         $stats += $this->linkInteractions();
@@ -160,7 +163,7 @@ final class ActiveIngredientCatalogBuilder
                 $found = false;
                 foreach ($texts as $text) {
                     $components++;
-                    $cache[$text] ??= $this->resolveAndLearn($text);
+                    $cache[$text] ??= $this->resolver->resolveAndLearn($text);
                     $resolution = $cache[$text];
                     $ambiguous += $resolution->status === IngredientResolution::AMBIGUOUS ? 1 : 0;
                     if (! $resolution->isResolved()) {
@@ -187,20 +190,6 @@ final class ActiveIngredientCatalogBuilder
             'components' => $components, 'components_linked' => $linked, 'components_ambiguous' => $ambiguous,
             'medicines_linked' => $medicinesLinked, 'medicines_total' => AnvisaMedicine::query()->count(),
         ];
-    }
-
-    private function resolveAndLearn(string $text): IngredientResolution
-    {
-        [$resolution, $learnedAlias] = $this->resolver->resolveWithCognates($text);
-        if ($resolution->method === ActiveIngredientResolver::METHOD_COGNATE_RULE && $learnedAlias !== null) {
-            ActiveIngredientAlias::query()->firstOrCreate(
-                ['ingredient_id' => $resolution->ingredientId, 'normalized_alias' => $learnedAlias],
-                ['alias' => $learnedAlias, 'language' => 'pt', 'origin' => 'rule', 'review_status' => 'pending_review'],
-            );
-            $this->resolver->flush();
-        }
-
-        return $resolution;
     }
 
     /** @param array<string, array<string, mixed>> $rows */

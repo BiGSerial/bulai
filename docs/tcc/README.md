@@ -67,7 +67,7 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 | [20-integracao-anthropic.md](20-integracao-anthropic.md) | 2.6.3, 3.3.1, 3.3.3 |
 | [21-pwa-privacidade-e-seguranca-do-usuario-final.md](21-pwa-privacidade-e-seguranca-do-usuario-final.md) | 3.3.2 (etapa 4), 3.4 (Fase 4), 3.5.3 |
 | [22-protocolos-de-validacao-profissional-e-usabilidade.md](22-protocolos-de-validacao-profissional-e-usabilidade.md) | 3.5.1, 3.5.2 (protocolos; **não executados**) |
-| [23-resultados-experimentais.md](23-resultados-experimentais.md) | 3.5.1, 3.5.3 |
+| [23-resultados-experimentais.md](23-resultados-experimentais.md) | Histórico do desenvolvimento; **não usado no TCC** (o texto final usa só a produção de 11/11/2026: [`../qa/avaliacao-producao-2026-11-11.md`](../qa/avaliacao-producao-2026-11-11.md) e registros `prod-*`) |
 | [24-bula-humanizada-contexto-de-tratamento-e-analytics.md](24-bula-humanizada-contexto-de-tratamento-e-analytics.md) | 2.7.1, 2.7.2, 3.3.1, 3.3.2 (etapas 3–5), 3.5.1, 3.5.3 |
 | [25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md](25-programacao-do-tratamento-avisos-e-remedios-fora-do-catalogo.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |
 | [26-experiencia-nativa-conversa-com-contexto-e-tolerancia-a-erros.md](26-experiencia-nativa-conversa-com-contexto-e-tolerancia-a-erros.md) | 3.3.2 (etapas 4 e 5), 3.4 (Fase 4), 3.5.3 |
