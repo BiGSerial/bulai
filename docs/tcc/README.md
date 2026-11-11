@@ -75,3 +75,23 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 | [28-indice-de-busca-como-etapa-propria-lotes-de-embeddings-e-fuso-horario.md](28-indice-de-busca-como-etapa-propria-lotes-de-embeddings-e-fuso-horario.md) | 3.3.2 (etapa de embeddings), 3.5.2, 3.5.3 |
 | [29-perguntar-confiavel-bula-inteira-evidencia-auditavel-e-revisao-humana.md](29-perguntar-confiavel-bula-inteira-evidencia-auditavel-e-revisao-humana.md) | 3.3.2 (etapas 4 e 5), 3.3.3 (recuperação e geração), 3.4 (Fase 4), 3.5.3 |
 | [30-motor-conversacional-do-perguntar-humanizar-a-bula.md](30-motor-conversacional-do-perguntar-humanizar-a-bula.md) | 3.3.2 (etapas 4 e 5), 3.3.3 (geração e validação), 3.4 (Fase 4), 3.5.1, 3.5.3 |
+
+## Texto final (artigo científico)
+
+O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), e a versão em Word, gerada a partir dele, em `Word/TCC_BULA-IA_artigo_2026-11-11.docx`. Todos os números vêm do servidor de produção em 11/11/2026 (registros `prod-*`, Apêndice B).
+
+O texto segue o formato de artigo científico e foi revisado em 11/11/2026 contra estas normas:
+
+- **Estrutura (ABNT NBR 6022:2018):** título em português e em inglês; autores com a qualificação em nota de rodapé; resumo e *abstract* de até 250 palavras (ABNT NBR 6028:2021), cada um com palavras-chave em minúsculas, separadas por ponto e vírgula e terminadas em ponto; depois, introdução, desenvolvimento, considerações finais, referências e apêndices.
+- **Citações (ABNT NBR 10520:2023):** sobrenome e entidade em maiúsculas e minúsculas nas citações entre parênteses, por exemplo (Lewis et al., 2020) e (World Health Organization, 2017). As referências continuam em caixa alta.
+- **Referências (ABNT NBR 6023:2018):** documentos *online* com "Disponível em:" e "Acesso em:"; DOI quando existe; alinhamento à esquerda, espaço simples e uma linha em branco entre as referências. Toda citação tem referência, e toda referência é citada.
+- **Siglas:** cada sigla é definida por extenso na primeira ocorrência: ANVISA, OMS, LLM, RAG, OCR, API, ATC, IC, MRR, SUS, PWA, LGPD e SAMU.
+- **Tabelas e quadros:** título acima, "Fonte:" e "Nota:" abaixo. Tabelas trazem dados numéricos e têm as laterais abertas; quadros trazem texto e são fechados.
+- **Datas:** por extenso no texto ("11 de novembro de 2026"); abreviadas só nas referências e nos títulos dos quadros do apêndice.
+- **Formato do .docx:** A4; margens de 3 cm (superior e esquerda) e 2 cm (inferior e direita); Times New Roman 12 com espaçamento 1,5; recuo de 1,25 cm; tabelas, notas e referências em tamanho menor, com espaço simples; número da página no canto superior direito.
+- **Extensão:** limite de 25 páginas sem contar referências e apêndices. A contagem foi feita no Word sobre o .docx: o texto vai da página 1 à 24, as referências começam na 25, e os apêndices, na 28.
+- **Caminhos de código:** saíram do corpo do texto e ficaram no Apêndice B, junto com os comandos de reprodução.
+
+Não há manual de artigo da FAESA publicado. Se a coordenação ou o orientador tiver um modelo próprio (fonte, espaçamento, folha de rosto, notas dos autores), ele prevalece sobre os itens de formato acima.
+
+Pendente: reexecutar a identificação e as interações após o deploy da correção dos princípios ativos duplicados (#60) e o `knowledge:build-ingredients`, e então atualizar as seções 5.1 e 5.2.
