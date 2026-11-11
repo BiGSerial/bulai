@@ -8,6 +8,7 @@ use App\Models\Knowledge\ActiveIngredient;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeLeafletFact;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
+use App\Services\Knowledge\AnvisaCatalogNormalizer;
 use App\Services\Knowledge\KnowledgeDocumentIngredientLinker;
 use App\Services\Knowledge\ProcessingTimeline;
 use Illuminate\Contracts\View\View;
@@ -84,7 +85,7 @@ class Show extends Component
     {
         $metadata = (array) $this->document->metadata;
         $this->identity = [
-            'product_name' => $this->document->medicineName(),
+            'product_name' => $this->document->medicineName() !== '' ? $this->document->medicineName() : (string) $this->suggestedMedicineName(),
             'active_ingredient' => (string) ($metadata['active_ingredient'] ?? ''),
             'document_type' => (string) $this->document->document_type,
             'registration_number' => (string) ($metadata['registration_number'] ?? ''),
@@ -93,6 +94,29 @@ class Show extends Component
         ];
         $this->resetValidation();
         $this->editingIdentity = true;
+    }
+
+    /**
+     * Nome do medicamento sugerido pelo próprio texto: a primeira linha curta do começo da bula que é um produto do
+     * catálogo ANVISA ("paracetamol", "RENITEC"). Serve para bulas de título genérico ("Bula 1790900554429").
+     */
+    private function suggestedMedicineName(): ?string
+    {
+        $catalog = app(AnvisaCatalogNormalizer::class);
+        foreach ($this->document->chunks()->orderBy('chunk_index')->limit(3)->pluck('content') as $content) {
+            foreach (preg_split('/\R+/u', (string) $content) ?: [] as $line) {
+                $line = trim((string) preg_replace('/[®™"“”]/u', '', $line));
+                if (mb_strlen($line) < 4 || mb_strlen($line) > 60 || preg_match('/^\p{L}[\p{L} +\-]*$/u', $line) !== 1) {
+                    continue;
+                }
+                $product = DB::table('anvisa_medicines')->where('normalized_product_name', $catalog->text($line))->value('product_name');
+                if ($product !== null) {
+                    return (string) $product;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -204,6 +228,8 @@ class Show extends Component
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),
             'ingredientOptions' => $this->ingredientOptions(),
+            'suggestedName' => $this->document->medicineName() === '' ? $this->suggestedMedicineName() : null,
+            'pdfAvailable' => $this->document->storage_key !== null || $this->document->storage_path !== null,
             // Começo do texto: identifica a bula de título genérico sem abrir o PDF.
             'opening' => Str::limit(trim((string) $this->document->chunks()->orderBy('chunk_index')->value('content')), 400),
             // Evidências extraídas da bula inteira pela IA em perguntas de pacientes (auditáveis: trecho, seção, página, hash).

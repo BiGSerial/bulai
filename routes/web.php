@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\KnowledgeBatchItemFileController;
+use App\Http\Controllers\Admin\KnowledgeDocumentFileController;
 use App\Http\Controllers\Admin\KnowledgeStreamController;
 use App\Http\Controllers\Admin\ReportDownloadController;
 use App\Http\Controllers\Admin\ServiceHealthController;
@@ -154,6 +155,7 @@ Route::prefix('admin')
         Route::get('/knowledge/documents', AdminDocumentIndex::class)->name('knowledge.documents.index');
         Route::get('/knowledge/documents/create', AdminDocumentCreate::class)->name('knowledge.documents.create');
         Route::get('/knowledge/documents/{document}', AdminDocumentShow::class)->name('knowledge.documents.show');
+        Route::get('/knowledge/documents/{document}/pdf', KnowledgeDocumentFileController::class)->name('knowledge.documents.pdf');
         Route::get('/knowledge/batches', KnowledgeBatchIndex::class)->name('knowledge.batches.index');
         Route::get('/knowledge/batches/{batch}', KnowledgeBatchShow::class)->name('knowledge.batches.show');
         Route::get('/knowledge/catalog', KnowledgeCatalogIndex::class)->name('knowledge.catalog.index');

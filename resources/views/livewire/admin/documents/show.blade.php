@@ -77,7 +77,10 @@
             @php $metadata = (array) $document->metadata; @endphp
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="text-sm font-semibold text-slate-800">Identificação</h2>
-                @unless ($editingIdentity)<x-knowledge-admin.button variant="secondary" size="sm" wire:click="editIdentity" data-testid="edit-identity">Editar</x-knowledge-admin.button>@endunless
+                <div class="flex flex-wrap gap-2">
+                    @if ($pdfAvailable)<x-knowledge-admin.button variant="secondary" size="sm" :href="route('admin.knowledge.documents.pdf', $document)" target="_blank" rel="noopener" data-testid="open-pdf">Abrir a bula (PDF)</x-knowledge-admin.button>@endif
+                    @unless ($editingIdentity)<x-knowledge-admin.button size="sm" wire:click="editIdentity" data-testid="edit-identity">Editar identificação</x-knowledge-admin.button>@endunless
+                </div>
             </div>
             @if ($editingIdentity)
                 <form wire:submit="saveIdentity" class="grid gap-3 sm:grid-cols-2">
@@ -96,7 +99,7 @@
                 </form>
             @else
                 <x-knowledge-admin.facts class="sm:grid-cols-2 lg:grid-cols-4">
-                    <x-knowledge-admin.fact label="Medicamento">{{ $document->medicineName() !== '' ? $document->medicineName() : 'Não identificado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Medicamento">{{ $document->medicineName() !== '' ? $document->medicineName() : 'Não identificado' }}@if ($suggestedName)<span class="block text-xs font-normal text-amber-700">Pelo texto, parece ser {{ $suggestedName }}: confira e salve em Editar identificação.</span>@endif</x-knowledge-admin.fact>
                     <x-knowledge-admin.fact label="Princípio ativo declarado">{{ $metadata['active_ingredient'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
                     <x-knowledge-admin.fact label="Princípios ativos ligados">{{ $ingredients->isNotEmpty() ? $ingredients->pluck('canonical_name')->join(', ') : 'Nenhum' }}</x-knowledge-admin.fact>
                     <x-knowledge-admin.fact label="Tipo">{{ $document->documentTypeLabel() }}</x-knowledge-admin.fact>
@@ -216,6 +219,9 @@
                         <x-knowledge-admin.fact label="Idioma">{{ $document->language ?: 'Não informado' }}</x-knowledge-admin.fact>
                         <x-knowledge-admin.fact class="sm:col-span-2 lg:col-span-3" label="Assinatura do arquivo (SHA-256)"><span class="break-all font-mono text-xs">{{ $document->sha256 ?? 'Sem PDF' }}</span></x-knowledge-admin.fact>
                     </x-knowledge-admin.facts>
+                    @if ($pdfAvailable)
+                        <iframe src="{{ route('admin.knowledge.documents.pdf', $document) }}" title="PDF da bula" class="mt-4 h-screen w-full rounded-lg border border-slate-200 bg-white" loading="lazy" data-testid="pdf-viewer"></iframe>
+                    @endif
                 </x-knowledge-admin.card>
             </div>
 

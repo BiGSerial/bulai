@@ -17,6 +17,7 @@ use App\Services\Knowledge\ProcessingTimeline;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -132,14 +133,32 @@ final class KnowledgeIngredientLinkActionsTest extends TestCase
         Livewire::actingAs($admin)->test(Index::class)->assertSee('Medicamento não identificado')->assertSee('Sem princípio ativo ligado');
         Livewire::actingAs($admin)->test(Show::class, ['document' => $document])
             ->assertSee('Identificação')->assertSee('IDENTIFICAÇÃO DO MEDICAMENTO')
-            ->call('editIdentity')->assertSet('identity.product_name', '')
-            ->set('identity.title', '')->call('saveIdentity')->assertHasErrors(['identity.product_name', 'identity.title'])
+            ->call('editIdentity')->assertSet('identity.product_name', 'RENITEC')
+            ->set('identity.product_name', '')->set('identity.title', '')->call('saveIdentity')->assertHasErrors(['identity.product_name', 'identity.title'])
             ->set('identity.product_name', 'RENITEC')->set('identity.title', 'RENITEC — Bula do profissional de saúde')->set('identity.document_type', 'bula_paciente')
             ->call('saveIdentity')->assertHasNoErrors()->assertSee('Identificação salva. Princípios ativos ligados: 1.')->assertSet('editingIdentity', false);
 
         $document->refresh();
         $this->assertSame(['RENITEC', 'bula_paciente', 'RENITEC — Bula do profissional de saúde'], [$document->metadata['product_name'], $document->document_type, $document->title]);
         Livewire::actingAs($admin)->test(Index::class)->set('search', 'enalapril')->assertSee('RENITEC')->assertSee('Enalapril')->assertDontSee('Medicamento não identificado');
+    }
+
+    public function test_the_admin_opens_the_stored_pdf_and_gets_a_name_suggested_from_the_text(): void
+    {
+        Storage::fake('knowledge');
+        config(['knowledge.filesystem_disk' => 'knowledge']);
+        $admin = User::factory()->admin()->create();
+        $document = $this->document('Bula 1790900554429');
+        $document->chunks()->update(['content' => "500mg\nRENITEC\nUSO ORAL"]);
+        Storage::disk('knowledge')->put("knowledge/originals/{$document->id}/bula.pdf", '%PDF-1.4 bula');
+        $document->forceFill(['storage_disk' => 'knowledge', 'storage_key' => "knowledge/originals/{$document->id}/bula.pdf", 'original_filename' => 'bula_1790900554429.pdf'])->save();
+
+        Livewire::actingAs($admin)->test(Show::class, ['document' => $document])
+            ->assertSee('Pelo texto, parece ser RENITEC')->assertSee(route('admin.knowledge.documents.pdf', $document))->assertSee('data-testid="pdf-viewer"', false)
+            ->call('editIdentity')->assertSet('identity.product_name', 'RENITEC');
+        $this->actingAs($admin)->get(route('admin.knowledge.documents.pdf', $document))->assertOk()->assertHeader('Content-Type', 'application/pdf')->assertStreamedContent('%PDF-1.4 bula');
+        $this->actingAs(User::factory()->create())->get(route('admin.knowledge.documents.pdf', $document))->assertForbidden();
+        $this->actingAs($admin)->get(route('admin.knowledge.documents.pdf', $this->document('Sem arquivo')))->assertNotFound();
     }
 
     public function test_documents_list_queues_the_link_of_every_ready_document_without_ingredients(): void
