@@ -156,6 +156,26 @@ final class PerguntarConfiavelTest extends TestCase
         $component->call('corrigir', $dorflex->id)->assertSee('Pode dar sono e tontura em algumas pessoas.')->assertSee('Baseado na bula do paciente de DORFLEX.');
     }
 
+    public function test_a_brand_finds_its_own_leaflet_and_never_another_combination_that_shares_one_ingredient(): void
+    {
+        $dorflex = $this->medicine('DORFLEX', 'CITRATO DE ORFENADRINA, CAFEÍNA ANIDRA', 'orphenadrine');
+        $caffeine = ActiveIngredient::query()->create(['normalized_name' => 'caffeine', 'canonical_name' => 'Caffeine']);
+        $carisoprodol = ActiveIngredient::query()->create(['normalized_name' => 'carisoprodol', 'canonical_name' => 'Carisoprodol']);
+        $dorflex->ingredients()->attach($caffeine->id, ['component_text' => 'CAFEÍNA ANIDRA', 'method' => 'alias', 'confidence' => 1]);
+        $torsilax = $this->leaflet('Torsilax — Bula do paciente', ['INDICAÇÕES' => 'Torsilax é indicado para reumatismo.'], ingredientId: $caffeine->id);
+        DB::table('knowledge_document_ingredients')->insert(['document_id' => $torsilax->id, 'ingredient_id' => $carisoprodol->id, 'method' => 'registration', 'confidence' => 1, 'created_at' => now(), 'updated_at' => now()]);
+        $own = $this->leaflet('Dorflex Pac', ['INDICAÇÕES' => 'Dorflex é indicado para dor associada a contraturas musculares.']);
+        $this->leaflet('DORFLEX MAX®', ['INDICAÇÕES' => 'Outro produto.']);
+        $this->leaflet('DORFLEX® UNO', ['INDICAÇÕES' => 'Outro produto.']);
+        $coffee = $this->medicine('CAFEINA', 'CAFEÍNA ANIDRA', 'caffeine');
+
+        $found = app(MedicineLeafletFinder::class)->find($dorflex);
+        $alone = app(MedicineLeafletFinder::class)->find($coffee);
+
+        $this->assertSame([[$own->id], MedicineLeafletFinder::BY_NAME], [$found['document_ids'], $found['method']], 'a bula da marca, sem o Torsilax (outra associação) nem DORFLEX MAX/UNO (outros produtos)');
+        $this->assertSame([$torsilax->id], $alone['document_ids'], 'remédio de um ativo só ainda usa a bula da associação que o contém');
+    }
+
     public function test_a_medicine_without_catalog_link_is_linked_on_the_fly_or_its_leaflet_is_found_by_name(): void
     {
         $user = User::factory()->create();

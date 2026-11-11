@@ -4,12 +4,15 @@ namespace App\Livewire\Admin\Documents;
 
 use App\Jobs\IndexKnowledgeDocumentEmbeddings;
 use App\Jobs\ProcessKnowledgeDocument;
+use App\Models\Knowledge\ActiveIngredient;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeLeafletFact;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
 use App\Services\Knowledge\KnowledgeDocumentIngredientLinker;
 use App\Services\Knowledge\ProcessingTimeline;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -20,6 +23,9 @@ class Show extends Component
     public KnowledgeDocument $document;
 
     public ?string $processingFeedback = null;
+
+    /** Busca de princípio ativo para ligar à bula (aba Princípios ativos). */
+    public string $ingredientSearch = '';
 
     public function mount(KnowledgeDocument $document): void
     {
@@ -68,6 +74,61 @@ class Show extends Component
         $this->document->refresh();
     }
 
+    /** Correção manual: liga o princípio ativo à bula (o vínculo automático não o desfaz). */
+    public function attachIngredient(int $ingredientId, KnowledgeDocumentIngredientLinker $linker): void
+    {
+        $ingredient = ActiveIngredient::query()->find($ingredientId);
+        if ($ingredient === null) {
+            return;
+        }
+        $linker->attach($this->document, $ingredient);
+        $this->ingredientSearch = '';
+        $this->processingFeedback = "{$ingredient->canonical_name} ligado a esta bula. O Perguntar e a bula simples já a encontram por ele.";
+        $this->document->refresh();
+    }
+
+    /** Correção manual: tira o princípio ativo da bula; o vínculo automático não o traz de volta. */
+    public function detachIngredient(int $ingredientId, KnowledgeDocumentIngredientLinker $linker): void
+    {
+        $linker->detach($this->document, $ingredientId);
+        $name = ActiveIngredient::query()->whereKey($ingredientId)->value('canonical_name');
+        $this->processingFeedback = "{$name} não está mais ligado a esta bula.";
+        $this->document->refresh();
+    }
+
+    /** Princípio ativo que o catálogo não tem (ex.: dipirona): cria pelo nome buscado e liga à bula. */
+    public function createIngredient(KnowledgeDocumentIngredientLinker $linker): void
+    {
+        $ingredient = $linker->createIngredient($this->ingredientSearch);
+        if ($ingredient === null) {
+            $this->processingFeedback = 'Informe o nome do princípio ativo com pelo menos 4 letras.';
+
+            return;
+        }
+        $this->attachIngredient($ingredient->id, $linker);
+    }
+
+    /**
+     * Princípios ativos pelo nome canônico ou por um alias (português ou inglês), até 8.
+     *
+     * @return list<array{id: int, name: string, alias: string|null}>
+     */
+    private function ingredientOptions(): array
+    {
+        $term = Str::lower(Str::ascii(trim($this->ingredientSearch)));
+        if (mb_strlen($term) < 3) {
+            return [];
+        }
+
+        return DB::table('active_ingredients as i')
+            ->leftJoin('active_ingredient_aliases as a', fn ($join) => $join->on('a.ingredient_id', '=', 'i.id')->where('a.normalized_alias', 'like', $term.'%'))
+            ->where(fn ($query) => $query->where('i.normalized_name', 'like', $term.'%')->orWhereNotNull('a.id'))
+            ->selectRaw('i.id, i.canonical_name, min(a.alias) as alias')
+            ->groupBy('i.id', 'i.canonical_name')->orderBy('i.canonical_name')->limit(8)->get()
+            ->map(fn (object $row): array => ['id' => (int) $row->id, 'name' => (string) $row->canonical_name, 'alias' => $row->alias !== null && Str::lower((string) $row->alias) !== Str::lower((string) $row->canonical_name) ? (string) $row->alias : null])
+            ->all();
+    }
+
     /** Revisão farmacêutica de uma evidência extraída da bula pela IA (verificada ou rejeitada; rejeitada deixa de ser usada). */
     public function reviewFact(int $factId, string $status): void
     {
@@ -91,6 +152,7 @@ class Show extends Component
 
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),
+            'ingredientOptions' => $this->ingredientOptions(),
             // Evidências extraídas da bula inteira pela IA em perguntas de pacientes (auditáveis: trecho, seção, página, hash).
             'facts' => KnowledgeLeafletFact::query()->with(['chunk:id,chunk_index', 'medicine:id,product_name'])->where('document_id', $this->document->id)->orderByDesc('id')->limit(100)->get(),
             'processing' => $this->document->metadata['processing'] ?? [],

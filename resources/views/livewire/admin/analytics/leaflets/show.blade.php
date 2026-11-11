@@ -1,4 +1,4 @@
-<x-knowledge-admin.shell :title="$ingredients !== [] ? implode(', ', $ingredients) : 'Princípios ativos '.$summary->ingredient_key" :back="route('admin.analytics.leaflets.index')" backLabel="Bulas humanizadas">
+<x-knowledge-admin.shell :title="$summary->subjectLabel()" :back="route('admin.analytics.leaflets.index')" backLabel="Bulas humanizadas">
 @php
     $statusLabels = ['generated' => 'Gerada', 'partial' => 'Parcial', 'invalid' => 'Rejeitada na validação', 'unavailable' => 'Indisponível'];
 @endphp

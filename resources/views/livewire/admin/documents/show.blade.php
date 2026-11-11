@@ -11,7 +11,7 @@
         };
         $ingredients = $document->relationLoaded('ingredients') ? $document->ingredients : collect();
     @endphp
-    <div x-data="{ tab: ['trechos', 'evidencias', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
+    <div x-data="{ tab: ['trechos', 'principios', 'evidencias', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
         <x-knowledge-admin.page-header :badge="$label" :badge-tone="$tone" :meta="[$document->documentTypeLabel(), $document->source->name]">
             @if ($hasFile)
                 <x-slot:primary>
@@ -85,7 +85,38 @@
         </x-knowledge-admin.card>
 
         <div class="grid gap-4">
-            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'evidencias', 'label' => 'Evidências extraídas ('.$facts->count().')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'principios', 'label' => 'Princípios ativos ('.$ingredients->count().')'], ['key' => 'evidencias', 'label' => 'Evidências extraídas ('.$facts->count().')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+
+            {{-- Correção do vínculo bula ↔ princípio ativo: é por ele que o Perguntar e a bula simples acham esta bula. --}}
+            <div x-show="tab === 'principios'" x-cloak role="tabpanel" class="grid gap-3" data-testid="ingredient-links">
+                <p class="text-sm text-slate-600">Princípios ativos de que esta bula trata. Tire o que estiver errado e ligue o certo: a correção manual fica, e o "Revincular" automático não a desfaz.</p>
+                <ul class="grid gap-2">
+                    @forelse ($ingredients as $ingredient)
+                        <li wire:key="ing-{{ $ingredient->id }}" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                            <span class="min-w-0"><span class="font-medium text-slate-800">{{ $ingredient->canonical_name }}</span> <x-knowledge-admin.badge :tone="$ingredient->pivot->method === 'manual' ? 'success' : 'neutral'">{{ $ingredient->pivot->method === 'manual' ? 'manual' : 'automático · '.$ingredient->pivot->method }}</x-knowledge-admin.badge></span>
+                            <x-knowledge-admin.button variant="secondary" size="sm" wire:click="detachIngredient({{ $ingredient->id }})" wire:loading.attr="disabled" data-testid="detach-ingredient-{{ $ingredient->id }}">Tirar</x-knowledge-admin.button>
+                        </li>
+                    @empty
+                        <li class="text-sm text-slate-500">Nenhum princípio ativo ligado.</li>
+                    @endforelse
+                </ul>
+                <div class="grid gap-2">
+                    <x-knowledge-admin.input label="Ligar princípio ativo" wire:model.live.debounce.300ms="ingredientSearch" placeholder="Nome em português ou inglês (ex.: dipirona)" autocomplete="off" data-testid="ingredient-search" />
+                    @if (mb_strlen(trim($ingredientSearch)) >= 3)
+                        <ul class="grid gap-1">
+                            @foreach ($ingredientOptions as $option)
+                                <li wire:key="opt-{{ $option['id'] }}" class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                                    <span>{{ $option['name'] }}@if ($option['alias'] !== null) <span class="text-slate-500">({{ $option['alias'] }})</span>@endif</span>
+                                    <x-knowledge-admin.button size="sm" wire:click="attachIngredient({{ $option['id'] }})" wire:loading.attr="disabled">Ligar</x-knowledge-admin.button>
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($ingredientOptions === [] && mb_strlen(trim($ingredientSearch)) >= 4)
+                            <x-knowledge-admin.button variant="secondary" wire:click="createIngredient" wire:loading.attr="disabled" data-testid="create-ingredient">Criar o princípio ativo “{{ trim($ingredientSearch) }}” e ligar</x-knowledge-admin.button>
+                        @endif
+                    @endif
+                </div>
+            </div>
 
             <div x-show="tab === 'evidencias'" x-cloak role="tabpanel" class="grid gap-2" data-testid="leaflet-facts">
                 <p class="text-sm text-slate-600">Trechos que a IA localizou na bula inteira quando a busca por trechos não respondeu a uma pergunta de paciente. Cada um aponta para o trecho, a seção, a página e a versão do documento; o Perguntar reaproveita os não rejeitados. Revise como farmacêutico: verificada, rejeitada ou apagada.</p>

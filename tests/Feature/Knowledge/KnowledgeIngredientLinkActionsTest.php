@@ -102,6 +102,27 @@ final class KnowledgeIngredientLinkActionsTest extends TestCase
             ->assertSee('data-testid="link-ingredients"', false);
     }
 
+    public function test_the_admin_fixes_a_wrong_link_and_the_automatic_link_keeps_the_correction(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $document = $this->document('RENITEC® — Bula do profissional de saúde');
+        app(KnowledgeDocumentIngredientLinker::class)->link($document);
+
+        $page = Livewire::actingAs($admin)->test(Show::class, ['document' => $document])
+            ->assertSee('Princípios ativos (1)')->assertSee('automático · catalog')
+            ->call('detachIngredient', $this->enalapril->id)->assertSee('Enalapril não está mais ligado a esta bula.')
+            ->set('ingredientSearch', 'dipi')->assertSee('Criar o princípio ativo “dipi” e ligar')
+            ->set('ingredientSearch', 'Dipirona Monoidratada')->call('createIngredient')
+            ->assertSee('Dipirona ligado a esta bula.');
+        $dipirona = ActiveIngredient::query()->where('normalized_name', 'dipirona')->sole();
+
+        $page->set('ingredientSearch', 'enala')->assertSee('Enalapril')->call('attachIngredient', $this->enalapril->id)->call('detachIngredient', $this->enalapril->id);
+        app(KnowledgeDocumentIngredientLinker::class)->link($document->fresh());
+
+        $this->assertSame([$dipirona->id => 'manual'], DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->pluck('method', 'ingredient_id')->all(), 'o tirado à mão não volta e o ligado à mão fica');
+        $this->assertSame([$this->enalapril->id], $document->fresh()->metadata['ingredient_links']['excluded']);
+    }
+
     public function test_documents_list_queues_the_link_of_every_ready_document_without_ingredients(): void
     {
         Queue::fake([LinkKnowledgeDocumentIngredients::class]);

@@ -146,6 +146,18 @@ final class BulaHumanizadaTest extends TestCase
             ->assertSee(route('consulta.bula', $brand->id))->assertSee('Bula simples disponível');
     }
 
+    public function test_the_admin_opens_a_generated_summary_named_by_its_ingredients(): void
+    {
+        $medicine = $this->omeprazol();
+        $this->script(['para_que_serve' => [['text' => 'É indicado para o tratamento de úlcera gástrica.', 'evidence_ids' => ['E1']]]]);
+        $summary = app(LeafletSummaryService::class)->forMedicine($medicine);
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin)->get(route('admin.analytics.leaflets.index'))->assertOk()->assertSee('OMEPRAZOLSUB')->assertDontSee('Princípios ativos '.$summary->ingredient_key);
+        $this->actingAs($admin)->get(route('admin.analytics.leaflets.show', $summary))->assertOk()->assertSee('OMEPRAZOLSUB')->assertSee('É indicado para o tratamento de úlcera gástrica.');
+        $this->actingAs($admin)->get(route('admin.analytics.leaflets.show', $summary).'?aba=evidencias')->assertOk()->assertSee('Sustenta a(s) afirmação(ões) Para que serve 1.');
+    }
+
     public function test_returns_null_without_identified_ingredient_or_without_a_registered_leaflet(): void
     {
         $service = app(LeafletSummaryService::class);

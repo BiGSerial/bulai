@@ -9,12 +9,16 @@ use Illuminate\Support\Facades\DB;
 /**
  * Localiza as bulas cadastradas de um medicamento do catálogo ANVISA, na ordem de confiança:
  *
- * 1. vínculo pelos princípios ativos (`anvisa_medicine_ingredients` → `knowledge_document_ingredients`), que é o caminho
- *    normal; quando o medicamento ainda não tem princípio ativo ligado (catálogo importado sem `knowledge:build-ingredients`,
- *    ou registro novo), o vínculo é feito na hora a partir do texto do ativo, com os mesmos aliases do construtor do
- *    catálogo, e gravado para as próximas consultas (interações DDInter e contexto do tratamento passam a funcionar);
- * 2. o nome: bulas cujo produto (metadado ou título) ou princípio ativo declarado é o mesmo do medicamento, comparados
- *    sem sais e hidratos ("maleato de enalapril" = "enalapril"). Cobre catálogo sem ingredientes e bulas sem vínculo.
+ * 1. a bula da própria marca: produto da bula (metadado ou título, sem ®, sem "Pac"/"Pro"/"Paciente") igual ao nome do
+ *    produto. "DORFLEX" acha "Dorflex Pac", e não "DORFLEX MAX®" nem "DORFLEX® UNO", que são outros produtos;
+ * 2. o vínculo pelos princípios ativos (`anvisa_medicine_ingredients` → `knowledge_document_ingredients`); quando o
+ *    medicamento ainda não tem princípio ativo ligado, o vínculo é feito na hora a partir do texto do ativo, com os mesmos
+ *    aliases do construtor do catálogo, e gravado para as próximas consultas. Só valem bulas cujos princípios ativos estão
+ *    todos no medicamento: a bula de outra associação que só divide um ativo (Torsilax e Dorflex dividem a cafeína) não
+ *    fala do remédio perguntado. Para remédio de um ativo só, na falta dessas, a bula de uma associação que o contém ainda
+ *    serve (ela descreve o ativo);
+ * 3. o princípio ativo declarado na bula igual ao do medicamento, comparado sem sais e hidratos ("maleato de enalapril" =
+ *    "enalapril"). Cobre catálogo sem ingredientes e bulas sem vínculo.
  *
  * Nunca escolhe uma bula "parecida": sem igualdade de nome ou de princípio ativo, devolve vazio e o Perguntar diz que não
  * tem a bula. A lista de bulas prontas é pequena (dezenas a centenas), por isso a comparação por nome roda em PHP.
@@ -51,20 +55,64 @@ final class MedicineLeafletFinder
         $ingredientIds = $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
         $result = ['ingredient_ids' => $ingredientIds, 'document_ids' => [], 'method' => null, 'linked_now' => $linkedNow];
 
-        if ($ingredientIds !== []) {
-            $documentIds = DB::table('knowledge_document_ingredients as di')
-                ->join('knowledge_documents as d', 'd.id', '=', 'di.document_id')
-                ->where('d.content_status', KnowledgeDocument::STATUS_READY)
-                ->whereIn('di.ingredient_id', $ingredientIds)
-                ->distinct()->orderBy('di.document_id')->pluck('di.document_id')->map(fn ($id): int => (int) $id)->all();
-            if ($documentIds !== []) {
-                return ['document_ids' => $documentIds, 'method' => self::BY_INGREDIENTS] + $result;
-            }
+        // A marca e o vínculo por princípio ativo se somam; sem vínculo, o nome (marca ou ativo declarado na bula) responde.
+        $sameProduct = $this->byProduct($medicine);
+        $byIngredients = $this->byIngredients($ingredientIds);
+        $documentIds = array_values(array_unique([...$sameProduct, ...($byIngredients !== [] ? $byIngredients : $this->byName($medicine))]));
+        sort($documentIds);
+        if ($documentIds === []) {
+            return $result;
         }
 
-        $documentIds = $this->byName($medicine);
+        return ['document_ids' => $documentIds, 'method' => $byIngredients !== [] && $sameProduct === [] ? self::BY_INGREDIENTS : self::BY_NAME] + $result;
+    }
 
-        return $documentIds === [] ? $result : ['document_ids' => $documentIds, 'method' => self::BY_NAME] + $result;
+    /**
+     * Bulas prontas ligadas aos princípios ativos do medicamento, só as que não trazem ativo de fora dele; remédio de um ativo
+     * só aceita, na falta delas, a bula de uma associação que o contém.
+     *
+     * @param  list<int>  $ingredientIds
+     * @return list<int>
+     */
+    private function byIngredients(array $ingredientIds): array
+    {
+        if ($ingredientIds === []) {
+            return [];
+        }
+        $documentIds = DB::table('knowledge_document_ingredients as di')
+            ->join('knowledge_documents as d', 'd.id', '=', 'di.document_id')
+            ->where('d.content_status', KnowledgeDocument::STATUS_READY)
+            ->whereIn('di.ingredient_id', $ingredientIds)
+            ->distinct()->orderBy('di.document_id')->pluck('di.document_id')->map(fn ($id): int => (int) $id)->all();
+        if ($documentIds === []) {
+            return [];
+        }
+        $foreign = DB::table('knowledge_document_ingredients')->whereIn('document_id', $documentIds)->whereNotIn('ingredient_id', $ingredientIds)
+            ->distinct()->pluck('document_id')->map(fn ($id): int => (int) $id)->all();
+        $own = array_values(array_diff($documentIds, $foreign));
+
+        return $own !== [] || count($ingredientIds) > 1 ? $own : $documentIds;
+    }
+
+    /**
+     * Bulas da própria marca: produto da bula igual ao nome do produto, sem as palavras que só dizem de quem é a bula.
+     *
+     * @return list<int>
+     */
+    private function byProduct(AnvisaMedicine $medicine): array
+    {
+        $product = $this->brand($this->catalog->text($medicine->product_name));
+        if ($product === '') {
+            return [];
+        }
+
+        return array_values(array_map(fn (array $leaflet): int => $leaflet['id'], array_filter($this->leaflets(), fn (array $leaflet): bool => $this->brand($leaflet['product']) === $product)));
+    }
+
+    /** "dorflex pac" → "dorflex"; "losartana potassica paciente" → "losartana potassica"; "naprix pro" → "naprix". */
+    private function brand(string $product): string
+    {
+        return trim((string) preg_replace('/(\s+(pac|pro|paciente|profissional|bula|do|da|de|saude))+$/', '', $product));
     }
 
     /** Esquece a lista de bulas desta requisição (depois de cadastrar ou vincular documentos em testes ou jobs). */

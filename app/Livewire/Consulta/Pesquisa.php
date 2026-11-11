@@ -8,7 +8,6 @@ use App\Services\Interactions\InteractionConsultationService;
 use App\Services\Interactions\MedicationSearchService;
 use App\Services\Patient\AllergyChecker;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
@@ -23,14 +22,39 @@ class Pesquisa extends Component
 
     public ?string $mensagem = null;
 
-    public function mount(): void
+    /** @var list<int> Remédios em uso do próprio paciente, que já entram na lista ("posso tomar junto com os meus?"). */
+    public array $meus = [];
+
+    /**
+     * Os remédios em uso (tratamento não encerrado) entram sozinhos; `com` acrescenta o remédio que a pessoa quer tomar junto
+     * (vindo da bula simples); `usar=1` ("Verificar interações entre eles") já verifica e abre o resultado.
+     */
+    public function mount(InteractionConsultationService $service): void
     {
-        if (request()->boolean('usar') && auth()->user()->hasHealthConsent()) {
-            $ids = PatientMedication::query()->matched()->where('user_id', auth()->id())->limit((int) config('bulai.consultation.max_medicines'))->pluck('medicine_id');
-            foreach ($ids as $id) {
-                $this->adicionar((int) $id);
-            }
+        foreach ($this->emUso() as $id) {
+            $this->adicionar($id);
         }
+        $this->meus = array_column($this->selecionados, 'id');
+        if (request()->integer('com') > 0) {
+            $this->adicionar(request()->integer('com'));
+        }
+        $this->mensagem = null;
+        if (request()->boolean('usar') && count($this->selecionados) >= 2) {
+            $this->verificar($service);
+        }
+    }
+
+    /** @return list<int> */
+    private function emUso(): array
+    {
+        if (! auth()->user()->hasHealthConsent()) {
+            return [];
+        }
+
+        return PatientMedication::query()->matched()->where('user_id', auth()->id())
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhereDate('ends_at', '>=', today()))
+            ->orderBy('id')->pluck('medicine_id')->unique()->take((int) config('bulai.consultation.max_medicines'))
+            ->map(fn ($id): int => (int) $id)->values()->all();
     }
 
     public function adicionar(int $id): void
@@ -84,13 +108,13 @@ class Pesquisa extends Component
         $this->mensagem = null;
     }
 
-    public function verificar(InteractionConsultationService $service): ?RedirectResponse
+    public function verificar(InteractionConsultationService $service): void
     {
         $this->mensagem = null;
         if (count($this->selecionados) < 2) {
             $this->mensagem = 'Selecione pelo menos dois medicamentos.';
 
-            return null;
+            return;
         }
 
         $userId = (int) auth()->id();
@@ -98,12 +122,12 @@ class Pesquisa extends Component
         if (RateLimiter::tooManyAttempts($key, (int) config('bulai.consultation.rate_limit_per_hour'))) {
             $this->mensagem = 'Você atingiu o limite de consultas por hora. Tente novamente mais tarde.';
 
-            return null;
+            return;
         }
 
         $lock = Cache::lock('consulta-iniciar:'.$userId, 10);
         if (! $lock->get()) {
-            return null;
+            return;
         }
 
         try {
@@ -113,7 +137,7 @@ class Pesquisa extends Component
             $lock->release();
         }
 
-        return redirect()->route('consulta.resultado', $consultation);
+        $this->redirectRoute('consulta.resultado', $consultation);
     }
 
     public function render(MedicationSearchService $search): View
@@ -133,7 +157,6 @@ class Pesquisa extends Component
             'buscou' => strlen(trim($this->busca)) >= 3,
             'limitado' => $limitado,
             'maximo' => (int) config('bulai.consultation.max_medicines'),
-            'meusRemedios' => auth()->user()->hasHealthConsent() ? PatientMedication::query()->matched()->where('user_id', auth()->id())->count() : 0,
         ]);
     }
 }

@@ -100,7 +100,7 @@
                 <div class="grid gap-2">
                     @if ($emUso->isNotEmpty())<x-consulta.botao variant="soft" size="md" :href="route('consulta.hoje')"><x-consulta.icone name="relogio" plain class="size-6" />Ver remédios de hoje</x-consulta.botao>@endif
                     <x-consulta.botao variant="secondary" size="md" :href="route('consulta.receita.nova')"><x-consulta.icone name="camera" plain class="size-6" />Fotografar receita</x-consulta.botao>
-                    @if ($emUso->count() >= 2)<x-consulta.botao variant="secondary" size="md" :href="route('consulta.pesquisa', ['usar' => 1])"><x-consulta.icone name="lupa" plain class="size-6" />Verificar interações entre eles</x-consulta.botao>@endif
+                    @if ($emUso->filter(fn ($item) => $item->isMatched() && $item->isActive())->count() >= 2)<x-consulta.botao variant="secondary" size="md" :href="route('consulta.pesquisa', ['usar' => 1])"><x-consulta.icone name="lupa" plain class="size-6" />Verificar interações entre eles</x-consulta.botao>@endif
                 </div>
             </section>
 

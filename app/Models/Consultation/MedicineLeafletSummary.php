@@ -2,6 +2,7 @@
 
 namespace App\Models\Consultation;
 
+use App\Models\Knowledge\ActiveIngredient;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
@@ -47,5 +48,17 @@ class MedicineLeafletSummary extends Model
         sort($ids);
 
         return implode('-', $ids);
+    }
+
+    /** De quem é o resumo, para a tela: os princípios ativos da chave ou, na chave por produto ("p:dorflex"), o produto. */
+    public function subjectLabel(): string
+    {
+        if (str_starts_with((string) $this->ingredient_key, 'p:')) {
+            return mb_strtoupper(mb_substr((string) $this->ingredient_key, 2));
+        }
+        $names = ActiveIngredient::query()->whereIn('id', array_filter(array_map('intval', explode('-', (string) $this->ingredient_key))))
+            ->orderBy('canonical_name')->pluck('canonical_name')->all();
+
+        return $names !== [] ? implode(', ', $names) : 'Princípios ativos '.$this->ingredient_key;
     }
 }
