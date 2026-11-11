@@ -98,6 +98,21 @@ final class EvaluationPipelineTest extends TestCase
         $this->assertSame(0.5, $interactions['abstention']['rate']);
         $this->assertSame(1.0, $interactions['conservative_recall']);
         $this->assertSame([], $interactions['major_interactions_missed']);
+        $this->assertSame(['products' => 4, 'products_with_leaflet' => [], 'pairs_with_a_leaflet_of_one' => 0, 'pairs_with_a_leaflet_of_both' => 0], $interactions['leaflet_coverage']);
+    }
+
+    public function test_interaction_run_counts_the_pairs_that_have_a_leaflet_in_the_database_being_measured(): void
+    {
+        app(DatasetBuilder::class)->build($this->seedWorld(), $this->directory);
+        $source = KnowledgeSource::query()->create(['name' => 'ANVISA', 'type' => 'document', 'active' => true]);
+        $document = KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => 'marevan', 'title' => 'Marevan — Bula', 'document_type' => 'bula_paciente', 'language' => 'pt-BR', 'metadata' => [], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'READY', 'content_hash' => 'h']);
+        DB::table('knowledge_document_ingredients')->insert(['document_id' => $document->id, 'ingredient_id' => ActiveIngredient::query()->where('normalized_name', 'warfarin')->value('id'), 'method' => 'manual', 'confidence' => 1, 'created_at' => now(), 'updated_at' => now()]);
+
+        $coverage = app(InteractionEvaluator::class)->run($this->directory.'/interactions.v1.json', 'lexical')['leaflet_coverage'];
+
+        $this->assertSame(['MAREVAN'], $coverage['products_with_leaflet']);
+        $this->assertSame(3, $coverage['pairs_with_a_leaflet_of_one']);
+        $this->assertSame(0, $coverage['pairs_with_a_leaflet_of_both']);
     }
 
     public function test_baseline_leaves_room_for_reasoning_and_records_each_pair(): void
