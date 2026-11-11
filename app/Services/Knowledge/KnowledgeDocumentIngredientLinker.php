@@ -133,7 +133,7 @@ final class KnowledgeDocumentIngredientLinker
     /** @param array<int, array{0: string, 1: float}> $found */
     private function remember(array &$found, string $text, string $method, float $confidence, bool $createWhenUnknown = false): void
     {
-        $resolution = $this->resolver->resolve($text);
+        $resolution = $createWhenUnknown ? $this->resolver->resolveAndLearn($text) : $this->resolver->resolve($text);
         if ($resolution->isResolved() && ! isset($found[$resolution->ingredientId])) {
             $found[$resolution->ingredientId] = [$method, $confidence];
 
@@ -170,10 +170,15 @@ final class KnowledgeDocumentIngredientLinker
 
     /**
      * Princípio ativo que o catálogo não tem (ex.: dipirona, que o DDInter não traz), criado no Admin a partir do nome em
-     * português, sem sal ("dipirona monoidratada" → "dipirona"); se já existe, é reaproveitado.
+     * português, sem sal ("dipirona monoidratada" → "dipirona"). Se o nome já leva a um princípio ativo, inclusive pela
+     * regra cognata ("ibuprofeno" → ibuprofen), é esse que se usa: um duplicado sem interações esconderia as do DDInter.
      */
     public function createIngredient(string $name): ?ActiveIngredient
     {
+        $resolution = $this->resolver->resolveAndLearn($name);
+        if ($resolution->isResolved()) {
+            return ActiveIngredient::query()->find($resolution->ingredientId);
+        }
         $normalized = $this->normalizer->base($name);
 
         return mb_strlen($normalized) >= 4 ? $this->createFromDocument($normalized) : null;

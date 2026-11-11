@@ -115,4 +115,44 @@ final class ActiveIngredientCatalogTest extends TestCase
         $this->assertSame([$ingredient->id], DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->pluck('ingredient_id')->all());
         $this->assertSame([$ingredient->id], $medicine->fresh()->ingredients->pluck('id')->all());
     }
+
+    public function test_a_leaflet_linked_before_the_catalog_knows_the_portuguese_name_uses_the_ddinter_ingredient(): void
+    {
+        $this->interaction('Ibuprofen', 'Warfarin');
+        app(ActiveIngredientCatalogBuilder::class)->build($this->csv(''));
+        $document = $this->leaflet('IBUPROFENO');
+
+        app(KnowledgeDocumentIngredientLinker::class)->link($document);
+
+        $this->assertSame(['ibuprofen'], ActiveIngredient::query()->whereIn('id', DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->pluck('ingredient_id'))->pluck('normalized_name')->all());
+        $this->assertSame(0, ActiveIngredient::query()->where('normalized_name', 'ibuprofeno')->count());
+        $this->assertSame('ibuprofen', app(KnowledgeDocumentIngredientLinker::class)->createIngredient('Ibuprofeno')?->normalized_name);
+    }
+
+    public function test_a_portuguese_duplicate_created_earlier_is_merged_and_the_medicine_gets_its_interactions_back(): void
+    {
+        $this->interaction('Ibuprofen', 'Warfarin');
+        $medicine = AnvisaMedicine::factory()->create(['product_name' => 'IBUPROFENO', 'active_ingredient' => 'IBUPROFENO']);
+        $document = $this->leaflet('IBUPROFENO');
+        $duplicate = ActiveIngredient::query()->create(['normalized_name' => 'ibuprofeno', 'canonical_name' => 'Ibuprofeno']);
+        $duplicate->aliases()->create(['alias' => 'ibuprofeno', 'normalized_alias' => 'ibuprofeno', 'language' => 'pt', 'origin' => 'document', 'review_status' => 'pending_review']);
+        $medicine->ingredients()->attach($duplicate->id, ['component_text' => 'ibuprofeno', 'method' => 'document', 'confidence' => 0.9]);
+        DB::table('knowledge_document_ingredients')->insert(['document_id' => $document->id, 'ingredient_id' => $duplicate->id, 'method' => 'metadata', 'confidence' => 0.9, 'created_at' => now(), 'updated_at' => now()]);
+
+        $stats = app(ActiveIngredientCatalogBuilder::class)->build($this->csv(''));
+
+        $this->assertSame([['from' => 'Ibuprofeno', 'into' => 'Ibuprofen']], $stats['merged']);
+        $ibuprofen = ActiveIngredient::query()->where('normalized_name', 'ibuprofen')->sole();
+        $this->assertSame([$ibuprofen->id], $medicine->fresh()->ingredients->pluck('id')->all());
+        $this->assertSame([$ibuprofen->id], DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->pluck('ingredient_id')->all());
+        $this->assertSame(0, ActiveIngredient::query()->where('normalized_name', 'ibuprofeno')->count());
+        $this->assertSame($ibuprofen->id, DrugInteraction::query()->value('drug_a_ingredient_id'));
+    }
+
+    private function leaflet(string $activeIngredient): KnowledgeDocument
+    {
+        $source = KnowledgeSource::query()->firstOrCreate(['name' => 'ANVISA'], ['type' => 'document', 'active' => true]);
+
+        return KnowledgeDocument::query()->create(['source_id' => $source->id, 'external_key' => uniqid('doc-'), 'title' => "{$activeIngredient} — Bula do paciente", 'document_type' => 'bula_paciente', 'language' => 'pt-BR', 'metadata' => ['active_ingredient' => $activeIngredient], 'content_status' => 'READY', 'file_status' => 'READY', 'embedding_status' => 'PENDING']);
+    }
 }

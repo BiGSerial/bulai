@@ -18,8 +18,12 @@ class BuildActiveIngredientCatalogCommand extends Command
         $translation = $this->option('no-ai') ? null : $builder->translateUnresolved((bool) $this->option('retry-misses'));
         $documentLinks = $linker->linkAll();
         $skipped = $stats['curated_skipped'];
-        unset($stats['curated_skipped']);
+        $merged = $stats['merged'];
+        unset($stats['curated_skipped'], $stats['merged']);
 
+        if ($merged !== []) {
+            $this->table(['Duplicado fundido', 'No princípio ativo'], array_map(fn (array $pair): array => [$pair['from'], $pair['into']], $merged));
+        }
         $this->table(['Métrica', 'Valor'], collect($stats)->map(fn (int $value, string $key): array => [$key, $value])->values()->all());
         if ($translation !== null) {
             $unknown = $translation['unknown'];

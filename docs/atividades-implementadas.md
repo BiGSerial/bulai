@@ -299,3 +299,13 @@ Testes: `ActiveIngredientCatalogTest` (vínculo/criação do princípio), `Knowl
   - "Posso tomar junto?" (`/consulta`): os remédios em uso (tratamento não encerrado) já entram na lista; `?com={id}` acrescenta o remédio da bula simples; "Verificar interações entre eles" (`?usar=1`) verifica e abre o resultado num toque.
   - Folha de ações (`x-consulta.folha-acoes`) vai para o fim do `body` (`@teleport`): no cartão de tratamento encerrado (`opacity-75`) ela herdava a transparência e ficava atrás dos cartões seguintes.
   - Testes: `PerguntarConfiavelTest` (marca e associação), `KnowledgeIngredientLinkActionsTest` (correção do vínculo e da identificação no Admin), `BulaHumanizadaTest` (Admin da bula humanizada, voz, página), `PerfilEPerguntasTest` ("Posso tomar junto?").
+
+### Princípio ativo duplicado em português escondia interações (11/11/2026)
+
+**Problema (medido em produção):** as bulas foram vinculadas antes de o catálogo conhecer o nome em português. O vinculador só consultava aliases já gravados e, sem achar "ibuprofeno", criava um princípio ativo novo ("Ibuprofeno", "Besilato De Anlodipino", "Losartana Potássica"), sem interações. O `knowledge:build-ingredients` seguinte achava esse alias exato e ligava o catálogo ANVISA ao duplicado, não ao princípio do DDInter. Resultado na avaliação de 11/11 (`prod-interacoes-1483`): 81 falsos negativos, 7 interações graves perdidas (Marevan + ibuprofeno, Norvasc + Tegretol…).
+
+**Correção:**
+- `ActiveIngredientResolver::resolveAndLearn()` (antes privado no construtor do catálogo) resolve pela regra cognata e grava o alias aprendido; o vinculador (metadado da bula) e o Admin ("Criar o princípio ativo") passam por ele antes de criar — "ibuprofeno" leva a *ibuprofen*.
+- `DuplicateIngredientMerger` (chamado por `knowledge:build-ingredients`, antes de ligar o catálogo): cada princípio ativo sem alias do DDInter cujo nome resolve para outro (ignorando a si mesmo) é fundido nele — vínculos de bula e de medicamento, bula dos EUA, aliases e `metadata.ingredient_links.excluded` migram; o duplicado é apagado. O comando lista "Duplicado fundido → No princípio ativo".
+- Operação: após o deploy, `sudo bulai-deploy artisan knowledge:build-ingredients` e reexecutar `evaluation:run identification` e `interactions`.
+- Testes: `ActiveIngredientCatalogTest` (bula vinculada antes do catálogo usa o princípio do DDInter; duplicado existente é fundido e o medicamento volta a ter as interações).
