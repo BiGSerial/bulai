@@ -77,6 +77,14 @@ final class KnowledgeDocumentIngredientLinker
                 });
         }
 
+        // Bula sem metadados e com título genérico ("Bula 1790900554429"): o nome do produto está no próprio texto, nas primeiras
+        // linhas. Só liga o que já existe no catálogo (nunca cria princípio ativo a partir do texto).
+        if ($found === []) {
+            foreach ($this->identifiedInContent($document) as $component) {
+                $this->remember($found, $component, 'content', 0.5);
+            }
+        }
+
         $now = now();
         $rows = [];
         foreach ($found as $ingredientId => [$method, $confidence]) {
@@ -90,6 +98,27 @@ final class KnowledgeDocumentIngredientLinker
         return count($rows);
     }
 
+    /**
+     * Linhas curtas do início do documento (nome do produto sob "IDENTIFICAÇÃO DO MEDICAMENTO", capa). Cada uma só vale se
+     * o resolvedor a encontrar no catálogo.
+     *
+     * @return list<string>
+     */
+    private function identifiedInContent(KnowledgeDocument $document): array
+    {
+        $lines = [];
+        foreach (DB::table('knowledge_chunks')->where('document_id', $document->id)->orderBy('chunk_index')->limit(4)->pluck('content') as $content) {
+            foreach (preg_split('/\R+/u', (string) $content) ?: [] as $line) {
+                $line = trim($line);
+                if (mb_strlen($line) >= 4 && mb_strlen($line) <= 80 && preg_match('/^\p{L}[\p{L} +\-]*$/u', $line) === 1) {
+                    array_push($lines, ...$this->normalizer->components($line));
+                }
+            }
+        }
+
+        return array_values(array_unique($lines));
+    }
+
     /** @param array<int, array{0: string, 1: float}> $found */
     private function remember(array &$found, string $text, string $method, float $confidence, bool $createWhenUnknown = false): void
     {
@@ -100,7 +129,8 @@ final class KnowledgeDocumentIngredientLinker
             return;
         }
 
-        if ($createWhenUnknown && $resolution->status === IngredientResolution::UNRESOLVED && $text !== '') {
+        // Abreviação de 3 letras (ex.: "IBP", sigla de inibidor da bomba de prótons) não é princípio ativo: não cria registro novo.
+        if ($createWhenUnknown && $resolution->status === IngredientResolution::UNRESOLVED && mb_strlen($text) >= 4) {
             $ingredient = $this->createFromDocument($text);
             $found[$ingredient->id] ??= [$method, $confidence];
         }

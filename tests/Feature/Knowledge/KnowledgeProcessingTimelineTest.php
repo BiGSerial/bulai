@@ -26,6 +26,12 @@ final class KnowledgeProcessingTimelineTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['knowledge.chunking.min_characters' => 0]); // fixtures de poucas palavras: aqui vale a rastreabilidade, não a limpeza
+    }
+
     public function test_native_text_processing_records_every_step_with_embedding_progress_and_the_ingredient_link(): void
     {
         Storage::fake('local');

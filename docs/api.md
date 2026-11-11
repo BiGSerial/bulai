@@ -36,6 +36,7 @@ Todos respondem JSON. Os períodos usam `from` e `to` no formato `AAAA-MM-DD` (d
 | `GET /api/v1/stats/knowledge` | read | Tamanho da base **deste ambiente** (`KnowledgeInventoryService`): documentos por situação e tipo, prontos e vinculados a princípio ativo, trechos e embeddings; cada bula pronta com os seus princípios ativos; princípios ativos com bula; produtos do catálogo da ANVISA (identificados, com bula de algum ativo, com bula de todos); interações do DDInter (total, ligadas ao catálogo, por gravidade, com bula de um lado, entre princípios ativos com bula e a gravidade delas); bulas dos EUA por situação e origem, trechos por situação da tradução e a lista das prontas. É a fonte dos números de relatório: eles precisam vir do ambiente que responde, não da máquina de desenvolvimento. |
 | `GET /api/v1/questions?status=&user_id=&per_page=` | read | Perguntas, das mais novas às mais antigas (paginado, até 100 por página): pergunta, resposta, status, intenção principal, suficiência, se leu a bula inteira ou o PDF original, afirmações aceitas e recusadas, revisão. |
 | `GET /api/v1/questions/{uuid}` | read | Registro completo para auditoria: `medicines`, `guard`, `treatment_context`, `generation`, `retrieval` (classificação, suficiência, `treatment_check`, `leaflet_fallback`), `pipeline` e `evidences`. |
+| `GET /api/v1/audit/*` | read | Auditoria da aplicação para o TCC: ver a seção **Auditoria** abaixo. |
 | `POST /api/v1/evaluation/ask` | evaluate | Roda a pergunta no fluxo completo (`MedicationQuestionService::askFreeform`) e pontua. |
 
 ### `POST /api/v1/evaluation/ask`
@@ -71,6 +72,36 @@ curl -s https://<host>/api/v1/evaluation/ask \
   -H "Authorization: Bearer $BULAI_TOKEN" -H "Content-Type: application/json" \
   -d '{"question":"Posso tomar ibuprofeno?","expects":{"facts":true,"asks":true,"limit":true}}'
 ```
+
+## Auditoria (`/api/v1/audit/*`)
+
+Medem a aplicação inteira para os dados do TCC: tempos, quantidades, embeddings, qualidade e coerência do que está gravado, leitura dos PDFs e legibilidade. Só leitura, escopo `api:read`, sem nome nem e-mail. Cada bloco sai separado e todos juntos no dossiê.
+
+| Rota | O que responde |
+|---|---|
+| `GET /audit/tcc?from=&to=` | **Dossiê**: ambiente, tamanho da base, uso (consultas, perguntas, bulas, pares, IA), ancoragem com intervalo de Wilson, tempos da ingestão, embeddings, qualidade dos dados, legibilidade e o quadro de experimentos. `from`/`to` filtram só o uso; sem `from`, todo o período. |
+| `GET /audit/pipeline` | Tempo por etapa da ingestão (`knowledge_processing_events`): execuções, falhas, média, p50, p95 e máximo; tempo por documento; últimas falhas. |
+| `GET /audit/embeddings?sample=40&live=0` | Os vetores estão corretos? Cobertura, modelo e dimensão únicos, vetor nulo, hash do texto igual ao da indexação, vetores iguais para textos diferentes, normas, e **coerência**: o vizinho mais próximo de um trecho é do mesmo documento? (com IC de Wilson) e similaridade dentro × entre documentos. Com `live=1` reembeda uma amostra (até 12 trechos) pelo provedor e compara por cosseno com o vetor gravado (`faithful` = menor cosseno ≥ 0,99); essa opção chama o serviço de embeddings. |
+| `GET /audit/quality?verify_files=0` | 24 regras de integridade e coerência, em quatro grupos: documentos, trechos, catálogo/interações e respostas gravadas. Cada regra traz `violations`, `checked`, severidade (`error`, `warning`, `info`) e até 5 exemplos. Traz também estatísticas dos trechos e a **fidelidade das citações** (o trecho citado ainda existe e o texto exibido está dentro dele, nas últimas 200 respostas). `verify_files=1` recalcula o SHA-256 de cada PDF. |
+| `GET /audit/documents` | Cada documento com o PDF armazenado, tamanho (confere com o registro), hash e quantidade de trechos. |
+| `GET /audit/documents/{id}/pdf?text=0&page=` | **Lê o PDF guardado**: hash confere?, método de extração (texto nativo ou OCR), qualidade, páginas, caracteres por página, páginas vazias e **cobertura do índice** (fração das palavras de cada trecho que aparece nas páginas que ele declara; trechos abaixo de 80%; páginas fora do intervalo). Com `text=1` devolve o texto por página (até 6.000 caracteres cada; `page=N` escolhe uma). O arquivo nunca sai do servidor. |
+| `GET /audit/readability?limit=200` | Índice de Flesch pt (Martins et al., 1996) das respostas e dos trechos que as sustentam, com mediana, faixas e proporção de respostas mais fáceis que a fonte (IC de Wilson). Substitui o script não versionado da seção 3.5.5 do TCC. |
+| `GET /audit/evaluations?task=` | Os registros de `evaluation:run` (identificação, interações, recuperação, geração, baseline) e o quadro de experimentos com o mais recente de cada um; as listas por item vêm só contadas. |
+
+Leitura dos resultados:
+- `error` quebra uma garantia do sistema (ex.: bula pronta sem trechos, vetor de modelo misto, PDF ausente); `warning` merece olhar; `info` é descritivo.
+- A coerência dos embeddings é um **indicador**, não prova de correção: bulas têm estrutura parecida, então a separação entre documentos é pequena mesmo com vetores íntegros. A prova de fidelidade ao texto atual é o `live=1`.
+- A cobertura do PDF mede presença de palavras, não preservação de sentido, e depende da extração (nativa ou OCR) do próprio PDF.
+- Os números valem para o ambiente consultado; leia `environment` no dossiê ao citar um resultado.
+
+Correções feitas a partir da primeira auditoria do ambiente de desenvolvimento (10/11/2026):
+- **Trechos minúsculos e repetidos** (rodapés como "RDC 73/2016 -", títulos quebrados como "FUNCIONA?"): `App\Services\Knowledge\ChunkCleaner`, usado pelo `KnowledgeChunker` (documentos novos) e por `php artisan knowledge:repair-chunks [--dry-run] [--document=]` (existentes). Descarta trecho sem texto útil e repetição exata de trecho curto; funde fragmento de título ao trecho seguinte. O trecho que absorve mantém id e seção, então citações a ele continuam válidas. Limites em `config/knowledge.php` (`chunking.min_characters`, `chunking.duplicate_max_characters`). Resultado no ambiente: 862 → 762 trechos, 38 reindexados.
+- **`token_count`**: agora gravado no processamento e pelo reparo, como **estimativa** (caracteres ÷ 4; `metadata.token_count_method = "chars/4"`), não a contagem do tokenizador do modelo.
+- **Vínculo bula ↔ princípio ativo**: bula sem metadados e com título genérico é ligada pelo nome do produto nas primeiras linhas (método `content`, confiança 0,5, só se o catálogo já conhecer o nome); abreviação de 3 letras no metadado (ex.: "IBP") não cria mais princípio ativo.
+- **Auditoria**: a regra "respondida sem evidência" misturava `and`/`or` sem parênteses e contava perguntas de outros status; corrigida. Pares do DDInter repetidos, trechos repetidos que o PDF realmente traz duas vezes e vetores de textos que só diferem em espaços passaram a `info`.
+- Depois de `knowledge:repair-chunks`, rode `php artisan knowledge:index-embeddings`: o texto mudou e o hash antigo marca o trecho como defasado.
+
+Arquivos: `app/Services/Audit/*` (`EmbeddingAuditService`, `DataQualityAuditService`, `PdfAuditService`, `PipelineTimingService`, `ReadabilityService`, `EvaluationRunsService`, `TccDossierService`, `AuditCheck`), `app/Http/Controllers/Api/V1/AuditController.php`, `routes/api.php` e `Metrics::wilson()`. Testes: `tests/Feature/Api/AuditApiTest.php`.
 
 ## Conta de avaliação
 

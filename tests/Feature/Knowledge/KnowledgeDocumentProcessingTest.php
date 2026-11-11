@@ -21,6 +21,12 @@ class KnowledgeDocumentProcessingTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['knowledge.chunking.min_characters' => 0]); // fixtures de poucas palavras: aqui vale a rastreabilidade, não a limpeza
+    }
+
     public function test_textual_multipage_pdf_creates_ordered_traceable_chunks(): void
     {
         Storage::fake('local');
