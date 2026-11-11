@@ -165,6 +165,21 @@ final class InterpretacaoDaPerguntaTest extends TestCase
         $this->assertSame(['DIPIRONA'], array_column($result['medicines'], 'name'));
     }
 
+    /** Produção, 11/11/2026: "Para que serve o AAS?" saía como "não encontrei o remédio", porque a sigla de 3 letras era descartada. */
+    public function test_a_short_brand_like_aas_is_kept_when_written_exactly_and_dropped_when_only_similar(): void
+    {
+        $this->medicine('AAS', 'ÁCIDO ACETILSALICÍLICO');
+        $this->interpretation = ['medicines' => ['AAS'], 'follow_up' => false, 'question' => 'Para que serve o AAS?', 'intent' => 'INDICATION', 'presentation' => null, 'urgency' => null];
+
+        $result = $this->ask('Para que serve o AAS?');
+
+        $this->assertSame([], $result['retrieval']['interpretation']['dropped']);
+        $this->assertSame(['AAS'], array_column($result['medicines'], 'name'));
+
+        $this->interpretation = ['medicines' => ['AAS'], 'follow_up' => false, 'question' => 'Para que serve o ABS?', 'intent' => 'INDICATION', 'presentation' => null, 'urgency' => null];
+        $this->assertSame(['AAS'], $this->ask('Para que serve o ABS?')['retrieval']['interpretation']['dropped'], 'sigla parecida não é a mesma sigla');
+    }
+
     public function test_a_new_medicine_outside_the_catalog_is_not_answered_with_the_previous_one(): void
     {
         $dipirona = $this->dipirona();

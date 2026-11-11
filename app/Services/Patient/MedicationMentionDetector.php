@@ -38,6 +38,9 @@ final class MedicationMentionDetector
 
     private const MIN_TERM_LENGTH = 4;
 
+    /** Nome já conferido pela interpretação: a sigla de 2 ou 3 letras ("AAS") vale. */
+    private const MIN_VERIFIED_NAME_LENGTH = 2;
+
     private const TREATMENT_PATTERN = '/\b(meus? (remedios?|medicamentos?|comprimidos?|tratamento|medicacao)|o que (eu )?(tomo|uso)|que eu (tomo|uso)|minha medicacao|meu tratamento|tudo que tomo)\b/';
 
     /** Palavras frequentes em perguntas (já normalizadas) que nunca são nomes de medicamento. */
@@ -83,9 +86,11 @@ final class MedicationMentionDetector
 
     /**
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos explicitamente pelo usuário (entram primeiro)
+     * @param  bool  $verifiedNames  o texto é só a lista de nomes que a interpretação apontou e conferiu na pergunta: então uma
+     *                               sigla curta ("AAS") também é procurada, porque ali ela não pode ser uma palavra comum
      * @return list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>
      */
-    public function detect(string $text, ?User $user = null, array $forcedMedicineIds = []): array
+    public function detect(string $text, ?User $user = null, array $forcedMedicineIds = [], bool $verifiedNames = false): array
     {
         $mentions = [];
         foreach (AnvisaMedicine::query()->with('ingredients:id')->whereIn('id', $forcedMedicineIds)->get()->sortBy(fn (AnvisaMedicine $m): int => array_search($m->id, $forcedMedicineIds, true) ?: 0) as $medicine) {
@@ -94,7 +99,7 @@ final class MedicationMentionDetector
 
         $normalized = $this->normalizer->text($text);
         $tokens = $normalized === '' ? [] : explode(' ', $normalized);
-        $candidates = $this->candidates($tokens);
+        $candidates = $this->candidates($tokens, $verifiedNames ? self::MIN_VERIFIED_NAME_LENGTH : self::MIN_TERM_LENGTH);
         $covered = [];
 
         if ($candidates !== []) {
@@ -201,9 +206,9 @@ final class MedicationMentionDetector
      * @param  list<string>  $tokens
      * @return list<array{text: string, start: int, size: int}>
      */
-    private function candidates(array $tokens): array
+    private function candidates(array $tokens, int $minimumLength = self::MIN_TERM_LENGTH): array
     {
-        $useful = fn (string $token): bool => mb_strlen($token) >= self::MIN_TERM_LENGTH && ! ctype_digit($token[0]) && ! in_array($token, self::STOPWORDS, true);
+        $useful = fn (string $token): bool => mb_strlen($token) >= $minimumLength && ! ctype_digit($token[0]) && ! in_array($token, self::STOPWORDS, true);
         $candidates = [];
         foreach ($tokens as $start => $token) {
             if (! $useful($token)) {

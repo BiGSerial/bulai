@@ -148,7 +148,7 @@ final class MedicationQuestionService
         $detectionText = $named !== [] ? implode(' e ', $named) : $verdict->sanitized;
         $medicines = $interpretation !== null && $named === [] && $previousIds !== [] && $forcedMedicineIds === []
             ? []
-            : $excluded($this->detector->detect($detectionText, $user, $forcedMedicineIds));
+            : $excluded($this->detector->detect($detectionText, $user, $forcedMedicineIds, verifiedNames: $named !== []));
         if ($interpretation !== null && $named !== [] && $medicines !== []) {
             $literal = $this->normalizerText($verdict->sanitized);
             $medicines = array_map(fn (array $m): array => in_array($m['id'], $previousIds, true) && ! str_contains($literal, $this->normalizerText((string) $m['matched_text'])) ? ['matched_text' => 'conversa'] + $m : $m, $medicines);
