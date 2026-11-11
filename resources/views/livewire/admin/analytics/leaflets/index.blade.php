@@ -21,7 +21,7 @@
         <x-knowledge-admin.data-table :columns="[['label' => 'Princípios ativos'], ['label' => 'Gerada em'], ['label' => 'Seções', 'align' => 'right'], ['label' => 'Evidências', 'align' => 'right'], ['label' => 'Visualizações', 'align' => 'right'], ['label' => 'Duração', 'align' => 'right'], ['label' => 'Situação'], ['label' => 'Ações', 'align' => 'right']]">
             @foreach ($summaries as $summary)
                 <tr wire:key="l-{{ $summary->uuid }}">
-                    <td><a class="rounded hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.analytics.leaflets.show', $summary) }}" wire:navigate>Princípios ativos {{ $summary->ingredient_key }}</a><span class="block text-xs font-normal text-slate-400">{{ substr($summary->uuid, 0, 8) }}</span></td>
+                    <td><a class="rounded hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.analytics.leaflets.show', $summary) }}" wire:navigate>{{ $summary->subjectLabel() }}</a><span class="block text-xs font-normal text-slate-400">{{ substr($summary->uuid, 0, 8) }}</span></td>
                     <td class="tabular text-slate-600">{{ $summary->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}</td>
                     <td class="tabular">{{ count($summary->sections ?? []) }}</td>
                     <td class="tabular">{{ count($summary->evidences ?? []) }}</td>

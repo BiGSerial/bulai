@@ -1,4 +1,4 @@
-<x-knowledge-admin.shell :title="$document->title" :back="route('admin.knowledge.documents.index')" back-label="Documentos">
+<x-knowledge-admin.shell :title="$document->displayName()" :back="route('admin.knowledge.documents.index')" back-label="Documentos">
     @php
         $hasFile = $document->storage_key || $document->storage_path;
         [$tone, $label] = match (true) {
@@ -11,7 +11,7 @@
         };
         $ingredients = $document->relationLoaded('ingredients') ? $document->ingredients : collect();
     @endphp
-    <div x-data="{ tab: ['trechos', 'evidencias', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
+    <div x-data="{ tab: ['trechos', 'principios', 'evidencias', 'arquivo', 'processamento'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'trechos' }" x-init="$watch('tab', value => history.replaceState(null, '', '#' + value))" x-on:bulai-realtime.window="$wire.$refresh()" @if ($timelineActive) wire:poll.3s @endif class="grid gap-5">
         <x-knowledge-admin.page-header :badge="$label" :badge-tone="$tone" :meta="[$document->documentTypeLabel(), $document->source->name]">
             @if ($hasFile)
                 <x-slot:primary>
@@ -72,6 +72,51 @@
             <x-knowledge-admin.alert tone="danger">Falha no processamento: {{ $processing['error_code'] }}@if (($processing['error_id'] ?? null) !== null) · Código de referência: {{ $processing['error_id'] }}@endif</x-knowledge-admin.alert>
         @endif
 
+        {{-- Identificação: o que esta bula é e a que está ligada; editável quando o arquivo veio sem metadados ou errado. --}}
+        <x-knowledge-admin.card class="grid gap-3" data-testid="document-identity">
+            @php $metadata = (array) $document->metadata; @endphp
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-sm font-semibold text-slate-800">Identificação</h2>
+                <div class="flex flex-wrap gap-2">
+                    @if ($pdfAvailable)<x-knowledge-admin.button variant="secondary" size="sm" :href="route('admin.knowledge.documents.pdf', $document)" target="_blank" rel="noopener" data-testid="open-pdf">Abrir a bula (PDF)</x-knowledge-admin.button>@endif
+                    @unless ($editingIdentity)<x-knowledge-admin.button size="sm" wire:click="editIdentity" data-testid="edit-identity">Editar identificação</x-knowledge-admin.button>@endunless
+                </div>
+            </div>
+            @if ($editingIdentity)
+                <form wire:submit="saveIdentity" class="grid gap-3 sm:grid-cols-2">
+                    <x-knowledge-admin.input label="Nome do medicamento" required wire:model="identity.product_name" hint="Como na caixa (ex.: DORFLEX, DORFLEX UNO). É por ele que a marca acha esta bula." />
+                    <x-knowledge-admin.input label="Princípio ativo declarado" optional wire:model="identity.active_ingredient" hint="Como na bula (ex.: dipirona monoidratada + citrato de orfenadrina + cafeína)." />
+                    <x-knowledge-admin.select label="Tipo" required wire:model="identity.document_type">
+                        @foreach (\App\Models\Knowledge\KnowledgeDocument::documentTypeOptions() as $value => $typeLabel)<option value="{{ $value }}">{{ $typeLabel }}</option>@endforeach
+                    </x-knowledge-admin.select>
+                    <x-knowledge-admin.input label="Registro ANVISA" optional wire:model="identity.registration_number" />
+                    <x-knowledge-admin.input label="Detentor do registro" optional wire:model="identity.holder" />
+                    <x-knowledge-admin.input label="Título" required wire:model="identity.title" />
+                    <div class="flex flex-wrap gap-2 sm:col-span-2">
+                        <x-knowledge-admin.button type="submit" loading-target="saveIdentity" loading="Salvando…">Salvar e refazer o vínculo</x-knowledge-admin.button>
+                        <x-knowledge-admin.button variant="secondary" wire:click="$set('editingIdentity', false)">Cancelar</x-knowledge-admin.button>
+                    </div>
+                </form>
+            @else
+                <x-knowledge-admin.facts class="sm:grid-cols-2 lg:grid-cols-4">
+                    <x-knowledge-admin.fact label="Medicamento">{{ $document->medicineName() !== '' ? $document->medicineName() : 'Não identificado' }}@if ($suggestedName)<span class="block text-xs font-normal text-amber-700">Pelo texto, parece ser {{ $suggestedName }}: confira e salve em Editar identificação.</span>@endif</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Princípio ativo declarado">{{ $metadata['active_ingredient'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Princípios ativos ligados">{{ $ingredients->isNotEmpty() ? $ingredients->pluck('canonical_name')->join(', ') : 'Nenhum' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Tipo">{{ $document->documentTypeLabel() }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Registro ANVISA">{{ $metadata['registration_number'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Detentor do registro">{{ $metadata['holder'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Título">{{ $document->title }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Arquivo original">{{ $document->original_filename ?: 'Não informado' }}</x-knowledge-admin.fact>
+                </x-knowledge-admin.facts>
+                @if ($opening !== '')
+                    <div class="grid gap-1">
+                        <p class="text-xs font-medium text-slate-500">Começo do texto da bula</p>
+                        <p class="whitespace-pre-line rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700" data-testid="document-opening">{{ $opening }}</p>
+                    </div>
+                @endif
+            @endif
+        </x-knowledge-admin.card>
+
         {{-- Resumo decisório --}}
         <x-knowledge-admin.card class="py-3 sm:py-3">
             <x-knowledge-admin.facts class="sm:grid-cols-3 lg:grid-cols-6">
@@ -85,7 +130,38 @@
         </x-knowledge-admin.card>
 
         <div class="grid gap-4">
-            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'evidencias', 'label' => 'Evidências extraídas ('.$facts->count().')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+            <x-knowledge-admin.tabs alpine aria-label="Detalhes do documento" model="tab" :tabs="[['key' => 'trechos', 'label' => 'Trechos ('.$document->chunks_count.')'], ['key' => 'principios', 'label' => 'Princípios ativos ('.$ingredients->count().')'], ['key' => 'evidencias', 'label' => 'Evidências extraídas ('.$facts->count().')'], ['key' => 'arquivo', 'label' => 'Arquivo'], ['key' => 'processamento', 'label' => 'Processamento']]" />
+
+            {{-- Correção do vínculo bula ↔ princípio ativo: é por ele que o Perguntar e a bula simples acham esta bula. --}}
+            <div x-show="tab === 'principios'" x-cloak role="tabpanel" class="grid gap-3" data-testid="ingredient-links">
+                <p class="text-sm text-slate-600">Princípios ativos de que esta bula trata. Tire o que estiver errado e ligue o certo: a correção manual fica, e o "Revincular" automático não a desfaz.</p>
+                <ul class="grid gap-2">
+                    @forelse ($ingredients as $ingredient)
+                        <li wire:key="ing-{{ $ingredient->id }}" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                            <span class="min-w-0"><span class="font-medium text-slate-800">{{ $ingredient->canonical_name }}</span> <x-knowledge-admin.badge :tone="$ingredient->pivot->method === 'manual' ? 'success' : 'neutral'">{{ $ingredient->pivot->method === 'manual' ? 'manual' : 'automático · '.$ingredient->pivot->method }}</x-knowledge-admin.badge></span>
+                            <x-knowledge-admin.button variant="secondary" size="sm" wire:click="detachIngredient({{ $ingredient->id }})" wire:loading.attr="disabled" data-testid="detach-ingredient-{{ $ingredient->id }}">Tirar</x-knowledge-admin.button>
+                        </li>
+                    @empty
+                        <li class="text-sm text-slate-500">Nenhum princípio ativo ligado.</li>
+                    @endforelse
+                </ul>
+                <div class="grid gap-2">
+                    <x-knowledge-admin.input label="Ligar princípio ativo" wire:model.live.debounce.300ms="ingredientSearch" placeholder="Nome em português ou inglês (ex.: dipirona)" autocomplete="off" data-testid="ingredient-search" />
+                    @if (mb_strlen(trim($ingredientSearch)) >= 3)
+                        <ul class="grid gap-1">
+                            @foreach ($ingredientOptions as $option)
+                                <li wire:key="opt-{{ $option['id'] }}" class="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+                                    <span>{{ $option['name'] }}@if ($option['alias'] !== null) <span class="text-slate-500">({{ $option['alias'] }})</span>@endif</span>
+                                    <x-knowledge-admin.button size="sm" wire:click="attachIngredient({{ $option['id'] }})" wire:loading.attr="disabled">Ligar</x-knowledge-admin.button>
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($ingredientOptions === [] && mb_strlen(trim($ingredientSearch)) >= 4)
+                            <x-knowledge-admin.button variant="secondary" wire:click="createIngredient" wire:loading.attr="disabled" data-testid="create-ingredient">Criar o princípio ativo “{{ trim($ingredientSearch) }}” e ligar</x-knowledge-admin.button>
+                        @endif
+                    @endif
+                </div>
+            </div>
 
             <div x-show="tab === 'evidencias'" x-cloak role="tabpanel" class="grid gap-2" data-testid="leaflet-facts">
                 <p class="text-sm text-slate-600">Trechos que a IA localizou na bula inteira quando a busca por trechos não respondeu a uma pergunta de paciente. Cada um aponta para o trecho, a seção, a página e a versão do documento; o Perguntar reaproveita os não rejeitados. Revise como farmacêutico: verificada, rejeitada ou apagada.</p>
@@ -143,6 +219,9 @@
                         <x-knowledge-admin.fact label="Idioma">{{ $document->language ?: 'Não informado' }}</x-knowledge-admin.fact>
                         <x-knowledge-admin.fact class="sm:col-span-2 lg:col-span-3" label="Assinatura do arquivo (SHA-256)"><span class="break-all font-mono text-xs">{{ $document->sha256 ?? 'Sem PDF' }}</span></x-knowledge-admin.fact>
                     </x-knowledge-admin.facts>
+                    @if ($pdfAvailable)
+                        <iframe src="{{ route('admin.knowledge.documents.pdf', $document) }}" title="PDF da bula" class="mt-4 h-screen w-full rounded-lg border border-slate-200 bg-white" loading="lazy" data-testid="pdf-viewer"></iframe>
+                    @endif
                 </x-knowledge-admin.card>
             </div>
 

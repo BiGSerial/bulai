@@ -12,9 +12,13 @@ use Illuminate\Support\Str;
 /**
  * Liga cada bula aos princípios ativos que ela cobre, para que a recuperação de evidências de um par de fármacos
  * parta das bulas dos próprios fármacos. Prioridade: registro ANVISA > metadado de princípio ativo > nome do produto.
+ * A correção feita no Admin vale mais que tudo isso: o vínculo manual fica, e o princípio ativo tirado à mão
+ * (`metadata.ingredient_links.excluded`) não volta no próximo vínculo automático.
  */
 final class KnowledgeDocumentIngredientLinker
 {
+    public const METHOD_MANUAL = 'manual';
+
     public function __construct(
         private readonly ActiveIngredientResolver $resolver,
         private readonly IngredientNameNormalizer $normalizer,
@@ -85,6 +89,13 @@ final class KnowledgeDocumentIngredientLinker
             }
         }
 
+        $excluded = $this->excluded($document);
+        $found = array_diff_key($found, array_flip($excluded));
+        DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->where('method', self::METHOD_MANUAL)->pluck('ingredient_id')
+            ->each(function (int $id) use (&$found): void {
+                $found[$id] = [self::METHOD_MANUAL, 1.0];
+            });
+
         $now = now();
         $rows = [];
         foreach ($found as $ingredientId => [$method, $confidence]) {
@@ -140,6 +151,48 @@ final class KnowledgeDocumentIngredientLinker
      * O catálogo nasce do DDInter, que não cobre todo medicamento brasileiro. Uma bula que declara o princípio ativo
      * cria o princípio (sem interações) e liga os medicamentos da ANVISA com esse ativo, para o Perguntar achar a bula.
      */
+    /** Correção no Admin: liga o princípio ativo à bula, como vínculo manual (o automático não o desfaz). */
+    public function attach(KnowledgeDocument $document, ActiveIngredient $ingredient): void
+    {
+        DB::table('knowledge_document_ingredients')->upsert(
+            [['document_id' => $document->id, 'ingredient_id' => $ingredient->id, 'method' => self::METHOD_MANUAL, 'confidence' => 1.0, 'created_at' => now(), 'updated_at' => now()]],
+            ['document_id', 'ingredient_id'], ['method', 'confidence', 'updated_at'],
+        );
+        $this->saveExcluded($document, array_values(array_diff($this->excluded($document), [$ingredient->id])));
+    }
+
+    /** Correção no Admin: tira o princípio ativo da bula e lembra disso, para o vínculo automático não trazê-lo de volta. */
+    public function detach(KnowledgeDocument $document, int $ingredientId): void
+    {
+        DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->where('ingredient_id', $ingredientId)->delete();
+        $this->saveExcluded($document, array_values(array_unique([...$this->excluded($document), $ingredientId])));
+    }
+
+    /**
+     * Princípio ativo que o catálogo não tem (ex.: dipirona, que o DDInter não traz), criado no Admin a partir do nome em
+     * português, sem sal ("dipirona monoidratada" → "dipirona"); se já existe, é reaproveitado.
+     */
+    public function createIngredient(string $name): ?ActiveIngredient
+    {
+        $normalized = $this->normalizer->base($name);
+
+        return mb_strlen($normalized) >= 4 ? $this->createFromDocument($normalized) : null;
+    }
+
+    /** @return list<int> */
+    private function excluded(KnowledgeDocument $document): array
+    {
+        return array_values(array_map('intval', (array) (((array) $document->metadata)['ingredient_links']['excluded'] ?? [])));
+    }
+
+    /** @param list<int> $excluded */
+    private function saveExcluded(KnowledgeDocument $document, array $excluded): void
+    {
+        $metadata = (array) $document->metadata;
+        $metadata['ingredient_links'] = ['excluded' => $excluded] + (array) ($metadata['ingredient_links'] ?? []);
+        $document->forceFill(['metadata' => $metadata])->save();
+    }
+
     private function createFromDocument(string $normalizedName): ActiveIngredient
     {
         $ingredient = ActiveIngredient::query()->firstOrCreate(['normalized_name' => $normalizedName], ['canonical_name' => Str::title($normalizedName)]);

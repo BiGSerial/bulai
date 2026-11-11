@@ -17,7 +17,7 @@ final class ExplanationValidator
      * A resposta é a bula humanizada: não narra a leitura ("li na bula", "a bula diz", "segundo a bula") nem fala do funcionamento
      * interno ("trechos", "evidências", "chunks", "o sistema"). Comparado no texto normalizado (sem acentos, minúsculo).
      */
-    public const NARRATION = '/\b(li na bula|li a bula|eu li|consultei|consultado|consultados|consultadas|pesquisei|procurei|trecho|trechos|evidencia|evidencias|chunk|chunks|recuperad\w*|o sistema|documento|documentos|segundo a bula|de acordo com a bula|conforme a bula|pela bula|a bula (diz|dizem|informa|indica|explica|orienta|recomenda|menciona|cita|traz|fala|afirma|descreve|nao (diz|fala|traz|menciona|informa|cita)))\b/';
+    public const NARRATION = '/\b(li na bula|li a bula|eu li|consultei|consultado|consultados|consultadas|pesquisei|procurei|trecho|trechos|evidencia|evidencias|chunk|chunks|recuperad\w*|o sistema|documento|documentos|segundo a bula|de acordo com a bula|conforme a bula|pela bula|a bula (tambem )?(diz|dizem|informa|indica|explica|orienta|recomenda|contraindica|menciona|cita|traz|fala|afirma|descreve|nao (diz|fala|traz|menciona|informa|cita)))\b/';
 
     /** Abertura que só narra a fonte ("Segundo a bula, …", "A bula diz que …"): é retirada e a frase começa pelo assunto. */
     private const NARRATED_OPENING = '/^\s*(?:(?:segundo|de acordo com|conforme|pelo que diz) a bula(?: do paciente| do profissional(?: de saúde)?)?\s*,?\s*|(?:a bula|na bula)(?: do paciente| do profissional(?: de saúde)?)? (?:diz|informa|indica|explica|orienta|menciona|traz|fala|afirma|descreve)(?: que)?\s*,?\s*|(?:eu )?li na bula que\s*)/iu';
@@ -273,7 +273,6 @@ final class ExplanationValidator
         return $result;
     }
 
-    /** Tira a abertura que narra a fonte e devolve a frase começando pelo assunto, com inicial maiúscula. */
     /** "Ela é…" / "Ele pode…" no início vira "A dipirona é…" / "O ibuprofeno pode…". */
     public function nameSubject(string $text, string $subject): string
     {
@@ -285,6 +284,7 @@ final class ExplanationValidator
         return ($match[1] === 'Ela' ? 'A ' : 'O ').$name.' '.mb_substr($text, mb_strlen($match[0]));
     }
 
+    /** Tira a abertura que narra a fonte e devolve a frase começando pelo assunto, com inicial maiúscula. */
     public function humanize(string $text): string
     {
         $text = trim($text);

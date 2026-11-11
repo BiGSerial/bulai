@@ -93,7 +93,7 @@
 
     <x-consulta.secao titulo="No seu tratamento" icon="coracao" tone="brand">
         <x-consulta.tratamento :contexto="$contexto" :medicamento="$medicine->product_name" />
-        <x-consulta.botao variant="secondary" size="md" :href="route('consulta.pesquisa')">Verificar interações com outros remédios</x-consulta.botao>
+        <x-consulta.botao variant="secondary" size="md" :href="route('consulta.pesquisa', ['com' => $medicine->id])">Posso tomar junto com outros remédios?</x-consulta.botao>
     </x-consulta.secao>
 
     <x-slot:sticky>

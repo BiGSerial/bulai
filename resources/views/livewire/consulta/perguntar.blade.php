@@ -140,6 +140,12 @@
                                 </span>
                             @endforeach
                         </div>
+                        {{-- A bula simples de cada remédio que tem bula, em um toque (o nome no chip também leva até ela). --}}
+                        @foreach ($resposta['medicines'] as $item)
+                            @unless (in_array($item['name'], array_merge($resposta['missing']['without_leaflet'] ?? [], $resposta['missing']['unidentified'] ?? []), true))
+                                <x-consulta.botao wire:key="bs-{{ $item['id'] }}" variant="soft" size="md" :href="route('consulta.bula', $item['id'])" class="justify-between"><span class="inline-flex min-w-0 items-center gap-2"><x-consulta.icone name="bula" plain class="size-6 shrink-0" /><span class="min-w-0 break-words">Ver a bula simples de {{ $item['name'] }}</span></span><span class="shrink-0" aria-hidden="true">›</span></x-consulta.botao>
+                            @endunless
+                        @endforeach
                         @unless ($corrigindo)
                             <button type="button" class="min-h-10 justify-self-start font-semibold text-brand-800 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="$set('corrigindo', true)">Não é esse remédio?</button>
                         @else

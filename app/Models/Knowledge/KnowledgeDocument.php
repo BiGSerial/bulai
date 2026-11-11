@@ -55,6 +55,23 @@ class KnowledgeDocument extends Model
         ];
     }
 
+    /**
+     * Nome do medicamento de que a bula trata, para a tela: o produto informado (metadado `product_name`) ou o título antes
+     * de " — ". Título genérico do arquivo ("Bula 1793933368611") não é nome: devolve vazio.
+     */
+    public function medicineName(): string
+    {
+        $name = trim((string) (((array) $this->metadata)['product_name'] ?? explode(' — ', (string) $this->title)[0]));
+
+        return preg_match('/^(bula[\s_-]*)?\d{6,}(\.pdf)?$/i', $name) === 1 ? '' : $name;
+    }
+
+    /** Nome para a tela: o do medicamento ou, sem ele, o título. */
+    public function displayName(): string
+    {
+        return $this->medicineName() !== '' ? $this->medicineName() : (string) $this->title;
+    }
+
     public function documentTypeLabel(): string
     {
         return self::documentTypeOptions()[$this->document_type] ?? (string) $this->document_type;

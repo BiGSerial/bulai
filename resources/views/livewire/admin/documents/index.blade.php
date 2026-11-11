@@ -30,7 +30,7 @@
             </x-knowledge-admin.empty-state>
         @else
             <x-knowledge-admin.data-table :sort="$sort" :direction="$direction" :columns="[
-                ['label' => 'Título', 'sort' => 'title'],
+                ['label' => 'Medicamento', 'sort' => 'title'],
                 ['label' => 'Tipo', 'sort' => 'type'],
                 ['label' => 'Origem'],
                 ['label' => 'Trechos', 'sort' => 'trechos', 'align' => 'right'],
@@ -55,8 +55,13 @@
                     @endphp
                     <tr wire:key="doc-{{ $document->id }}" class="hover:bg-brand-50/40">
                         <td class="max-w-md px-3 py-2">
-                            <a class="block truncate font-semibold text-slate-900 hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate title="{{ $document->title }}">{{ $document->title }}</a>
-                            @if ($document->external_key)<span class="block truncate text-xs text-slate-500">{{ $document->external_key }}</span>@endif
+                            <a class="block truncate font-semibold text-slate-900 hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.knowledge.documents.show', $document) }}" wire:navigate title="{{ $document->title }}">{{ $document->medicineName() !== '' ? $document->medicineName() : 'Medicamento não identificado' }}</a>
+                            @if ($document->ingredients->isNotEmpty())
+                                <span class="block truncate text-xs text-slate-700" title="Princípios ativos ligados">{{ $document->ingredients->pluck('canonical_name')->join(', ') }}</span>
+                            @elseif ($document->content_status === 'READY')
+                                <span class="block text-xs font-medium text-amber-700">Sem princípio ativo ligado</span>
+                            @endif
+                            <span class="block truncate text-xs text-slate-500">{{ $document->medicineName() !== '' ? $document->title : $document->title.' · '.($document->original_filename ?: $document->external_key) }}</span>
                         </td>
                         <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ $document->documentTypeLabel() }}</td>
                         <td class="whitespace-nowrap px-3 py-2 text-slate-700">{{ $document->source->name }}</td>

@@ -200,7 +200,8 @@ final class PerguntaLivreTest extends TestCase
         $this->scripted = json_encode(['claims' => [['text' => 'A bula diz que deve ser tomado pela manhã, em jejum.', 'evidence_ids' => ['E1']]]]);
 
         $this->actingAs($user)->get('/perguntar?q='.urlencode('omeprazol em jejum pela manhã?'))->assertOk()
-            ->assertSee('omeprazol em jejum pela manhã?')->assertSee('Falando de:')->assertSee('Deve ser tomado pela manhã, em jejum.');
+            ->assertSee('omeprazol em jejum pela manhã?')->assertSee('Falando de:')->assertSee('Deve ser tomado pela manhã, em jejum.')
+            ->assertSee('Ver a bula simples de OMEPRAZOL');
         $this->assertSame(1, MedicationQuestion::count());
 
         $this->actingAs($user)->get('/perguntar?q=om')->assertOk()->assertSee('&quot;pergunta&quot;:&quot;om&quot;', false);
@@ -344,7 +345,8 @@ final class PerguntaLivreTest extends TestCase
 
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'marevan dá sono?')->call('perguntar')
             ->assertSee('Ainda não tenho a bula de MAREVAN comigo.')->assertSee('Posso ajudar com outro remédio')->assertSee('bula que vem na caixa')
-            ->assertSeeHtml('aria-label="Outros remédios seus"')->assertSee('OMEPRAZOL')->assertSee('Não é esse remédio?');
+            ->assertSeeHtml('aria-label="Outros remédios seus"')->assertSee('OMEPRAZOL')->assertSee('Não é esse remédio?')
+            ->assertDontSee('Ver a bula simples de MAREVAN');
         $this->semJargao($component);
         $this->assertSame(0, $this->providerCalls);
         $this->assertSame(MedicationQuestionService::NO_LEAFLET, MedicationQuestion::query()->sole()->status);

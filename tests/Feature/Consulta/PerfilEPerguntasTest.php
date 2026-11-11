@@ -138,14 +138,23 @@ final class PerfilEPerguntasTest extends TestCase
         Livewire::actingAs($user->fresh())->test(Resultado::class, ['consultation' => $consultation])->assertDontSee('Atenção à sua alergia');
     }
 
-    public function test_current_medications_can_prefill_the_search(): void
+    public function test_the_interaction_check_starts_from_the_medicines_in_use_and_checks_them_in_one_tap(): void
     {
         $user = $this->consentedUser();
         foreach ([$this->medicine('ALFA', 'ALFASUB'), $this->medicine('BETA', 'BETASUB')] as $medicine) {
             PatientMedication::query()->create(['user_id' => $user->id, 'medicine_id' => $medicine->id]);
         }
+        PatientMedication::query()->create(['user_id' => $user->id, 'medicine_id' => $this->medicine('ENCERRADO', 'ENCSUB')->id, 'ends_at' => today()->subDay()]);
+        $novo = $this->medicine('GAMA', 'GAMASUB');
 
-        $this->actingAs($user)->get('/consulta?usar=1')->assertOk()->assertSee('ALFA')->assertSee('BETA');
+        $this->actingAs($user)->get('/consulta')->assertOk()->assertSee('Posso tomar junto?')->assertSee('Qual remédio você quer tomar junto com os seus?')
+            ->assertSee('ALFA')->assertSee('BETA')->assertDontSee('ENCERRADO');
+        $this->actingAs($user)->get('/consulta?com='.$novo->id)->assertOk()->assertSee('GAMA')->assertSee('Verificar se combinam (3)');
+        $this->assertSame(0, $user->consultations()->count());
+
+        $this->actingAs($user)->get('/consulta?usar=1')->assertRedirect();
+        $consultation = $user->consultations()->sole();
+        $this->assertSame(['ALFA', 'BETA'], collect($consultation->medicines)->pluck('name')->sort()->values()->all());
     }
 
     private function leaflet(AnvisaMedicine $medicine, string $content): void

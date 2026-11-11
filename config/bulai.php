@@ -134,7 +134,7 @@ return [
     ],
     'leaflet' => [
         // Bula humanizada: seções pedidas ao modelo e padrões de seção das bulas usados na recuperação de cada uma.
-        'prompt_version' => 'humanized-leaflet-v1',
+        'prompt_version' => 'humanized-leaflet-v2',
         'max_output_tokens' => (int) env('BULAI_LEAFLET_MAX_OUTPUT_TOKENS', 4096),
         'evidence_per_section' => (int) env('BULAI_LEAFLET_EVIDENCE_PER_SECTION', 3),
         // `keywords`: palavras da pergunta do paciente que pedem essa seção (QuestionIntentDetector; comparação normalizada).

@@ -12,7 +12,7 @@ feito **antes** das alterações, o que mudou e como verificar.
 2. `InputGuard::screen()` faz a triagem; `UrgencyDetector::detect()` procura sinais de urgência (determinístico).
 3. `MedicationMentionDetector::detect()` reconhece os remédios, com tolerância a erro de digitação (`Diporona` vira `DIPIRONA`,
    marcado `fuzzy`). Sem remédio na pergunta, herda os da troca anterior (`matched_text = 'conversa'`).
-4. `MedicineLeafletFinder::find()` localiza as bulas pelo princípio ativo (bula do paciente primeiro).
+4. `MedicineLeafletFinder::find()` localiza as bulas (bula do paciente primeiro): a **bula da própria marca** (produto da bula sem ®, "Pac", "Pro", "Paciente": DORFLEX acha "Dorflex Pac", não "DORFLEX MAX®" nem "DORFLEX® UNO") somada às bulas ligadas aos princípios ativos **que não trazem ativo de fora do remédio** (o Torsilax, que só divide a cafeína com o Dorflex, não entra). Remédio de um ativo só ainda aceita, na falta de outra, a bula de uma associação que o contém. Sem vínculo por princípio ativo, vale o nome (marca ou ativo declarado na bula). Desde 10/11/2026.
 5. `QuestionIntentDetector::plan()` define assuntos e seções por palavras-chave (`config/bulai.php`,
    `leaflet.sections.*.keywords` e `questions.intents`).
 6. Para cada seção do plano: evidências já extraídas (`LeafletEvidenceService::stored()`) e busca por trechos
