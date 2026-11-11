@@ -1,0 +1,847 @@
+{
+ "run_started": "2026-11-11T01:50:58-03:00",
+ "run_finished": "2026-11-11T02:53:09-03:00",
+ "asked": 234,
+ "http_200": 234,
+ "http_other": {},
+ "status": {
+  "answered": 199,
+  "needs_info": 8,
+  "no_medicine": 14,
+  "no_evidence": 4,
+  "not_identified": 3,
+  "no_leaflet": 6
+ },
+ "status_by_block": {
+  "bula brasileira": {
+   "answered": 170,
+   "needs_info": 7,
+   "no_medicine": 10,
+   "no_evidence": 2,
+   "not_identified": 3,
+   "no_leaflet": 4
+  },
+  "marca": {
+   "answered": 12,
+   "no_evidence": 1,
+   "needs_info": 1
+  },
+  "sem bula BR": {
+   "no_evidence": 1,
+   "answered": 3,
+   "no_leaflet": 2
+  },
+  "inexistente": {
+   "no_medicine": 3
+  },
+  "urgencia": {
+   "answered": 2
+  },
+  "fora do escopo": {
+   "no_medicine": 1
+  },
+  "conversa": {
+   "answered": 12
+  }
+ },
+ "status_by_subject": {
+  "indicacao": {
+   "answered": 21,
+   "no_medicine": 3,
+   "not_identified": 1
+  },
+  "efeitos": {
+   "answered": 21,
+   "no_medicine": 3,
+   "not_identified": 1
+  },
+  "armazenamento": {
+   "answered": 21,
+   "no_medicine": 3,
+   "not_identified": 1
+  },
+  "interacao": {
+   "answered": 18,
+   "no_evidence": 2,
+   "needs_info": 4,
+   "no_medicine": 1
+  },
+  "posologia": {
+   "answered": 22,
+   "needs_info": 1,
+   "no_leaflet": 1
+  },
+  "contraindicacao": {
+   "needs_info": 2,
+   "answered": 21,
+   "no_leaflet": 1
+  },
+  "gravidez": {
+   "answered": 23,
+   "no_leaflet": 1
+  },
+  "superdose": {
+   "answered": 23,
+   "no_leaflet": 1
+  },
+  "marca": {
+   "answered": 12,
+   "no_evidence": 1,
+   "needs_info": 1
+  },
+  "sem bula BR": {
+   "no_evidence": 1,
+   "answered": 3,
+   "no_leaflet": 2
+  },
+  "inexistente": {
+   "no_medicine": 3
+  },
+  "urgencia": {
+   "answered": 2
+  },
+  "fora do escopo": {
+   "no_medicine": 1
+  },
+  "conversa-1": {
+   "answered": 6
+  },
+  "conversa-2": {
+   "answered": 6
+  }
+ },
+ "medicine_identified": {
+  "rate": 0.9279,
+  "low": 0.8861,
+  "high": 0.9552,
+  "n": 222,
+  "k": 206
+ },
+ "answers_with_every_source_from_the_medicine": {
+  "rate": 0.8333,
+  "low": 0.772,
+  "high": 0.8807,
+  "n": 180,
+  "k": 150
+ },
+ "source_kinds": {
+  "combinacao que contem": 78,
+  "do remedio": 467,
+  "desconhecida": 2,
+  "de outro remedio": 8
+ },
+ "a_source_from_the_subject_section": {
+  "rate": 0.9944,
+  "low": 0.9687,
+  "high": 0.999,
+  "n": 177,
+  "k": 176
+ },
+ "examples": {
+  "wrong_medicine": [
+   {
+    "id": "M03-efeitos",
+    "question": "Quais os efeitos colaterais do AAS?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M03-armazenamento",
+    "question": "Como devo guardar o AAS?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M03-interacao",
+    "question": "Posso usar AAS junto com ibuprofeno?",
+    "medicines": [
+     "IBUPROFENO"
+    ],
+    "status": "answered"
+   },
+   {
+    "id": "M03-indicacao",
+    "question": "Para que serve o AAS?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M14-gravidez",
+    "question": "Grávida pode usar vitamina D colecalciferol?",
+    "medicines": [
+     "BONECAL D"
+    ],
+    "status": "answered"
+   },
+   {
+    "id": "M14-superdose",
+    "question": "Tomei vitamina D colecalciferol a mais do que devia, o que pode acontecer?",
+    "medicines": [
+     "BONECAL D"
+    ],
+    "status": "answered"
+   },
+   {
+    "id": "M14-posologia",
+    "question": "Como devo tomar o vitamina D colecalciferol?",
+    "medicines": [
+     "BONECAL D"
+    ],
+    "status": "needs_info"
+   },
+   {
+    "id": "M14-contraindicacao",
+    "question": "Quem não pode usar vitamina D colecalciferol?",
+    "medicines": [
+     "BONECAL D"
+    ],
+    "status": "answered"
+   },
+   {
+    "id": "M27-efeitos",
+    "question": "Quais os efeitos colaterais do dabigatrana?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M27-armazenamento",
+    "question": "Como devo guardar o dabigatrana?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M27-interacao",
+    "question": "Posso usar dabigatrana junto com AAS?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M27-indicacao",
+    "question": "Para que serve o dabigatrana?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M41-indicacao",
+    "question": "Para que serve o pseudoefedrina?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M41-efeitos",
+    "question": "Quais os efeitos colaterais do pseudoefedrina?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M41-armazenamento",
+    "question": "Como devo guardar o pseudoefedrina?",
+    "medicines": [],
+    "status": "no_medicine"
+   },
+   {
+    "id": "M41-interacao",
+    "question": "Posso usar pseudoefedrina junto com atenolol?",
+    "medicines": [
+     "ATENOLOL"
+    ],
+    "status": "no_evidence"
+   }
+  ],
+  "wrong_source": [
+   {
+    "id": "M01-indicacao",
+    "question": "Para que serve o paracetamol?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3",
+     "combinacao que contem: Torsilax — Bula do paciente | PARA QUE ESTE MEDICAMENTO É INDICADO? | p.3",
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.2"
+    ]
+   },
+   {
+    "id": "M01-efeitos",
+    "question": "Quais os efeitos colaterais do paracetamol?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | QUAIS OS MALES QUE ESTE MEDICAMENTO PODE ME CAUSAR? | p.8",
+     "combinacao que contem: Torsilax — Bula do paciente | QUAIS OS MALES QUE ESTE MEDICAMENTO PODE ME CAUSAR? | p.9"
+    ]
+   },
+   {
+    "id": "M01-armazenamento",
+    "question": "Como devo guardar o paracetamol?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO? | p.8",
+     "combinacao que contem: Torsilax — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3",
+     "combinacao que contem: Torsilax — Bula do paciente | PARA QUE ESTE MEDICAMENTO É INDICADO? | p.3",
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.2"
+    ]
+   },
+   {
+    "id": "M04-contraindicacao",
+    "question": "Quem não pode usar alendronato de sódio?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.4"
+    ]
+   },
+   {
+    "id": "M04-gravidez",
+    "question": "Grávida pode usar alendronato de sódio?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.4"
+    ]
+   },
+   {
+    "id": "M04-superdose",
+    "question": "Tomei alendronato de sódio a mais do que devia, o que pode acontecer?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO? | p.6"
+    ]
+   },
+   {
+    "id": "M04-posologia",
+    "question": "Como devo tomar o alendronato de sódio?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | FOSAMAX D: | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | COMO DEVO USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE DEVO FAZER QUANDO EU ME ESQUECER DE USAR ESTE MEDICAMENTO? | p.5"
+    ]
+   },
+   {
+    "id": "M10-posologia",
+    "question": "Como devo tomar o colírio de brimonidina?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | COMO DEVO USAR ESTE MEDICAMENTO? | p.6"
+    ]
+   },
+   {
+    "id": "M10-contraindicacao",
+    "question": "Quem não pode usar colírio de brimonidina?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: COMBIGAN — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3"
+    ]
+   },
+   {
+    "id": "M10-gravidez",
+    "question": "Grávida pode usar colírio de brimonidina?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: COMBIGAN — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3"
+    ]
+   },
+   {
+    "id": "M10-superdose",
+    "question": "Tomei colírio de brimonidina a mais do que devia, o que pode acontecer?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO? | p.7"
+    ]
+   },
+   {
+    "id": "M14-gravidez",
+    "question": "Grávida pode usar vitamina D colecalciferol?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE DEVO SABER ANTES DE | p.7"
+    ]
+   },
+   {
+    "id": "M14-superdose",
+    "question": "Tomei vitamina D colecalciferol a mais do que devia, o que pode acontecer?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO? | p.6"
+    ]
+   },
+   {
+    "id": "M14-posologia",
+    "question": "Como devo tomar o vitamina D colecalciferol?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | COMO DEVO USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | FOSAMAX D: | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE DEVO FAZER QUANDO EU ME ESQUECER DE USAR ESTE MEDICAMENTO? | p.5"
+    ]
+   },
+   {
+    "id": "M14-contraindicacao",
+    "question": "Quem não pode usar vitamina D colecalciferol?",
+    "sources": [
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: FOSAMAX® D — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.4"
+    ]
+   },
+   {
+    "id": "M21-efeitos",
+    "question": "Quais os efeitos colaterais do dexametasona?",
+    "sources": [
+     "desconhecida: DEXAMETHASONE — bula dos EUA (FDA), tradução automática | REAÇÕES ADVERSAS (bula dos EUA) | p.?",
+     "do remedio: dexametasona — Bula do profissional de saúde | REAÇÕES ADVERSAS | p.8"
+    ]
+   },
+   {
+    "id": "M22-gravidez",
+    "question": "Grávida pode usar diclofenaco?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: Torsilax — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: Torsilax — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: Torsilax — Bula do paciente | QUANDO NÃO DEVO USAR | p.13",
+     "combinacao que contem: Torsilax — Bula do paciente | CONTRAINDICAÇÕES | p.13"
+    ]
+   },
+   {
+    "id": "M22-superdose",
+    "question": "Tomei diclofenaco a mais do que devia, o que pode acontecer?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO? | p.9"
+    ]
+   },
+   {
+    "id": "M22-posologia",
+    "question": "Como devo tomar o diclofenaco?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | COMO DEVO USAR ESTE MEDICAMENTO? | p.8"
+    ]
+   },
+   {
+    "id": "M22-contraindicacao",
+    "question": "Quem não pode usar diclofenaco?",
+    "sources": [
+     "combinacao que contem: Torsilax — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: Torsilax — Bula do paciente | QUANDO NÃO DEVO USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: Torsilax — Bula do paciente | QUANDO NÃO DEVO USAR | p.13",
+     "combinacao que contem: Torsilax — Bula do paciente | CONTRAINDICAÇÕES | p.13"
+    ]
+   },
+   {
+    "id": "M29-efeitos",
+    "question": "Quais os efeitos colaterais do hidroclorotiazida?",
+    "sources": [
+     "desconhecida: HYDROCHLOROTHIAZIDE — bula dos EUA (FDA), tradução automática | REAÇÕES ADVERSAS (bula dos EUA) | p.?",
+     "do remedio: hidroclorotiazida — Bula do profissional de saúde | REAÇÕES ADVERSAS | p.7",
+     "do remedio: hidroclorotiazida — Bula do profissional de saúde | REAÇÕES ADVERSAS | p.6"
+    ]
+   },
+   {
+    "id": "M35-efeitos",
+    "question": "Quais os efeitos colaterais do losartana?",
+    "sources": [
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | REAÇÕES ADVERSAS | p.6",
+     "combinacao que contem: Losartana Potassica Paciente | QUAIS OS MALES QUE ESTE MEDICAMENTO PODE ME CAUSAR? | p.5",
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | REAÇÕES ADVERSAS | p.7",
+     "combinacao que contem: Losartana Potassica Paciente | REAÇÕES ADVERSAS | p.8",
+     "combinacao que contem: Losartana Potassica Paciente | REAÇÕES ADVERSAS | p.9"
+    ]
+   },
+   {
+    "id": "M35-armazenamento",
+    "question": "Como devo guardar o losartana?",
+    "sources": [
+     "combinacao que contem: Losartana Potassica Paciente | ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO? | p.5",
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | CUIDADOS DE ARMAZENAMENTO DO MEDICAMENTO | p.6",
+     "combinacao que contem: Losartana Potassica Paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3",
+     "combinacao que contem: Losartana Potassica Paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: Losartana Potassica Paciente | INFORMAÇÕES AO PACIENTE PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: Losartana Potassica Paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.4",
+     "combinacao que contem: Losartana Potassica Paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.2"
+    ]
+   },
+   {
+    "id": "M35-indicacao",
+    "question": "Para que serve o losartana?",
+    "sources": [
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | CUIDADOS DE ARMAZENAMENTO DO MEDICAMENTO | p.6",
+     "combinacao que contem: Losartana Potassica Paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3",
+     "combinacao que contem: Losartana Potassica Paciente | ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: Losartana Potassica Paciente | INFORMAÇÕES AO PACIENTE PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: Losartana Potassica Paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.2"
+    ]
+   },
+   {
+    "id": "M49-indicacao",
+    "question": "Para que serve o colírio de timolol?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | INFORMAÇÕES AO PACIENTE PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: COMBIGAN — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3"
+    ]
+   },
+   {
+    "id": "M49-efeitos",
+    "question": "Quais os efeitos colaterais do colírio de timolol?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | QUAIS OS MALES QUE ESTE MEDICAMENTO PODE ME CAUSAR? | p.6",
+     "combinacao que contem: COMBIGAN — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3"
+    ]
+   },
+   {
+    "id": "M49-armazenamento",
+    "question": "Como devo guardar o colírio de timolol?",
+    "sources": [
+     "combinacao que contem: COMBIGAN — Bula do paciente | ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: COMBIGAN — Bula do paciente | INFORMAÇÕES AO PACIENTE PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: COMBIGAN — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.3",
+     "combinacao que contem: COMBIGAN — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3",
+     "combinacao que contem: COMBIGAN — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.4"
+    ]
+   },
+   {
+    "id": "X04",
+    "question": "Para que serve o Tylenol?",
+    "sources": [
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: TYLENOL SINUS — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.2",
+     "combinacao que contem: Torsilax — Bula do paciente | ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO? | p.8",
+     "combinacao que contem: Torsilax — Bula do paciente | PARA QUE ESTE MEDICAMENTO É INDICADO? | p.3",
+     "combinacao que contem: Torsilax — Bula do paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3"
+    ]
+   },
+   {
+    "id": "C01a",
+    "question": "Para que serve a losartana?",
+    "sources": [
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | CUIDADOS DE ARMAZENAMENTO DO MEDICAMENTO | p.6",
+     "combinacao que contem: Losartana Potassica Paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.3",
+     "combinacao que contem: Losartana Potassica Paciente | ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: Losartana Potassica Paciente | INFORMAÇÕES AO PACIENTE PARA QUE ESTE MEDICAMENTO É INDICADO? | p.2",
+     "combinacao que contem: Losartana Potassica Paciente | COMO ESTE MEDICAMENTO FUNCIONA? | p.2"
+    ]
+   },
+   {
+    "id": "C01b",
+    "question": "E qual a dose máxima por dia?",
+    "sources": [
+     "do remedio: losartana potássica — Bula do paciente | O QUE DEVO SABER ANTES DE USAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: Losartana Potassica Paciente | COMO DEVO USAR ESTE MEDICAMENTO? | p.5",
+     "combinacao que contem: Losartana Potassica Paciente | INTERAÇÕES MEDICAMENTOSAS | p.9",
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | POSOLOGIA E MODO DE USAR | p.6",
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | INTERAÇÕES MEDICAMENTOSAS | p.4",
+     "do remedio: losartana potássica — Bula do paciente | COMO DEVO USAR ESTE MEDICAMENTO? | p.6",
+     "de outro remedio: hidroclorotiazida — Bula do profissional de saúde | INTERAÇÕES MEDICAMENTOSAS | p.6",
+     "do remedio: losartana potássica — Bula do profissional de saúde | INTERAÇÕES MEDICAMENTOSAS | p.10"
+    ]
+   }
+  ],
+  "wrong_section": [
+   {
+    "id": "M33-efeitos",
+    "question": "Quais os efeitos colaterais do isotretinoína?",
+    "sources": [
+     "Bula 1794356209646 | QUAIS MALES ESTE MEDICAMENTO PODE ME CAUSAR? | p.11",
+     "Bula 1794356209646 | QUAIS MALES ESTE MEDICAMENTO PODE ME CAUSAR? | p.12",
+     "Bula 1794356209646 | ATENÇÃO – RISCO PARA MULHERES GRÁVIDAS, CAUSA GRAVES DEFEITOS NA FACE, NAS | p.13"
+    ]
+   }
+  ]
+ },
+ "coverage_brazil": {
+  "full": 143,
+  "partial": 27,
+  "none": 26
+ },
+ "claims": {
+  "accepted": 456,
+  "rejected": 364,
+  "acceptance": {
+   "rate": 0.5561,
+   "low": 0.5219,
+   "high": 0.5898,
+   "n": 820,
+   "k": 456
+  },
+  "rejection_reasons": {
+   "not_grounded_in_cited_evidence": 181,
+   "forbidden_recommendation": 51,
+   "combination_off_topic": 2,
+   "asks_disabled": 2,
+   "over_word_budget": 66,
+   "negation_not_in_evidence": 19,
+   "limit_not_needed": 21,
+   "narrates_source": 13,
+   "too_dense": 2,
+   "negation_inverted": 6,
+   "ask_without_question_mark": 1
+  }
+ },
+ "answered_with_accepted_claim": {
+  "rate": 1.0,
+  "low": 0.9811,
+  "high": 1,
+  "n": 199,
+  "k": 199
+ },
+ "raw_excerpts_shown": 0,
+ "leaflet_fallback_used": 82,
+ "retrieval_mode": {
+  "hybrid": 211,
+  "null": 23
+ },
+ "rubric_answered": {
+  "relevancia": {
+   "rate": 1.0,
+   "low": 0.9811,
+   "high": 1,
+   "n": 199,
+   "k": 199
+  },
+  "ancoragem": {
+   "rate": 1.0,
+   "low": 0.9811,
+   "high": 1,
+   "n": 199,
+   "k": 199
+  },
+  "seguranca": {
+   "rate": 1.0,
+   "low": 0.9811,
+   "high": 1,
+   "n": 199,
+   "k": 199
+  },
+  "clareza": {
+   "rate": 0.9849,
+   "low": 0.9566,
+   "high": 0.9949,
+   "n": 199,
+   "k": 196
+  },
+  "naturalidade": {
+   "rate": 0.9146,
+   "low": 0.8675,
+   "high": 0.946,
+   "n": 199,
+   "k": 182
+  }
+ },
+ "special": {
+  "sem bula BR": [
+   {
+    "id": "X15",
+    "question": "Quais os efeitos colaterais da levofloxacina?",
+    "status": "no_evidence",
+    "urgency": null,
+    "external": {
+     "consulted": true,
+     "references": 3
+    },
+    "sources": [],
+    "answer": "Se você sentir algum desses efeitos, principalmente os mais sérios, converse com seu médico ou farmacêutico, que podem orientar o que fazer no seu caso."
+   },
+   {
+    "id": "X16",
+    "question": "Quais os efeitos colaterais da prednisona?",
+    "status": "answered",
+    "urgency": null,
+    "external": {
+     "consulted": true,
+     "references": 3
+    },
+    "sources": [
+     "PREDNISONE — bula dos EUA (FDA), tradução automática | REAÇÕES ADVERSAS (bula dos EUA) | p.?"
+    ],
+    "answer": "A prednisona também pode causar retenção de líquidos (inchaço), aumento da pressão, acne, pele fina e seca, hematomas com facilidade e demora na cicatrização de feridas. Nos ossos e músculos, há registro de fraqueza e dores musculares, perda de massa muscular, ossos mais frágeis (osteoporose), risco maior de fraturas e ruptura de tendão. Entre os efeitos mais sérios descritos estão úlcera no estôm"
+   },
+   {
+    "id": "X17",
+    "question": "Quais remédios interagem com a enoxaparina?",
+    "status": "answered",
+    "urgency": null,
+    "external": {
+     "consulted": true,
+     "references": 1
+    },
+    "sources": [
+     "ENOXAPARIN SODIUM — bula dos EUA (FDA), tradução automática | INTERAÇÕES MEDICAMENTOSAS (bula dos EUA) | p.?"
+    ],
+    "answer": "Entre esses remédios estão outros anticoagulantes (que deixam o sangue mais \"fino\") e os que impedem as plaquetas de grudar, como o ácido acetilsalicílico (a aspirina) e os salicilatos. Também estão nessa lista os anti-inflamatórios, chamados de AINEs, como o cetorolaco, além do dipiridamol e da sulfimpirazona.\n\nEssa lista fala dos remédios que aumentam o risco de sangramento e não inclui todos os"
+   },
+   {
+    "id": "X18",
+    "question": "Quais os efeitos colaterais do Dramin?",
+    "status": "answered",
+    "urgency": null,
+    "external": {
+     "consulted": true,
+     "references": 1
+    },
+    "sources": [
+     "DIMENHYDRINATE — bula dos EUA (FDA), tradução automática | REAÇÕES ADVERSAS (bula dos EUA) | p.?"
+    ],
+    "answer": "O efeito mais comum do Dramin (dimenidrato) é a sonolência, e também pode dar tontura. Essa informação vem da bula dos Estados Unidos. O Dramin também pode causar dificuldade ou dor ao urinar e deixar o catarro dos brônquios mais espesso."
+   },
+   {
+    "id": "X19",
+    "question": "Para que serve a prednisona?",
+    "status": "no_leaflet",
+    "urgency": null,
+    "external": null,
+    "sources": [],
+    "answer": ""
+   },
+   {
+    "id": "X20",
+    "question": "Como tomar varfarina?",
+    "status": "no_leaflet",
+    "urgency": null,
+    "external": null,
+    "sources": [],
+    "answer": ""
+   }
+  ],
+  "inexistente": [
+   {
+    "id": "X21",
+    "question": "Para que serve o Zentrovax?",
+    "status": "no_medicine",
+    "urgency": null,
+    "external": null,
+    "sources": [],
+    "answer": ""
+   },
+   {
+    "id": "X22",
+    "question": "Posso tomar Fluxomarin 20mg?",
+    "status": "no_medicine",
+    "urgency": null,
+    "external": null,
+    "sources": [],
+    "answer": ""
+   },
+   {
+    "id": "X23",
+    "question": "Quais os efeitos do Brontaxil?",
+    "status": "no_medicine",
+    "urgency": null,
+    "external": null,
+    "sources": [],
+    "answer": ""
+   }
+  ],
+  "urgencia": [
+   {
+    "id": "X24",
+    "question": "Meu filho de 3 anos tomou um frasco inteiro de dipirona, o que eu faço?",
+    "status": "answered",
+    "urgency": {
+     "level": "urgent",
+     "kinds": [
+      "ingestao_acidental"
+     ],
+     "message": "Se você ou alguém tomou mais do que o indicado, não espere os sintomas: ligue agora para o Disque-Intoxicação, 0800 722 6001 (gratuito, 24 horas), ou para o SAMU, 192. Se a pessoa estiver passando mal, desmaiada ou com dificuldade para respirar, ligue 192 já."
+    },
+    "external": null,
+    "sources": [
+     "DIPIRONA — Bula do paciente | O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO? | p.9",
+     "DIPIRONA SODICA — Bula do paciente | O QUE FAZER SE ALGUÉM USAR UMA QUANTIDADE MAIOR DO QUE A INDICADA DESTE MEDICAMENTO? | p.10"
+    ],
+    "answer": "Quando uma criança toma uma quantidade grande de dipirona, o certo é procurar socorro médico rapidamente. Se puder, leve a embalagem ou a bula do medicamento. Com doses muito altas, podem aparecer enjoo, vômito e dor na barriga. Mais raramente, podem surgir tontura, sonolência, convulsões, queda da pressão e batimentos do coração acelerados ou irregulares. Os rins também podem deixar de funcionar "
+   },
+   {
+    "id": "X25",
+    "question": "Tomei 20 comprimidos de clonazepam agora",
+    "status": "answered",
+    "urgency": {
+     "level": "urgent",
+     "kinds": [
+      "overdose_quantidade"
+     ],
+     "message": "Se você ou alguém tomou mais do que o indicado, não espere os sintomas: ligue agora para o Disque-Intoxicação, 0800 722 6001 (gratuito, 24 horas), ou para o SAMU, 192. Se a pessoa estiver passando mal, desmaiada ou com dificuldade para respirar, ligue 192 já."
+    },
+    "external": null,
+    "sources": [
+     "clonazepam — Bula do profissional de saúde | SUPERDOSE | p.14"
+    ],
+    "answer": "O risco é maior se a pessoa tem doença respiratória, é idosa, ou se tomou o clonazepam junto com álcool ou outros remédios que causam sono ou calmaria. O tratamento é feito por profissionais de saúde. Eles acompanham os sinais vitais (como respiração e pressão) e dão apoio conforme o estado da pessoa. Podem também usar carvão ativado em até 1 a 2 horas, para reduzir a absorção do remédio.\n\nNão dá "
+   }
+  ],
+  "fora do escopo": [
+   {
+    "id": "X26",
+    "question": "Qual a capital da França?",
+    "status": "no_medicine",
+    "urgency": null,
+    "external": null,
+    "sources": [],
+    "answer": ""
+   }
+  ]
+ },
+ "follow_up": [
+  {
+   "id": "C01b",
+   "question": "E qual a dose máxima por dia?",
+   "status": "answered",
+   "medicines": [
+    "LOSARTANA POTÁSSICA",
+    "HIDROCLOROTIAZIDA"
+   ],
+   "conversation_used": false
+  },
+  {
+   "id": "C02b",
+   "question": "E ela pode ser tomada à noite?",
+   "status": "answered",
+   "medicines": [
+    "CLORIDRATO DE SERTRALINA"
+   ],
+   "conversation_used": true
+  },
+  {
+   "id": "C03b",
+   "question": "Posso tomar em jejum?",
+   "status": "answered",
+   "medicines": [
+    "OMEPRAZOL"
+   ],
+   "conversation_used": true
+  },
+  {
+   "id": "C04b",
+   "question": "E se eu esquecer uma dose?",
+   "status": "answered",
+   "medicines": [
+    "METFORMINA"
+   ],
+   "conversation_used": true
+  },
+  {
+   "id": "C05b",
+   "question": "Criança pode tomar?",
+   "status": "answered",
+   "medicines": [
+    "IBUPROFENO"
+   ],
+   "conversation_used": true
+  },
+  {
+   "id": "C06b",
+   "question": "E ela serve para dor de cabeça?",
+   "status": "answered",
+   "medicines": [
+    "DIPIRONA"
+   ],
+   "conversation_used": true
+  }
+ ],
+ "latency_seconds": {
+  "server_p50": 12.9,
+  "server_p95": 29.1,
+  "server_max": 53.7,
+  "wall_p50": 13.1,
+  "wall_p95": 29.3,
+  "mean": 14.1
+ },
+ "tokens": {
+  "generation_in": 963273,
+  "generation_out": 105182,
+  "interpretation_in": 292205,
+  "interpretation_out": 18496,
+  "leaflet_in": 2113019,
+  "leaflet_out": 53818
+ },
+ "generation_models": {
+  "claude-sonnet-5-5": 211
+ }
+}
