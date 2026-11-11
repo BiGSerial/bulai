@@ -309,3 +309,11 @@ Testes: `ActiveIngredientCatalogTest` (vínculo/criação do princípio), `Knowl
 - `DuplicateIngredientMerger` (chamado por `knowledge:build-ingredients`, antes de ligar o catálogo): cada princípio ativo sem alias do DDInter cujo nome resolve para outro (ignorando a si mesmo) é fundido nele — vínculos de bula e de medicamento, bula dos EUA, aliases e `metadata.ingredient_links.excluded` migram; o duplicado é apagado. O comando lista "Duplicado fundido → No princípio ativo".
 - Operação: após o deploy, `sudo bulai-deploy artisan knowledge:build-ingredients` e reexecutar `evaluation:run identification` e `interactions`.
 - Testes: `ActiveIngredientCatalogTest` (bula vinculada antes do catálogo usa o princípio do DDInter; duplicado existente é fundido e o medicamento volta a ter as interações).
+
+### Reavaliação pós-correções em produção (11/11/2026) — parcial
+
+- **Relatório:** `docs/qa/avaliacao-producao-pos-correcoes-2026-11-11.md`, com as sondagens de interação em `docs/qa/avaliacao-producao-pos-correcoes-2026-11-11.sonda-interacoes.json` (antes da consolidação) e `…sonda-interacoes-pos-consolidacao.json` (depois). Sondagem de 6 pares pelo `POST /api/v1/evaluation/ask`, não o `evaluation:run`.
+- **Estado de produção:** o deploy (`workflow_dispatch`) roda backup, `migrate --force` e ativação, e **não** executa `knowledge:build-ingredients`; a fusão dos duplicados exige `bulai-deploy artisan knowledge:build-ingredients` (sem `--dry-run`). Com `947ea4e` em produção os 3 casos de ibuprofeno ainda saíam como "a base não registra interação"; após `14e61bc` e a consolidação, `Ibuprofen`, `Amlodipine` e `Losartan` são os ativos com bula e as interações graves entre bulas foram de 39 para 44.
+- **Resultado:** ibuprofeno + rivaroxabana passou a trazer a gravidade do DDInter; ibuprofeno + varfarina e AAS alertam sem citar a gravidade; os 3 pares com anlodipino seguem sem a interação grave.
+- **Pendente:** `evaluation:run` (interações 1.483 e protocolo de 30, identificação, recuperação, geração) e a bateria de 234 perguntas. Sem esses registros, a correção dos 7 casos graves **não está validada** e nenhum número do TCC deve ser substituído.
+- **Testes locais:** `tests/Feature/Knowledge`, `Evaluation` e `Api`: 201 testes, 198 aprovados; os 3 falhos são de páginas Blade sem o manifest do Vite.

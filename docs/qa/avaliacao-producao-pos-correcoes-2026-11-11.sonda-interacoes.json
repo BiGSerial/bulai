@@ -1,0 +1,38 @@
+[
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com varfarina?",
+  "status": "answered",
+  "resposta": "A base de interações consultada não registra interação entre ibuprofeno e varfarina. Isso não quer dizer que a combinação seja segura. O ibuprofeno também pode causar sangramento no estômago ou no intestino, e isso pode aparecer como anemia nos exames de sangue.\n\nSe você pode tomar os dois juntos depende da sua situação de saúde e do motivo de cada remédio. Isso só o médico ou o farmacêutico podem avaliar, então vale conversar com um deles antes de tomar.",
+  "uuid": "001313bf-f287-4d77-8a83-ee4929fec1ad"
+ },
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com ácido acetilsalicílico?",
+  "status": "answered",
+  "resposta": "Tomar anti-inflamatórios junto com aspirina em doses altas aumenta o risco de úlceras (feridas no estômago) e de sangramento no estômago e no intestino. A base de interações consultada não registra interação entre esses dois remédios. Isso não prova que a combinação seja segura.\n\nSe você pode tomar os dois depende da sua situação, como seu estômago, outros remédios que usa e o motivo do uso. Isso deve ser combinado com seu médico ou farmacêutico.\n\nVocê pretende usar os dois por poucos dias ou de forma contínua?",
+  "uuid": "8f0bab15-d0b0-43a1-ae8e-a3b2a5ef4070"
+ },
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com rivaroxabana?",
+  "status": "answered",
+  "resposta": "A base de interações consultada não registra interação entre ibuprofeno e rivaroxabana, mas isso não comprova que juntos sejam seguros. A bula da rivaroxabana (Xarelto) avisa que anti-inflamatórios e remédios para dor, como o naproxeno e o ácido acetilsalicílico, podem aumentar o efeito dela e o risco de sangramento. O ibuprofeno também é um anti-inflamatório. Quando isso acontece, o médico pode decidir acompanhar a pessoa com mais cuidado.\n\nSe você pode usar os dois juntos depende da sua situação de saúde e do motivo de cada remédio. Isso precisa ser avaliado por um médico ou farmacêutico, que também pode orientar sobre outra opção para a dor.\n\nVocê já usa a rivaroxabana e está pensando em tomar o ibuprofeno para alguma dor ou febre?",
+  "uuid": "fe0e806c-439d-412d-b826-90e7057cb97f"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com carbamazepina?",
+  "status": "answered",
+  "resposta": "A carbamazepina é um forte indutor de uma enzima do fígado chamada CYP3A4. Isso quer dizer que ela acelera a eliminação de outros remédios e pode diminuir a quantidade deles no sangue.\n\nNão há orientação específica sobre tomar anlodipino junto com carbamazepina nas informações disponíveis, então não dá para confirmar se essa combinação é adequada. Não ter uma interação registrada para esse par não prova que a combinação seja segura. Quem pode avaliar o seu caso é o seu médico ou farmacêutico, que sabe quais outros remédios e condições de saúde você tem.\n\nVocê já usa os dois remédios ou está pensando em começar algum deles?",
+  "uuid": "d95b564d-fe17-43bf-8029-eec4dfa05d1a"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com fenobarbital?",
+  "status": "no_evidence",
+  "resposta": "Não encontrei orientação sobre o uso de anlodipino junto com fenobarbital. As informações disponíveis sobre o fenobarbital falam de outros remédios, mas não desse par. Não ter essa interação descrita não quer dizer que a combinação seja segura. Para saber se você pode tomar os dois, converse com seu médico ou farmacêutico, que conhecem o seu caso.",
+  "uuid": "799f2bf0-c974-488f-b3ca-c3c11b68df2d"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com itraconazol?",
+  "status": "needs_info",
+  "resposta": "Como o anlodipino não aparece na lista de exemplos que pude consultar, não dá para dizer se essa combinação é segura. Não aparecer na lista não prova que não haja interação. Quem pode confirmar, olhando o seu caso, é o médico ou o farmacêutico, antes de você usar os dois.\n\nVocê já usa os dois remédios ou o itraconazol foi indicado agora?",
+  "uuid": "2dcfa5a4-5f3c-4599-8815-cf86f802487a"
+ }
+]

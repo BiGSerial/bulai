@@ -1,0 +1,38 @@
+[
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com varfarina?",
+  "status": "answered",
+  "resposta": "O ibuprofeno está na lista de anti-inflamatórios que podem aumentar o risco de sangramento quando usados com varfarina. Essa informação vem da bula dos Estados Unidos, da varfarina. A bula do ibuprofeno também diz que ele deve ser evitado junto com remédios que impedem a coagulação do sangue (anticoagulantes), principalmente quando o uso é contínuo.\n\nSe você usa varfarina, a decisão sobre tomar ou não ibuprofeno deve ser combinada com seu médico ou farmacêutico, que conhecem o seu caso. Não mude nada no seu tratamento por conta própria.\n\nVocê está pensando em tomar o ibuprofeno para dor ou febre?",
+  "uuid": "d26781d5-9d9c-4379-b934-5e3843927178"
+ },
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com ácido acetilsalicílico?",
+  "status": "answered",
+  "resposta": "Os dois são anti-inflamatórios. Tomar mais de um desse tipo ao mesmo tempo pode aumentar o risco de úlceras e de sangramento no estômago e no intestino.\n\nSe você já está tomando os dois ou precisa dos dois, o melhor é conversar com seu médico ou farmacêutico antes de qualquer mudança. Só eles podem avaliar o seu caso e orientar o que fazer.\n\nVocê toma o ácido acetilsalicílico de forma contínua, por exemplo para o coração, ou só de vez em quando para dor?",
+  "uuid": "432df371-eb93-4588-ac4a-c3d9b2052356"
+ },
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com rivaroxabana?",
+  "status": "answered",
+  "resposta": "Existe registro de interação de gravidade maior entre ibuprofeno e rivaroxabana. Isso quer dizer que usar os dois juntos merece atenção especial. A bula da rivaroxabana (Xarelto) avisa que anti-inflamatórios e remédios para dor, como naproxeno e ácido acetilsalicílico, podem aumentar o efeito dela e o risco de sangramentos. O ibuprofeno é um anti-inflamatório dessa mesma família. A bula do ibuprofeno também orienta evitar o uso junto com anticoagulantes (remédios que deixam o sangue mais \"fino\"), principalmente quando o uso é contínuo. A rivaroxabana é um anticoagulante.\n\nSe você usa rivaroxabana, a decisão de tomar ou não ibuprofeno deve ser conversada com seu médico ou farmacêutico antes. Eles podem avaliar o seu caso e indicar uma opção adequada para a sua dor.\n\nVocê está sentindo dor ou febre agora e queria usar o ibuprofeno para isso?",
+  "uuid": "2a45d81d-a7bd-4d1d-9f83-72a3a16d89e4"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com carbamazepina?",
+  "status": "answered",
+  "resposta": "A carbamazepina é um forte indutor de uma enzima do fígado chamada CYP3A4. Isso quer dizer que ela acelera a quebra de outros remédios e pode diminuir a quantidade deles no sangue, principalmente os que dependem dessa enzima.\n\nNão dá para confirmar se o anlodipino pode ser tomado junto com a carbamazepina, pois não há orientação específica sobre esse par. Isso não significa que a combinação seja segura. Converse com seu médico ou farmacêutico, que podem avaliar o seu caso.",
+  "uuid": "72ec1ec4-6452-4eb1-bf4c-68c1a1dd4f8b"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com fenobarbital?",
+  "status": "no_evidence",
+  "resposta": "Não encontrei orientação específica sobre o uso de anlodipino junto com fenobarbital. Isso não quer dizer que a combinação seja segura, só que não foi possível confirmar nada sobre esse par. Quem pode dizer se essa combinação serve para você é o seu médico ou o farmacêutico, que conhecem sua saúde e os outros remédios que você usa.",
+  "uuid": "11977cbb-4048-4faf-962a-0f2af4e93a15"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com itraconazol?",
+  "status": "needs_info",
+  "resposta": "O anlodipino não aparece nos exemplos da bula do itraconazol que consegui ver, e essa lista não é completa. Não aparecer não prova que a combinação seja segura. Só o médico ou o farmacêutico, olhando seus outros remédios e sua saúde, pode dizer se vocês podem usar os dois juntos.\n\nSeu médico já sabe que você usa os dois remédios?",
+  "uuid": "27b95c44-3062-4b24-b971-f92abcc0c853"
+ }
+]
