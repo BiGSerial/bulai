@@ -1,5 +1,7 @@
 # Resultados experimentais (execuções reais de 04/11/2026)
 
+> **Histórico do desenvolvimento.** Estes números foram medidos na máquina de desenvolvimento e **não são usados no TCC**. O texto final (`tcc-bula-ia-texto-final.md`) usa apenas as medições no servidor de produção de 11/11/2026: registros `prod-*` em `GET /api/v1/audit/evaluations` e a avaliação das perguntas livres em `docs/qa/avaliacao-producao-2026-11-11.md`.
+
 Mapeamento no docx: Cap. 3, 3.5.1 (avaliação técnica) e 3.5.3; base para o capítulo de Resultados. Procedimento e comandos: `docs/evaluation.md`. Todos os números abaixo vêm de execuções registradas em `storage/app/evaluation/runs/*.json` (nome do registro na última coluna das tabelas); nada foi estimado ou arredondado à mão.
 
 ## 0. Ambiente e rastreabilidade
