@@ -70,4 +70,20 @@ final class BuscaToleranteAErrosTest extends TestCase
         $this->assertSame(['OMEPRAZOL', 1.0], [$best['medicine']->product_name, $best['similarity']]);
         $this->assertNull(app(FuzzyMedicineMatcher::class)->best('ome'), 'termo curto demais');
     }
+
+    /** Produção, 11/11/2026: "Para que serve o dabigatrana?" não achava o remédio, porque o catálogo escreve "etexilato de dabigatrana". */
+    public function test_a_base_name_finds_the_medicine_the_catalog_names_after_its_salt(): void
+    {
+        $this->medicine('PRADAXA', 'ETEXILATO DE DABIGATRANA');
+        $anlodipino = ActiveIngredient::factory()->create(['canonical_name' => 'BESILATO DE ANLODIPINO', 'normalized_name' => 'besilato de anlodipino']);
+        $this->medicine('NORVASC', 'BESILATO DE ANLODIPINO', $anlodipino);
+        $this->medicine('NAPRIX A', 'RAMIPRIL + BESILATO DE ANLODIPINO', $anlodipino)->ingredients()->attach(ActiveIngredient::factory()->create(['canonical_name' => 'RAMIPRIL', 'normalized_name' => 'ramipril'])->id, ['component_text' => 'RAMIPRIL', 'method' => 'alias', 'confidence' => 1]);
+        $this->medicine('CLORETO DE SODIO', 'CLORETO DE SODIO');
+        $detector = app(MedicationMentionDetector::class);
+        $names = fn (string $text): array => array_column($detector->detect($text), 'name');
+
+        $this->assertSame(['PRADAXA'], $names('Para que serve o dabigatrana?'));
+        $this->assertSame(['NORVASC'], $names('anlodipino dá inchaço?'), 'entre o remédio só com o ativo e a combinação, fica o remédio só com ele');
+        $this->assertSame([], $names('posso comer sodio?'), 'nome-base curto não vira sal do catálogo');
+    }
 }

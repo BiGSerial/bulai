@@ -190,6 +190,7 @@ Agora o fluxo é:
 3. **Conferência:**
    - Cada remédio apontado precisa aparecer, com grafia próxima, na pergunta ou na conversa. Senão é descartado e registrado em `dropped`.
    - Sigla ou palavra curta do nome (até 3 letras, como "AAS" ou o "T4" de "Puran T4") precisa aparecer escrita igual, sem tolerância a erro de digitação. Os nomes conferidos vão para o `MedicationMentionDetector` com `verifiedNames: true`, que então também procura termos de 2 ou 3 letras no catálogo. Sem interpretação, o detector continua ignorando palavras com menos de 4 letras, para não confundir palavra comum com remédio. Motivo: em produção, em 11/11/2026, "Para que serve o AAS?" respondia "não encontrei o remédio".
+   - **Nome-base de sal:** "dabigatrana" acha o produto que o catálogo registra como "etexilato de dabigatrana", e "anlodipino" acha o "besilato de anlodipino". No `MedicationMentionDetector`, um termo de uma palavra com 6+ letras também casa com `… de <termo>` no princípio ativo do catálogo e no nome do ingrediente, e a regra de foco prefere o remédio só com esse ativo. O mínimo de 6 letras evita que "sódio" vire "cloreto de sódio". Achado na bateria de produção de 11/11/2026.
    - A detecção no catálogo procura só esses nomes.
    - Se a IA apontou um remédio que o catálogo não tem, o sistema não responde com o remédio anterior.
    - A urgência apontada pela IA só soma: nunca apaga a das regras.
