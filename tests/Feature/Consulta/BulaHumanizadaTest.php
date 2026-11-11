@@ -6,6 +6,7 @@ use App\Data\Ai\TextGenerationRequest;
 use App\Data\Ai\TextGenerationResponse;
 use App\Data\Ai\TokenUsage;
 use App\Livewire\Consulta\Bula;
+use App\Livewire\Consulta\Bulas;
 use App\Livewire\Consulta\Pesquisa;
 use App\Models\Consultation\MedicineLeafletSummary;
 use App\Models\Knowledge\ActiveIngredient;
@@ -109,6 +110,42 @@ final class BulaHumanizadaTest extends TestCase
         $this->scripted = json_encode(['sections' => $sections]);
     }
 
+    public function test_the_summary_speaks_as_the_leaflet_and_refuses_claims_that_narrate_the_source(): void
+    {
+        $medicine = $this->omeprazol();
+        $this->script([
+            'para_que_serve' => [
+                ['text' => 'Segundo a bula, é indicado para o tratamento de úlcera gástrica.', 'evidence_ids' => ['E1']],
+                ['text' => 'A bula também indica o uso no refluxo gastroesofágico.', 'evidence_ids' => ['E1']],
+            ],
+            'nao_use_se' => [['text' => 'A bula contraindica o uso em quem tem alergia ao omeprazol.', 'evidence_ids' => ['E4']]],
+        ]);
+
+        $summary = app(LeafletSummaryService::class)->forMedicine($medicine);
+
+        $this->assertSame(['É indicado para o tratamento de úlcera gástrica.'], array_column($summary->sections['para_que_serve']['claims'], 'text'));
+        $this->assertSame([], $summary->sections['nao_use_se']['claims']);
+        $this->assertSame(['narrates_source' => 2], $summary->generation['rejection_reasons']);
+    }
+
+    public function test_the_bula_simples_page_lists_the_ready_leaflets_and_marks_search_results_that_have_one(): void
+    {
+        $medicine = $this->omeprazol();
+        $brand = AnvisaMedicine::factory()->create(['product_name' => 'OMEPRAZOL MARCA', 'normalized_product_name' => 'omeprazol marca', 'active_ingredient' => 'OMEPRAZOLSUB', 'normalized_active_ingredient' => 'omeprazolsub']);
+        $brand->ingredients()->attach($medicine->ingredients()->value('active_ingredients.id'), ['component_text' => 'OMEPRAZOLSUB', 'method' => 'alias', 'confidence' => 1]);
+        $without = $this->medicine('OMEGAVIT', 'OMEGASUB');
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get(route('consulta.inicio'))->assertOk()->assertSee(route('consulta.bulas'))->assertSee('Bula simples');
+        $this->actingAs($user)->get(route('consulta.bulas'))->assertOk()->assertSee('Bulas simples prontas')
+            ->assertSee(route('consulta.bula', $medicine->id))->assertDontSee(route('consulta.bula', $brand->id))->assertDontSee('OMEGAVIT');
+
+        Livewire::actingAs($user)->test(Bulas::class)->set('busca', 'ome')
+            ->assertDontSee('Bulas simples prontas')
+            ->assertSee(route('consulta.bula', $without->id))->assertSee('Ainda sem bula no BULAI')
+            ->assertSee(route('consulta.bula', $brand->id))->assertSee('Bula simples disponível');
+    }
+
     public function test_returns_null_without_identified_ingredient_or_without_a_registered_leaflet(): void
     {
         $service = app(LeafletSummaryService::class);
@@ -127,7 +164,7 @@ final class BulaHumanizadaTest extends TestCase
             'beneficios' => [['text' => 'Ajuda no tratamento de úlcera gástrica e refluxo gastroesofágico.', 'evidence_ids' => ['E1']]],
             'riscos' => [['text' => 'Informação não encontrada na bula.', 'evidence_ids' => []]],
             'efeitos_colaterais' => [['text' => 'Reações comuns: dor de cabeça, diarreia e náusea.', 'evidence_ids' => ['E3']]],
-            'nao_use_se' => [['text' => 'A bula contraindica o uso em quem tem alergia ao omeprazol ou a qualquer componente da fórmula.', 'evidence_ids' => ['E4']]],
+            'nao_use_se' => [['text' => 'Não é indicado para quem tem alergia ao omeprazol ou a qualquer componente da fórmula.', 'evidence_ids' => ['E4']]],
             'interacoes' => [],
             'procure_ajuda' => [],
         ]);
@@ -140,12 +177,13 @@ final class BulaHumanizadaTest extends TestCase
         $this->assertStringContainsString('<evidencia id="E1"', $this->lastPrompt);
         $this->assertStringContainsString('nunca substitui médico ou farmacêutico', $this->lastSystem);
         $this->assertSame('Para que serve', $summary->sections['para_que_serve']['label']);
-        $this->assertStringContainsString('úlcera gástrica', $summary->sections['para_que_serve']['claims'][0]['text']);
+        $this->assertSame('É indicado para o tratamento de úlcera gástrica e refluxo gastroesofágico.', $summary->sections['para_que_serve']['claims'][0]['text'], 'a bula humanizada fala do remédio, sem "A bula diz que"');
+        $this->assertStringContainsString('Nunca narre a fonte', $this->lastSystem);
         $this->assertSame([], $summary->sections['riscos']['claims'], 'Afirmação sem evidência é rejeitada');
         $this->assertSame(5, $summary->generation['claims_accepted']);
         $this->assertSame(['no_evidence_reference' => 1], $summary->generation['rejection_reasons']);
         $this->assertSame('scripted-model', $summary->generation['model']);
-        $this->assertSame('humanized-leaflet-v1', $summary->prompt_version);
+        $this->assertSame('humanized-leaflet-v2', $summary->prompt_version);
         $this->assertSame('bula_paciente', $summary->pipeline['document_type']);
         $this->assertContains('para_que_serve#0', collect($summary->evidences)->firstWhere('section', 'INDICAÇÕES')['supports_claims']);
         $this->assertSame('lexical', $summary->retrieval['mode']);

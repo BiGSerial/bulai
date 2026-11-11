@@ -3,7 +3,7 @@
     // Três destinos na barra inferior (sênior-primeiro). Histórico e conta ficam no menu do cabeçalho da Início.
     $items = [
         ['route' => 'consulta.inicio', 'label' => 'Início', 'pattern' => ['consulta.inicio', 'consulta.sobre', 'consulta.avisos'], 'icon' => 'm2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75'],
-        ['route' => 'consulta.perguntar', 'label' => 'Perguntar', 'pattern' => ['consulta.perguntar', 'consulta.pergunta', 'consulta.historico', 'consulta.bula'], 'icon' => 'M8.625 9.75a3.375 3.375 0 1 1 6.75 0c0 1.5-1.125 2.25-2.25 3-.75.5-1.125 1-1.125 1.875M12 18h.008M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
+        ['route' => 'consulta.perguntar', 'label' => 'Perguntar', 'pattern' => ['consulta.perguntar', 'consulta.pergunta', 'consulta.historico', 'consulta.bula', 'consulta.bulas'], 'icon' => 'M8.625 9.75a3.375 3.375 0 1 1 6.75 0c0 1.5-1.125 2.25-2.25 3-.75.5-1.125 1-1.125 1.875M12 18h.008M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'],
         ['route' => 'consulta.hoje', 'label' => 'Remédios', 'pattern' => ['consulta.hoje', 'consulta.perfil', 'consulta.receita.*', 'consulta.pesquisa', 'consulta.resultado'], 'icon' => 'M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z'],
     ];
     $active = fn (array $item): bool => request()->routeIs(...(array) $item['pattern']);

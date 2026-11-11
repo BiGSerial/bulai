@@ -2,6 +2,7 @@
     // Cartão do dia + ações grandes, uma por linha. Nada mais na tela (sênior-primeiro).
     $acoes = array_values(array_filter([
         ['route' => route('consulta.perguntar'), 'title' => 'Perguntar sobre um remédio', 'text' => 'Escreva ou fale sua dúvida', 'icon' => 'pergunta', 'tone' => 'accent', 'destaque' => true],
+        ['route' => route('consulta.bulas'), 'title' => 'Bula simples', 'text' => 'A bula de um remédio explicada em palavras simples', 'icon' => 'bula', 'tone' => 'brand'],
         ['route' => route('consulta.hoje'), 'title' => 'Remédios de hoje', 'text' => $proximaDose, 'icon' => 'relogio', 'tone' => $doseAtrasada ? 'danger' : 'brand'],
         $receitaPorFoto ? ['route' => route('consulta.receita.nova'), 'title' => 'Fotografar minha receita', 'text' => 'O app lê os remédios para você conferir', 'icon' => 'camera', 'tone' => 'success'] : null,
         ['route' => route('consulta.perfil'), 'title' => 'Meus remédios', 'text' => 'Receitas, alergias e o que você toma', 'icon' => 'remedios', 'tone' => 'brand'],

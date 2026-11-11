@@ -46,6 +46,7 @@ use App\Livewire\Admin\Users\Index as UserIndex;
 use App\Livewire\Admin\Users\Show as UserShow;
 use App\Livewire\Consulta\Avisos as ConsultaAvisos;
 use App\Livewire\Consulta\Bula as ConsultaBula;
+use App\Livewire\Consulta\Bulas as ConsultaBulas;
 use App\Livewire\Consulta\Cuidado\CuidarDeAlguem as ConsultaCuidarDeAlguem;
 use App\Livewire\Consulta\Cuidado\QuemCuidaDeMim as ConsultaQuemCuidaDeMim;
 use App\Livewire\Consulta\Cuidado\Remedios as ConsultaCuidadoRemedios;
@@ -123,6 +124,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
     Route::get('/perguntar', ConsultaPerguntar::class)->name('consulta.perguntar');
     Route::get('/perfil', ConsultaPerfil::class)->name('consulta.perfil');
     Route::get('/historico/perguntas/{question}', ConsultaPerguntaRegistrada::class)->name('consulta.pergunta');
+    Route::get('/bulas', ConsultaBulas::class)->name('consulta.bulas');
     Route::get('/bula/{medicine}', ConsultaBula::class)->name('consulta.bula');
     Route::get('/receitas/nova', ConsultaReceitaNova::class)->name('consulta.receita.nova');
     Route::get('/receitas/{prescription}/revisar', ConsultaReceitaRevisar::class)->name('consulta.receita.revisar');
