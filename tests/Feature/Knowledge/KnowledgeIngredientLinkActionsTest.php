@@ -123,6 +123,25 @@ final class KnowledgeIngredientLinkActionsTest extends TestCase
         $this->assertSame([$this->enalapril->id], $document->fresh()->metadata['ingredient_links']['excluded']);
     }
 
+    public function test_documents_show_the_medicine_name_and_its_identity_can_be_corrected(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $document = $this->document('Bula 1793933368611');
+        $document->chunks()->update(['content' => "IDENTIFICAÇÃO DO MEDICAMENTO\nRENITEC\nmaleato de enalapril"]);
+
+        Livewire::actingAs($admin)->test(Index::class)->assertSee('Medicamento não identificado')->assertSee('Sem princípio ativo ligado');
+        Livewire::actingAs($admin)->test(Show::class, ['document' => $document])
+            ->assertSee('Identificação')->assertSee('IDENTIFICAÇÃO DO MEDICAMENTO')
+            ->call('editIdentity')->assertSet('identity.product_name', '')
+            ->set('identity.title', '')->call('saveIdentity')->assertHasErrors(['identity.product_name', 'identity.title'])
+            ->set('identity.product_name', 'RENITEC')->set('identity.title', 'RENITEC — Bula do profissional de saúde')->set('identity.document_type', 'bula_paciente')
+            ->call('saveIdentity')->assertHasNoErrors()->assertSee('Identificação salva. Princípios ativos ligados: 1.')->assertSet('editingIdentity', false);
+
+        $document->refresh();
+        $this->assertSame(['RENITEC', 'bula_paciente', 'RENITEC — Bula do profissional de saúde'], [$document->metadata['product_name'], $document->document_type, $document->title]);
+        Livewire::actingAs($admin)->test(Index::class)->set('search', 'enalapril')->assertSee('RENITEC')->assertSee('Enalapril')->assertDontSee('Medicamento não identificado');
+    }
+
     public function test_documents_list_queues_the_link_of_every_ready_document_without_ingredients(): void
     {
         Queue::fake([LinkKnowledgeDocumentIngredients::class]);

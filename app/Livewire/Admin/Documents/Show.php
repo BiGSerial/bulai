@@ -24,6 +24,12 @@ class Show extends Component
 
     public ?string $processingFeedback = null;
 
+    /** Edição da identificação da bula (medicamento, princípio ativo declarado, tipo, registro, título). */
+    public bool $editingIdentity = false;
+
+    /** @var array{product_name: string, active_ingredient: string, document_type: string, registration_number: string, holder: string, title: string} */
+    public array $identity = ['product_name' => '', 'active_ingredient' => '', 'document_type' => '', 'registration_number' => '', 'holder' => '', 'title' => ''];
+
     /** Busca de princípio ativo para ligar à bula (aba Princípios ativos). */
     public string $ingredientSearch = '';
 
@@ -71,6 +77,51 @@ class Show extends Component
             $count === 1 => '1 princípio ativo ligado. O Perguntar já encontra esta bula.',
             default => "{$count} princípios ativos ligados. O Perguntar já encontra esta bula.",
         };
+        $this->document->refresh();
+    }
+
+    public function editIdentity(): void
+    {
+        $metadata = (array) $this->document->metadata;
+        $this->identity = [
+            'product_name' => $this->document->medicineName(),
+            'active_ingredient' => (string) ($metadata['active_ingredient'] ?? ''),
+            'document_type' => (string) $this->document->document_type,
+            'registration_number' => (string) ($metadata['registration_number'] ?? ''),
+            'holder' => (string) ($metadata['holder'] ?? ''),
+            'title' => (string) $this->document->title,
+        ];
+        $this->resetValidation();
+        $this->editingIdentity = true;
+    }
+
+    /**
+     * Grava a identificação corrigida e refaz o vínculo com os princípios ativos (os vínculos e exclusões manuais ficam).
+     * O nome do medicamento é o que o Perguntar e a bula simples usam para achar a bula da marca.
+     */
+    public function saveIdentity(KnowledgeDocumentIngredientLinker $linker): void
+    {
+        $data = $this->validate([
+            'identity.product_name' => ['required', 'string', 'max:160'],
+            'identity.active_ingredient' => ['nullable', 'string', 'max:300'],
+            'identity.document_type' => ['required', 'in:'.implode(',', array_keys(KnowledgeDocument::documentTypeOptions()))],
+            'identity.registration_number' => ['nullable', 'string', 'max:40'],
+            'identity.holder' => ['nullable', 'string', 'max:200'],
+            'identity.title' => ['required', 'string', 'max:255'],
+        ], attributes: ['identity.product_name' => 'nome do medicamento', 'identity.title' => 'título', 'identity.document_type' => 'tipo'])['identity'];
+        $metadata = (array) $this->document->metadata;
+        foreach (['product_name', 'active_ingredient', 'registration_number', 'holder'] as $key) {
+            $metadata[$key] = filled($data[$key] ?? null) ? trim((string) $data[$key]) : null;
+        }
+        $metadata['identity_edited_at'] = now()->toIso8601String();
+        $this->document->forceFill(['title' => trim($data['title']), 'document_type' => $data['document_type'], 'metadata' => $metadata])->save();
+        $this->editingIdentity = false;
+        if ($this->document->content_status === KnowledgeDocument::STATUS_READY) {
+            $count = $linker->link($this->document);
+            $this->processingFeedback = 'Identificação salva. '.($count === 0 ? 'Nenhum princípio ativo ligado: ligue à mão na aba Princípios ativos.' : "Princípios ativos ligados: {$count}.");
+        } else {
+            $this->processingFeedback = 'Identificação salva.';
+        }
         $this->document->refresh();
     }
 
@@ -153,6 +204,8 @@ class Show extends Component
         return view('livewire.admin.documents.show', [
             'chunks' => $this->document->chunks()->paginate(10),
             'ingredientOptions' => $this->ingredientOptions(),
+            // Começo do texto: identifica a bula de título genérico sem abrir o PDF.
+            'opening' => Str::limit(trim((string) $this->document->chunks()->orderBy('chunk_index')->value('content')), 400),
             // Evidências extraídas da bula inteira pela IA em perguntas de pacientes (auditáveis: trecho, seção, página, hash).
             'facts' => KnowledgeLeafletFact::query()->with(['chunk:id,chunk_index', 'medicine:id,product_name'])->where('document_id', $this->document->id)->orderByDesc('id')->limit(100)->get(),
             'processing' => $this->document->metadata['processing'] ?? [],
@@ -163,6 +216,6 @@ class Show extends Component
             'embeddingFailure' => $this->document->embedding_status === KnowledgeDocument::STATUS_FAILED
                 ? $events->last(fn (KnowledgeProcessingEvent $event): bool => $event->step === KnowledgeProcessingEvent::STEP_EMBED && $event->state === KnowledgeProcessingEvent::STATE_FAILED)
                 : null,
-        ])->title($this->document->title.' · BULAI');
+        ])->title($this->document->displayName().' · BULAI');
     }
 }

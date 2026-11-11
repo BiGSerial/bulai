@@ -1,4 +1,4 @@
-<x-knowledge-admin.shell :title="$document->title" :back="route('admin.knowledge.documents.index')" back-label="Documentos">
+<x-knowledge-admin.shell :title="$document->displayName()" :back="route('admin.knowledge.documents.index')" back-label="Documentos">
     @php
         $hasFile = $document->storage_key || $document->storage_path;
         [$tone, $label] = match (true) {
@@ -71,6 +71,48 @@
         @if (($processing['error_code'] ?? null) !== null)
             <x-knowledge-admin.alert tone="danger">Falha no processamento: {{ $processing['error_code'] }}@if (($processing['error_id'] ?? null) !== null) · Código de referência: {{ $processing['error_id'] }}@endif</x-knowledge-admin.alert>
         @endif
+
+        {{-- Identificação: o que esta bula é e a que está ligada; editável quando o arquivo veio sem metadados ou errado. --}}
+        <x-knowledge-admin.card class="grid gap-3" data-testid="document-identity">
+            @php $metadata = (array) $document->metadata; @endphp
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <h2 class="text-sm font-semibold text-slate-800">Identificação</h2>
+                @unless ($editingIdentity)<x-knowledge-admin.button variant="secondary" size="sm" wire:click="editIdentity" data-testid="edit-identity">Editar</x-knowledge-admin.button>@endunless
+            </div>
+            @if ($editingIdentity)
+                <form wire:submit="saveIdentity" class="grid gap-3 sm:grid-cols-2">
+                    <x-knowledge-admin.input label="Nome do medicamento" required wire:model="identity.product_name" hint="Como na caixa (ex.: DORFLEX, DORFLEX UNO). É por ele que a marca acha esta bula." />
+                    <x-knowledge-admin.input label="Princípio ativo declarado" optional wire:model="identity.active_ingredient" hint="Como na bula (ex.: dipirona monoidratada + citrato de orfenadrina + cafeína)." />
+                    <x-knowledge-admin.select label="Tipo" required wire:model="identity.document_type">
+                        @foreach (\App\Models\Knowledge\KnowledgeDocument::documentTypeOptions() as $value => $typeLabel)<option value="{{ $value }}">{{ $typeLabel }}</option>@endforeach
+                    </x-knowledge-admin.select>
+                    <x-knowledge-admin.input label="Registro ANVISA" optional wire:model="identity.registration_number" />
+                    <x-knowledge-admin.input label="Detentor do registro" optional wire:model="identity.holder" />
+                    <x-knowledge-admin.input label="Título" required wire:model="identity.title" />
+                    <div class="flex flex-wrap gap-2 sm:col-span-2">
+                        <x-knowledge-admin.button type="submit" loading-target="saveIdentity" loading="Salvando…">Salvar e refazer o vínculo</x-knowledge-admin.button>
+                        <x-knowledge-admin.button variant="secondary" wire:click="$set('editingIdentity', false)">Cancelar</x-knowledge-admin.button>
+                    </div>
+                </form>
+            @else
+                <x-knowledge-admin.facts class="sm:grid-cols-2 lg:grid-cols-4">
+                    <x-knowledge-admin.fact label="Medicamento">{{ $document->medicineName() !== '' ? $document->medicineName() : 'Não identificado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Princípio ativo declarado">{{ $metadata['active_ingredient'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Princípios ativos ligados">{{ $ingredients->isNotEmpty() ? $ingredients->pluck('canonical_name')->join(', ') : 'Nenhum' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Tipo">{{ $document->documentTypeLabel() }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Registro ANVISA">{{ $metadata['registration_number'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Detentor do registro">{{ $metadata['holder'] ?? null ?: 'Não informado' }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Título">{{ $document->title }}</x-knowledge-admin.fact>
+                    <x-knowledge-admin.fact label="Arquivo original">{{ $document->original_filename ?: 'Não informado' }}</x-knowledge-admin.fact>
+                </x-knowledge-admin.facts>
+                @if ($opening !== '')
+                    <div class="grid gap-1">
+                        <p class="text-xs font-medium text-slate-500">Começo do texto da bula</p>
+                        <p class="whitespace-pre-line rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700" data-testid="document-opening">{{ $opening }}</p>
+                    </div>
+                @endif
+            @endif
+        </x-knowledge-admin.card>
 
         {{-- Resumo decisório --}}
         <x-knowledge-admin.card class="py-3 sm:py-3">

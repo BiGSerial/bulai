@@ -104,7 +104,7 @@ class Index extends Component
         $column = self::SORTABLE[$this->sort] ?? 'updated_at';
         $direction = $this->direction === 'asc' ? 'asc' : 'desc';
         $documents = KnowledgeDocument::query()
-            ->with('source')
+            ->with(['source', 'ingredients:id,canonical_name'])
             ->withCount('chunks')
             ->when($this->search !== '', function (Builder $query): void {
                 $search = '%'.$this->search.'%';
@@ -112,6 +112,9 @@ class Index extends Component
                 $query->where(function (Builder $query) use ($search): void {
                     $query
                         ->whereLike('title', $search)
+                        ->orWhereRaw("metadata->>'product_name' ilike ?", [$search])
+                        ->orWhereRaw("metadata->>'active_ingredient' ilike ?", [$search])
+                        ->orWhereHas('ingredients', fn (Builder $ingredients) => $ingredients->whereLike('canonical_name', $search))
                         ->orWhereLike('external_key', $search)
                         ->orWhereLike('source_document_id', $search)
                         ->orWhereLike('normalized_filename', $search)
