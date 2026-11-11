@@ -38,6 +38,9 @@ final class MedicationMentionDetector
 
     private const MIN_TERM_LENGTH = 4;
 
+    /** Nome já conferido pela interpretação: a sigla de 2 ou 3 letras ("AAS") vale. */
+    private const MIN_VERIFIED_NAME_LENGTH = 2;
+
     private const TREATMENT_PATTERN = '/\b(meus? (remedios?|medicamentos?|comprimidos?|tratamento|medicacao)|o que (eu )?(tomo|uso)|que eu (tomo|uso)|minha medicacao|meu tratamento|tudo que tomo)\b/';
 
     /** Palavras frequentes em perguntas (já normalizadas) que nunca são nomes de medicamento. */
@@ -83,18 +86,20 @@ final class MedicationMentionDetector
 
     /**
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos explicitamente pelo usuário (entram primeiro)
+     * @param  bool  $verifiedNames  o texto é só a lista de nomes que a interpretação apontou e conferiu na pergunta: então uma
+     *                               sigla curta ("AAS") também é procurada, porque ali ela não pode ser uma palavra comum
      * @return list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>
      */
-    public function detect(string $text, ?User $user = null, array $forcedMedicineIds = []): array
+    public function detect(string $text, ?User $user = null, array $forcedMedicineIds = [], bool $verifiedNames = false): array
     {
         $mentions = [];
-        foreach (AnvisaMedicine::query()->with('ingredients:id')->whereIn('id', $forcedMedicineIds)->get()->sortBy(fn (AnvisaMedicine $m): int => array_search($m->id, $forcedMedicineIds, true) ?: 0) as $medicine) {
+        foreach (AnvisaMedicine::query()->with('ingredients:id,normalized_name')->whereIn('id', $forcedMedicineIds)->get()->sortBy(fn (AnvisaMedicine $m): int => array_search($m->id, $forcedMedicineIds, true) ?: 0) as $medicine) {
             $mentions[$this->groupKey($medicine)] ??= $this->mention($medicine, 'escolhido');
         }
 
         $normalized = $this->normalizer->text($text);
         $tokens = $normalized === '' ? [] : explode(' ', $normalized);
-        $candidates = $this->candidates($tokens);
+        $candidates = $this->candidates($tokens, $verifiedNames ? self::MIN_VERIFIED_NAME_LENGTH : self::MIN_TERM_LENGTH);
         $covered = [];
 
         if ($candidates !== []) {
@@ -201,9 +206,9 @@ final class MedicationMentionDetector
      * @param  list<string>  $tokens
      * @return list<array{text: string, start: int, size: int}>
      */
-    private function candidates(array $tokens): array
+    private function candidates(array $tokens, int $minimumLength = self::MIN_TERM_LENGTH): array
     {
-        $useful = fn (string $token): bool => mb_strlen($token) >= self::MIN_TERM_LENGTH && ! ctype_digit($token[0]) && ! in_array($token, self::STOPWORDS, true);
+        $useful = fn (string $token): bool => mb_strlen($token) >= $minimumLength && ! ctype_digit($token[0]) && ! in_array($token, self::STOPWORDS, true);
         $candidates = [];
         foreach ($tokens as $start => $token) {
             if (! $useful($token)) {
@@ -232,6 +237,15 @@ final class MedicationMentionDetector
         return array_slice($candidates, 0, self::MAX_CANDIDATES);
     }
 
+    /**
+     * Nome-base que o catálogo escreve depois do sal ("etexilato de dabigatrana", "cloridrato de pseudoefedrina"): quem pergunta
+     * escreve só "dabigatrana". Exige 6+ letras para que "sodio" ou "ferro" não virem "cloreto de sódio" numa pergunta qualquer.
+     */
+    private function isSaltBase(string $term): bool
+    {
+        return ! str_contains($term, ' ') && mb_strlen($term) >= 6;
+    }
+
     /** Sufixo de linha de produto: 1 a 3 letras/dígitos ("d", "a", "hct", "xr", "50") que não seja palavra comum. */
     private function isProductSuffix(string $token): bool
     {
@@ -258,6 +272,9 @@ final class MedicationMentionDetector
                 $query->whereIn('m.normalized_product_name', $terms)->orWhereIn('m.normalized_active_ingredient', $terms);
                 foreach ($terms as $term) {
                     $query->orWhere('m.normalized_product_name', 'like', $term.' %')->orWhere('m.normalized_active_ingredient', 'like', $term.' %');
+                    if ($this->isSaltBase($term)) {
+                        $query->orWhere('m.normalized_active_ingredient', 'like', '% de '.$term)->orWhere('m.normalized_active_ingredient', 'like', '% de '.$term.' %');
+                    }
                 }
             })
             ->groupBy('m.normalized_product_name', 'm.normalized_active_ingredient')
@@ -269,7 +286,7 @@ final class MedicationMentionDetector
         }
         $members = $groups->mapWithKeys(fn (object $row): array => [(int) $row->id => (int) $row->members]);
 
-        return AnvisaMedicine::query()->with('ingredients:id')->whereIn('id', $members->keys()->all())->get()
+        return AnvisaMedicine::query()->with('ingredients:id,normalized_name')->whereIn('id', $members->keys()->all())->get()
             ->each(fn (AnvisaMedicine $medicine) => $medicine->setAttribute('group_members', $members[$medicine->id] ?? 1));
     }
 
@@ -282,13 +299,19 @@ final class MedicationMentionDetector
     private function ingredientMatches(array $candidates): Collection
     {
         $terms = array_values(array_unique(array_column($candidates, 'text')));
-        $ingredientIds = DB::table('active_ingredients')->whereIn('normalized_name', $terms)->pluck('id')
+        $salts = array_values(array_filter($terms, fn (string $term): bool => $this->isSaltBase($term)));
+        $ingredientIds = DB::table('active_ingredients')->where(function (\Illuminate\Database\Query\Builder $query) use ($terms, $salts): void {
+            $query->whereIn('normalized_name', $terms);
+            foreach ($salts as $term) {
+                $query->orWhere('normalized_name', 'like', '% de '.$term);
+            }
+        })->pluck('id')
             ->merge(DB::table('active_ingredient_aliases')->whereIn('normalized_alias', $terms)->pluck('ingredient_id'))->unique()->values()->all();
         if ($ingredientIds === []) {
             return new Collection;
         }
 
-        return AnvisaMedicine::query()->with('ingredients:id')
+        return AnvisaMedicine::query()->with('ingredients:id,normalized_name')
             ->whereHas('ingredients', fn (Builder $query) => $query->whereIn('active_ingredients.id', $ingredientIds))
             ->orderByRaw("case when registration_status = 'Ativo' then 0 else 1 end")->orderByRaw('case when normalized_product_name = normalized_active_ingredient then 0 else 1 end')->orderBy('id')
             ->limit(200)->get();
@@ -354,14 +377,15 @@ final class MedicationMentionDetector
             return array_values($groups);
         }
 
-        // Todos os grupos têm em comum o princípio ativo que o termo nomeia ("losartana" → losartana; losartana + hidroclorotiazida):
+        // Todos os grupos têm em comum o princípio ativo que o termo nomeia ("losartana" → losartana; losartana + hidroclorotiazida;
+        // "anlodipino" → besilato de anlodipino):
         // a pessoa quis o remédio só com esse ativo, se existir; senão, os maiores grupos.
         $shared = null;
         foreach ($groups as $members) {
             $names = $this->componentNames($members);
             $shared = $shared === null ? $names : array_values(array_intersect($shared, $names));
         }
-        $focus = array_values(array_filter($shared ?? [], fn (string $name): bool => $name === $term || str_starts_with($name, $term.' ')));
+        $focus = array_values(array_filter($shared ?? [], fn (string $name): bool => $name === $term || str_starts_with($name, $term.' ') || ($this->isSaltBase($term) && str_ends_with($name, ' de '.$term))));
         if ($focus !== []) {
             $single = array_filter($groups, fn (array $members): bool => $this->componentNames($members) === [$focus[0]]);
 
@@ -433,8 +457,12 @@ final class MedicationMentionDetector
                 return true;
             }
         }
+        $salt = $this->isSaltBase($term);
+        if ($salt && (str_ends_with((string) $medicine->normalized_active_ingredient, ' de '.$term) || str_contains((string) $medicine->normalized_active_ingredient, ' de '.$term.' '))) {
+            return true;
+        }
         foreach ($medicine->ingredients as $ingredient) {
-            if ($ingredient->normalized_name === $term) {
+            if ($ingredient->normalized_name === $term || ($salt && str_ends_with((string) $ingredient->normalized_name, ' de '.$term))) {
                 return true;
             }
         }

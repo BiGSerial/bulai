@@ -97,17 +97,23 @@ final class QuestionInterpreter
 
     /**
      * O nome aparece na pergunta ou na conversa, aceitando grafia próxima ("diporona" → "dipirona"): cada palavra do nome
-     * com 4+ letras precisa casar com alguma palavra do texto conhecido (distância de edição pequena).
+     * com 4+ letras precisa casar com alguma palavra do texto conhecido (distância de edição pequena), e a palavra mais curta,
+     * como a sigla "AAS", precisa estar escrita igual.
      */
     private function mentioned(string $name, string $known): bool
     {
-        $words = array_values(array_filter(explode(' ', $this->normalizer->text($name)), fn (string $word): bool => mb_strlen($word) >= 4));
+        $words = array_values(array_filter(explode(' ', $this->normalizer->text($name)), fn (string $word): bool => $word !== ''));
         if ($words === []) {
             return false;
         }
         $available = array_unique(explode(' ', $known));
         foreach ($words as $word) {
-            $tolerance = mb_strlen($word) >= 7 ? 2 : 1;
+            // Sigla ou palavra curta ("AAS", "T4") só vale escrita igual; com tolerância, qualquer palavra curta da pergunta casaria.
+            $tolerance = match (true) {
+                mb_strlen($word) >= 7 => 2,
+                mb_strlen($word) >= 4 => 1,
+                default => 0,
+            };
             $found = false;
             foreach ($available as $candidate) {
                 if ($candidate !== '' && abs(strlen($candidate) - strlen($word)) <= $tolerance && levenshtein($candidate, $word) <= $tolerance) {

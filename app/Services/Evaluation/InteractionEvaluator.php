@@ -3,15 +3,17 @@
 namespace App\Services\Evaluation;
 
 use App\Models\Knowledge\AnvisaMedicine;
+use App\Models\Knowledge\KnowledgeDocument;
 use App\Services\Interactions\InteractionSeverity;
 use App\Services\Interactions\PairAnalyzer;
 use App\Services\Interactions\PairVerdict;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 /**
  * Avalia o veredito do sistema por par de produtos contra o rótulo do dataset. Abstenções (inconclusivo, medicamento
  * não identificado, erro técnico) ficam fora da matriz binária e são reportadas à parte, junto com o recall conservador
- * que as trata como erro.
+ * que as trata como erro. Informa também a cobertura de bulas dos pares (quantos têm bula de um ou dos dois produtos).
  */
 final class InteractionEvaluator
 {
@@ -31,10 +33,18 @@ final class InteractionEvaluator
         $falsePositives = [];
         $verdicts = [];
         $cache = [];
+        $leafletIngredients = $this->leafletIngredients();
+        $coverage = ['pairs_with_a_leaflet_of_one' => 0, 'pairs_with_a_leaflet_of_both' => 0, 'products_with_leaflet' => []];
 
         foreach ($items as $item) {
             $a = $cache[$item['a_registration']] ??= $this->snapshot($item['a_registration']);
             $b = $cache[$item['b_registration']] ??= $this->snapshot($item['b_registration']);
+            $withLeaflet = array_filter([$a, $b], fn (array $medicine): bool => array_intersect(array_column($medicine['ingredients'], 'id'), $leafletIngredients) !== []);
+            $coverage['pairs_with_a_leaflet_of_one'] += $withLeaflet === [] ? 0 : 1;
+            $coverage['pairs_with_a_leaflet_of_both'] += count($withLeaflet) === 2 ? 1 : 0;
+            foreach ($withLeaflet as $medicine) {
+                $coverage['products_with_leaflet'][$medicine['name']] = true;
+            }
             $result = $this->analyzer->analyze($a, $b, $retrievalMode);
             $verdict = $result['verdict'];
             $verdicts[$verdict->value] = ($verdicts[$verdict->value] ?? 0) + 1;
@@ -83,7 +93,24 @@ final class InteractionEvaluator
             'severity_agreement' => Metrics::round($severityPairs === [] ? null : count(array_filter($severityPairs, fn (array $p): bool => $p['gold'] === $p['predicted'])) / count($severityPairs)),
             'major_interactions_missed' => $missedMajor,
             'false_positives' => array_slice($falsePositives, 0, 25),
+            'leaflet_coverage' => [
+                'products' => count(array_unique(array_merge(array_column($items, 'a_name'), array_column($items, 'b_name')))),
+                'products_with_leaflet' => array_keys($coverage['products_with_leaflet']),
+                'pairs_with_a_leaflet_of_one' => $coverage['pairs_with_a_leaflet_of_one'],
+                'pairs_with_a_leaflet_of_both' => $coverage['pairs_with_a_leaflet_of_both'],
+            ],
         ];
+    }
+
+    /**
+     * Princípios ativos com bula pronta no banco medido: um produto "tem bula" quando algum dos seus princípios ativos tem.
+     *
+     * @return list<int>
+     */
+    private function leafletIngredients(): array
+    {
+        return DB::table('knowledge_document_ingredients as di')->join('knowledge_documents as d', 'd.id', '=', 'di.document_id')
+            ->where('d.content_status', KnowledgeDocument::STATUS_READY)->distinct()->pluck('di.ingredient_id')->map(fn ($id): int => (int) $id)->all();
     }
 
     /** @return array{id: int|null, name: string, ingredients: list<array{id: int, name: string}>} */

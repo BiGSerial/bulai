@@ -234,6 +234,21 @@ final class AuditApiTest extends TestCase
         $this->assertStringNotContainsString('"email"', json_encode($dossier));
     }
 
+    public function test_a_block_that_fails_reports_its_reason_and_the_rest_of_the_dossier_still_answers(): void
+    {
+        [, $ids] = $this->documentWithChunks();
+        MedicationQuestionFactory::new()->create(['status' => 'answered', 'evidences' => ['texto solto de uma resposta antiga', ['chunk_id' => $ids[0], 'excerpt' => 'úlceras gástricas e duodenais']]]);
+        DB::statement('drop table knowledge_processing_events');
+
+        $dossier = $this->withToken($this->token())->getJson('/api/v1/audit/tcc')->assertOk()->json();
+
+        $this->assertSame('QueryException', $dossier['ingestion_timings']['error']['exception']);
+        $this->assertStringContainsString('knowledge_processing_events', $dossier['ingestion_timings']['error']['message']);
+        $this->assertSame(1, $dossier['knowledge_base']['documents']['ready']);
+        $this->assertSame(1, $dossier['data_quality']['citations']['evidences_checked']);
+        $this->assertSame([], $dossier['data_quality']['failed_groups']);
+    }
+
     public function test_evaluation_registry_validates_the_task_filter(): void
     {
         $token = $this->token();

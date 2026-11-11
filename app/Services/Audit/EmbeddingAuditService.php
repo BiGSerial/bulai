@@ -38,13 +38,13 @@ final class EmbeddingAuditService
                 'by_model' => DB::table('knowledge_chunks')->whereNotNull('embedding')->selectRaw('embedding_model as model, embedding_dimensions as dimensions, count(*) as chunks')->groupBy('embedding_model', 'embedding_dimensions')->orderByDesc('chunks')->get()->map(fn (object $row): array => ['model' => $row->model, 'dimensions' => $row->dimensions === null ? null : (int) $row->dimensions, 'chunks' => (int) $row->chunks])->all(),
                 'documents_by_embedding_status' => DB::table('knowledge_documents')->selectRaw('embedding_status as status, count(*) as total')->groupBy('embedding_status')->pluck('total', 'status')->map(fn ($n): int => (int) $n)->all(),
             ],
-            'norms' => $this->norms(),
+            'norms' => AuditSection::run(fn (): array => $this->norms()),
         ];
 
-        $checks = $this->integrityChecks($total, $embedded);
-        $report['checks'] = array_map(fn (AuditCheck $check): array => $check->toArray(), $checks);
-        $report['summary'] = AuditCheck::summarize($checks);
-        $report['coherence'] = $embedded > 1 ? $this->coherence($sample) : null;
+        $checks = AuditSection::run(fn (): array => $this->integrityChecks($total, $embedded));
+        $report['checks'] = AuditSection::failed($checks) ? $checks : array_map(fn (AuditCheck $check): array => $check->toArray(), $checks);
+        $report['summary'] = AuditSection::failed($checks) ? null : AuditCheck::summarize($checks);
+        $report['coherence'] = $embedded > 1 ? AuditSection::run(fn (): array => $this->coherence($sample)) : null;
         $report['live'] = $live ? $this->live(min($sample, 12)) : null;
 
         return $report;
