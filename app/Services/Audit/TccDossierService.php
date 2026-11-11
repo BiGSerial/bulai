@@ -27,15 +27,8 @@ final class TccDossierService
     /** @return array<string, mixed> */
     public function build(?CarbonInterface $from = null, ?CarbonInterface $to = null): array
     {
-        $overview = $this->analytics->overview($from, $to);
-        $quality = $this->quality->audit();
-        $embeddings = $this->embeddings->audit();
-
-        return [
-            'generated_at' => now()->toIso8601String(),
-            'environment' => ['app_env' => config('app.env'), 'timezone' => config('app.timezone'), 'retrieval_mode' => config('bulai.retrieval.mode'), 'text_provider' => config('ai.text.default'), 'embedding_provider' => config('ai.embedding.default')],
-            'period' => $overview['period'],
-            'knowledge_base' => $this->inventory->inventory(),
+        $overview = AuditSection::run(fn (): array => $this->analytics->overview($from, $to));
+        $usage = AuditSection::failed($overview) ? ['usage' => $overview, 'grounding' => $overview] : [
             'usage' => [
                 'consultations' => $this->usage($overview['consultations'], $overview['consultations']['by_status']['COMPLETED'] ?? 0),
                 'questions' => $this->usage($overview['questions'], $overview['questions']['by_status']['answered'] ?? 0),
@@ -48,11 +41,29 @@ final class TccDossierService
                 'questions' => $this->grounding($overview['questions']['grounding']),
                 'leaflets' => $this->grounding($overview['leaflets']['grounding']),
             ],
-            'ingestion_timings' => $this->pipeline->timings(),
-            'embeddings' => ['coverage' => $embeddings['coverage'], 'summary' => $embeddings['summary'], 'failed_checks' => array_values(array_filter($embeddings['checks'], fn (array $check): bool => ! $check['ok'])), 'coherence' => $embeddings['coherence']],
-            'data_quality' => ['summary' => $quality['summary'], 'failed_checks' => array_values(array_filter(array_merge(...array_values($quality['groups'])), fn (array $check): bool => ! $check['ok'])), 'citations' => $quality['citations'], 'chunks' => $quality['chunks']],
-            'readability' => $this->readability->answers(),
-            'experiments' => $this->evaluations->experiments(),
+        ];
+
+        return [
+            'generated_at' => now()->toIso8601String(),
+            'environment' => ['app_env' => config('app.env'), 'timezone' => config('app.timezone'), 'retrieval_mode' => config('bulai.retrieval.mode'), 'text_provider' => config('ai.text.default'), 'embedding_provider' => config('ai.embedding.default')],
+            'period' => AuditSection::failed($overview) ? null : $overview['period'],
+            'knowledge_base' => AuditSection::run(fn (): array => $this->inventory->inventory()),
+            ...$usage,
+            'ingestion_timings' => AuditSection::run(fn (): array => $this->pipeline->timings()),
+            'embeddings' => AuditSection::run(function (): array {
+                $embeddings = $this->embeddings->audit();
+                $checks = AuditSection::failed($embeddings['checks']) ? $embeddings['checks'] : array_values(array_filter($embeddings['checks'], fn (array $check): bool => ! $check['ok']));
+
+                return ['coverage' => $embeddings['coverage'], 'summary' => $embeddings['summary'], 'failed_checks' => $checks, 'coherence' => $embeddings['coherence']];
+            }),
+            'data_quality' => AuditSection::run(function (): array {
+                $quality = $this->quality->audit();
+                $completed = array_filter($quality['groups'], fn (array $checks): bool => ! AuditSection::failed($checks));
+
+                return ['summary' => $quality['summary'], 'failed_checks' => array_values(array_filter(array_merge([], ...array_values($completed)), fn (array $check): bool => ! $check['ok'])), 'failed_groups' => array_diff_key($quality['groups'], $completed), 'citations' => $quality['citations'], 'chunks' => $quality['chunks']];
+            }),
+            'readability' => AuditSection::run(fn (): array => $this->readability->answers()),
+            'experiments' => AuditSection::run(fn (): array => $this->evaluations->experiments()),
             'note' => 'Métricas sobre dados reais do ambiente consultado; não substituem a validação clínica nem a avaliação de usabilidade com pessoas (docs/tcc/22).',
         ];
     }

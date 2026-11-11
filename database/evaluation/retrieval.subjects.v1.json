@@ -1,0 +1,260 @@
+{
+  "version": "retrieval.subjects.v1",
+  "description": "Julgamento por assunto, portável entre ambientes: para cada princípio ativo com bula pronta no banco consultado e cada assunto, a consulta é a pergunta do paciente e os trechos relevantes são os das bulas daquele princípio ativo cuja seção trata do assunto (padrão sobre o nome da seção, sem acento e em maiúsculas). Lista de princípios ativos: os que tinham bula em produção em 11/11/2026 (GET /api/v1/stats/knowledge).",
+  "subjects": {
+    "indicacao": {
+      "question": "Para que serve o {name}?",
+      "sections": "INDICAC|PARA QUE (ESTE MEDICAMENTO|SERVE)|COMO ESTE MEDICAMENTO FUNCIONA"
+    },
+    "posologia": {
+      "question": "Como devo tomar o {name}?",
+      "sections": "POSOLOGIA|COMO DEVO USAR|MODO DE USAR|MODO DE USO"
+    },
+    "efeitos": {
+      "question": "Quais os efeitos colaterais do {name}?",
+      "sections": "REACOES ADVERSAS|QUAIS OS MALES"
+    },
+    "contraindicacao": {
+      "question": "Quem não pode usar {name}?",
+      "sections": "CONTRAINDICAC|QUANDO NAO DEVO USAR"
+    },
+    "armazenamento": {
+      "question": "Como devo guardar o {name}?",
+      "sections": "ARMAZENAMENTO|ONDE, COMO E POR QUANTO TEMPO"
+    },
+    "advertencias": {
+      "question": "Que cuidados devo ter ao usar {name}? Grávida pode usar?",
+      "sections": "ADVERTENCIAS|PRECAUC|O QUE DEVO SABER ANTES"
+    },
+    "superdose": {
+      "question": "Tomei {name} a mais do que devia, o que pode acontecer?",
+      "sections": "SUPERDOSE|QUANTIDADE MAIOR"
+    }
+  },
+  "items": [
+    {
+      "ingredient": "Acetaminophen",
+      "name": "paracetamol"
+    },
+    {
+      "ingredient": "Acetylcysteine",
+      "name": "acetilcisteína"
+    },
+    {
+      "ingredient": "Acetylsalicylic acid",
+      "name": "ácido acetilsalicílico"
+    },
+    {
+      "ingredient": "Alendronic acid",
+      "name": "alendronato de sódio"
+    },
+    {
+      "ingredient": "Amiodarone",
+      "name": "amiodarona"
+    },
+    {
+      "ingredient": "Amoxicillin",
+      "name": "amoxicilina"
+    },
+    {
+      "ingredient": "Atenolol",
+      "name": "atenolol"
+    },
+    {
+      "ingredient": "Atorvastatin",
+      "name": "atorvastatina"
+    },
+    {
+      "ingredient": "Besilato De Anlodipino",
+      "name": "anlodipino"
+    },
+    {
+      "ingredient": "Brimonidine",
+      "name": "brimonidina"
+    },
+    {
+      "ingredient": "Bromidrato De Fenoterol",
+      "name": "fenoterol"
+    },
+    {
+      "ingredient": "Caffeine",
+      "name": "cafeína"
+    },
+    {
+      "ingredient": "Carbamazepine",
+      "name": "carbamazepina"
+    },
+    {
+      "ingredient": "Carisoprodol",
+      "name": "carisoprodol"
+    },
+    {
+      "ingredient": "Cholecalciferol",
+      "name": "colecalciferol (vitamina D)"
+    },
+    {
+      "ingredient": "Ciprofibrato",
+      "name": "ciprofibrato"
+    },
+    {
+      "ingredient": "Clarithromycin",
+      "name": "claritromicina"
+    },
+    {
+      "ingredient": "Clonazepam",
+      "name": "clonazepam"
+    },
+    {
+      "ingredient": "Cloridrato De Benserazida",
+      "name": "levodopa com benserazida"
+    },
+    {
+      "ingredient": "Dapagliflozin",
+      "name": "dapagliflozina"
+    },
+    {
+      "ingredient": "Denosumab",
+      "name": "denosumabe"
+    },
+    {
+      "ingredient": "Dexamethasone",
+      "name": "dexametasona"
+    },
+    {
+      "ingredient": "Diclofenac",
+      "name": "diclofenaco"
+    },
+    {
+      "ingredient": "Digoxin",
+      "name": "digoxina"
+    },
+    {
+      "ingredient": "Dipirona",
+      "name": "dipirona"
+    },
+    {
+      "ingredient": "Dipirona Monoidratada",
+      "name": "dipirona"
+    },
+    {
+      "ingredient": "Dipirona Sódica",
+      "name": "dipirona"
+    },
+    {
+      "ingredient": "Empagliflozin",
+      "name": "empagliflozina"
+    },
+    {
+      "ingredient": "Enalapril",
+      "name": "enalapril"
+    },
+    {
+      "ingredient": "Etexilato De Dabigatrana",
+      "name": "dabigatrana"
+    },
+    {
+      "ingredient": "Evodopa",
+      "name": "levodopa"
+    },
+    {
+      "ingredient": "Fluoxetine",
+      "name": "fluoxetina"
+    },
+    {
+      "ingredient": "Hydrochlorothiazide",
+      "name": "hidroclorotiazida"
+    },
+    {
+      "ingredient": "Ibuprofeno",
+      "name": "ibuprofeno"
+    },
+    {
+      "ingredient": "Indapamide",
+      "name": "indapamida"
+    },
+    {
+      "ingredient": "Insulin glargine",
+      "name": "insulina glargina"
+    },
+    {
+      "ingredient": "Ipratropium",
+      "name": "ipratrópio"
+    },
+    {
+      "ingredient": "Isotretinoin",
+      "name": "isotretinoína"
+    },
+    {
+      "ingredient": "Levothyroxine",
+      "name": "levotiroxina"
+    },
+    {
+      "ingredient": "Losartan",
+      "name": "losartana"
+    },
+    {
+      "ingredient": "Losartana Potássica",
+      "name": "losartana"
+    },
+    {
+      "ingredient": "Metformin",
+      "name": "metformina"
+    },
+    {
+      "ingredient": "Omeprazole",
+      "name": "omeprazol"
+    },
+    {
+      "ingredient": "Orphenadrine",
+      "name": "orfenadrina"
+    },
+    {
+      "ingredient": "Pantoprazole",
+      "name": "pantoprazol"
+    },
+    {
+      "ingredient": "Phenytoin",
+      "name": "fenitoína"
+    },
+    {
+      "ingredient": "Pseudoephedrine",
+      "name": "pseudoefedrina"
+    },
+    {
+      "ingredient": "Ramipril",
+      "name": "ramipril"
+    },
+    {
+      "ingredient": "Riluzole",
+      "name": "riluzol"
+    },
+    {
+      "ingredient": "Rosuvastatin",
+      "name": "rosuvastatina"
+    },
+    {
+      "ingredient": "Scopolamine",
+      "name": "escopolamina"
+    },
+    {
+      "ingredient": "Sertraline",
+      "name": "sertralina"
+    },
+    {
+      "ingredient": "Simvastatin",
+      "name": "sinvastatina"
+    },
+    {
+      "ingredient": "Sulfamethoxazole",
+      "name": "sulfametoxazol"
+    },
+    {
+      "ingredient": "Timolol",
+      "name": "timolol"
+    },
+    {
+      "ingredient": "Trimethoprim",
+      "name": "trimetoprima"
+    }
+  ]
+}

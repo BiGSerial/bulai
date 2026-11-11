@@ -10,6 +10,7 @@ php artisan evaluation:build-datasets --seed=database/evaluation/identification.
 php artisan evaluation:run identification [--dataset=database/evaluation/identification.heldout.json]
 php artisan evaluation:run interactions   [--dataset=database/evaluation/interactions.protocol30.v1.json] --mode=lexical
 php artisan evaluation:run retrieval --mode=lexical,vector,hybrid    # vetorial/híbrido exigem o serviço `embeddings` e chunks indexados
+php artisan evaluation:run retrieval --dataset=database/evaluation/retrieval.subjects.v1.json --mode=lexical,vector,hybrid   # por assunto, roda em qualquer ambiente; traz hit@k com IC de Wilson
 php artisan evaluation:run generation --limit=12                      # exige AI_TEXT_* configurado
 php artisan evaluation:run baseline --limit=60 --seed=42              # mesmo LLM, sem RAG e sem base estruturada
 ```
@@ -37,6 +38,7 @@ php artisan evaluation:run generation --mode=hybrid --provider=local \
 | `interactions.v1.json` | todos os pares entre produtos do v1 cujos ingredientes existem no DDInter | existência/gravidade no DDInter pelos nomes **esperados** |
 | `interactions.protocol30.v1.json` | 30 pares estratificados (10 grave, 5 moderada, 5 leve, 10 sem interação), semente 42 | idem |
 | `retrieval.v1.json` | 4 consultas direcionais, 3 trechos relevantes | julgamento do autor sobre o pool lexical |
+| `retrieval.subjects.v1.json` | até 7 assuntos × 56 princípios ativos (os que tinham bula em produção em 11/11/2026); só entram os pares que têm trecho na seção do assunto | **portável**: montado no banco medido; relevante = trecho de bula do princípio ativo cuja seção trata do assunto (padrão no nome da seção). Não depende de id nem de menção de palavras |
 
 ## Unidade de avaliação e abstenção
 Unidade = par de produtos (registro ANVISA). `INTERACTION_FOUND`/`CONTRADICTORY_EVIDENCE` = positivo; `NOT_FOUND_IN_SOURCES` = negativo; `INSUFFICIENT_EVIDENCE`, `MEDICATION_NOT_IDENTIFIED` e `TECHNICAL_ERROR` = abstenção (fora da matriz TP/FP/TN/FN; relatada à parte e usada no "recall conservador" = TP / todos os positivos do rótulo).

@@ -18,23 +18,27 @@ final class DataQualityAuditService
 {
     public function __construct(private readonly KnowledgeFileService $files) {}
 
-    /** @return array{generated_at: string, summary: array{checks: int, passed: int, errors: int, warnings: int}, groups: array<string, list<array<string, mixed>>>, chunks: array<string, mixed>, citations: array<string, mixed>} */
+    /**
+     * Um grupo que falha sai como `{error}` no lugar da lista de verificações (AuditSection) e fica fora do resumo.
+     *
+     * @return array{generated_at: string, summary: array{checks: int, passed: int, errors: int, warnings: int, failed_groups: list<string>}, groups: array<string, list<array<string, mixed>>|array{error: array<string, string>}>, chunks: array<string, mixed>, citations: array<string, mixed>}
+     */
     public function audit(bool $verifyFileHashes = false): array
     {
         $groups = [
-            'documents' => $this->documentChecks($verifyFileHashes),
-            'chunks' => $this->chunkChecks(),
-            'catalog_and_interactions' => $this->catalogChecks(),
-            'recorded_answers' => $this->answerChecks(),
+            'documents' => AuditSection::run(fn (): array => $this->documentChecks($verifyFileHashes)),
+            'chunks' => AuditSection::run(fn (): array => $this->chunkChecks()),
+            'catalog_and_interactions' => AuditSection::run(fn (): array => $this->catalogChecks()),
+            'recorded_answers' => AuditSection::run(fn (): array => $this->answerChecks()),
         ];
-        $all = array_merge(...array_values($groups));
+        $completed = array_filter($groups, fn (array $checks): bool => ! AuditSection::failed($checks));
 
         return [
             'generated_at' => now()->toIso8601String(),
-            'summary' => AuditCheck::summarize($all),
-            'groups' => array_map(fn (array $checks): array => array_map(fn (AuditCheck $check): array => $check->toArray(), $checks), $groups),
-            'chunks' => $this->chunkStatistics(),
-            'citations' => $this->citationFidelity(),
+            'summary' => AuditCheck::summarize(array_merge([], ...array_values($completed))) + ['failed_groups' => array_keys(array_diff_key($groups, $completed))],
+            'groups' => array_map(fn (array $checks): array => AuditSection::failed($checks) ? $checks : array_map(fn (AuditCheck $check): array => $check->toArray(), $checks), $groups),
+            'chunks' => AuditSection::run(fn (): array => $this->chunkStatistics()),
+            'citations' => AuditSection::run(fn (): array => $this->citationFidelity()),
         ];
     }
 
@@ -168,14 +172,14 @@ final class DataQualityAuditService
         $evidences = DB::table('medication_questions')->where('status', 'answered')->orderByDesc('id')->limit(200)->get(['uuid', 'evidences']);
         $chunkIds = [];
         foreach ($evidences as $row) {
-            foreach (json_decode((string) $row->evidences, true) ?: [] as $evidence) {
+            foreach ($this->evidenceList($row->evidences) as $evidence) {
                 $chunkIds[] = (int) ($evidence['chunk_id'] ?? 0);
             }
         }
         $contents = DB::table('knowledge_chunks')->whereIn('id', array_unique($chunkIds))->pluck('content', 'id');
 
         foreach ($evidences as $row) {
-            foreach (json_decode((string) $row->evidences, true) ?: [] as $evidence) {
+            foreach ($this->evidenceList($row->evidences) as $evidence) {
                 $checked++;
                 $content = $contents[(int) ($evidence['chunk_id'] ?? 0)] ?? null;
                 if ($content === null) {
@@ -195,5 +199,17 @@ final class DataQualityAuditService
             'faithful' => Metrics::wilson($checked - $missingChunk - $textNotFound, $checked),
             'examples' => array_values(array_unique(array_slice($examples, 0, 5))),
         ];
+    }
+
+    /**
+     * Evidências gravadas de uma pergunta, só as que são objetos (respostas antigas podem ter outro formato).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function evidenceList(mixed $raw): array
+    {
+        $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+
+        return is_array($decoded) ? array_values(array_filter($decoded, 'is_array')) : [];
     }
 }
