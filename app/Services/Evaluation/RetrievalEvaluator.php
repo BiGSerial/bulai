@@ -6,6 +6,7 @@ use App\Data\Knowledge\RetrievalQuery;
 use App\Models\Knowledge\ActiveIngredient;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Services\Interactions\PairEvidenceRetriever;
+use App\Services\Knowledge\ActiveIngredientResolver;
 use App\Services\Retrieval\KnowledgeRetriever;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -21,7 +22,7 @@ final class RetrievalEvaluator
 {
     public const KS = [1, 3, 5];
 
-    public function __construct(private readonly KnowledgeRetriever $retriever, private readonly PairEvidenceRetriever $pairs) {}
+    public function __construct(private readonly KnowledgeRetriever $retriever, private readonly PairEvidenceRetriever $pairs, private readonly ActiveIngredientResolver $resolver) {}
 
     /**
      * @param  list<string>  $modes
@@ -102,8 +103,15 @@ final class RetrievalEvaluator
     private function subjectQueries(array $dataset): array
     {
         $queries = [];
+        $seen = [];
         foreach ($dataset['items'] as $item) {
-            $ingredient = ActiveIngredient::query()->whereRaw('lower(canonical_name) = ?', [mb_strtolower($item['ingredient'])])->value('id');
+            // Duplicado já fundido ("Ibuprofeno" → Ibuprofen): o alias o leva ao princípio que ficou, e cada um entra uma vez só.
+            $ingredient = ActiveIngredient::query()->whereRaw('lower(canonical_name) = ?', [mb_strtolower($item['ingredient'])])->value('id')
+                ?? $this->resolver->resolve($item['ingredient'])->ingredientId;
+            if ($ingredient !== null && isset($seen[$ingredient])) {
+                continue;
+            }
+            $seen[$ingredient] = true;
             $documents = $ingredient === null ? [] : DB::table('knowledge_document_ingredients as di')->join('knowledge_documents as d', 'd.id', '=', 'di.document_id')
                 ->where('di.ingredient_id', $ingredient)->where('d.content_status', KnowledgeDocument::STATUS_READY)->pluck('d.id')->map(fn ($id): int => (int) $id)->all();
             if ($documents === []) {
