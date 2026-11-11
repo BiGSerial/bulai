@@ -39,6 +39,10 @@ return [
         'target_characters' => (int) env('KNOWLEDGE_CHUNK_TARGET_CHARACTERS', 1_800),
         'max_characters' => (int) env('KNOWLEDGE_CHUNK_MAX_CHARACTERS', 2_600),
         'overlap_characters' => (int) env('KNOWLEDGE_CHUNK_OVERLAP_CHARACTERS', 200),
+        // Trecho com menos caracteres que isso é fragmento de título quebrado em duas linhas: junta-se ao vizinho. Rodapés e
+        // cabeçalhos repetidos (sem texto útil ou idênticos e curtos) são descartados. Ver `ChunkCleaner`.
+        'min_characters' => (int) env('KNOWLEDGE_CHUNK_MIN_CHARACTERS', 30),
+        'duplicate_max_characters' => (int) env('KNOWLEDGE_CHUNK_DUPLICATE_MAX_CHARACTERS', 160),
     ],
     // Server-Sent Events da administração: cada conexão dura `seconds` e o navegador reconecta sozinho.
     'stream' => [

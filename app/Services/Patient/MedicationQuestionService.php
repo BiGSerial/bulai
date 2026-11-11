@@ -420,7 +420,11 @@ final class MedicationQuestionService
         if (count($unidentified) === count($medicines)) {
             return ['status' => self::NOT_IDENTIFIED, 'limitations' => $limitations] + $empty;
         }
-        if (count($unidentified) + count($withoutLeaflet) === count($medicines)) {
+        // Sem bula brasileira de nenhum deles: só interações e efeitos adversos seguem, para a bula dos EUA (nível 2b); sem ela
+        // também, a resposta continua sendo "ainda não há bula".
+        $noLeaflet = count($unidentified) + count($withoutLeaflet) === count($medicines);
+        $foreignOnly = $noLeaflet && $withoutLeaflet !== [] && in_array($canonical['primary'], ['ADVERSE_EFFECT', 'DRUG_INTERACTION'], true) && $this->external->enabled();
+        if ($noLeaflet && ! $foreignOnly) {
             return ['status' => self::NO_LEAFLET, 'limitations' => $limitations] + $empty;
         }
 
@@ -518,6 +522,9 @@ final class MedicationQuestionService
             return $best + $extra;
         }
         $retrieval['sufficiency']['verdict'] = 'insufficient';
+        if ($foreignOnly) {
+            return ['status' => self::NO_LEAFLET, 'limitations' => $limitations, 'retrieval' => $retrieval] + $empty;
+        }
 
         // Nível 4: insuficiência real. O assistente indisponível não é falta de evidência; nenhum trecho bruto vira resposta.
         $unavailable = $last !== null && ($last['generation']['status'] ?? null) === ExplanationGenerator::STATUS_UNAVAILABLE;

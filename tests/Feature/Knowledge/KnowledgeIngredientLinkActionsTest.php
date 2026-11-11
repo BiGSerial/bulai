@@ -6,6 +6,7 @@ use App\Jobs\LinkKnowledgeDocumentIngredients;
 use App\Livewire\Admin\Documents\Index;
 use App\Livewire\Admin\Documents\Show;
 use App\Models\Knowledge\ActiveIngredient;
+use App\Models\Knowledge\ActiveIngredientAlias;
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeProcessingEvent;
@@ -49,6 +50,32 @@ final class KnowledgeIngredientLinkActionsTest extends TestCase
         $link = DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->sole();
         $this->assertSame([$this->enalapril->id, 'catalog'], [(int) $link->ingredient_id, $link->method]);
         $this->assertSame(0, app(KnowledgeDocumentIngredientLinker::class)->link($this->document('XYZINEXISTENTE — Bula do paciente')), 'produto fora do catálogo continua sem vínculo');
+    }
+
+    public function test_a_leaflet_with_a_generic_title_is_linked_by_the_product_name_in_its_first_lines(): void
+    {
+        ActiveIngredientAlias::query()->create(['ingredient_id' => $this->enalapril->id, 'alias' => 'enalapril', 'normalized_alias' => 'enalapril', 'language' => 'pt', 'origin' => 'curated', 'review_status' => 'approved']);
+        $document = $this->document('Bula 1790900554429');
+        DB::table('knowledge_chunks')->where('document_id', $document->id)->delete();
+        DB::table('knowledge_chunks')->insert([
+            ['document_id' => $document->id, 'chunk_index' => 0, 'section' => 'CAPA', 'page_start' => 1, 'page_end' => 1, 'content' => "500mg\n\nMedicamento genérico, Lei nº 9.787 de 1999", 'created_at' => now(), 'updated_at' => now()],
+            ['document_id' => $document->id, 'chunk_index' => 1, 'section' => 'APRESENTAÇÕES', 'page_start' => 1, 'page_end' => 1, 'content' => "enalapril\n\nTexto longo qualquer da bula, com mais de oitenta caracteres numa mesma linha, que nunca é candidata a nome de produto.", 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $this->assertSame(1, app(KnowledgeDocumentIngredientLinker::class)->link($document));
+
+        $link = DB::table('knowledge_document_ingredients')->where('document_id', $document->id)->sole();
+        $this->assertSame([$this->enalapril->id, 'content'], [(int) $link->ingredient_id, $link->method]);
+    }
+
+    public function test_a_three_letter_abbreviation_in_the_metadata_does_not_create_an_active_ingredient(): void
+    {
+        $document = $this->document('Omeprazol — Bula');
+        $document->forceFill(['metadata' => ['active_ingredient' => 'IBP']])->save();
+
+        app(KnowledgeDocumentIngredientLinker::class)->link($document);
+
+        $this->assertDatabaseMissing('active_ingredients', ['normalized_name' => 'ibp']);
     }
 
     public function test_document_page_warns_when_nothing_is_linked_and_links_on_demand(): void

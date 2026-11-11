@@ -281,11 +281,14 @@ class Perguntar extends Component
         $fonte = $tipos->isEmpty() ? 'Baseado na bula de '.self::listar($nomes).'.' : 'Baseado na bula '.$tipos->join(' e na bula ').' de '.self::listar($nomes).'.';
         // Bula dos EUA (FDA) como complemento: sempre com o crédito e o aviso de que a bula brasileira não traz a informação.
         $estrangeira = $bulas->contains(fn ($e): bool => ($e['document_type'] ?? null) === ExternalEvidenceService::DOCUMENT_TYPE);
+        // Sem bula brasileira de nenhum dos remédios, a da FDA respondeu sozinha: o aviso diz isso, e não "respondi só sobre".
+        $soEstrangeira = $estrangeira && $comBula === [] && $semBula !== [];
         if ($estrangeira) {
-            $credito = 'traduzida automaticamente. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine). A bula brasileira cadastrada não traz essa informação.';
+            $credito = 'traduzida automaticamente. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine).'
+                .($soEstrangeira ? ' Ainda não tenho a bula brasileira de '.self::listar($semBula).'.' : ' A bula brasileira cadastrada não traz essa informação.');
             $fonte = $tipos->isEmpty() ? 'Baseado na bula dos EUA (FDA) de '.self::listar($nomes).', '.$credito : $fonte.' Parte vem da bula dos EUA (FDA), '.$credito;
         }
-        if ($semBula !== []) {
+        if ($semBula !== [] && ! $soEstrangeira) {
             $fonte .= ' Ainda não tenho a bula de '.self::listar($semBula).', então respondi só sobre '.self::listar($comBula).'.';
         }
         if ($evidencias->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']))) {

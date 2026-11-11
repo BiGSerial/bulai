@@ -192,6 +192,29 @@ final class ExternalLabelsTest extends TestCase
         $this->assertNotContains(ExternalEvidenceService::DOCUMENT_TYPE, array_column($indication['evidences'], 'document_type'), 'indicação vem da bula brasileira; a dos EUA só complementa interações e efeitos adversos');
     }
 
+    public function test_a_medicine_without_a_brazilian_leaflet_gets_adverse_effects_from_the_fda_label_but_not_other_subjects(): void
+    {
+        $omeprazole = $this->ingredient('omeprazol', 'omeprazole');
+        $medicine = AnvisaMedicine::factory()->create(['product_name' => 'OMEPRAZOL', 'normalized_product_name' => 'omeprazol', 'active_ingredient' => 'OMEPRAZOL', 'normalized_active_ingredient' => 'omeprazol']);
+        $medicine->ingredients()->attach($omeprazole->id, ['component_text' => 'OMEPRAZOL', 'method' => 'alias', 'confidence' => 1]);
+        $label = ExternalLabel::factory()->create(['ingredient_id' => $omeprazole->id, 'title' => 'PRILOSEC (OMEPRAZOLE)']);
+        ExternalLabelSection::factory()->create(['external_label_id' => $label->id, 'text_original' => self::ADVERSE_EN, 'text_translated' => self::ADVERSE_PT]);
+        $this->answer = '{"coverage":"full","segments":[{"kind":"fact","text":"Na bula dos Estados Unidos, as reações adversas mais comuns foram náusea, diarreia e insônia.","evidence_ids":["ALL"]}]}';
+        $user = User::factory()->create();
+
+        $adverse = app(MedicationQuestionService::class)->askFreeform($user, 'Quais os efeitos colaterais do omeprazol?');
+        $indication = app(MedicationQuestionService::class)->askFreeform($user, 'Para que serve o omeprazol?');
+
+        $this->assertSame(MedicationQuestionService::ANSWERED, $adverse['status']);
+        $this->assertSame([ExternalEvidenceService::DOCUMENT_TYPE], array_values(array_unique(array_column($adverse['evidences'], 'document_type'))));
+        $this->assertContains('Ainda não há bula cadastrada para: OMEPRAZOL.', $adverse['limitations']);
+        $fonte = Perguntar::fonte($adverse + ['evidences' => array_map(fn (array $e): array => $e + ['supports_claims' => true], $adverse['evidences'])], ['OMEPRAZOL'], ['OMEPRAZOL'], []);
+        $this->assertStringContainsString('Baseado na bula dos EUA (FDA) de OMEPRAZOL', $fonte);
+        $this->assertStringContainsString('Ainda não tenho a bula brasileira de OMEPRAZOL.', $fonte);
+        $this->assertStringNotContainsString('respondi só sobre', $fonte);
+        $this->assertSame(MedicationQuestionService::NO_LEAFLET, $indication['status'], 'indicação não vem da bula dos EUA');
+    }
+
     public function test_a_pair_without_brazilian_evidence_uses_only_fda_excerpts_that_name_the_other_drug(): void
     {
         $sertraline = $this->ingredient('sertralina', 'sertraline');

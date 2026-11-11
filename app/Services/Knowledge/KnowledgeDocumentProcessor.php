@@ -117,8 +117,8 @@ final class KnowledgeDocumentProcessor
                     'page_start' => $chunk->pageStart,
                     'page_end' => $chunk->pageEnd,
                     'content' => $chunk->content,
-                    'token_count' => null,
-                    'metadata' => [...$chunk->metadata, 'extraction_method' => $extraction->method],
+                    'token_count' => ChunkCleaner::estimateTokens($chunk->content),
+                    'metadata' => [...$chunk->metadata, 'extraction_method' => $extraction->method, 'token_count_method' => 'chars/4'],
                 ], $chunks));
 
                 $document->forceFill([

@@ -11,7 +11,7 @@ class KnowledgeChunkerTest extends TestCase
 {
     public function test_short_section_produces_one_traceable_chunk(): void
     {
-        config()->set('knowledge.chunking', ['target_characters' => 100, 'max_characters' => 140, 'overlap_characters' => 20]);
+        config()->set('knowledge.chunking', ['target_characters' => 100, 'max_characters' => 140, 'overlap_characters' => 20, 'min_characters' => 0]);
         $sections = [new KnowledgeSection('COMPOSIÇÃO', '1. COMPOSIÇÃO', [new KnowledgeTextBlock(2, 'Cada comprimido contém 500 mg.')])];
 
         $chunks = (new KnowledgeChunker)->chunk($sections);
@@ -25,7 +25,7 @@ class KnowledgeChunkerTest extends TestCase
 
     public function test_long_sections_use_overlap_and_preserve_order_and_pages(): void
     {
-        config()->set('knowledge.chunking', ['target_characters' => 70, 'max_characters' => 100, 'overlap_characters' => 20]);
+        config()->set('knowledge.chunking', ['target_characters' => 70, 'max_characters' => 100, 'overlap_characters' => 20, 'min_characters' => 0]);
         $sections = [new KnowledgeSection('INDICAÇÕES', 'INDICAÇÕES', [
             new KnowledgeTextBlock(1, 'Primeiro parágrafo apresenta a indicação principal do medicamento.'),
             new KnowledgeTextBlock(2, 'Segundo parágrafo acrescenta outra informação clínica importante.'),
@@ -42,7 +42,7 @@ class KnowledgeChunkerTest extends TestCase
 
     public function test_chunks_never_cross_section_boundaries(): void
     {
-        config()->set('knowledge.chunking', ['target_characters' => 500, 'max_characters' => 600, 'overlap_characters' => 50]);
+        config()->set('knowledge.chunking', ['target_characters' => 500, 'max_characters' => 600, 'overlap_characters' => 50, 'min_characters' => 0]);
         $sections = [
             new KnowledgeSection('COMPOSIÇÃO', 'COMPOSIÇÃO', [new KnowledgeTextBlock(1, 'Conteúdo da composição.')]),
             new KnowledgeSection('CONTRAINDICAÇÕES', 'CONTRAINDICAÇÕES', [new KnowledgeTextBlock(2, 'Conteúdo das contraindicações.')]),
@@ -58,7 +58,7 @@ class KnowledgeChunkerTest extends TestCase
 
     public function test_chunk_spanning_pages_records_the_full_page_range(): void
     {
-        config()->set('knowledge.chunking', ['target_characters' => 500, 'max_characters' => 600, 'overlap_characters' => 50]);
+        config()->set('knowledge.chunking', ['target_characters' => 500, 'max_characters' => 600, 'overlap_characters' => 50, 'min_characters' => 0]);
         $sections = [new KnowledgeSection('POSOLOGIA', 'POSOLOGIA', [
             new KnowledgeTextBlock(4, 'Início da orientação posológica.'),
             new KnowledgeTextBlock(5, 'Continuação da mesma orientação.'),
@@ -69,5 +69,23 @@ class KnowledgeChunkerTest extends TestCase
         $this->assertCount(1, $chunks);
         $this->assertSame(4, $chunks[0]->pageStart);
         $this->assertSame(5, $chunks[0]->pageEnd);
+    }
+
+    public function test_footers_and_broken_heading_fragments_are_cleaned_with_the_default_rules(): void
+    {
+        config()->set('knowledge.chunking', ['target_characters' => 500, 'max_characters' => 600, 'overlap_characters' => 0, 'min_characters' => 30, 'duplicate_max_characters' => 160]);
+        $sections = [
+            new KnowledgeSection('INDICAÇÕES', 'INDICAÇÕES', [new KnowledgeTextBlock(1, 'Indicado para o tratamento da dor e da febre em adultos e crianças.')]),
+            new KnowledgeSection('RDC', 'RDC', [new KnowledgeTextBlock(1, '73/2016 -')]),
+            new KnowledgeSection('COMO ESTE MEDICAMENTO', 'COMO ESTE MEDICAMENTO', [new KnowledgeTextBlock(2, 'FUNCIONA?')]),
+            new KnowledgeSection('FUNCIONAMENTO', 'FUNCIONAMENTO', [new KnowledgeTextBlock(2, 'Atua reduzindo a produção de prostaglandinas, mediadoras da dor.')]),
+        ];
+
+        $chunks = (new KnowledgeChunker)->chunk($sections);
+
+        $this->assertSame([0, 1], array_column($chunks, 'index'));
+        $this->assertSame(['INDICAÇÕES', 'FUNCIONAMENTO'], array_column($chunks, 'section'));
+        $this->assertStringStartsWith("FUNCIONA?\n\nAtua reduzindo", $chunks[1]->content);
+        $this->assertStringNotContainsString('73/2016', implode(' ', array_column($chunks, 'content')));
     }
 }

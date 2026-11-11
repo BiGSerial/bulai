@@ -82,6 +82,24 @@ final class Metrics
         return $values === [] ? null : array_sum($values) / count($values);
     }
 
+    /**
+     * Intervalo de confiança de Wilson (95% por padrão) para uma proporção: adequado a amostras pequenas (seção 3.5.7 do TCC).
+     *
+     * @return array{rate: float|null, low: float|null, high: float|null, n: int}
+     */
+    public static function wilson(int $successes, int $total, float $z = 1.96): array
+    {
+        if ($total <= 0) {
+            return ['rate' => null, 'low' => null, 'high' => null, 'n' => 0];
+        }
+        $p = $successes / $total;
+        $denominator = 1 + $z ** 2 / $total;
+        $center = ($p + $z ** 2 / (2 * $total)) / $denominator;
+        $margin = $z * sqrt($p * (1 - $p) / $total + $z ** 2 / (4 * $total ** 2)) / $denominator;
+
+        return ['rate' => round($p, 4), 'low' => round(max(0.0, $center - $margin), 4), 'high' => round(min(1.0, $center + $margin), 4), 'n' => $total];
+    }
+
     public static function round(?float $value, int $precision = 4): ?float
     {
         return $value === null ? null : round($value, $precision);

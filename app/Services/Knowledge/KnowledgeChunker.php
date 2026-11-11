@@ -41,7 +41,27 @@ class KnowledgeChunker
             }
         }
 
-        return $drafts;
+        return $this->withoutNoise($drafts);
+    }
+
+    /**
+     * Aplica `ChunkCleaner` (rodapés, repetições e fragmentos de título) e renumera os trechos.
+     *
+     * @param  list<KnowledgeChunkDraft>  $drafts
+     * @return list<KnowledgeChunkDraft>
+     */
+    private function withoutNoise(array $drafts): array
+    {
+        $cleaned = ChunkCleaner::clean(array_map(fn (KnowledgeChunkDraft $draft): array => ['content' => $draft->content, 'page_start' => $draft->pageStart, 'page_end' => $draft->pageEnd], $drafts));
+
+        return array_values(array_map(fn (array $entry, int $index): KnowledgeChunkDraft => new KnowledgeChunkDraft(
+            index: $index,
+            section: $drafts[$entry['position']]->section,
+            pageStart: $entry['page_start'],
+            pageEnd: $entry['page_end'],
+            content: $entry['content'],
+            metadata: $drafts[$entry['position']]->metadata,
+        ), $cleaned['kept'], array_keys($cleaned['kept'])));
     }
 
     /** @return list<array{page: int, text: string}> */
