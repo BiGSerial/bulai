@@ -29,12 +29,12 @@ Internet → Cloudflare → Caddy (host, TLS) → 127.0.0.1:8080 ─┐
 | `app` | `bulai-app` | 768 MB · 2 CPU | PHP-FPM, 6 workers no máximo, FS somente leitura |
 | `worker` | `bulai-app` | 768 MB · 2 CPU | **um** worker, um job por vez: OCR e IA nunca rodam em paralelo; `stop_grace_period` 480 s |
 | `scheduler` | `bulai-app` | 256 MB · 0,5 CPU | `php artisan schedule:work`: lembretes de dose a cada 5 min e expurgo diário (ver [Agendador e lembretes](#agendador-e-lembretes)) |
-| `postgres` | `pgvector/pgvector:pg17@sha256:…` | 768 MB · 2 CPU | `oom_score_adj -500` (o kernel o preserva por último) |
+| `postgres` | `pgvector/pgvector:pg17@sha256:…` | 1,5 GB · 2 CPU | `oom_score_adj -500` (o kernel o preserva por último); era 768 MB e a auditoria de embeddings estourou o limite (OOM em 12/11/2026) |
 | `document-ocr` | `bulai-ocr` (modelos embutidos) | 2 GB · 2 CPU | concorrência 1 (`OCR_MAX_CONCURRENCY`), `oom_score_adj +500` |
 | `local-ai` | `bulai-local-ai` | 2,3 GB · 3 CPU | modelo fora da imagem e do Git; `oom_score_adj +500` |
 | `embeddings` | `bulai-local-ai` (mesma imagem, `LOCAL_AI_MODE=embedding`) | 1,5 GB · 2 CPU | bge-m3 Q8_0 (~635 MB) em `/srv/bulai/shared/models`; só `/v1/embeddings` e `/v1/models`; `oom_score_adj +500` |
 
-Soma dos tetos: ≈ 8,3 GB (com `embeddings`). O pico real é bem menor: OCR e IA local rodam **em sequência** (um worker) e o serviço de embeddings usa ~0,8 GB em regime; se a VPS ficar apertada, reduza `local-ai` para 2 GB ou pare `embeddings` fora da janela de indexação (a recuperação volta ao modo lexical automaticamente quando o provedor falha).
+Soma dos tetos: ≈ 9,1 GB (com `embeddings`). O pico real é bem menor: OCR e IA local rodam **em sequência** (um worker) e o serviço de embeddings usa ~0,8 GB em regime; se a VPS ficar apertada, reduza `local-ai` para 2 GB ou pare `embeddings` fora da janela de indexação (a recuperação volta ao modo lexical automaticamente quando o provedor falha).
 Os limites usam `mem_limit`/`memswap_limit`/`cpus`, atributos de serviço do Compose Specification (efetivos com
 `docker compose up`; confirmados por `docker inspect` nos testes). `memswap_limit = mem_limit` impede *swap thrashing*.
 

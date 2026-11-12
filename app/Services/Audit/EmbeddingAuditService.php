@@ -41,9 +41,11 @@ final class EmbeddingAuditService
             'norms' => AuditSection::run(fn (): array => $this->norms()),
         ];
 
-        $checks = AuditSection::run(fn (): array => $this->integrityChecks($total, $embedded));
-        $report['checks'] = AuditSection::failed($checks) ? $checks : array_map(fn (AuditCheck $check): array => $check->toArray(), $checks);
-        $report['summary'] = AuditSection::failed($checks) ? null : AuditCheck::summarize($checks);
+        $results = $this->integrityChecks($total, $embedded);
+        $ran = array_values(array_filter($results, fn (mixed $result): bool => $result instanceof AuditCheck));
+        $report['checks'] = array_map(fn (AuditCheck $check): array => $check->toArray(), $ran);
+        $report['checks_not_run'] = array_map(fn (array $failure): array => $failure['error'], array_filter($results, fn (mixed $result): bool => ! $result instanceof AuditCheck));
+        $report['summary'] = $ran === [] ? null : AuditCheck::summarize($ran);
         $report['coherence'] = $embedded > 1 ? AuditSection::run(fn (): array => $this->coherence($sample)) : null;
         $report['live'] = $live ? $this->live(min($sample, 12)) : null;
 
@@ -58,36 +60,46 @@ final class EmbeddingAuditService
         return ['min' => $row->min === null ? null : round((float) $row->min, 4), 'mean' => $row->mean === null ? null : round((float) $row->mean, 4), 'max' => $row->max === null ? null : round((float) $row->max, 4)];
     }
 
-    /** @return list<AuditCheck> */
+    /**
+     * Cada verificação roda isolada: se o banco recusar uma delas (ou a conexão cair no meio), as demais continuam.
+     *
+     * @return array<string, AuditCheck|array{error: array{exception: string, message: string}}>
+     */
     private function integrityChecks(int $total, int $embedded): array
     {
-        $ids = fn (string $where, array $bindings = []): array => array_map(fn (object $row): int => (int) $row->id, DB::select("select id from knowledge_chunks where {$where} order by id limit 5", $bindings));
+        $ids = fn (string $where): array => array_map(fn (object $row): int => (int) $row->id, DB::select("select id from knowledge_chunks where {$where} order by id limit 5"));
         $count = fn (string $where): int => (int) DB::table('knowledge_chunks')->whereRaw($where)->count();
+        $byWhere = fn (string $key, string $label, string $severity, string $where, int $checked): callable => fn (): AuditCheck => new AuditCheck($key, $label, $severity, $count($where), $checked, $ids($where));
 
-        $missing = 'embedding is null';
-        $mixedModels = (int) DB::table('knowledge_chunks')->whereNotNull('embedding')->distinct()->count(DB::raw("coalesce(embedding_model, '')"));
-        $dimensionMismatch = 'embedding is not null and (embedding_dimensions is null or embedding_dimensions <> vector_dims(embedding))';
-        $staleHash = "embedding is not null and (embedding_content_hash is null or embedding_content_hash <> encode(sha256(convert_to(content, 'UTF8')), 'hex'))";
-        $zeroNorm = 'embedding is not null and vector_norm(embedding) = 0';
-        $noModel = 'embedding is not null and embedding_model is null';
-        $duplicates = (int) (DB::selectOne(<<<'SQL'
+        $checks = [
+            'chunks_without_embedding' => $byWhere('chunks_without_embedding', 'Trechos sem embedding', AuditCheck::ERROR, 'embedding is null', $total),
+            'single_model' => fn (): AuditCheck => new AuditCheck('single_model', 'Todos os vetores vêm de um único modelo (sem mistura)', AuditCheck::ERROR, max(0, (int) DB::table('knowledge_chunks')->whereNotNull('embedding')->distinct()->count(DB::raw("coalesce(embedding_model, '')")) - 1), $embedded),
+            'single_dimension' => fn (): AuditCheck => new AuditCheck('single_dimension', 'Todos os vetores têm a mesma dimensão', AuditCheck::ERROR, max(0, (int) DB::table('knowledge_chunks')->whereNotNull('embedding')->distinct()->count(DB::raw('vector_dims(embedding)')) - 1), $embedded),
+            'dimension_matches_declared' => $byWhere('dimension_matches_declared', 'Dimensão gravada na linha = dimensão real do vetor', AuditCheck::ERROR, 'embedding is not null and (embedding_dimensions is null or embedding_dimensions <> vector_dims(embedding))', $embedded),
+            'model_recorded' => $byWhere('model_recorded', 'Modelo de embedding registrado em cada vetor', AuditCheck::WARNING, 'embedding is not null and embedding_model is null', $embedded),
+            'content_hash_current' => $byWhere('content_hash_current', 'Texto do trecho não mudou depois de indexado (hash igual)', AuditCheck::ERROR, "embedding is not null and (embedding_content_hash is null or embedding_content_hash <> encode(sha256(convert_to(content, 'UTF8')), 'hex'))", $embedded),
+            'non_zero_vectors' => $byWhere('non_zero_vectors', 'Nenhum vetor nulo (norma zero)', AuditCheck::ERROR, 'embedding is not null and vector_norm(embedding) = 0', $embedded),
+            'no_identical_vectors_for_different_text' => fn (): AuditCheck => new AuditCheck('no_identical_vectors_for_different_text', 'Textos diferentes (além de espaços e quebras de linha) nunca compartilham o mesmo vetor', AuditCheck::WARNING, $this->identicalVectorsWithDifferentText(), $embedded),
+        ];
+
+        return array_map(fn (callable $check): mixed => AuditSection::run($check), $checks);
+    }
+
+    /**
+     * Agrupa pelo hash do vetor, não pelo vetor (1.024 floats por linha): a chave do agrupamento fica com 32 caracteres e a
+     * consulta cabe em pouca memória. Em produção a versão que agrupava pelo vetor inteiro levou o contêiner do PostgreSQL
+     * ao limite de memória (OOM) e derrubou as conexões.
+     */
+    private function identicalVectorsWithDifferentText(): int
+    {
+        DB::statement("set local work_mem = '8MB'");
+
+        return (int) (DB::selectOne(<<<'SQL'
             select count(*) as n from (
-                select embedding from knowledge_chunks where embedding is not null
-                group by embedding having count(distinct md5(lower(regexp_replace(content, '\s+', ' ', 'g')))) > 1
+                select md5(embedding::text) as vector_hash from knowledge_chunks where embedding is not null
+                group by vector_hash having count(distinct md5(lower(regexp_replace(content, '\s+', ' ', 'g')))) > 1
             ) as t
         SQL)->n ?? 0);
-        $dimensions = (int) DB::table('knowledge_chunks')->whereNotNull('embedding')->distinct()->count(DB::raw('vector_dims(embedding)'));
-
-        return [
-            new AuditCheck('chunks_without_embedding', 'Trechos sem embedding', AuditCheck::ERROR, $count($missing), $total, $ids($missing)),
-            new AuditCheck('single_model', 'Todos os vetores vêm de um único modelo (sem mistura)', AuditCheck::ERROR, max(0, $mixedModels - 1), $embedded),
-            new AuditCheck('single_dimension', 'Todos os vetores têm a mesma dimensão', AuditCheck::ERROR, max(0, $dimensions - 1), $embedded),
-            new AuditCheck('dimension_matches_declared', 'Dimensão gravada na linha = dimensão real do vetor', AuditCheck::ERROR, $count($dimensionMismatch), $embedded, $ids($dimensionMismatch)),
-            new AuditCheck('model_recorded', 'Modelo de embedding registrado em cada vetor', AuditCheck::WARNING, $count($noModel), $embedded, $ids($noModel)),
-            new AuditCheck('content_hash_current', 'Texto do trecho não mudou depois de indexado (hash igual)', AuditCheck::ERROR, $count($staleHash), $embedded, $ids($staleHash)),
-            new AuditCheck('non_zero_vectors', 'Nenhum vetor nulo (norma zero)', AuditCheck::ERROR, $count($zeroNorm), $embedded, $ids($zeroNorm)),
-            new AuditCheck('no_identical_vectors_for_different_text', 'Textos diferentes (além de espaços e quebras de linha) nunca compartilham o mesmo vetor', AuditCheck::WARNING, $duplicates, $embedded),
-        ];
     }
 
     /**

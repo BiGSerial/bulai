@@ -151,7 +151,7 @@ final class AvisosTest extends TestCase
         $user->notify(new UnmatchedMedicineResolvedNotification($medication));
         $other->notify(new UnmatchedMedicineResolvedNotification($this->medication($other, 'Privado ZZ')));
 
-        $this->actingAs($user)->get(route('consulta.avisos'))->assertOk()->assertSee('Hora do remédio: Losartana')->assertSee('Novo')->assertDontSee('Privado ZZ')->assertSee('Marcar todos como lidos (2)');
+        $this->actingAs($user)->get(route('consulta.avisos'))->assertOk()->assertSee('Hora do remédio: Losartana')->assertSee('Novo')->assertDontSee('Privado ZZ')->assertSee('2 avisos novos')->assertSee('Marcar todos como lidos');
 
         $component = Livewire::actingAs($user)->test(Avisos::class)->assertSee('Ver remédios de hoje')->assertSee('Ver meus remédios');
         $dose = $user->notifications()->where('type', MedicationReminderNotification::class)->sole();
@@ -168,6 +168,21 @@ final class AvisosTest extends TestCase
         $alheio = $other->notifications()->sole();
         Livewire::actingAs($user)->test(Avisos::class)->call('abrir', $alheio->id)->assertNoRedirect()->call('apagar', $alheio->id);
         $this->assertSame(1, $other->notifications()->count());
+    }
+
+    public function test_clearing_all_notices_deletes_only_the_patients_own_notices(): void
+    {
+        $user = $this->patient();
+        $other = $this->patient();
+        $medication = $this->medication($user, 'Losartana');
+        $user->notify(new MedicationReminderNotification($medication, CarbonImmutable::parse('2026-11-05 08:00', 'America/Sao_Paulo')));
+        $user->notify(new UnmatchedMedicineResolvedNotification($medication));
+        $other->notify(new UnmatchedMedicineResolvedNotification($this->medication($other, 'Privado ZZ')));
+
+        Livewire::actingAs($user)->test(Avisos::class)->assertSee('Limpar todos')->call('limparTodos')
+            ->assertSee('Todos os avisos foram apagados.')->assertSee('Nenhum aviso por enquanto.')->assertDontSee('Limpar todos');
+
+        $this->assertSame([0, 1], [$user->notifications()->count(), $other->notifications()->count()]);
     }
 
     public function test_reminder_preferences_are_saved_only_with_consent_and_reject_unknown_timezones(): void

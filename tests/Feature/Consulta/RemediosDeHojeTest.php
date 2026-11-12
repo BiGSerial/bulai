@@ -121,7 +121,7 @@ final class RemediosDeHojeTest extends TestCase
             ->call('salvarPosologia')->assertSet('editandoId', null)->assertSee('às 08:00, 21:00');
         $this->assertSame([['08:00', '21:00'], false, false], [$medication->refresh()->dose_times, $medication->as_needed, $medication->reminders_enabled]);
 
-        $component->call('editarPosologia', $medication->id)->set('posologia.as_needed', true)->call('salvarPosologia')->assertSee('só quando precisar');
+        $component->call('editarPosologia', $medication->id)->set('posologia.as_needed', true)->call('salvarPosologia')->assertSee('Só quando precisar');
         $this->assertSame([[], true], [$medication->refresh()->dose_times, $medication->as_needed]);
 
         $context = app(TreatmentContextService::class)->for($user, $asked);
@@ -148,12 +148,12 @@ final class RemediosDeHojeTest extends TestCase
             ->assertSee('a cada 8 h')->assertSee('se ajustam ao horário')->assertSee('06:00')->assertSee('14:00')->assertSee('22:00')->assertDontSee('Ajustado');
         $six = CarbonImmutable::parse('2026-11-05 06:00', 'America/Sao_Paulo')->utc()->toIso8601String();
         $component->call('tomei', $amoxicilina->id, $six)
-            ->assertSee('Tomou às 09:30')->assertSee('17:30')->assertSee('Ajustado')->assertSee('contado a partir das 09:30')->assertDontSee('14:00')->assertDontSee('22:00');
+            ->assertSee('Tomei 09:30')->assertSee('17:30')->assertSee('Ajustado')->assertSee('contado a partir das 09:30')->assertDontSee('14:00')->assertDontSee('22:00');
         Livewire::actingAs($user)->test(Inicio::class)->assertSee('Próximo: 17:30 · Amoxicilina · ajustado');
         $component->call('irPara', 1)->assertSee('01:30')->assertSee('09:30')->assertSee('17:30');
 
         // Meus remédios: o paciente vê o modo e pode preferir horários fixos.
-        $perfil = Livewire::actingAs($user)->test(Perfil::class)->assertSee('a cada 8 h · ajusta pelo horário em que você toma')
+        $perfil = Livewire::actingAs($user)->test(Perfil::class)->assertSee('a cada 8 h, a partir da última dose')
             ->call('editarPosologia', $amoxicilina->id)->assertSet('posologia.schedule_mode', PatientMedication::MODE_INTERVAL)->assertSet('posologia.interval_hours', 8)
             ->assertSee('Contar a partir de quando eu tomar')->assertSee('Primeiro horário do dia')
             ->set('posologia.schedule_mode', PatientMedication::MODE_FIXED)->assertSee('+ Adicionar horário')->call('salvarPosologia')->assertSet('editandoId', null);

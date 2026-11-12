@@ -141,9 +141,10 @@ final class BulaHumanizadaTest extends TestCase
             ->assertSee(route('consulta.bula', $medicine->id))->assertDontSee(route('consulta.bula', $brand->id))->assertDontSee('OMEGAVIT');
 
         Livewire::actingAs($user)->test(Bulas::class)->set('busca', 'ome')
-            ->assertDontSee('Bulas simples prontas')
-            ->assertSee(route('consulta.bula', $without->id))->assertSee('Ainda sem bula no BULAI')
-            ->assertSee(route('consulta.bula', $brand->id))->assertSee('Bula simples disponível');
+            // A lista de prontas continua na tela (o filtro dela roda no aparelho) e o catálogo aparece embaixo.
+            ->assertSee('Bulas simples prontas')->assertSee('No catálogo de remédios')
+            ->assertSee(route('consulta.bula', $without->id))->assertSee('Ainda sem bula')
+            ->assertSee(route('consulta.bula', $brand->id))->assertSee('Bula pronta');
     }
 
     public function test_the_admin_opens_a_generated_summary_named_by_its_ingredients(): void

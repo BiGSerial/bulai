@@ -5,13 +5,14 @@ namespace App\Livewire\Consulta;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Services\Interactions\MedicationSearchService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
 /**
- * Bula simples: um lugar só para achar a bula humanizada de um remédio. Sem busca, lista os remédios que já têm bula; com
- * busca, mostra o catálogo e diz quais têm bula simples pronta para abrir.
+ * Bula simples: um lugar só para achar a bula humanizada de um remédio. A lista dos remédios que já têm bula filtra no
+ * aparelho enquanto a pessoa digita; com 3 letras ou mais, a busca no catálogo diz também quais têm bula simples pronta.
  */
 class Bulas extends Component
 {
@@ -31,7 +32,8 @@ class Bulas extends Component
             'resultados' => array_map(fn (array $item): array => $item + ['tem_bula' => in_array($item['id'], $comBula, true)], $resultados),
             'buscou' => $buscou,
             'limitado' => $limitado,
-            'disponiveis' => $buscou ? [] : $this->available(),
+            // A lista de bulas prontas vai sempre: o filtro dela roda no aparelho, a cada letra, sem ida ao servidor.
+            'disponiveis' => Cache::remember('consulta:bulas-prontas', now()->addMinutes(5), fn (): array => $this->available()),
         ]);
     }
 

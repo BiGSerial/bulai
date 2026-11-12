@@ -78,7 +78,7 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 
 ## Texto final (artigo científico)
 
-O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), e a versão em Word, gerada a partir dele, em `Word/TCC_BULA-IA_artigo_2026-11-11.docx`. Todos os números vêm do servidor de produção em 11/11/2026 (registros `prod-*`, Apêndice B).
+O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), espelho do artigo em Word `Word/TCC_BULA-IA_artigo_2026-11-12.docx` (a versão em Word é a de referência: título, tema e formatação da FAESA não mudam). Todos os números vêm do servidor de produção, em 11 e 12/11/2026 (registros `prod-*` e API `/audit/*`, Apêndices A a C): a identificação e a verificação de interações foram repetidas após a correção dos princípios ativos duplicados (PR #60); a recuperação e a comparação sem recuperação continuam as de 11/11 (base de 82 bulas) e devem ser refeitas com a base atual. O artigo tem até 25 páginas até a última referência; os apêndices vêm depois.
 
 O texto segue o formato de artigo científico e foi revisado em 11/11/2026 contra estas normas:
 

@@ -286,3 +286,73 @@ Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões
 - Ao enviar (botão ou Enter), o texto vira na hora o balão da pessoa (`data-testid="pergunta-pendente"`, evento `pergunta-enviada`), com o "digitando…" abaixo. Antes, o balão só aparecia junto com a resposta.
 - Quando a resposta chega, a tela rola até o **começo** da fala do BULA-IA (`scrollIntoView({ block: 'start' })`, com `scroll-mt-24` para o cabeçalho). Antes, a tela parava na pergunta e a pessoa precisava rolar para ler a resposta.
 - Teste: `ConversaHumanizadaTest::test_the_sent_question_shows_at_once_and_the_screen_scrolls_to_the_start_of_the_answer`.
+
+## Legibilidade, alertas no chat e tema escuro (11/11/2026)
+
+**Perguntar (chat)**
+- A resposta aparece em parágrafos curtos (`Perguntar::paragrafos`). O `App\Services\Patient\AnswerHighlighter` põe em negrito, sem depender do modelo:
+  - os remédios e os componentes da fórmula, ignorando maiúsculas e acentos;
+  - as expressões críticas ("não use", "procure atendimento", "contraindicado"…);
+  - quando há alerta, a frase inteira que fala dele.
+- O texto do modelo é escapado antes de receber as marcações.
+- Os alertas vêm do motor estruturado (`Perguntar::alerta`), nunca do modelo:
+  - **Interação.** Pode ser com um remédio em uso ou entre os remédios citados na pergunta; esta segunda vem do novo campo `pair_interactions` do `MedicationQuestionService::askFreeform`. O balão vira uma caixa amarela, com borda mais escura e o rótulo "Alerta de Interação" (ícone e texto pequeno) na borda superior. Embaixo do texto fica a lista dos registros, com a gravidade.
+  - **Alergia registrada a um componente.** A caixa fica vermelha, com o rótulo "Alerta de Reação Alérgica". Além disso, um aviso em destaque (SweetAlert2, `resources/js/alertas.js`, carregado só quando é preciso) diz qual componente e qual alergia; a pessoa confirma com "Entendi".
+- "Sem bula" e "não entendi o remédio" deixaram de usar amarelo e passaram para um tom creme neutro, para não se confundirem com o alerta.
+- O `x-consulta.risco` saiu do chat, porque o alerta no balão já cumpre esse papel.
+- Os nomes dos remédios no rodapé do balão levam à bula simples, no lugar dos botões grandes.
+
+**Remédios de hoje.** Linha do tempo com o horário à esquerda, a bolinha no trilho e um cartão compacto (nome, dose, situação). Depois de marcar, o selo mostra "Tomei HH:MM".
+
+**Meus remédios**
+- A aba "Em uso" mostra só os tratamentos ativos (`PatientMedication::isActive`).
+- Os tratamentos terminados ou vencidos vão para "Histórico de tratamentos", recolhido. Lá é possível voltar a usar (mudar as datas) ou tirar da lista. As opções ficam em `x-consulta.opcoes-do-remedio`.
+- A aba Receitas mostra a lista de remédios de cada receita em linhas separadas.
+- O nome de quem prescreveu, quando vem todo em maiúsculas (foto), passa a ser mostrado só com as iniciais maiúsculas (`PatientPrescription::prescriberDisplayName`).
+
+**Bula simples.** A lista de bulas prontas filtra no aparelho a cada letra digitada (Alpine), tem índice por letra e fica sempre visível. Com 3 letras ou mais, a busca no catálogo roda em segundo plano. A lista fica em cache por 5 minutos.
+
+**Avisos (central).** Novo botão "Limpar todos", com confirmação (`Avisos::limparTodos`, só os avisos da própria pessoa), e cartões compactos.
+
+**Tema escuro**
+- A escolha (Claro, Escuro ou Do celular) aparece no menu da conta e em Avisos › Preferências (`x-consulta.tema`).
+- Fica guardada no aparelho, na chave `bulai-tema` do localStorage (`resources/js/tema.js`).
+- Um script curto no `<head>` (`layouts/app`) aplica a classe `dark` antes da pintura, para a tela não piscar clara.
+- As telas não usam variantes `dark:`. O `resources/css/app.css` redefine a paleta em `html.dark:has(.app-screen)`, de modo que a administração continua clara.
+- **Limitação:** as cores novas fora da paleta (por exemplo `bg-sky-*`) precisam ser incluídas nesse bloco.
+
+**Testes:** `AnswerHighlighterTest`, `PatientPrescriptionTest`; em `PerfilEPerguntasTest`, o alerta no chat e o histórico de tratamentos; em `AvisosTest`, o "Limpar todos".
+
+**Menu da conta (12/11/2026).** No topo ficam a inicial, o nome e o e-mail de quem está conectado. Embaixo, os itens em grupos separados por divisórias, cada um com ícone: avisos e histórico; cuidado; conta, instalar, sobre e administração. Depois vem a Aparência, compacta, com a opção escolhida contornada para aparecer também no tema escuro. "Sair" fica por último, em vermelho. Se não couber na altura da tela, o menu rola.
+
+## Resumo para o médico em PDF (12/11/2026)
+
+**Para que serve:** o paciente baixa um resumo de saúde para levar à consulta. Nenhum conteúdo do resumo é gerado por IA.
+
+**Onde fica:** em Meus remédios, no botão "Resumo para o médico (PDF)" acima das abas, e também no menu da conta.
+
+**Rota:** `GET /perfil/resumo-para-o-medico.pdf` (`consulta.resumo`), atendida por `App\Http\Controllers\Consulta\ResumoMedicoController`.
+- Exige o consentimento de dados de saúde; sem ele, a pessoa volta para Meus remédios.
+- Limite de 10 downloads por minuto.
+- Cada download fica na auditoria da conta, com o evento `medical_summary_downloaded`.
+
+**Conteúdo** (`App\Services\Patient\MedicalSummaryService`):
+- **Identificação:** nome, e-mail e o período considerado.
+- **Alergias:** cada alergia registrada, com a reação.
+- **Alertas:**
+  - alergia que atinge um remédio em uso (`AllergyChecker`);
+  - interações DDInter entre os remédios em uso, com a gravidade, da maior para a menor;
+  - remédios com o mesmo princípio ativo.
+- **Remédios em uso:**
+  - princípio ativo, dose e como toma (horários, intervalo ou "só quando precisar");
+  - período e quem prescreveu;
+  - adesão dos últimos 30 dias: doses previstas até agora, quantas foram marcadas como tomadas, puladas e sem marcação, e o percentual de tomadas.
+  - O PDF explica que "sem marcação" não significa que a dose não foi tomada.
+- **Tratamentos encerrados** nos últimos 90 dias.
+- **Receitas:** as conferidas pelo paciente ou digitadas por ele, no máximo 5.
+- **Anotações:** linhas em branco para o médico escrever.
+- **Rodapé:** aviso de que os dados foram registrados pelo próprio paciente.
+
+**Layout:** `resources/views/pdf/resumo-medico.blade.php`, gerado pelo dompdf (`barryvdh/laravel-dompdf`). Usa a identidade visual do app: faixa azul-marinho com filete laranja, cartões creme, caixa vermelha para alergias, caixa amarela para interações e selos de adesão em verde, âmbar ou vermelho.
+
+**Testes:** `tests/Feature/Consulta/ResumoMedicoTest.php`.

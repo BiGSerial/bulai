@@ -1,4 +1,4 @@
-@php use App\Services\Patient\MedicationQuestionService as Q; use App\Livewire\Consulta\Perguntar as P; @endphp
+@php use App\Services\Patient\MedicationQuestionService as Q; use App\Livewire\Consulta\Perguntar as P; use Illuminate\Support\Js; @endphp
 {{--
     Chat amigável: a pessoa escreve (ou dita) à direita, o BULA-IA responde à esquerda em linguagem de conversa.
     Quando a bula não responde, o balão explica com palavras simples e sugere o próximo passo (chips); os detalhes
@@ -36,7 +36,9 @@
             @foreach ($conversa as $troca)
                 <x-consulta.balao de="eu" wire:key="tp-{{ $loop->index }}">{{ $troca['pergunta'] }}</x-consulta.balao>
                 <x-consulta.balao wire:key="tr-{{ $loop->index }}">
-                    <p class="break-words">{{ $troca['resposta'] ?? P::falaCurta($troca['status'], $troca['medicamentos']) }}</p>
+                    @foreach (P::paragrafos($troca['resposta'] ?? P::falaCurta($troca['status'], $troca['medicamentos']), ['medicines' => $troca['medicamentos']]) as $paragrafo)
+                        <p class="break-words">{{ $paragrafo }}</p>
+                    @endforeach
                     @if (! empty($troca['uuid']))<a class="justify-self-start text-base font-semibold text-brand-800 underline" href="{{ route('consulta.pergunta', $troca['uuid']) }}" wire:navigate>Ver detalhes</a>@endif
                 </x-consulta.balao>
             @endforeach
@@ -50,11 +52,30 @@
             @php($status = $resposta['status'])
             <x-consulta.balao de="eu" wire:key="pe-{{ count($conversa) }}">{{ $resposta['pergunta'] }}</x-consulta.balao>
 
-            <x-consulta.balao :tone="$fala['tone']" wire:key="ba-{{ count($conversa) }}-{{ $status }}" class="scroll-mt-24" x-init="$nextTick(() => requestAnimationFrame(() => $el.scrollIntoView({ block: 'start', behavior: 'smooth' })))" x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }" data-testid="resposta-atual">
-                {{-- 1. O que o BULA-IA diz, em letras grandes (com uma frase de abertura quando a bula inteira foi consultada ou o assunto são efeitos). --}}
+            {{-- Alerta (motor estruturado): o balão inteiro vira a caixa amarela (interação) ou vermelha (alergia, com aviso em destaque na tela). --}}
+            <x-consulta.balao :tone="$fala['tone']" :alerta="$alerta['tipo'] ?? null" wire:key="ba-{{ count($conversa) }}-{{ $status }}" class="scroll-mt-24"
+                x-init="$nextTick(() => requestAnimationFrame(() => $el.scrollIntoView({ block: 'start', behavior: 'smooth' }))); {{ ($alerta['popup'] ?? null) !== null ? 'window.bulaiAlertaAlergia?.('.e(Js::from($alerta['popup'])).')' : '' }}"
+                x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }" data-testid="resposta-atual">
+                {{-- 1. O que o BULA-IA diz, em parágrafos curtos, com remédios, componentes e o que é crítico em negrito. --}}
                 @if ($fala['intro'])<p class="break-words text-lg text-slate-700" data-testid="fala-intro">{{ $fala['intro'] }}</p>@endif
                 @if ($fala['urgencia'])<p role="alert" class="break-words rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-3 text-lg font-semibold text-rose-900" data-testid="urgencia">{{ $fala['urgencia'] }}</p>@endif
-                <p class="whitespace-pre-line break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">{{ $fala['texto'] }}</p>
+                <div class="grid gap-3 break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">
+                    @foreach ($paragrafos as $paragrafo)
+                        <p>{{ $paragrafo }}</p>
+                    @endforeach
+                </div>
+
+                {{-- O registro que gerou o alerta, sempre visível (mesmo quando a resposta não pôde falar dele). --}}
+                @if ($alerta !== null)
+                    <ul class="grid gap-1.5 rounded-xl px-3 py-2 text-base {{ $alerta['tipo'] === 'alergia' ? 'bg-rose-100/70 text-rose-900' : 'bg-amber-100/70 text-amber-900' }}" aria-label="{{ $alerta['tipo'] === 'alergia' ? 'Alergia e interações registradas' : 'Interações registradas' }}" data-testid="alerta-itens">
+                        @foreach ($alerta['itens'] as $item)
+                            <li wire:key="al-{{ $loop->index }}" class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                                <span class="min-w-0 break-words font-semibold">{{ $item['texto'] }}</span>
+                                @if ($item['severidade'] !== null && $item['severidade'] !== 'duplicate')<x-consulta.severity :severity="$item['severidade']" />@endif
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
 
                 @if ($status === Q::BLOCKED && ($resposta['guard']['category'] ?? null) === 'harm_risk')
                     <p class="break-words">Ligue <a class="text-2xl font-bold underline" href="tel:188">188</a> (CVV, gratuito, 24 h) ou procure a emergência mais próxima. Você não está sozinho.</p>
@@ -73,7 +94,7 @@
                 @endif
 
                 {{-- 3. De onde veio / o que fazer agora, em letra menor. --}}
-                @if ($fala['fonte'])<p class="break-words text-base text-slate-700">{{ $fala['fonte'] }}</p>@endif
+                @if ($fala['fonte'])<p class="flex items-start gap-1.5 break-words text-sm leading-snug text-slate-600"><x-consulta.icone name="bula" plain class="mt-0.5 size-4 shrink-0" /><span class="min-w-0">{{ $fala['fonte'] }}</span></p>@endif
 
                 {{-- 4. Ouvir (só se o navegador souber falar). --}}
                 @if (in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true))
@@ -126,26 +147,21 @@
                     </div>
                 @endforeach
 
-                {{-- 7. Sobre quem estamos falando + trocar remédio + detalhes recolhidos. --}}
+                {{-- 7. De quais remédios estamos falando (o nome leva à bula simples) + trocar remédio + detalhes recolhidos. --}}
                 @if (! in_array($status, [Q::BLOCKED, Q::NO_MEDICINE], true) && $resposta['medicines'] !== [])
                     <div class="grid gap-2 border-t border-slate-200/70 pt-3 text-base text-slate-700">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="shrink-0">Falando de:</span>
+                        <div class="flex flex-wrap items-center gap-2" aria-label="Remédios desta resposta">
+                            <span class="shrink-0 text-sm text-slate-600">Falando de:</span>
                             @foreach ($resposta['medicines'] as $item)
-                                <span wire:key="dm-{{ $item['id'] }}" class="inline-flex max-w-full items-center gap-1 rounded-full bg-brand-50 pl-3 ring-1 ring-inset ring-brand-600/20 {{ count($resposta['medicines']) > 1 ? 'pr-1' : 'pr-3' }}">
-                                    <a class="min-h-10 truncate py-2 font-semibold text-brand-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.bula', $item['id']) }}" wire:navigate title="Ver bula simples de {{ $item['name'] }}">{{ $item['name'] }}</a>
+                                @php($temBula = ! in_array($item['name'], array_merge($resposta['missing']['without_leaflet'] ?? [], $resposta['missing']['unidentified'] ?? []), true))
+                                <span wire:key="dm-{{ $item['id'] }}" class="inline-flex max-w-full items-center gap-1 rounded-full bg-white/80 pl-3 ring-1 ring-inset ring-brand-600/25 {{ count($resposta['medicines']) > 1 ? 'pr-1' : 'pr-3' }}">
+                                    <a class="inline-flex min-h-10 min-w-0 items-center gap-1.5 py-1.5 font-semibold text-brand-900 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.bula', $item['id']) }}" wire:navigate title="{{ $temBula ? 'Ver a bula simples de '.$item['name'] : $item['name'] }}">@if ($temBula)<x-consulta.icone name="bula" plain class="size-5 shrink-0" />@endif<span class="truncate">{{ $item['name'] }}</span>@if ($temBula)<span class="sr-only">: ver a bula simples</span><span aria-hidden="true">›</span>@endif</a>
                                     @if (count($resposta['medicines']) > 1)
-                                        <button type="button" class="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="remover({{ $item['id'] }})" aria-label="Tirar {{ $item['name'] }} da pergunta" title="Tirar"><x-consulta.icone name="fechar" plain class="size-4" /><span class="sr-only">Tirar</span></button>
+                                        <button type="button" class="inline-flex size-9 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="remover({{ $item['id'] }})" aria-label="Tirar {{ $item['name'] }} da pergunta" title="Tirar"><x-consulta.icone name="fechar" plain class="size-4" /><span class="sr-only">Tirar</span></button>
                                     @endif
                                 </span>
                             @endforeach
                         </div>
-                        {{-- A bula simples de cada remédio que tem bula, em um toque (o nome no chip também leva até ela). --}}
-                        @foreach ($resposta['medicines'] as $item)
-                            @unless (in_array($item['name'], array_merge($resposta['missing']['without_leaflet'] ?? [], $resposta['missing']['unidentified'] ?? []), true))
-                                <x-consulta.botao wire:key="bs-{{ $item['id'] }}" variant="soft" size="md" :href="route('consulta.bula', $item['id'])" class="justify-between"><span class="inline-flex min-w-0 items-center gap-2"><x-consulta.icone name="bula" plain class="size-6 shrink-0" /><span class="min-w-0 break-words">Ver a bula simples de {{ $item['name'] }}</span></span><span class="shrink-0" aria-hidden="true">›</span></x-consulta.botao>
-                            @endunless
-                        @endforeach
                         @unless ($corrigindo)
                             <button type="button" class="min-h-10 justify-self-start font-semibold text-brand-800 underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="$set('corrigindo', true)">Não é esse remédio?</button>
                         @else
@@ -185,10 +201,6 @@
                 @endif
             </x-consulta.balao>
 
-            {{-- Uma frase de risco do seu tratamento, só quando houver. --}}
-            @if (! in_array($status, [Q::BLOCKED, Q::NO_MEDICINE], true))
-                <x-consulta.risco :tratamentos="$resposta['treatments']" />
-            @endif
         @endif
 
         {{-- A pergunta enviada aparece na hora; some quando a resposta chega (ela volta junto com a resposta). --}}

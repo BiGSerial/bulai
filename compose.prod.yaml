@@ -232,8 +232,8 @@ services:
       retries: 6
       start_period: 30s
     shm_size: 128m
-    mem_limit: 768m
-    memswap_limit: 768m
+    mem_limit: 1536m
+    memswap_limit: 1536m
     cpus: 2.0
     pids_limit: 200
     oom_score_adj: -500

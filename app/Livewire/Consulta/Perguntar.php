@@ -7,10 +7,12 @@ use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\PatientMedication;
 use App\Services\Interactions\MedicationSearchService;
 use App\Services\Knowledge\External\ExternalEvidenceService;
+use App\Services\Patient\AnswerHighlighter;
 use App\Services\Patient\MedicationQuestionService;
 use App\Services\Patient\TreatmentContextService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -301,6 +303,91 @@ class Perguntar extends Component
         return $fonte;
     }
 
+    /** Palavras que marcam a frase da resposta que fala da interação (quando os dois remédios foram citados na pergunta). */
+    private const TERMOS_DE_INTERACAO = ['interação', 'interações', 'interagir', 'interage', 'interagem'];
+
+    /**
+     * Alerta da resposta, a partir do motor estruturado (nunca do modelo): alergia registrada que atinge o remédio (vermelho,
+     * com aviso em destaque) ou interação, seja com um remédio em uso, seja entre os remédios citados na pergunta (amarelo).
+     * `itens` são as linhas determinísticas mostradas no balão; `termos` marcam as frases da resposta que falam do alerta.
+     *
+     * @param  array<string, mixed>  $resposta
+     * @return array{tipo: 'alergia'|'interacao', itens: list<array{texto: string, severidade: string|null}>, termos: list<string>, popup: string|null}|null
+     */
+    public static function alerta(array $resposta): ?array
+    {
+        if (in_array($resposta['status'] ?? null, [MedicationQuestionService::BLOCKED, MedicationQuestionService::NO_MEDICINE], true)) {
+            return null;
+        }
+        $alergias = [];
+        $interacoes = [];
+        $termos = [];
+        $popup = null;
+        foreach ($resposta['treatments'] ?? [] as $tratamento) {
+            $nome = (string) ($tratamento['medicine'] ?? 'este remédio');
+            foreach ($tratamento['context']['allergy_alerts'] ?? [] as $alergia) {
+                $relacao = ($alergia['via'] ?? null) === 'classe' ? 'é da mesma classe de' : 'contém';
+                $alergias[] = ['texto' => "{$nome} {$relacao} {$alergia['ingredient']}. Você registrou alergia a {$alergia['allergy']}.", 'severidade' => null];
+                $termos[] = (string) $alergia['allergy'];
+                $popup ??= '<strong>'.e($nome).'</strong> '.e($relacao).' <strong>'.e((string) $alergia['ingredient']).'</strong>, e você registrou alergia a <strong>'.e((string) $alergia['allergy']).'</strong>. Não use sem falar antes com seu médico ou farmacêutico.';
+            }
+            foreach ($tratamento['context']['interactions'] ?? [] as $interacao) {
+                $interacoes[] = $interacao['severity'] === 'duplicate'
+                    ? ['texto' => "{$nome} tem a mesma substância de {$interacao['medicine']}, que você usa.", 'severidade' => 'duplicate']
+                    : ['texto' => "{$nome} + {$interacao['medicine']}, que você usa", 'severidade' => (string) $interacao['severity']];
+                $termos[] = (string) $interacao['medicine'];
+            }
+        }
+        foreach ($resposta['pair_interactions'] ?? [] as $par) {
+            if ($par['severity'] === null) {
+                continue;
+            }
+            $interacoes[] = $par['severity'] === 'duplicate'
+                ? ['texto' => "{$par['a']} e {$par['b']} têm a mesma substância.", 'severidade' => 'duplicate']
+                : ['texto' => "{$par['a']} + {$par['b']}", 'severidade' => (string) $par['severity']];
+            array_push($termos, ...self::TERMOS_DE_INTERACAO);
+        }
+        if ($alergias === [] && $interacoes === []) {
+            return null;
+        }
+
+        return [
+            'tipo' => $alergias !== [] ? 'alergia' : 'interacao',
+            'itens' => [...$alergias, ...$interacoes],
+            'termos' => array_values(array_unique([...$termos, ...($alergias !== [] ? ['alergia', 'alérgica', 'alérgico'] : [])])),
+            'popup' => $popup,
+        ];
+    }
+
+    /**
+     * A fala do BULA-IA em parágrafos, com remédios e componentes em negrito e, havendo alerta, as frases que falam dele.
+     *
+     * @param  array<string, mixed>  $resposta
+     * @param  array{termos: list<string>}|null  $alerta
+     * @return list<HtmlString>
+     */
+    public static function paragrafos(string $texto, array $resposta, ?array $alerta = null): array
+    {
+        $nomes = [];
+        foreach ($resposta['medicines'] ?? [] as $item) {
+            array_push($nomes, (string) $item['name'], (string) ($item['ingredients'] ?? ''));
+        }
+        foreach ($resposta['treatments'] ?? [] as $tratamento) {
+            foreach ($tratamento['context']['interactions'] ?? [] as $interacao) {
+                $nomes[] = (string) $interacao['medicine'];
+            }
+            foreach ($tratamento['context']['allergy_alerts'] ?? [] as $alergia) {
+                array_push($nomes, (string) $alergia['ingredient'], (string) $alergia['allergy']);
+            }
+        }
+        $destaque = app(AnswerHighlighter::class);
+
+        return array_map(
+            fn (string $paragrafo): HtmlString => $destaque->html($paragrafo, array_values(array_filter($nomes)), $alerta['termos'] ?? []),
+            array_values(array_filter(preg_split('/\n{2,}/u', trim($texto)) ?: [], fn (string $p): bool => trim($p) !== '')),
+        );
+    }
+
     /** "Losartana", "Losartana e Omeprazol", "A, B e C". @param list<string> $nomes */
     public static function listar(array $nomes): string
     {
@@ -406,6 +493,9 @@ class Perguntar extends Component
                 ->map(fn (PatientMedication $item): string => $item->medicine->product_name)->unique()->values()->take(6)->all()
             : [];
 
+        $fala = $this->resposta !== null ? self::fala($this->resposta, $emUso) : null;
+        $alerta = $this->resposta !== null ? self::alerta($this->resposta) : null;
+
         return view('livewire.consulta.perguntar', [
             'previo' => $previo,
             'emUso' => $emUso,
@@ -414,7 +504,9 @@ class Perguntar extends Component
             'resultados' => $this->corrigindo ? $search->search($this->busca, 6) : [],
             'buscou' => strlen(trim($this->busca)) >= 3,
             'corrigidos' => array_values(array_filter($this->resposta['medicines'] ?? [], fn (array $m): bool => ! empty($m['fuzzy']))),
-            'fala' => $this->resposta !== null ? self::fala($this->resposta, $emUso) : null,
+            'fala' => $fala,
+            'alerta' => $alerta,
+            'paragrafos' => $fala !== null ? self::paragrafos($fala['texto'], $this->resposta, $alerta) : [],
             // "Fontes utilizadas": uma entrada por documento, seção e página (sem repetir), só dos trechos que sustentam alguma
             // afirmação. Mostra o trecho que fundamentou, a seção, a página e a data de processamento da bula.
             'fontes' => $this->fontes(),

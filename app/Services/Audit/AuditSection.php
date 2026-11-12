@@ -22,12 +22,59 @@ final class AuditSection
     public static function run(callable $section): mixed
     {
         try {
-            return DB::transaction(fn (): mixed => $section());
+            return self::attempt($section);
         } catch (Throwable $exception) {
             report($exception);
+            self::recoverConnection();
 
             return self::failure($exception);
         }
+    }
+
+    /**
+     * Conexão ociosa derrubada pelo servidor (visto em produção: a primeira consulta depois de um intervalo falhava com
+     * "no connection to the server"): reabre e tenta o bloco mais uma vez antes de desistir.
+     */
+    private static function attempt(callable $section): mixed
+    {
+        try {
+            return DB::transaction(fn (): mixed => $section());
+        } catch (Throwable $exception) {
+            if (! self::isLostConnection($exception)) {
+                throw $exception;
+            }
+            self::recoverConnection();
+
+            return DB::transaction(fn (): mixed => $section());
+        }
+    }
+
+    private static function isLostConnection(Throwable $exception): bool
+    {
+        return Str::contains($exception->getMessage(), ['no connection to the server', 'server closed the connection', 'terminating connection', 'SSL connection has been closed', 'Lost connection']);
+    }
+
+    /**
+     * Se a conexão caiu no meio do bloco, o PDO continua marcado como "em transação" e o próximo bloco falharia com
+     * "There is already an active transaction". Desfaz a transação pendente ou, se não der, reabre a conexão.
+     * Só age quando nenhuma transação externa está aberta (nesse caso quem a abriu cuida dela).
+     */
+    private static function recoverConnection(): void
+    {
+        $connection = DB::connection();
+        if ($connection->transactionLevel() > 0) {
+            return;
+        }
+
+        try {
+            $pdo = $connection->getPdo();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+        } catch (Throwable) {
+            // a conexão não responde: a reabertura abaixo resolve
+        }
+        DB::reconnect();
     }
 
     /** @return array{error: array{exception: string, message: string}} */
