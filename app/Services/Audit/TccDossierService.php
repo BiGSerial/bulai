@@ -52,9 +52,8 @@ final class TccDossierService
             'ingestion_timings' => AuditSection::run(fn (): array => $this->pipeline->timings()),
             'embeddings' => AuditSection::run(function (): array {
                 $embeddings = $this->embeddings->audit();
-                $checks = AuditSection::failed($embeddings['checks']) ? $embeddings['checks'] : array_values(array_filter($embeddings['checks'], fn (array $check): bool => ! $check['ok']));
 
-                return ['coverage' => $embeddings['coverage'], 'summary' => $embeddings['summary'], 'failed_checks' => $checks, 'coherence' => $embeddings['coherence']];
+                return ['coverage' => $embeddings['coverage'], 'summary' => $embeddings['summary'], 'failed_checks' => array_values(array_filter($embeddings['checks'], fn (array $check): bool => ! $check['ok'])), 'checks_not_run' => $embeddings['checks_not_run'], 'coherence' => $embeddings['coherence']];
             }),
             'data_quality' => AuditSection::run(function (): array {
                 $quality = $this->quality->audit();
