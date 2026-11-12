@@ -58,6 +58,7 @@ class EvaluationController extends Controller
             'message' => $result['message'],
             'urgency' => $result['urgency'] ?? null,
             'limitations' => $result['limitations'],
+            'pair_interactions' => $result['pair_interactions'] ?? [],
             'evaluation' => $turn + ['score' => $evaluator->score($turn)],
             'retrieval' => $result['retrieval'],
             'generation' => $result['generation'],

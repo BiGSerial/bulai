@@ -179,7 +179,8 @@ final class MedicationQuestionService
             $treatments[] = ['medicine' => $medicine->product_name, 'context' => $this->treatment->for($user, $medicine)];
         }
         $pairs = $this->pairInteractions($ordered);
-        $facts = $this->freeformFacts($pairs, $treatments, ($interpretation['intent'] ?? null) === 'DOSAGE' || in_array('como_usar', $this->intents->topics($interpretation['question'] ?? $verdict->sanitized, count($ordered)), true));
+        $unresolved = count($named) >= 2 ? $this->unresolvedNames($named, $medicines) : [];
+        $facts = $this->freeformFacts($pairs, $treatments, ($interpretation['intent'] ?? null) === 'DOSAGE' || in_array('como_usar', $this->intents->topics($interpretation['question'] ?? $verdict->sanitized, count($ordered)), true), $unresolved);
 
         $lastTurn = $conversation !== [] ? $conversation[array_key_last($conversation)] : [];
         // A pessoa trocou de remédio ("e o ibuprofeno?" depois de falar da dipirona): a conversa anterior era sobre outro remédio e
@@ -201,6 +202,10 @@ final class MedicationQuestionService
         // socorro (Disque-Intoxicação/SAMU) entra mesmo assim.
         $result['urgency'] = $base['urgency'] ?? $this->urgencies->fromEvidence($result['evidences'] ?? []);
         $result['retrieval']['interpretation'] = $interpretation;
+        $result['retrieval']['unresolved_names'] = $unresolved;
+        // Rede de segurança: o que a base estruturada registrou (ou não conseguiu verificar) sobre os pares chega à pessoa em texto
+        // fixo, sem depender de o modelo citar a gravidade; e um remédio citado e não reconhecido nunca some em silêncio.
+        $result['limitations'] = [...($result['limitations'] ?? []), ...$this->pairLimitations($pairs), ...$this->unresolvedLimitations($unresolved)];
         // Verificação do perfil sempre registrada (auditoria), mesmo quando nada foi alertado.
         $result['retrieval']['treatment_check'] = [
             'consented' => $user->hasHealthConsent(),
@@ -289,7 +294,7 @@ final class MedicationQuestionService
      * @param  list<array{a: string, b: string, severity: string|null, severity_label: string|null}>  $pairs
      * @param  list<array{medicine: string, context: array<string, mixed>}>  $treatments
      */
-    private function freeformFacts(array $pairs, array $treatments, bool $withPosology = false): ?string
+    private function freeformFacts(array $pairs, array $treatments, bool $withPosology = false, array $unresolved = []): ?string
     {
         $lines = [];
         foreach ($treatments as $treatment) {
@@ -301,17 +306,86 @@ final class MedicationQuestionService
         foreach ($pairs as $pair) {
             $lines[] = match ($pair['severity']) {
                 'duplicate' => sprintf('%s e %s têm o mesmo princípio ativo (possível duplicidade; não avaliada por este sistema).', $pair['a'], $pair['b']),
+                'unverified' => sprintf('Não foi possível consultar a base de interações (DDInter) para %s e %s, porque o catálogo não liga um deles a um princípio ativo; a interação não foi verificada, e isso não indica que ela não exista.', $pair['a'], $pair['b']),
                 null => sprintf('A base de interações (DDInter) não registra interação entre %s e %s; isso não comprova que a combinação seja segura.', $pair['a'], $pair['b']),
                 default => sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']),
             };
+        }
+
+        if ($unresolved !== []) {
+            $lines[] = sprintf('Não foi possível identificar no catálogo: %s. A interação deste remédio com os outros citados não foi verificada na base de interações (DDInter); isso não indica que ela não exista.', implode(', ', $unresolved));
         }
 
         return $lines === [] ? null : implode(' ', $lines);
     }
 
     /**
+     * Nomes que a interpretação apontou na pergunta e que a detecção não resolveu em nenhum remédio do catálogo.
+     *
+     * @param  list<string>  $named
+     * @param  list<array<string, mixed>>  $medicines
+     * @return list<string>
+     */
+    private function unresolvedNames(array $named, array $medicines): array
+    {
+        $unresolved = [];
+        foreach ($named as $name) {
+            $needle = $this->normalizerText((string) $name);
+            if ($needle === '') {
+                continue;
+            }
+            $found = false;
+            foreach ($medicines as $medicine) {
+                foreach ([$medicine['matched_text'] ?? '', $medicine['corrected'] ?? '', $medicine['name'] ?? '', $medicine['ingredients'] ?? ''] as $field) {
+                    $haystack = $this->normalizerText((string) $field);
+                    if ($haystack !== '' && (str_contains(' '.$haystack.' ', ' '.$needle.' ') || str_contains(' '.$needle.' ', ' '.$haystack.' '))) {
+                        $found = true;
+
+                        break 2;
+                    }
+                }
+            }
+            if (! $found) {
+                $unresolved[] = (string) $name;
+            }
+        }
+
+        return array_values(array_unique($unresolved));
+    }
+
+    /**
+     * Frases fixas sobre cada par: o que o DDInter registra e, quando não foi possível consultar, que a interação não foi verificada.
+     *
+     * @param  list<array{a: string, b: string, severity: string|null, severity_label: string|null}>  $pairs
+     * @return list<string>
+     */
+    private function pairLimitations(array $pairs): array
+    {
+        $lines = [];
+        foreach ($pairs as $pair) {
+            $lines[] = match ($pair['severity']) {
+                null, 'duplicate' => null,
+                'unverified' => sprintf('Não foi possível verificar a interação entre %s e %s na base de interações (DDInter): o catálogo não liga um deles a um princípio ativo. Isso não indica que ela não exista.', $pair['a'], $pair['b']),
+                'unknown' => sprintf('A base de interações (DDInter) registra interação entre %s e %s, sem gravidade classificada pela fonte.', $pair['a'], $pair['b']),
+                default => sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']),
+            };
+        }
+
+        return array_values(array_filter($lines));
+    }
+
+    /**
+     * @param  list<string>  $unresolved
+     * @return list<string>
+     */
+    private function unresolvedLimitations(array $unresolved): array
+    {
+        return $unresolved === [] ? [] : ['Não consegui identificar no catálogo: '.implode(', ', $unresolved).'. A interação com os outros remédios citados não foi verificada na base de interações (DDInter), e isso não indica que ela não exista.'];
+    }
+
+    /**
      * Resultado da base estruturada para cada par de remédios citados na própria pergunta (a combinação que a pessoa
-     * perguntou). `severity` nulo = a base não registra interação; "duplicate" = mesmo princípio ativo.
+     * perguntou). `severity` nulo = a base não registra interação; "duplicate" = mesmo princípio ativo; "unverified" = não foi possível consultar a base.
      *
      * @param  list<AnvisaMedicine>  $medicines
      * @return list<array{a: string, b: string, severity: string|null, severity_label: string|null}>
@@ -323,10 +397,13 @@ final class MedicationQuestionService
             for ($j = $i + 1; $j < count($medicines); $j++) {
                 $idsA = $medicines[$i]->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
                 $idsB = $medicines[$j]->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
+                $pair = ['a' => $medicines[$i]->product_name, 'b' => $medicines[$j]->product_name];
                 if ($idsA === [] || $idsB === []) {
+                    // Sem princípio ativo ligado não há consulta ao DDInter: o par fica como "não verificado", nunca como "sem interação".
+                    $pairs[] = $pair + ['severity' => 'unverified', 'severity_label' => 'Não verificada (princípio ativo não ligado ao catálogo)'];
+
                     continue;
                 }
-                $pair = ['a' => $medicines[$i]->product_name, 'b' => $medicines[$j]->product_name];
                 if (array_intersect($idsA, $idsB) !== []) {
                     $pairs[] = $pair + ['severity' => 'duplicate', 'severity_label' => 'Mesmo princípio ativo (possível duplicidade)'];
 

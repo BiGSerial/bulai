@@ -60,6 +60,8 @@ A resposta traz:
 
 - `uuid`, `status`, `answer`, `message`, `urgency` e `limitations`;
 - `evaluation`: o turno resumido (fontes, geração, se leu a bula, tempo) mais `score.scores` com `relevancia`, `ancoragem`, `seguranca`, `clareza` e `naturalidade` (`true`, `false` ou `null` quando não se aplica), e `score.notes`;
+- `pair_interactions`: o resultado da base estruturada para cada par citado na pergunta (`severity`: `major|moderate|minor|unknown`, `null` = o DDInter não registra interação, `duplicate` = mesmo princípio ativo, `unverified` = não foi possível consultar porque um dos remédios não tem princípio ativo ligado);
+- `retrieval.unresolved_names`: nomes que a interpretação apontou e a detecção não resolveu no catálogo (a resposta e `limitations` avisam que a interação não foi verificada);
 - `retrieval` e `generation` completos;
 - `next_conversation_turn`.
 

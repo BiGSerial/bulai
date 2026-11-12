@@ -317,3 +317,11 @@ Testes: `ActiveIngredientCatalogTest` (vínculo/criação do princípio), `Knowl
 - **Resultado:** ibuprofeno + rivaroxabana passou a trazer a gravidade do DDInter; ibuprofeno + varfarina e AAS alertam sem citar a gravidade; os 3 pares com anlodipino seguem sem a interação grave.
 - **Pendente:** `evaluation:run` (interações 1.483 e protocolo de 30, identificação, recuperação, geração) e a bateria de 234 perguntas. Sem esses registros, a correção dos 7 casos graves **não está validada** e nenhum número do TCC deve ser substituído.
 - **Testes locais:** `tests/Feature/Knowledge`, `Evaluation` e `Api`: 201 testes, 198 aprovados; os 3 falhos são de páginas Blade sem o manifest do Vite.
+
+### Pergunta livre sobre par com interação grave (Issue #68, 12/11/2026)
+
+- **Problema:** em perguntas sobre "anlodipino + carbamazepina/itraconazol", a detecção resolvia só um dos remédios e o par nunca chegava ao DDInter; par sem princípio ativo ligado era pulado em silêncio; e a gravidade só aparecia se o modelo a citasse.
+- **Correção:** `MedicationQuestionService` marca o par sem vínculo como `unverified`, declara o nome citado e não resolvido (`retrieval.unresolved_names`) e coloca em `limitations` uma frase fixa com a gravidade registrada no DDInter. A API `POST /evaluation/ask` devolve `pair_interactions`.
+- **Testes:** `tests/Feature/Consulta/PerguntaInteracaoGraveTest.php` (falham sem a correção). **Sem deploy nem verificação em produção.** A causa de o detector não resolver "anlodipino" segue aberta.
+- **Relatório:** `docs/qa/auditoria-critica-tcc-2026-11-12.md`.
+
