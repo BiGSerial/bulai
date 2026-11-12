@@ -92,6 +92,7 @@ final class AuditApiTest extends TestCase
         $this->assertSame(3, $report['coverage']['embedded']);
         $this->assertSame(1, $report['coverage']['missing']);
         $this->assertSame([['model' => 'bge-m3', 'dimensions' => 8, 'chunks' => 3]], $report['coverage']['by_model']);
+        $this->assertSame([], $report['checks_not_run']);
         $checks = collect($report['checks'])->keyBy('key');
         $this->assertFalse($checks['chunks_without_embedding']['ok']);
         $this->assertSame([$ids[2] + 1], $checks['chunks_without_embedding']['examples']);
