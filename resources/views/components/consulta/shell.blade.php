@@ -69,6 +69,7 @@
                         {{-- Só aparece quando o navegador pode instalar (Chrome/Edge) ou é o Safari do iPhone, e o app ainda não está instalado. --}}
                         <button x-cloak x-show="instalar" type="button" role="menuitem" class="min-h-12 w-full rounded-lg px-3 py-3 text-left font-medium text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" x-on:click="menu = false; window.bulaiInstalarAgora()">Instalar o aplicativo</button>
                         <a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('consulta.sobre') }}" wire:navigate>Sobre o BULA-IA</a>
+                        <x-consulta.tema compacto class="px-1 pb-1" />
                         @if ($user?->isAdmin())<a role="menuitem" class="min-h-12 rounded-lg px-3 py-3 font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.knowledge.dashboard') }}">Área administrativa</a>@endif
                         <form method="POST" action="{{ route('logout') }}">@csrf<button role="menuitem" class="min-h-12 w-full rounded-lg px-3 py-3 text-left font-medium text-slate-800 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" type="submit">Sair</button></form>
                     </div>

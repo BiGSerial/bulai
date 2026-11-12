@@ -39,4 +39,18 @@ class PatientPrescription extends Model
     {
         return $this->hasMany(PatientMedication::class, 'prescription_id');
     }
+
+    /**
+     * Nome de quem prescreveu para leitura: a foto da receita costuma vir toda em maiúsculas ("EVELYN CALHAU DE OLIVEIRA"),
+     * que vira "Evelyn Calhau de Oliveira". Um nome digitado com maiúsculas e minúsculas fica como está.
+     */
+    public function prescriberDisplayName(): string
+    {
+        $name = trim((string) $this->prescriber_name);
+        if ($name === '' || $name !== mb_strtoupper($name)) {
+            return $name;
+        }
+
+        return (string) preg_replace_callback('/(?<=\s)(De|Da|Do|Dos|Das|E)(?=\s)/u', fn (array $match): string => mb_strtolower($match[1]), mb_convert_case(mb_strtolower($name), MB_CASE_TITLE));
+    }
 }

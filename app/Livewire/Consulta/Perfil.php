@@ -189,14 +189,16 @@ class Perfil extends Component
     public function render(MedicationSearchService $search): View
     {
         $consentido = $this->temConsentimento();
-        $emUso = $consentido ? PatientMedication::query()->with(['medicine', 'prescription'])->where('user_id', auth()->id())->orderBy('id')->get() : collect();
-        $usadosIds = $emUso->pluck('medicine_id')->filter()->all();
+        $remedios = $consentido ? PatientMedication::query()->with(['medicine', 'prescription'])->where('user_id', auth()->id())->orderBy('id')->get() : collect();
+        $usadosIds = $remedios->pluck('medicine_id')->filter()->all();
 
         return view('livewire.consulta.perfil', [
             'consentido' => $consentido,
             'alergias' => $consentido ? PatientAllergy::query()->where('user_id', auth()->id())->orderBy('substance')->get() : collect(),
             'receitas' => $consentido ? PatientPrescription::query()->with('medications.medicine')->withCount('medications')->where('user_id', auth()->id())->orderByDesc('issued_at')->orderByDesc('id')->get() : collect(),
-            'emUso' => $emUso,
+            // Tratamento terminado (data final já passou) sai da lista e vai para o histórico, do mais recente ao mais antigo.
+            'emUso' => $remedios->filter(fn (PatientMedication $item): bool => $item->isActive())->values(),
+            'encerrados' => $remedios->reject(fn (PatientMedication $item): bool => $item->isActive())->sortByDesc('ends_at')->values(),
             'resultados' => $consentido ? array_values(array_filter($search->search($this->busca, 6), fn (array $item): bool => ! in_array($item['id'], $usadosIds, true))) : [],
             'buscou' => strlen(trim($this->busca)) >= 3,
         ]);

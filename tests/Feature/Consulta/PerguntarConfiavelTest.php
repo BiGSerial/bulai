@@ -209,7 +209,7 @@ final class PerguntarConfiavelTest extends TestCase
         Livewire::actingAs($user)->test(Bula::class, ['medicine' => $xpto])->assertSet('estado', Bula::NOT_IDENTIFIED);
 
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'xpto dá tosse?')->call('perguntar')
-            ->assertSee('Conheço o XPTO, mas ainda não tenho a bula dele comigo.')->assertSee('Registrei sua pergunta para a equipe buscar mais fontes.');
+            ->assertSeeText('Conheço o XPTO, mas ainda não tenho a bula dele comigo.')->assertSee('Registrei sua pergunta para a equipe buscar mais fontes.');
         $record = MedicationQuestion::query()->latest('id')->first();
         $this->assertSame([MedicationQuestionService::NOT_IDENTIFIED, MedicationQuestion::REVIEW_PENDING, 'not_identified'], [$record->status, $record->review_status, $record->review_reason]);
     }
@@ -266,7 +266,7 @@ final class PerguntarConfiavelTest extends TestCase
             ->call('reviewFact', $fact->id, 'rejected')->assertSee('Evidência rejeitada');
         $this->assertSame('rejected', $fact->fresh()->review_status);
         $this->queue = [json_encode(['insufficient' => true, 'claims' => []]), json_encode(['found' => false, 'items' => []])];
-        $component->call('novaPergunta')->set('pergunta', 'omeprazol causa diarreia?')->call('perguntar')->assertSee('para OMEPRAZOL, e não quero responder com suposições.');
+        $component->call('novaPergunta')->set('pergunta', 'omeprazol causa diarreia?')->call('perguntar')->assertSeeText('para OMEPRAZOL, e não quero responder com suposições.');
         $this->assertSame(0, MedicationQuestion::query()->latest('id')->first()->retrieval['per_medicine'][0]['stored_facts']);
     }
 
@@ -282,7 +282,7 @@ final class PerguntarConfiavelTest extends TestCase
         $this->queue = [json_encode(['found' => false, 'items' => []]), json_encode(['insufficient' => true, 'claims' => []])];
 
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'Quais os efeitos colatereais para naprix?')->call('perguntar')
-            ->assertSee('Não tenho uma orientação clara sobre efeitos colaterais mais comuns para NAPRIX, e não quero responder com suposições.')
+            ->assertSeeText('Não tenho uma orientação clara sobre efeitos colaterais mais comuns para NAPRIX, e não quero responder com suposições.')
             ->assertDontSee('Procurei')->assertDontSee('O que encontrei')->assertSee('Não ter essa orientação não quer dizer que seja seguro')
             ->assertSee('Se você estiver sentindo algum sintoma ou teve uma reação depois de usar o remédio, vale falar com um farmacêutico ou médico.')
             ->assertDontSee('Cápsulas duras')->assertDontSee('são efetivos no tratamento')->assertDontSee('Não consegui montar uma resposta curta');
@@ -301,7 +301,7 @@ final class PerguntarConfiavelTest extends TestCase
         $this->leaflet('NAPRIX — Bula do paciente', ['REAÇÕES ADVERSAS' => 'Tosse seca é uma reação comum ao ramipril.'], ingredientId: $medicine->ingredients()->value('active_ingredients.id'));
         $this->queue = ['não é json', 'não é json'];
         $component->call('novaPergunta')->set('pergunta', 'naprix dá tosse? quais os efeitos colaterais?')->call('perguntar')
-            ->assertDontSee('Não consegui montar uma resposta curta')->assertDontSee('Tosse seca é uma reação comum ao ramipril.')->assertDontSee('Cápsulas duras')->assertSee('para NAPRIX, e não quero responder com suposições.');
+            ->assertDontSee('Não consegui montar uma resposta curta')->assertDontSee('Tosse seca é uma reação comum ao ramipril.')->assertDontSee('Cápsulas duras')->assertSeeText('para NAPRIX, e não quero responder com suposições.');
         $this->assertSame(MedicationQuestionService::NO_EVIDENCE, MedicationQuestion::query()->latest('id')->first()->status);
     }
 

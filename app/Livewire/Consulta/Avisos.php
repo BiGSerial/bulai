@@ -52,6 +52,13 @@ class Avisos extends Component
         $this->mensagem = 'Todos os avisos foram marcados como lidos.';
     }
 
+    /** Central de avisos: apaga todos os avisos da pessoa (lidos e não lidos). */
+    public function limparTodos(): void
+    {
+        $apagados = auth()->user()->notifications()->delete();
+        $this->mensagem = $apagados === 1 ? 'O aviso foi apagado.' : 'Todos os avisos foram apagados.';
+    }
+
     /** Abre a ação do aviso: marca como lido e leva à tela certa (hoje, meus remédios). */
     public function abrir(string $id): ?RedirectResponse
     {

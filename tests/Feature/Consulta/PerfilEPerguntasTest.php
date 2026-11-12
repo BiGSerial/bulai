@@ -299,6 +299,44 @@ final class PerfilEPerguntasTest extends TestCase
         $this->assertNull(app(TreatmentContextService::class)->alertsText($context, 'MAREVAN'));
     }
 
+    public function test_the_chat_turns_the_answer_into_an_allergy_or_interaction_alert_from_the_structured_engine(): void
+    {
+        $user = $this->consentedUser();
+        $asked = $this->medicine('MAREVAN', 'VARFARINA');
+        $other = $this->medicine('ZOCOR', 'SINVASTATINA');
+        $this->medicine('OMEPRAZOL', 'OMEPRAZOLSUB');
+        $this->interaction($asked, $other, 'major');
+
+        // Interação entre os remédios citados na pergunta: caixa amarela com o registro, sem aviso em destaque.
+        Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'posso tomar marevan com zocor?')->call('perguntar')
+            ->assertSeeHtml('data-alerta="interacao"')->assertSee('Alerta de Interação')->assertSee('MAREVAN + ZOCOR')->assertSee('Gravidade: Maior')
+            ->assertDontSee('Alerta de Reação Alérgica')->assertDontSee('bulaiAlertaAlergia');
+
+        // Alergia registrada a um componente: caixa vermelha e o aviso em destaque dizendo qual componente.
+        PatientAllergy::query()->create(['user_id' => $user->id, 'substance' => 'varfarina', 'normalized_substance' => 'varfarina']);
+        Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'posso tomar marevan?')->call('perguntar')
+            ->assertSeeHtml('data-alerta="alergia"')->assertSee('Alerta de Reação Alérgica')->assertSee('MAREVAN contém varfarina. Você registrou alergia a varfarina.')
+            ->assertSee('bulaiAlertaAlergia');
+
+        // Sem achado, a resposta fica no balão comum.
+        Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol deve ser tomado em jejum?')->call('perguntar')
+            ->assertDontSeeHtml('data-alerta=')->assertDontSee('Alerta de Interação');
+    }
+
+    public function test_finished_treatments_leave_the_in_use_list_and_go_to_the_history(): void
+    {
+        $user = $this->consentedUser();
+        $current = $this->medicine('LOSARTANA', 'LOSARTANASUB');
+        $finished = $this->medicine('LEVOFLOXACINO', 'LEVOFLOXACINOSUB');
+        PatientMedication::query()->create(['user_id' => $user->id, 'medicine_id' => $current->id]);
+        PatientMedication::query()->create(['user_id' => $user->id, 'medicine_id' => $finished->id, 'ends_at' => now()->subDays(3)]);
+
+        Livewire::actingAs($user)->test(Perfil::class)
+            ->assertViewHas('emUso', fn ($items): bool => $items->pluck('medicine_id')->all() === [$current->id])
+            ->assertViewHas('encerrados', fn ($items): bool => $items->pluck('medicine_id')->all() === [$finished->id])
+            ->assertSee('Histórico de tratamentos (1)')->assertSee('terminou em '.now()->subDays(3)->format('d/m/Y'));
+    }
+
     public function test_answers_can_cite_treatment_facts_and_the_record_keeps_the_context(): void
     {
         $user = $this->consentedUser();
