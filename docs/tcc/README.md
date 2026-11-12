@@ -78,7 +78,7 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 
 ## Texto final (artigo científico)
 
-O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), espelho do artigo em Word `Word/TCC_BULA-IA_artigo_2026-11-12.docx` (a versão em Word é a de referência: título, tema e formatação da FAESA não mudam). Todos os números vêm do servidor de produção, em 11 e 12/11/2026 (registros `prod-*` e API `/audit/*`, Apêndices A a C): a identificação e a verificação de interações foram repetidas após a correção dos princípios ativos duplicados (PR #60); a recuperação e a comparação sem recuperação continuam as de 11/11 (base de 82 bulas) e devem ser refeitas com a base atual. O artigo tem até 25 páginas até a última referência; os apêndices vêm depois.
+O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), espelho do artigo em Word `Word/TCC_BULA-IA_artigo_2026-11-12.docx` (a versão em Word é a de referência: título, tema e formatação da FAESA não mudam). Todos os números vêm do servidor de produção, em 11 e 12/11/2026 (registros `prod-*` e API `/audit/*`, Apêndices A a E): a identificação e a verificação de interações foram repetidas após a correção dos princípios ativos duplicados (PR #60); a recuperação e a comparação sem recuperação continuam as de 11/11 (base de 82 bulas) e devem ser refeitas com a base atual. O artigo tem até 25 páginas até a última referência; os apêndices vêm depois.
 
 O texto segue o formato de artigo científico e foi revisado em 11/11/2026 contra estas normas:
 
@@ -89,7 +89,7 @@ O texto segue o formato de artigo científico e foi revisado em 11/11/2026 contr
 - **Tabelas e quadros:** título acima, "Fonte:" e "Nota:" abaixo. Tabelas trazem dados numéricos e têm as laterais abertas; quadros trazem texto e são fechados.
 - **Datas:** por extenso no texto ("11 de novembro de 2026"); abreviadas só nas referências e nos títulos dos quadros do apêndice.
 - **Formato do .docx:** A4; margens de 3 cm (superior e esquerda) e 2 cm (inferior e direita); Times New Roman 12 com espaçamento 1,5; recuo de 1,25 cm; tabelas, notas e referências em tamanho menor, com espaço simples; número da página no canto superior direito.
-- **Extensão:** limite de 25 páginas sem contar referências e apêndices. A contagem foi feita no Word sobre o .docx: o texto vai da página 1 à 24, as referências começam na 25, e os apêndices, na 28.
+- **Extensão:** limite de 25 páginas sem contar referências e apêndices. A contagem foi feita no Word sobre o .docx: o texto vai da página 1 à 24, as referências começam na 25, e os apêndices, na 28. **Essa contagem é anterior a 12/11/2026 (tarde):** o diagrama de fluxo e as duas telas saíram do corpo e foram para os Apêndices D (Diagrama D1) e E (Figuras E1 e E2), com remissão no texto, e o parágrafo do fluxo foi reescrito; as páginas devem ser contadas de novo no Word. As imagens do `.md` ficam em `figuras/`.
 - **Caminhos de código:** saíram do corpo do texto e ficaram no Apêndice B, junto com os comandos de reprodução.
 
 Não há manual de artigo da FAESA publicado. Se a coordenação ou o orientador tiver um modelo próprio (fonte, espaçamento, folha de rosto, notas dos autores), ele prevalece sobre os itens de formato acima.

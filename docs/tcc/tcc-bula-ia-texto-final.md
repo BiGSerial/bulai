@@ -151,13 +151,7 @@ A abordagem RAG (Lewis et al., 2020) foi adotada por vincular cada resposta a um
 
 ### Fluxo de Processamento
 
-O fluxo do sistema é apresentado no Diagrama abaixo.
-
-Diagrama - Fluxo de processamento do BULA-IA
-
-[figura]
-
-Fonte: Elaborado pelos autores (2026).
+O fluxo do sistema, do envio da bula à resposta ao usuário, está no Diagrama D1 (Apêndice D). Na preparação da base, o PDF passa por revisão humana, tem o texto extraído (com OCR quando a leitura direta é insuficiente), é segmentado por seções e indexado, em forma textual e vetorial, no PostgreSQL com pgvector. A cada pergunta, o sistema identifica o medicamento no catálogo da ANVISA, consulta o DDInter para saber se a interação existe e qual é a sua gravidade, recupera até quatro trechos de bula por par e pede ao modelo até três afirmações, cada uma ligada a um trecho. O validador só aceita a afirmação apoiada no trecho citado; sem trecho ou sem afirmação aceita, o sistema mostra apenas a gravidade registrada e os trechos, sem explicação do modelo.
 
 
 ### Tecnologias Usadas
@@ -217,13 +211,7 @@ Em 11 nov. 2026, 234 perguntas livres foram feitas ao servidor de produção: 19
 
 Nas 200 últimas respostas gravadas, o índice de Flesch adaptado ao português (Martins et al., 1996) teve mediana de 58,3 (“fácil”), contra 30,3 (“difícil”) dos trechos de bula que as sustentam, e a resposta foi mais fácil que sua fonte em 98,0% dos casos (196/200; IC 95%: 95,0%–99,2%); o índice mede a facilidade de leitura, e não a compreensão.
 
-As Figuras 1 e 2 mostram telas da versão publicada: uma pergunta sobre interações da dipirona, e a consulta a um medicamento sem bula vinculada, para o qual o sistema não gera explicação.
-
-[figura]
-
-Figura 1 - Resposta a uma pergunta sobre interação de dipirona com outros fármacos e mostrando a fonte. [figura]
-
-Figura 2 - Resposta a uma consulta sobre medicamento sem bula vinculada
+As Figuras E1 e E2 (Apêndice E) mostram telas da versão publicada: uma pergunta sobre interações da dipirona, e a consulta a um medicamento sem bula vinculada, para o qual o sistema não gera explicação.
 
 
 ### Comparação com o Modelo sem Recuperação
@@ -444,3 +432,30 @@ Tabela C4 - Tempos, uso e consumo de IA em produção
 
 Fonte: Elaborado pelos autores (2026), a partir da API de auditoria do sistema em produção.
 
+
+## APÊNDICE D – FLUXO DE PROCESSAMENTO DO BULA-IA
+
+Fluxo de preparação da base de conhecimento (coluna da esquerda) e de consulta a cada pergunta (coluna da direita), descrito na seção Fluxo de Processamento. As linhas tracejadas indicam os desvios em que o modelo não é acionado ou a resposta não é aceita pelo validador.
+
+Diagrama D1 - Fluxo de processamento do BULA-IA
+
+![Diagrama do fluxo do BULA-IA: preparação da base (PDF, extração, segmentação, índices) e consulta a cada pergunta (identificação, verificação no DDInter, recuperação híbrida, geração, validação e resposta).](figuras/fluxo-de-processamento.png)
+
+Fonte: Elaborado pelos autores (2026).
+
+
+## APÊNDICE E – TELAS DA VERSÃO PUBLICADA
+
+Capturas de tela da tela Perguntar da versão publicada do sistema (bulai.vixforge.com.br), citadas na seção Geração e Fundamentação das Respostas.
+
+Figura E1 - Resposta a uma pergunta sobre interação de dipirona com outros fármacos, mostrando a fonte
+
+![Tela do BULA-IA respondendo "o que posso tomar com dipirona", com as interações da dipirona e a indicação da bula do paciente de dipirona como fonte.](figuras/tela-interacao-dipirona.png)
+
+Fonte: Elaborado pelos autores (2026), a partir de captura de tela da versão publicada do sistema.
+
+Figura E2 - Resposta a uma consulta sobre medicamento sem bula vinculada
+
+![Tela do BULA-IA respondendo a uma pergunta sobre Zolgensma, medicamento sem bula vinculada, informando que ainda não tem a bula.](figuras/tela-medicamento-sem-bula.png)
+
+Fonte: Elaborado pelos autores (2026), a partir de captura de tela da versão publicada do sistema.
