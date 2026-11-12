@@ -117,7 +117,7 @@ final class MedicationQuestionService
      * @param  list<int>  $forcedMedicineIds  medicamentos escolhidos pelo usuário (correção ou link), além dos detectados
      * @param  list<array{question: string, answer: string|null, medicine_ids: list<int>}>  $conversation  últimas trocas desta sessão, da mais antiga para a mais nova
      * @param  list<int>  $excludedMedicineIds  medicamentos que o usuário mandou remover da pergunta (detecção errada)
-     * @return array{status: string, message: string|null, question: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, treatment: array<string, mixed>|null, treatments: list<array{medicine: string, context: array<string, mixed>}>, medicines: list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>, suggestions: list<array{id: int, name: string}>, guesses: list<array{id: int, name: string, ingredients: string, matched: string, term: string}>, limitations: list<string>, guard: array{category: string, flags: list<string>}, uuid: string|null}
+     * @return array{status: string, message: string|null, question: string, answer: string|null, evidences: list<array<string, mixed>>, generation: array<string, mixed>, retrieval: array<string, mixed>, treatment: array<string, mixed>|null, treatments: list<array{medicine: string, context: array<string, mixed>}>, pair_interactions: list<array{a: string, b: string, severity: string|null, severity_label: string|null}>, medicines: list<array{id: int, name: string, ingredients: string, identified: bool, matched_text: string, fuzzy: bool, corrected: string|null}>, suggestions: list<array{id: int, name: string}>, guesses: list<array{id: int, name: string, ingredients: string, matched: string, term: string}>, limitations: list<string>, guard: array{category: string, flags: list<string>}, uuid: string|null}
      */
     public function askFreeform(User $user, string $question, array $forcedMedicineIds = [], array $conversation = [], array $excludedMedicineIds = []): array
     {
@@ -126,7 +126,7 @@ final class MedicationQuestionService
         $conversation = array_slice(array_values($conversation), -self::CONVERSATION_TURNS);
         $base = [
             'message' => null, 'question' => $verdict->sanitized, 'answer' => null, 'evidences' => [], 'generation' => [], 'retrieval' => [], 'treatment' => null,
-            'treatments' => [], 'medicines' => [], 'suggestions' => [], 'guesses' => [], 'follow_up' => [], 'limits' => [], 'coverage' => 'none', 'intent' => [], 'urgency' => $this->urgencies->detect($verdict->sanitized), 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
+            'treatments' => [], 'medicines' => [], 'pair_interactions' => [], 'suggestions' => [], 'guesses' => [], 'follow_up' => [], 'limits' => [], 'coverage' => 'none', 'intent' => [], 'urgency' => $this->urgencies->detect($verdict->sanitized), 'limitations' => [], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'guard' => $verdict->toArray(), 'uuid' => null,
         ];
 
         if (! $verdict->allowed()) {
@@ -178,7 +178,8 @@ final class MedicationQuestionService
         foreach ($ordered as $medicine) {
             $treatments[] = ['medicine' => $medicine->product_name, 'context' => $this->treatment->for($user, $medicine)];
         }
-        $facts = $this->freeformFacts($ordered, $treatments, ($interpretation['intent'] ?? null) === 'DOSAGE' || in_array('como_usar', $this->intents->topics($interpretation['question'] ?? $verdict->sanitized, count($ordered)), true));
+        $pairs = $this->pairInteractions($ordered);
+        $facts = $this->freeformFacts($pairs, $treatments, ($interpretation['intent'] ?? null) === 'DOSAGE' || in_array('como_usar', $this->intents->topics($interpretation['question'] ?? $verdict->sanitized, count($ordered)), true));
 
         $lastTurn = $conversation !== [] ? $conversation[array_key_last($conversation)] : [];
         // A pessoa trocou de remédio ("e o ibuprofeno?" depois de falar da dipirona): a conversa anterior era sobre outro remédio e
@@ -194,7 +195,7 @@ final class MedicationQuestionService
             'interpretation' => $interpretation,
         ]) + [
             'treatment' => $treatments[0]['context'] + ['others' => array_slice($treatments, 1)],
-            'treatments' => $treatments, 'medicines' => $medicines,
+            'treatments' => $treatments, 'medicines' => $medicines, 'pair_interactions' => $pairs,
         ] + $base;
         // A resposta usou a seção de superdose da bula sem a pergunta ter sido reconhecida como urgência: a orientação de
         // socorro (Disque-Intoxicação/SAMU) entra mesmo assim.
@@ -285,10 +286,10 @@ final class MedicationQuestionService
      * registrada com um remédio em uso, duplicidade ou alergia. Sem achado, a resposta não fala do tratamento. Entre os remédios
      * citados na própria pergunta, o resultado da base entra sempre, porque é a combinação que a pessoa perguntou.
      *
-     * @param  list<AnvisaMedicine>  $medicines
+     * @param  list<array{a: string, b: string, severity: string|null, severity_label: string|null}>  $pairs
      * @param  list<array{medicine: string, context: array<string, mixed>}>  $treatments
      */
-    private function freeformFacts(array $medicines, array $treatments, bool $withPosology = false): ?string
+    private function freeformFacts(array $pairs, array $treatments, bool $withPosology = false): ?string
     {
         $lines = [];
         foreach ($treatments as $treatment) {
@@ -297,6 +298,27 @@ final class MedicationQuestionService
                 $lines[] = $text;
             }
         }
+        foreach ($pairs as $pair) {
+            $lines[] = match ($pair['severity']) {
+                'duplicate' => sprintf('%s e %s têm o mesmo princípio ativo (possível duplicidade; não avaliada por este sistema).', $pair['a'], $pair['b']),
+                null => sprintf('A base de interações (DDInter) não registra interação entre %s e %s; isso não comprova que a combinação seja segura.', $pair['a'], $pair['b']),
+                default => sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']),
+            };
+        }
+
+        return $lines === [] ? null : implode(' ', $lines);
+    }
+
+    /**
+     * Resultado da base estruturada para cada par de remédios citados na própria pergunta (a combinação que a pessoa
+     * perguntou). `severity` nulo = a base não registra interação; "duplicate" = mesmo princípio ativo.
+     *
+     * @param  list<AnvisaMedicine>  $medicines
+     * @return list<array{a: string, b: string, severity: string|null, severity_label: string|null}>
+     */
+    private function pairInteractions(array $medicines): array
+    {
+        $pairs = [];
         for ($i = 0; $i < count($medicines); $i++) {
             for ($j = $i + 1; $j < count($medicines); $j++) {
                 $idsA = $medicines[$i]->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->all();
@@ -304,19 +326,18 @@ final class MedicationQuestionService
                 if ($idsA === [] || $idsB === []) {
                     continue;
                 }
+                $pair = ['a' => $medicines[$i]->product_name, 'b' => $medicines[$j]->product_name];
                 if (array_intersect($idsA, $idsB) !== []) {
-                    $lines[] = sprintf('%s e %s têm o mesmo princípio ativo (possível duplicidade; não avaliada por este sistema).', $medicines[$i]->product_name, $medicines[$j]->product_name);
+                    $pairs[] = $pair + ['severity' => 'duplicate', 'severity_label' => 'Mesmo princípio ativo (possível duplicidade)'];
 
                     continue;
                 }
                 $structured = $this->lookup->between($idsA, $idsB);
-                $lines[] = $structured === null
-                    ? sprintf('A base de interações (DDInter) não registra interação entre %s e %s; isso não comprova que a combinação seja segura.', $medicines[$i]->product_name, $medicines[$j]->product_name)
-                    : sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower($structured->severity->label()), $medicines[$i]->product_name, $medicines[$j]->product_name);
+                $pairs[] = $pair + ['severity' => $structured?->severity->value, 'severity_label' => $structured?->severity->label()];
             }
         }
 
-        return $lines === [] ? null : implode(' ', $lines);
+        return $pairs;
     }
 
     /**

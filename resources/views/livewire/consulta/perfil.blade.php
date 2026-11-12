@@ -19,6 +19,13 @@
             <x-consulta.botao wire:click="aceitarConsentimento" loadingTarget="aceitarConsentimento" loading="Salvando…">Concordo em guardar meus dados de saúde</x-consulta.botao>
         </x-consulta.cartao>
     @else
+        {{-- Resumo em PDF para levar à consulta: remédios, alergias, alertas e adesão (MedicalSummaryService). --}}
+        <a href="{{ route('consulta.resumo') }}" class="flex min-h-16 min-w-0 items-center gap-3 rounded-2xl bg-brand-700 px-4 py-3 text-white shadow-sm hover:bg-brand-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" download>
+            <x-consulta.icone name="baixar" tone="white" size="sm" />
+            <span class="min-w-0 flex-1"><span class="block break-words text-lg font-semibold leading-snug">Resumo para o médico (PDF)</span><span class="block break-words text-sm text-white/90">Remédios, alergias, alertas e como você tem tomado</span></span>
+            <span class="shrink-0 text-2xl" aria-hidden="true">›</span>
+        </a>
+
         <div x-data="{ aba: @js($aba), buscar: {{ $buscou ? 'true' : 'false' }}, novaAlergia: false }" class="grid gap-4">
             <x-consulta.segmentos modelo="aba" :itens="['remedios' => ['Em uso', $emUso->count()], 'receitas' => ['Receitas', $receitas->count()], 'alergias' => ['Alergias', $alergias->count()]]" prefixo="tab" />
 
@@ -43,71 +50,88 @@
                     @endif
                 </x-consulta.cartao>
 
-                <ul class="grid gap-3" aria-label="Remédios que uso">
+                <ul class="grid gap-2" aria-label="Remédios que uso">
                     @forelse ($emUso as $item)
                         <li wire:key="us-{{ $item->id }}">
-                            <article class="grid min-w-0 gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 {{ $item->isActive() ? '' : 'opacity-75' }}" aria-labelledby="us-t-{{ $item->id }}" x-data="{ folha: false, confirmarRemover: false }">
+                            <article class="grid min-w-0 gap-2.5 rounded-2xl bg-white p-3 ring-1 ring-slate-200 sm:p-4" aria-labelledby="us-t-{{ $item->id }}" x-data="{ folha: false, confirmarRemover: false }">
                                 <div class="flex min-w-0 items-start gap-3">
-                                    <x-consulta.icone name="pilula" :tone="$item->isMatched() ? 'brand' : 'warning'" />
+                                    <x-consulta.icone name="pilula" size="sm" :tone="$item->isMatched() ? 'brand' : 'warning'" class="mt-0.5" />
                                     <div class="min-w-0 flex-1">
-                                        <h3 id="us-t-{{ $item->id }}" class="break-words text-xl font-semibold leading-snug text-brand-900">{{ $item->displayName() }}</h3>
-                                        <p class="break-words text-slate-800">
-                                            @if ($item->dosage || $item->frequency){{ collect([$item->dosage, $item->frequency])->filter()->join(' · ') }}@else <span class="text-slate-600">Posologia não informada</span>@endif
-                                            @if ($item->as_needed) · só quando precisar @endif
-                                            @if ($item->prescription) · receita de {{ $item->prescription->prescriber_name }}@endif
-                                            @if ($item->ends_at) · até {{ $item->ends_at->format('d/m/Y') }}@endif
+                                        <h3 id="us-t-{{ $item->id }}" class="break-words text-lg font-semibold leading-snug text-brand-900">{{ $item->displayName() }}</h3>
+                                        <p class="break-words text-base leading-snug text-slate-800">
+                                            @if ($item->dosage || $item->frequency){{ collect([$item->dosage, $item->frequency])->filter()->join(' · ') }}@else<span class="text-slate-600">Dose não informada</span>@endif
                                         </p>
                                     </div>
-                                    <button type="button" class="inline-flex size-12 shrink-0 items-center justify-center rounded-full text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" x-on:click="folha = true; confirmarRemover = false" aria-label="Opções de {{ $item->displayName() }}" aria-haspopup="dialog"><svg class="size-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg></button>
+                                    <button type="button" class="-mr-1 -mt-1 inline-flex size-11 shrink-0 items-center justify-center rounded-full text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" x-on:click="folha = true; confirmarRemover = false" aria-label="Opções de {{ $item->displayName() }}" aria-haspopup="dialog"><svg class="size-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg></button>
                                 </div>
-                                <div class="flex flex-wrap gap-2">
+
+                                {{-- Quando tomar (horários ou intervalo) e até quando, numa linha; a receita fica em letra menor embaixo. --}}
+                                <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                                    <x-consulta.icone name="relogio" plain class="size-5 shrink-0 text-slate-500" />
                                     @if ($item->as_needed)
-                                        <x-consulta.selo tone="neutral">Sem horário fixo</x-consulta.selo>
+                                        <x-consulta.selo tone="neutral" class="!px-2.5 !py-0.5 !text-sm">Só quando precisar</x-consulta.selo>
                                     @elseif ($item->isDynamic())
-                                        <x-consulta.selo tone="brand">{{ $item->intervalLabel() }} · ajusta pelo horário em que você toma</x-consulta.selo>
+                                        <x-consulta.selo tone="brand" class="!px-2.5 !py-0.5 !text-sm">{{ $item->intervalLabel() }}, a partir da última dose</x-consulta.selo>
                                     @else
-                                        @foreach ($item->scheduledTimes() as $hora)<x-consulta.selo tone="brand" class="tabular-nums">{{ $hora }}</x-consulta.selo>@endforeach
-                                        @if ($item->scheduledTimes() === [])<x-consulta.selo tone="neutral">Sem horários</x-consulta.selo>@endif
+                                        @foreach ($item->scheduledTimes() as $hora)<x-consulta.selo tone="brand" class="!px-2.5 !py-0.5 !text-sm tabular-nums">{{ $hora }}</x-consulta.selo>@endforeach
+                                        @if ($item->scheduledTimes() === [])<x-consulta.selo tone="neutral" class="!px-2.5 !py-0.5 !text-sm">Sem horários</x-consulta.selo>@endif
                                     @endif
-                                    @unless ($item->isMatched())<x-consulta.selo tone="warning">Sem bula no catálogo</x-consulta.selo>@endunless
-                                    @unless ($item->isActive())<x-consulta.selo tone="neutral">Tratamento encerrado</x-consulta.selo>@endunless
+                                    @if ($item->ends_at)<span class="ml-auto shrink-0 text-sm text-slate-600">até {{ $item->ends_at->format('d/m/Y') }}</span>@endif
                                 </div>
+                                @if ($item->prescription || ! $item->isMatched())
+                                    <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-100 pt-2 text-sm text-slate-600">
+                                        @if ($item->prescription)<span class="min-w-0 truncate">Receita de {{ $item->prescription->prescriberDisplayName() }}</span>@endif
+                                        @unless ($item->isMatched())<x-consulta.selo tone="warning" class="!px-2 !py-0.5 !text-sm">Sem bula no catálogo</x-consulta.selo>@endunless
+                                    </p>
+                                @endif
                                 @unless ($item->isMatched())<p class="sr-only">Não encontrado no catálogo: vamos conferir</p>@endunless
                                 @if ($item->scheduledTimes() !== [] && ! $item->as_needed && ! $item->isDynamic())<p class="sr-only">às {{ implode(', ', $item->scheduledTimes()) }}</p>@endif
 
-                                <x-consulta.folha-acoes modelo="folha" :titulo="$item->displayName()">
-                                    <div class="grid gap-2" x-show="!confirmarRemover">
-                                        @if ($item->isMatched())<x-consulta.botao variant="soft" size="md" :href="route('consulta.bula', $item->medicine_id)" aria-label="Bula humanizada de {{ $item->displayName() }}"><x-consulta.icone name="bula" plain class="size-6" />Ver a bula simples</x-consulta.botao>@endif
-                                        <x-consulta.botao variant="soft" size="md" wire:click="editarPosologia({{ $item->id }})" x-on:click="folha = false" aria-label="Editar posologia de {{ $item->displayName() }}"><x-consulta.icone name="editar" plain class="size-6" />Informar dose e horários</x-consulta.botao>
-                                        <button type="button" class="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl border border-rose-300 bg-white px-4 text-lg font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-rose-600/30" x-on:click="confirmarRemover = true"><x-consulta.icone name="apagar" plain class="size-6" />Tirar da minha lista</button>
-                                    </div>
-                                    <div class="grid gap-2" x-show="confirmarRemover" x-cloak>
-                                        <p class="font-semibold text-rose-900">Tirar {{ $item->displayName() }} da sua lista? As marcações deste remédio também somem.</p>
-                                        <x-consulta.botao variant="danger" size="md" wire:click="removerMedicamento({{ $item->id }})" wire:loading.attr="disabled" aria-label="Remover {{ $item->displayName() }}">Sim, tirar</x-consulta.botao>
-                                        <x-consulta.botao variant="quiet" size="sm" x-on:click="confirmarRemover = false">Não</x-consulta.botao>
-                                    </div>
-                                </x-consulta.folha-acoes>
-
-                                @if ($editandoId === $item->id)
-                                    <x-consulta.form-posologia :item="$item" :posologia="$posologia" :receitas="$receitas" />
-                                @endif
+                                <x-consulta.opcoes-do-remedio :item="$item" :editando="$editandoId === $item->id" :posologia="$posologia" :receitas="$receitas" />
                             </article>
                         </li>
                     @empty
-                        <li><x-consulta.vazio icon="pilula" titulo="Nenhum remédio registrado." texto="Toque em “Adicionar remédio” ou fotografe uma receita." /></li>
+                        <li><x-consulta.vazio icon="pilula" :titulo="$encerrados->isEmpty() ? 'Nenhum remédio registrado.' : 'Nenhum remédio em uso agora.'" texto="Toque em “Adicionar remédio” ou fotografe uma receita." /></li>
                     @endforelse
                 </ul>
-                <div class="grid gap-2">
+
+                {{-- Histórico: tratamentos que terminaram (data final passou). Saem da lista, dos lembretes e das verificações. --}}
+                @if ($encerrados->isNotEmpty())
+                    <details class="group rounded-2xl bg-white ring-1 ring-slate-200" @if ($encerrados->contains('id', $editandoId)) open @endif>
+                        <summary class="flex min-h-14 cursor-pointer select-none items-center justify-between gap-2 px-4 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">
+                            <span class="inline-flex min-w-0 items-center gap-2"><x-consulta.icone name="historico" plain class="size-6 shrink-0" />Histórico de tratamentos ({{ $encerrados->count() }})</span>
+                            <x-consulta.icone name="seta" plain class="size-5 shrink-0 transition-transform group-open:rotate-90" />
+                        </summary>
+                        <ul class="grid gap-1 px-2 pb-2" aria-label="Tratamentos encerrados">
+                            @foreach ($encerrados as $item)
+                                <li wire:key="enc-{{ $item->id }}" class="grid min-w-0 gap-2 rounded-xl px-2 py-2 hover:bg-slate-50" x-data="{ folha: false, confirmarRemover: false }">
+                                    <div class="flex min-w-0 items-center gap-3">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="break-words font-semibold leading-snug text-slate-800">{{ $item->displayName() }}</p>
+                                            <p class="break-words text-sm text-slate-600">{{ collect([$item->dosage, 'terminou em '.$item->ends_at?->format('d/m/Y')])->filter()->join(' · ') }}</p>
+                                        </div>
+                                        <button type="button" class="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" x-on:click="folha = true; confirmarRemover = false" aria-label="Opções de {{ $item->displayName() }}" aria-haspopup="dialog"><svg class="size-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z" /></svg></button>
+                                    </div>
+                                    <x-consulta.opcoes-do-remedio :item="$item" :editando="$editandoId === $item->id" :posologia="$posologia" :receitas="$receitas" encerrado />
+                                </li>
+                            @endforeach
+                        </ul>
+                    </details>
+                @endif
+
+                <div class="grid gap-2 sm:grid-cols-2">
                     @if ($emUso->isNotEmpty())<x-consulta.botao variant="soft" size="md" :href="route('consulta.hoje')"><x-consulta.icone name="relogio" plain class="size-6" />Ver remédios de hoje</x-consulta.botao>@endif
-                    <x-consulta.botao variant="secondary" size="md" :href="route('consulta.receita.nova')"><x-consulta.icone name="camera" plain class="size-6" />Fotografar receita</x-consulta.botao>
-                    @if ($emUso->filter(fn ($item) => $item->isMatched() && $item->isActive())->count() >= 2)<x-consulta.botao variant="secondary" size="md" :href="route('consulta.pesquisa', ['usar' => 1])"><x-consulta.icone name="lupa" plain class="size-6" />Verificar interações entre eles</x-consulta.botao>@endif
+                    @if ($emUso->filter(fn ($item) => $item->isMatched())->count() >= 2)<x-consulta.botao variant="soft" size="md" :href="route('consulta.pesquisa', ['usar' => 1])"><x-consulta.icone name="lupa" plain class="size-6" />Verificar interações entre eles</x-consulta.botao>@endif
+                    <x-consulta.botao variant="secondary" size="md" :href="route('consulta.receita.nova')" class="sm:col-span-2"><x-consulta.icone name="camera" plain class="size-6" />Fotografar receita</x-consulta.botao>
                 </div>
             </section>
 
             {{-- Receitas --}}
             <section id="painel-receitas" role="tabpanel" aria-labelledby="tab-receitas" x-show="aba === 'receitas'" x-cloak class="grid gap-3">
-                <x-consulta.botao variant="accent" :href="route('consulta.receita.nova')"><x-consulta.icone name="camera" plain class="size-7" />Fotografar receita</x-consulta.botao>
-                <x-consulta.botao variant="secondary" size="md" wire:click="$toggle('mostrarFormularioReceita')" aria-expanded="{{ $mostrarFormularioReceita ? 'true' : 'false' }}" aria-controls="form-receita">{{ $mostrarFormularioReceita ? 'Fechar' : 'Cadastrar receita à mão' }}</x-consulta.botao>
+                <div class="flex gap-2">
+                    <x-consulta.botao variant="accent" size="md" class="min-w-0 flex-[3]" :href="route('consulta.receita.nova')"><x-consulta.icone name="camera" plain class="size-6 shrink-0" />Fotografar receita</x-consulta.botao>
+                    <x-consulta.botao variant="secondary" size="md" class="min-w-0 flex-[2]" wire:click="$toggle('mostrarFormularioReceita')" aria-expanded="{{ $mostrarFormularioReceita ? 'true' : 'false' }}" aria-controls="form-receita">{{ $mostrarFormularioReceita ? 'Fechar' : 'Digitar' }}<span class="sr-only"> receita à mão</span></x-consulta.botao>
+                </div>
                 @if ($mostrarFormularioReceita)
                     <form id="form-receita" class="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" wire:submit="adicionarReceita">
                         <div><label class="font-medium text-slate-800" for="prescritor">Médico(a) que receitou</label><input id="prescritor" class="ui-control min-h-14 text-lg" wire:model="prescritor" placeholder="Ex.: Dra. Ana Souza" maxlength="120" required></div>
@@ -120,36 +144,49 @@
                 <ul class="grid gap-3" aria-label="Receitas médicas">
                     @forelse ($receitas as $receita)
                         <li wire:key="rc-{{ $receita->id }}">
-                            <article class="grid min-w-0 gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200" aria-labelledby="rc-t-{{ $receita->id }}" x-data="{ confirmar: false }">
+                            <article class="grid min-w-0 gap-3 rounded-2xl bg-white p-3 ring-1 ring-slate-200 sm:p-4" aria-labelledby="rc-t-{{ $receita->id }}" x-data="{ confirmar: false }">
                                 <div class="flex min-w-0 items-start gap-3">
-                                    <x-consulta.icone name="receita" :tone="$receita->status === P::STATUS_CONFIRMED ? 'brand' : ($receita->status === P::STATUS_FAILED ? 'danger' : 'warning')" />
+                                    <x-consulta.icone name="receita" size="sm" class="mt-0.5" :tone="$receita->status === P::STATUS_CONFIRMED ? 'brand' : ($receita->status === P::STATUS_FAILED ? 'danger' : 'warning')" />
                                     <div class="min-w-0 flex-1">
-                                        <h3 id="rc-t-{{ $receita->id }}" class="break-words text-xl font-semibold leading-snug text-brand-900">{{ $receita->prescriber_name }}@if ($receita->prescriber_registration) <span class="text-base font-normal text-slate-600">· {{ $receita->prescriber_registration }}</span>@endif</h3>
-                                        <p class="break-words text-slate-800">{{ $receita->issued_at?->format('d/m/Y') ?? 'sem data' }} · {{ $receita->source === P::SOURCE_PHOTO ? 'lida por foto' : 'cadastrada à mão' }}</p>
+                                        <h3 id="rc-t-{{ $receita->id }}" class="break-words text-lg font-semibold leading-snug text-brand-900">{{ $receita->prescriberDisplayName() }}</h3>
+                                        <p class="break-words text-sm text-slate-600">{{ collect([$receita->prescriber_registration, $receita->issued_at?->format('d/m/Y') ?? 'sem data', $receita->source === P::SOURCE_PHOTO ? 'lida por foto' : 'digitada'])->filter()->join(' · ') }}</p>
                                     </div>
                                 </div>
                                 @if ($receita->status !== P::STATUS_CONFIRMED)
-                                    <x-consulta.selo :tone="$receita->status === P::STATUS_FAILED ? 'danger' : 'warning'" class="justify-self-start">{{ match ($receita->status) { P::STATUS_REVIEW => 'aguardando sua conferência', P::STATUS_FAILED => 'leitura falhou', default => 'em leitura' } }}</x-consulta.selo>
+                                    <x-consulta.selo :tone="$receita->status === P::STATUS_FAILED ? 'danger' : 'warning'" class="justify-self-start !text-sm">{{ match ($receita->status) { P::STATUS_REVIEW => 'aguardando sua conferência', P::STATUS_FAILED => 'leitura falhou', default => 'em leitura' } }}</x-consulta.selo>
                                 @endif
                                 @if ($receita->medications->isNotEmpty())
-                                    <ul class="grid gap-1 text-base text-slate-800" aria-label="Remédios desta receita">
-                                        @foreach ($receita->medications as $med)<li class="flex gap-2"><span aria-hidden="true">•</span><span class="min-w-0 break-words">{{ $med->displayName() }}@unless ($med->isMatched()) <span class="text-amber-900">(a conferir)</span> @endunless @if ($med->dosage || $med->frequency) · {{ collect([$med->dosage, $med->frequency])->filter()->join(', ') }}@endif</span></li>@endforeach
+                                    <ul class="grid divide-y divide-slate-200 rounded-xl bg-slate-50 ring-1 ring-slate-200" aria-label="Remédios desta receita">
+                                        @foreach ($receita->medications as $med)
+                                            <li class="grid min-w-0 gap-0.5 px-3 py-2">
+                                                <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                                                    <span class="min-w-0 break-words font-semibold leading-snug text-slate-900">{{ $med->displayName() }}</span>
+                                                    @unless ($med->isMatched())<x-consulta.selo tone="warning" class="!px-2 !py-0 !text-sm">a conferir</x-consulta.selo>@endunless
+                                                    @unless ($med->isActive())<x-consulta.selo tone="neutral" class="!px-2 !py-0 !text-sm">terminou</x-consulta.selo>@endunless
+                                                </p>
+                                                @if ($med->dosage || $med->frequency)<p class="break-words text-sm leading-snug text-slate-700">{{ collect([$med->dosage, $med->frequency])->filter()->join(', ') }}</p>@endif
+                                            </li>
+                                        @endforeach
                                     </ul>
                                 @endif
                                 @if ($receita->notes)<p class="break-words text-base text-slate-700">{{ $receita->notes }}</p>@endif
-                                @if ($receita->source === P::SOURCE_PHOTO && $receita->status !== P::STATUS_CONFIRMED)
-                                    <x-consulta.botao size="md" :href="route('consulta.receita.revisar', $receita)">{{ $receita->status === P::STATUS_REVIEW ? 'Conferir a receita' : 'Abrir' }}</x-consulta.botao>
-                                @endif
-                                <button type="button" x-show="!confirmar" class="inline-flex min-h-12 items-center justify-center justify-self-start rounded-xl px-3 text-base font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600" x-on:click="confirmar = true" aria-label="Remover receita de {{ $receita->prescriber_name }}">Apagar esta receita</button>
+                                <div class="flex flex-wrap items-center justify-between gap-2" x-show="!confirmar">
+                                    @if ($receita->source === P::SOURCE_PHOTO && $receita->status !== P::STATUS_CONFIRMED)
+                                        <x-consulta.botao size="sm" class="!w-auto" :href="route('consulta.receita.revisar', $receita)">{{ $receita->status === P::STATUS_REVIEW ? 'Conferir a receita' : 'Abrir' }}</x-consulta.botao>
+                                    @endif
+                                    <button type="button" class="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-base font-semibold text-rose-800 hover:bg-rose-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-600" x-on:click="confirmar = true" aria-label="Remover receita de {{ $receita->prescriber_name }}"><x-consulta.icone name="apagar" plain class="size-5" />Apagar receita</button>
+                                </div>
                                 <div x-cloak x-show="confirmar" class="grid gap-2 rounded-2xl bg-rose-50 p-3 ring-1 ring-rose-200">
                                     <p class="font-semibold text-rose-900">Apagar esta receita?</p>
-                                    <x-consulta.botao variant="danger" size="md" wire:click="removerReceita({{ $receita->id }})" wire:loading.attr="disabled">Sim, apagar</x-consulta.botao>
-                                    <x-consulta.botao variant="quiet" size="sm" x-on:click="confirmar = false">Não</x-consulta.botao>
+                                    <div class="flex gap-2">
+                                        <x-consulta.botao variant="danger" size="sm" class="min-w-0 flex-1" wire:click="removerReceita({{ $receita->id }})" wire:loading.attr="disabled">Sim, apagar</x-consulta.botao>
+                                        <x-consulta.botao variant="quiet" size="sm" class="min-w-0 flex-1" x-on:click="confirmar = false">Não</x-consulta.botao>
+                                    </div>
                                 </div>
                             </article>
                         </li>
                     @empty
-                        <li><x-consulta.vazio icon="receita" titulo="Nenhuma receita registrada." texto="Fotografe a sua ou cadastre à mão." /></li>
+                        <li><x-consulta.vazio icon="receita" titulo="Nenhuma receita registrada." texto="Fotografe a sua ou digite os dados à mão." /></li>
                     @endforelse
                 </ul>
             </section>

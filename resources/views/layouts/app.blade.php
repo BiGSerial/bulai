@@ -20,6 +20,9 @@
 
     <title>{{ $title ?? config('app.name') }}</title>
 
+    {{-- Tema escolhido no app do paciente (resources/js/tema.js), aplicado antes da pintura para não piscar claro. --}}
+    <script>try { const t = localStorage.getItem('bulai-tema') ?? 'claro'; document.documentElement.classList.toggle('dark', t === 'escuro' || (t === 'sistema' && matchMedia('(prefers-color-scheme: dark)').matches)) } catch (e) {}</script>
+
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
