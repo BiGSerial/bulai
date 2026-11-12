@@ -68,6 +68,7 @@ class ResumoMedicoTest extends TestCase
         $this->assertSame('Ana Souza', $resumo['em_uso'][0]['prescritor']);
         $this->assertNull($resumo['em_uso'][1]['adesao'], 'remédio "se precisar" não tem adesão');
         $this->assertSame('LEVOFLOXACINO', $resumo['encerrados'][0]['nome']);
+        $this->assertArrayNotHasKey('duvidas', $resumo, 'as perguntas feitas ao app não vão para o resumo do médico');
     }
 
     public function test_the_patient_downloads_the_pdf_only_with_consent_and_the_download_is_audited(): void

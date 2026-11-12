@@ -350,7 +350,6 @@ Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões
   - O PDF explica que "sem marcação" não significa que a dose não foi tomada.
 - **Tratamentos encerrados** nos últimos 90 dias.
 - **Receitas:** as conferidas pelo paciente ou digitadas por ele, no máximo 5.
-- **Dúvidas recentes:** até 5 perguntas feitas no período.
 - **Anotações:** linhas em branco para o médico escrever.
 - **Rodapé:** aviso de que os dados foram registrados pelo próprio paciente.
 

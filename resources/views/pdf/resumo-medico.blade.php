@@ -165,13 +165,6 @@
         </td>
     </tr></table>
 
-    <h2>Dúvidas recentes do paciente</h2>
-    @forelse ($r['duvidas'] as $duvida)
-        <div style="margin-bottom: 3px;"><span class="sub">{{ $duvida['data'] }}</span> — “{{ $duvida['pergunta'] }}”</div>
-    @empty
-        <p class="vazio">Nenhuma pergunta feita no período.</p>
-    @endforelse
-
     <h2>Anotações da consulta</h2>
     <div class="linhas"><div></div><div></div><div></div><div></div><div></div></div>
 </main>
