@@ -1,0 +1,68 @@
+[
+ {
+  "pergunta": "Posso tomar anlodipino junto com carbamazepina?",
+  "status": "answered",
+  "uuid": "6918bc30-c44e-4b69-a63b-3eaf5af1b898",
+  "interpretacao_medicamentos": [
+   "anlodipino",
+   "carbamazepina"
+  ],
+  "medicamentos_resolvidos": [
+   "CARBAMAZEPINA"
+  ],
+  "treatment_check": {
+   "consented": true,
+   "medications": 0,
+   "interactions": 0,
+   "allergy_alerts": 0,
+   "alerted": false
+  },
+  "limitacoes": [],
+  "resposta": "O anlodipino é um bloqueador dos canais de cálcio do grupo das diidropiridinas. A carbamazepina está listada como medicamento que interage com remédios dessa classe, e o exemplo citado é a felodipina."
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com itraconazol?",
+  "status": "answered",
+  "uuid": "b9232a89-5049-4c92-8887-3f0b5a4b1ac3",
+  "interpretacao_medicamentos": [
+   "anlodipino",
+   "itraconazol"
+  ],
+  "medicamentos_resolvidos": [
+   "ITRACONAZOL"
+  ],
+  "treatment_check": {
+   "consented": true,
+   "medications": 0,
+   "interactions": 0,
+   "allergy_alerts": 0,
+   "alerted": false
+  },
+  "limitacoes": [
+   "Ainda não há bula cadastrada para: ITRACONAZOL."
+  ],
+  "resposta": "O itraconazol pode aumentar ou, às vezes, diminuir a quantidade no sangue de muitos outros remédios. Quando a quantidade aumenta, pode crescer o risco de efeitos indesejados do outro remédio, como queda de pressão e batimentos do coração mais lentos. Essa informação também vem da bula dos Estados Unidos, que diz que a lista de exemplos não é completa.\n\nNão ter essa combinação na lista não prova que ela seja segura. Por isso, só o médico ou o farmacêutico pode dizer se você pode usar os dois juntos, olhando o seu caso."
+ },
+ {
+  "pergunta": "Posso tomar Norvasc junto com Tegretol?",
+  "status": "answered",
+  "uuid": "41892e95-9553-457a-96c3-cff52c126bc9",
+  "interpretacao_medicamentos": [
+   "Norvasc",
+   "Tegretol"
+  ],
+  "medicamentos_resolvidos": [
+   "NORVASC",
+   "TEGRETOL"
+  ],
+  "treatment_check": {
+   "consented": true,
+   "medications": 0,
+   "interactions": 0,
+   "allergy_alerts": 0,
+   "alerted": true
+  },
+  "limitacoes": [],
+  "resposta": "A bula do Tegretol cita os bloqueadores dos canais de cálcio do grupo diidropiridina entre os remédios que interagem com a carbamazepina. Ou seja, o Tegretol pode mudar o efeito de remédios dessa família. A bula do Norvasc diz que o efeito do anlodipino deve ser acompanhado, e que a dose pode precisar de revisão, quando ele é usado com remédios que aceleram sua eliminação pelo fígado. A rifampicina é um exemplo dado.\n\nSe você já usa os dois remédios, ou se alguém indicou essa combinação, não mude nada por conta própria. Só o médico ou o farmacêutico pode dizer se a combinação é adequada no seu caso e como acompanhá-la."
+ }
+]

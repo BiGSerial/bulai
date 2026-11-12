@@ -339,7 +339,7 @@ class Perguntar extends Component
             }
         }
         foreach ($resposta['pair_interactions'] ?? [] as $par) {
-            if ($par['severity'] === null) {
+            if ($par['severity'] === null || $par['severity'] === 'unverified') {
                 continue;
             }
             $interacoes[] = $par['severity'] === 'duplicate'
