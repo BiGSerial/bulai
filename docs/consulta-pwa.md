@@ -322,3 +322,5 @@ Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões
 - **Limitação:** as cores novas fora da paleta (por exemplo `bg-sky-*`) precisam ser incluídas nesse bloco.
 
 **Testes:** `AnswerHighlighterTest`, `PatientPrescriptionTest`; em `PerfilEPerguntasTest`, o alerta no chat e o histórico de tratamentos; em `AvisosTest`, o "Limpar todos".
+
+**Menu da conta (12/11/2026).** No topo ficam a inicial, o nome e o e-mail de quem está conectado. Embaixo, os itens em grupos separados por divisórias, cada um com ícone: avisos e histórico; cuidado; conta, instalar, sobre e administração. Depois vem a Aparência, compacta, com a opção escolhida contornada para aparecer também no tema escuro. "Sair" fica por último, em vermelho. Se não couber na altura da tela, o menu rola.
