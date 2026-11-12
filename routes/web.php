@@ -11,6 +11,7 @@ use App\Http\Controllers\Auth\FirstAccessController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Consulta\ResumoMedicoController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
 use App\Http\Middleware\EnsureUserIsActive;
@@ -124,6 +125,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
     Route::get('/historico', ConsultaHistorico::class)->name('consulta.historico');
     Route::get('/perguntar', ConsultaPerguntar::class)->name('consulta.perguntar');
     Route::get('/perfil', ConsultaPerfil::class)->name('consulta.perfil');
+    Route::get('/perfil/resumo-para-o-medico.pdf', ResumoMedicoController::class)->middleware('throttle:10,1')->name('consulta.resumo');
     Route::get('/historico/perguntas/{question}', ConsultaPerguntaRegistrada::class)->name('consulta.pergunta');
     Route::get('/bulas', ConsultaBulas::class)->name('consulta.bulas');
     Route::get('/bula/{medicine}', ConsultaBula::class)->name('consulta.bula');

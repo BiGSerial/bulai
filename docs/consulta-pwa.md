@@ -324,3 +324,36 @@ Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões
 **Testes:** `AnswerHighlighterTest`, `PatientPrescriptionTest`; em `PerfilEPerguntasTest`, o alerta no chat e o histórico de tratamentos; em `AvisosTest`, o "Limpar todos".
 
 **Menu da conta (12/11/2026).** No topo ficam a inicial, o nome e o e-mail de quem está conectado. Embaixo, os itens em grupos separados por divisórias, cada um com ícone: avisos e histórico; cuidado; conta, instalar, sobre e administração. Depois vem a Aparência, compacta, com a opção escolhida contornada para aparecer também no tema escuro. "Sair" fica por último, em vermelho. Se não couber na altura da tela, o menu rola.
+
+## Resumo para o médico em PDF (12/11/2026)
+
+**Para que serve:** o paciente baixa um resumo de saúde para levar à consulta. Nenhum conteúdo do resumo é gerado por IA.
+
+**Onde fica:** em Meus remédios, no botão "Resumo para o médico (PDF)" acima das abas, e também no menu da conta.
+
+**Rota:** `GET /perfil/resumo-para-o-medico.pdf` (`consulta.resumo`), atendida por `App\Http\Controllers\Consulta\ResumoMedicoController`.
+- Exige o consentimento de dados de saúde; sem ele, a pessoa volta para Meus remédios.
+- Limite de 10 downloads por minuto.
+- Cada download fica na auditoria da conta, com o evento `medical_summary_downloaded`.
+
+**Conteúdo** (`App\Services\Patient\MedicalSummaryService`):
+- **Identificação:** nome, e-mail e o período considerado.
+- **Alergias:** cada alergia registrada, com a reação.
+- **Alertas:**
+  - alergia que atinge um remédio em uso (`AllergyChecker`);
+  - interações DDInter entre os remédios em uso, com a gravidade, da maior para a menor;
+  - remédios com o mesmo princípio ativo.
+- **Remédios em uso:**
+  - princípio ativo, dose e como toma (horários, intervalo ou "só quando precisar");
+  - período e quem prescreveu;
+  - adesão dos últimos 30 dias: doses previstas até agora, quantas foram marcadas como tomadas, puladas e sem marcação, e o percentual de tomadas.
+  - O PDF explica que "sem marcação" não significa que a dose não foi tomada.
+- **Tratamentos encerrados** nos últimos 90 dias.
+- **Receitas:** as conferidas pelo paciente ou digitadas por ele, no máximo 5.
+- **Dúvidas recentes:** até 5 perguntas feitas no período.
+- **Anotações:** linhas em branco para o médico escrever.
+- **Rodapé:** aviso de que os dados foram registrados pelo próprio paciente.
+
+**Layout:** `resources/views/pdf/resumo-medico.blade.php`, gerado pelo dompdf (`barryvdh/laravel-dompdf`). Usa a identidade visual do app: faixa azul-marinho com filete laranja, cartões creme, caixa vermelha para alergias, caixa amarela para interações e selos de adesão em verde, âmbar ou vermelho.
+
+**Testes:** `tests/Feature/Consulta/ResumoMedicoTest.php`.

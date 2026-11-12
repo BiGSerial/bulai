@@ -19,6 +19,13 @@
             <x-consulta.botao wire:click="aceitarConsentimento" loadingTarget="aceitarConsentimento" loading="Salvando…">Concordo em guardar meus dados de saúde</x-consulta.botao>
         </x-consulta.cartao>
     @else
+        {{-- Resumo em PDF para levar à consulta: remédios, alergias, alertas e adesão (MedicalSummaryService). --}}
+        <a href="{{ route('consulta.resumo') }}" class="flex min-h-16 min-w-0 items-center gap-3 rounded-2xl bg-brand-700 px-4 py-3 text-white shadow-sm hover:bg-brand-800 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" download>
+            <x-consulta.icone name="baixar" tone="white" size="sm" />
+            <span class="min-w-0 flex-1"><span class="block break-words text-lg font-semibold leading-snug">Resumo para o médico (PDF)</span><span class="block break-words text-sm text-white/90">Remédios, alergias, alertas e como você tem tomado</span></span>
+            <span class="shrink-0 text-2xl" aria-hidden="true">›</span>
+        </a>
+
         <div x-data="{ aba: @js($aba), buscar: {{ $buscou ? 'true' : 'false' }}, novaAlergia: false }" class="grid gap-4">
             <x-consulta.segmentos modelo="aba" :itens="['remedios' => ['Em uso', $emUso->count()], 'receitas' => ['Receitas', $receitas->count()], 'alergias' => ['Alergias', $alergias->count()]]" prefixo="tab" />
 
