@@ -2,7 +2,6 @@
 
 namespace App\Services\Patient;
 
-use App\Models\Consultation\MedicationQuestion;
 use App\Models\PatientAllergy;
 use App\Models\PatientMedication;
 use App\Models\PatientPrescription;
@@ -17,7 +16,7 @@ use Illuminate\Support\Collection;
  * Resumo de saúde que o paciente leva à consulta (PDF em `consulta.resumo`): o que importa para o médico, sem nada gerado por
  * IA. Alergias registradas, remédios em uso com dose, horários, receita e adesão dos últimos dias (doses marcadas no app),
  * alertas do motor estruturado (alergia que atinge um remédio em uso, interação DDInter e mesmo princípio ativo entre os
- * remédios em uso), tratamentos encerrados há pouco, receitas e as dúvidas recentes do paciente.
+ * remédios em uso), tratamentos encerrados há pouco e receitas.
  */
 final class MedicalSummaryService
 {
@@ -42,8 +41,7 @@ final class MedicalSummaryService
      *   alertas: list<array{tipo: string, texto: string, gravidade: string|null}>,
      *   em_uso: list<array{nome: string, principio_ativo: string|null, dose: string|null, como: string, inicio: string|null, fim: string|null, prescritor: string|null, observacoes: string|null, adesao: array{previstas: int, tomadas: int, puladas: int, sem_marcacao: int, percentual: int|null}|null}>,
      *   encerrados: list<array{nome: string, dose: string|null, fim: string}>,
-     *   receitas: list<array{prescritor: string, registro: string|null, data: string|null, remedios: list<string>}>,
-     *   duvidas: list<array{data: string, pergunta: string}>
+     *   receitas: list<array{prescritor: string, registro: string|null, data: string|null, remedios: list<string>}>
      * }
      */
     public function build(User $user, ?CarbonImmutable $now = null): array
@@ -87,8 +85,6 @@ final class MedicalSummaryService
                     'data' => $receita->issued_at?->format('d/m/Y'),
                     'remedios' => $receita->medications->map(fn (PatientMedication $item): string => $item->displayName())->all(),
                 ])->all(),
-            'duvidas' => MedicationQuestion::query()->where('user_id', $user->id)->where('created_at', '>=', $inicio->utc())->latest()->limit(5)->get(['question', 'created_at'])
-                ->map(fn (MedicationQuestion $pergunta): array => ['data' => $pergunta->created_at->setTimezone($timezone)->format('d/m'), 'pergunta' => (string) $pergunta->question])->all(),
         ];
     }
 
