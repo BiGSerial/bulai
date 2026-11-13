@@ -1,0 +1,125 @@
+[
+ {
+  "pergunta": "Posso tomar anlodipino junto com carbamazepina?",
+  "status": "answered",
+  "uuid": "98ac21b7-5424-494b-a31c-d43366bc1a1a",
+  "medicamentos_resolvidos": [
+   "BESILATO DE ANLODIPINO",
+   "CARBAMAZEPINA"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "BESILATO DE ANLODIPINO",
+    "b": "CARBAMAZEPINA",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e CARBAMAZEPINA."
+  ],
+  "resposta": "Muitos remédios interagem com a carbamazepina. Por isso, quem a usa deve avisar o médico ou o farmacêutico sobre tudo o que toma, inclusive remédios comprados sem receita.\n\nSe você já usa os dois, não mude nem pare nenhum deles por conta própria. O médico ou o farmacêutico é quem pode avaliar se a combinação serve para você e se precisa de acompanhamento."
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com fenobarbital?",
+  "status": "no_evidence",
+  "uuid": "d36ea618-5da7-4fed-a998-718f6449195b",
+  "medicamentos_resolvidos": [
+   "BESILATO DE ANLODIPINO",
+   "FENOBARBITAL"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "BESILATO DE ANLODIPINO",
+    "b": "FENOBARBITAL",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e FENOBARBITAL."
+  ],
+  "resposta": "Se pode tomar os dois juntos depende da sua situação e deve ser decidido por um médico ou farmacêutico. Não mude nem pare nenhum dos remédios por conta própria."
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com itraconazol?",
+  "status": "needs_info",
+  "uuid": "18ecbab1-b892-40fc-943f-54cb1fadf29b",
+  "medicamentos_resolvidos": [
+   "BESILATO DE ANLODIPINO",
+   "ITRACONAZOL"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "BESILATO DE ANLODIPINO",
+    "b": "ITRACONAZOL",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e ITRACONAZOL."
+  ],
+  "resposta": "Não foi possível confirmar nos textos disponíveis o que acontece exatamente com essa dupla nem como lidar com ela. Se você já toma os dois ou pensa em tomar, o médico ou o farmacêutico é quem pode dizer se isso é adequado para você e o que fazer.\n\nVocê já está usando os dois remédios ao mesmo tempo ou o médico acabou de receitar um deles?"
+ },
+ {
+  "pergunta": "Para que serve o anlodipino?",
+  "status": "answered",
+  "uuid": "f1d84e87-ef9b-42df-9be2-a8d0927f7a7d",
+  "medicamentos_resolvidos": [
+   "BESILATO DE ANLODIPINO"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [],
+  "limitacoes": [],
+  "resposta": "O anlodipino é indicado para tratar pressão alta (hipertensão) e angina de peito, que é uma dor no peito causada por falta de sangue no coração. Ele age relaxando os vasos sanguíneos. Assim, o sangue passa com mais facilidade e o coração trabalha com menos esforço. Controlar a pressão pode diminuir o risco de problemas como derrame e infarto."
+ },
+ {
+  "pergunta": "Posso tomar Norvasc junto com Tegretol?",
+  "status": "answered",
+  "uuid": "d548bdec-bd13-4847-9dfe-881dcbd4f52a",
+  "medicamentos_resolvidos": [
+   "NORVASC",
+   "TEGRETOL"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "NORVASC",
+    "b": "TEGRETOL",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "A base de interações (DDInter) registra interação de gravidade maior entre NORVASC e TEGRETOL."
+  ],
+  "resposta": "O Tegretol é um remédio que interage com muitos outros. Por isso, é importante contar ao médico ou ao farmacêutico tudo o que você usa, inclusive remédios sem receita. A bula do Tegretol cita remédios para o coração e a pressão do mesmo grupo do Norvasc (bloqueadores dos canais de cálcio) entre os que podem interagir com ele. Já a bula do Norvasc diz que remédios que mudam a ação de uma enzima do fígado (chamada CYP3A4) pedem cautela e acompanhamento médico.\n\nSe você usa os dois, não mude nada por conta própria. Converse com seu médico ou farmacêutico para avaliar a combinação no seu caso."
+ },
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com varfarina?",
+  "status": "answered",
+  "uuid": "cd709e62-f0dd-406f-b4d5-733517c2da78",
+  "medicamentos_resolvidos": [
+   "IBUPROFENO",
+   "VARFARINA SÓDICA"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "IBUPROFENO",
+    "b": "VARFARINA SÓDICA",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "Ainda não há bula cadastrada para: VARFARINA SÓDICA.",
+   "A base de interações (DDInter) registra interação de gravidade maior entre IBUPROFENO e VARFARINA SÓDICA."
+  ],
+  "resposta": "Em geral, o ibuprofeno não deve ser tomado junto com outros remédios para dor ou com outros medicamentos que a pessoa já usa, a não ser com orientação médica. Antes de usar, é indicado conversar com um médico se você já toma outro remédio.\n\nSe pode ou não usar os dois juntos no seu caso, quem decide é o seu médico ou o farmacêutico, que conhecem sua saúde e a sua dose de varfarina. Por favor, não comece nem pare nenhum dos dois por conta própria."
+ }
+]

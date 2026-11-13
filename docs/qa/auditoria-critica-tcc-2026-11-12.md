@@ -34,11 +34,11 @@ O verificador de pares (`InteractionEvaluator`, usado nos 1.483 pares) usa outro
 
 | # | Achado | Sev. | Evidência | Causa-raiz | Ação | Estado |
 |---|---|---|---|---|---|---|
-| 1 | Pergunta livre sobre par grave não traz a interação (anlodipino) | P0 | JSON de sondagem acima; teste `PerguntaInteracaoGraveTest` | Nome não resolvido some; par sem vínculo pulado; gravidade dependia do modelo | Correção desta PR | Corrigido no código; **sem deploy, não verificado em produção** |
-| 2 | Detector não resolve "anlodipino" | P0 | 2 sondagens (`medicamentos_resolvidos`); catálogo de produção (seção 7) | `focus()` decidia pelo texto do catálogo, que grafa o mesmo fármaco de formas incoerentes | Foco pelos vínculos (seção 7) | Corrigido no código; **sem deploy, não verificado em produção** |
+| 1 | Pergunta livre sobre par grave não traz a interação (anlodipino) | P0 | JSON de sondagem acima; teste `PerguntaInteracaoGraveTest` | Nome não resolvido some; par sem vínculo pulado; gravidade dependia do modelo | PRs #69 e #70 | **Corrigido e verificado em produção** nos 3 pares (seção 8); a gravidade vem em texto fixo, não no corpo da resposta |
+| 2 | Detector não resolve "anlodipino" | P0 | 2 sondagens (`medicamentos_resolvidos`); catálogo de produção (seção 7) | `focus()` decidia pelo texto do catálogo, que grafa o mesmo fármaco de formas incoerentes | Foco pelos vínculos (seção 7) | **Corrigido e verificado em produção** (`0a59cc1`, seção 8) |
 | 3 | Artigo diz que a causa dos 3 casos "não foi investigada" | P2 | `tcc-bula-ia-texto-final.md`, Discussão | Texto anterior ao diagnóstico | Proposta de redação (seção 5); **não alterei DOCX/MD** | Aberto, depende dos autores |
-| 4 | Protocolo de 30 pares citado depois da correção, mas medido antes | P1 | Run `7cdf5716` (11/11 08:22, híbrido, 30/30) é anterior à PR #60; **não há protocolo de 30 pós-correção em produção** | Registro único, anterior | Reexecutar `evaluation:run interactions --dataset=…protocol30.v2.json --mode=hybrid` | **Aberto** (número confirmado, procedência pré-correção) |
-| 5 | Recuperação (369 consultas) medida com 82 bulas; base atual tem 91 | P1 | Run `87d8519f` (11/11 08:22); inventário 17:03 de 12/11: 91 bulas, 6.699 trechos | Base mudou depois da medição; o artigo já ressalva | Reexecutar `evaluation:run retrieval` na base atual | **Aberto** |
+| 4 | Protocolo de 30 pares citado depois da correção, mas medido antes | P1 | Run `7cdf5716` (11/11 08:22, híbrido, 30/30) é anterior à PR #60; **não há protocolo de 30 pós-correção em produção** | Registro único, anterior | Reexecutado em 13/11 (`67c9b04b`): 30/30 | **Resolvido**; artigo atualizado |
+| 5 | Recuperação (369 consultas) medida com 82 bulas; base atual tem 91 | P1 | Run `87d8519f` (11/11 08:22); inventário 17:03 de 12/11: 91 bulas, 6.699 trechos | Base mudou depois da medição; o artigo já ressalva | Reexecutado em 13/11 (`5923700e`, 102 bulas, 362 consultas) | **Resolvido**; artigo atualizado |
 | 6 | Circularidade: gabarito DDInter = fonte da aplicação | P1 | Matriz 1.424/55/4, recall 1,000 | O teste mede integração, não validade clínica | O artigo já diz "integração, não correção clínica"; falta dizer a circularidade (seção 5) | Parcial |
 | 7 | Os dois caminhos de interação divergem (pares × pergunta livre) | P1 | Pares: FN = 0; pergunta livre: falhou em 3 casos | Fluxos distintos | Teste de regressão do fluxo livre (esta PR); incluir pares do protocolo no fluxo livre | Parcial |
 | 8 | Medição em produção usa conta de avaliação; sondagens entram nos totais | P2 | `audit/tcc`: 379 perguntas, 5 usuários | As perguntas de avaliação entram em `/stats` | Filtrar por `evaluation_user_id` ao citar uso | Aberto |
@@ -53,8 +53,8 @@ O verificador de pares (`InteractionEvaluator`, usado nos 1.483 pares) usa outro
 | Identificação, reservado: 44/47 (93,6%), P 0,958, R 0,979, F1 0,968 | `c3356ab6`; `6ada6bd2` | idem | **Confirmado** (2 medições iguais) |
 | Interações: 1.424 TP, 55 TN, 4 abstenções, FN 0, FP 0; sete graves recuperadas | `8601ffa5` (12/11 00:58) e `1264b525` (11/11 22:50); hash do dataset `62d2ed86…` | TP 1.424 / FP 0 / TN 55 / FN 0; abstenções 4; `major_interactions_missed` vazio | **Confirmado** |
 | Gravidade: 666 coincidentes (110 graves, 482 moderadas, 74 leves) | `8601ffa5` | 110 / 482 / 74, concordância 1,0 | **Confirmado** |
-| Protocolo de 30 pares: 30/30 | `7cdf5716` (11/11 08:22, pré-correção) | TP 20, TN 10, 0 erros | **Confirmado, procedência pré-correção** |
-| Recuperação: Hit@3 híbrido 40,1%, vetorial 36,0%, lexical 20,6% | `87d8519f` (82 bulas) | lexical 0,206; vetorial 0,360 | **Confirmado para a base antiga; não reproduzido na atual** |
+| Protocolo de 30 pares: 30/30 | `7cdf5716` (antes) e `67c9b04b` (13/11, depois) | 30/30 nas duas; gravidade 10/5/5 | **Confirmado antes e depois** |
+| Recuperação: Hit@3 híbrido 40,1% → 39,8%, vetorial 36,0% → 37,0%, lexical 20,6% → 20,4% | `87d8519f` (82 bulas, 369) e `5923700e` (102 bulas, 362) | conclusão igual; intervalos sobrepostos | **Atualizado no artigo** (população diferente: 52 princípios ativos com bula, eram 53) |
 | 234 perguntas: 55,6% aceitas, 92,8% identificação etc. | `docs/qa/avaliacao-producao-2026-11-11.md` (código da PR #59) | — | **Confirmado no relatório**; não reexecutado |
 | Flesch: mediana 58,3 × 30,3; 98,0% (196/200) | `GET /audit/readability?limit=200` hoje | 58,6 × 30,1; 98,0% (196/200) | **Divergente leve** (a população "últimas 200" muda; a proporção coincide) |
 | Uso: 375 perguntas, 5.386 chamadas, US$ 21,63 | `GET /audit/tcc` hoje | 379 perguntas, 5.412 chamadas, US$ 21,88 | **Divergente por data** (consulta posterior; inclui perguntas de avaliação) |
@@ -108,4 +108,36 @@ Deploy informado pelo responsável; confirmado pelo comportamento: a resposta da
 **Testes:** `BuscaToleranteAErrosTest::test_a_base_name_follows_the_ingredient_links_when_the_catalog_text_spells_the_same_drug_inconsistently` e `PerguntaInteracaoGraveTest::test_anlodipino_with_carbamazepine_reaches_the_major_interaction_despite_inconsistent_catalog_spellings` (registros na forma real; anlodipino + carbamazepina chega ao DDInter com gravidade maior). Os dois falham sem a correção e passam com ela. Suíte completa: 833 testes, 831 aprovados, 1 ignorado, 1 falho (o mesmo do DomPDF, de ambiente).
 
 **Pendente:** deploy e nova sondagem dos três pares com anlodipino; conferir se outros nomes do catálogo sofrem do mesmo problema (o padrão vale para qualquer fármaco com grafias incoerentes).
+
+## 8. Verificação em produção após o deploy de `0a59cc1` (13/11/2026, ~10:15)
+
+Deploy `0a59cc1` concluído às 13:03 UTC (Actions, `success`). 6 perguntas, `docs/qa/auditoria-critica-tcc-2026-11-12.sonda-pos-deploy-0a59cc1.json`. Sondagem qualitativa; não substitui o conjunto de pares.
+
+| Pergunta | Medicamentos resolvidos | Par (DDInter) | Status |
+|---|---|---|---|
+| anlodipino + carbamazepina | BESILATO DE ANLODIPINO, CARBAMAZEPINA | **major** | `answered` |
+| anlodipino + fenobarbital | BESILATO DE ANLODIPINO, FENOBARBITAL | **major** | `no_evidence` |
+| anlodipino + itraconazol | BESILATO DE ANLODIPINO, ITRACONAZOL | **major** | `needs_info` |
+| Para que serve o anlodipino? | BESILATO DE ANLODIPINO | — | `answered` (antes: `not_identified`) |
+| Norvasc + Tegretol | NORVASC, TEGRETOL | **major** | `answered` |
+| ibuprofeno + varfarina | IBUPROFENO, VARFARINA SÓDICA | **major** | `answered` |
+
+Em todos os pares, `limitations` traz "A base de interações (DDInter) registra interação de gravidade maior entre …", e `unresolved_names` está vazio.
+
+**Critério do P0 atendido nesta sondagem:** os três casos de anlodipino trazem a interação grave registrada no DDInter, e nenhum par foi apresentado como "sem interação".
+
+**Ressalva (aberta):** o corpo da resposta, escrito pelo modelo, **não cita a gravidade** em nenhum dos 5 pares; ela chega só pela frase fixa em `limitations` (e pelo alerta da tela). Em `no_evidence`/`needs_info`, a resposta não explica a interação. Um próximo passo é exibir a gravidade registrada no topo da resposta, não só em `limitations`. Isso não foi feito.
+
+## 9. Medições de 13/11/2026 e atualização do artigo
+
+Rodadas na VPS pelo responsável, com o código de `0a59cc1`, lidas por `GET /api/v1/audit/evaluations`:
+
+| Registro | Experimento | Resultado |
+|---|---|---|
+| `67c9b04b` (12:39–12:40) | Protocolo de 30 pares, híbrido, `interactions.protocol30.v2.json` (`fa993eed…`) | TP 20, TN 10, FP 0, FN 0, 0 abstenções; gravidade 10 graves, 5 moderadas, 5 leves, concordância 1,0. Igual a `7cdf5716`. |
+| `5923700e` (12:41–12:50) | Recuperação por assunto, `retrieval.subjects.v1.json` (`5e2b54ee…`), base de 102 bulas e 7.363 trechos | 362 consultas (52 dos 56 princípios ativos com bula). Hit@3: híbrida 39,8% (34,9–44,9), vetorial 37,0% (32,2–42,1), lexical 20,4% (16,6–24,9). MRR 0,308 / 0,307 / 0,168. Hit@5: vetorial 51,7%, híbrida 50,3%. |
+
+A recuperação não é uma comparação controlada com a de 11/11: a base passou de 82 para 102 bulas e o conjunto gerou 362 consultas, não 369. A conclusão do artigo não muda: a lexical é a mais fraca; vetorial e híbrida têm intervalos sobrepostos.
+
+**Artigo (MD e DOCX):** resumo e abstract (362 consultas e novos percentuais; "91 a 102 bulas, conforme a data da medição"), Metodologia (base de 13/11 e repetição com `0a59cc1`), Quadro 2 (362 consultas), Resultados (protocolo antes e depois; recuperação de 13/11 com a de 11/11 como comparação), Discussão (causa do anlodipino e correção verificada) e Apêndice B (dois registros novos). Nenhum outro número foi alterado. **A contagem de páginas precisa ser refeita no Word.**
 
