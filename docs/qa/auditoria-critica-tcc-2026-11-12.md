@@ -139,5 +139,24 @@ Rodadas na VPS pelo responsável, com o código de `0a59cc1`, lidas por `GET /ap
 
 A recuperação não é uma comparação controlada com a de 11/11: a base passou de 82 para 102 bulas e o conjunto gerou 362 consultas, não 369. A conclusão do artigo não muda: a lexical é a mais fraca; vetorial e híbrida têm intervalos sobrepostos.
 
-**Artigo (MD e DOCX):** resumo e abstract (362 consultas e novos percentuais; "91 a 102 bulas, conforme a data da medição"), Metodologia (base de 13/11 e repetição com `0a59cc1`), Quadro 2 (362 consultas), Resultados (protocolo antes e depois; recuperação de 13/11 com a de 11/11 como comparação), Discussão (causa do anlodipino e correção verificada) e Apêndice B (dois registros novos). Nenhum outro número foi alterado. **A contagem de páginas precisa ser refeita no Word.**
+**Artigo (MD e DOCX):** resumo e abstract (362 consultas e novos percentuais; "91 a 102 bulas, conforme a data da medição"), Metodologia (base de 13/11 e repetição com `0a59cc1`), Quadro 3 (362 consultas), Resultados (protocolo antes e depois; recuperação de 13/11 com a de 11/11 como comparação), Discussão (causa do anlodipino e correção verificada) e Apêndice B (dois registros novos). Nenhum outro número foi alterado. **A contagem de páginas precisa ser refeita no Word.**
+
+## 10. Revisão crítica do artigo inteiro (13/11/2026)
+
+Leitura completa de `docs/tcc/tcc-bula-ia-texto-final.md` (versão da PR #71), procurando contradições e conferindo os itens do Issue #68. Correções aplicadas no MD e no DOCX:
+
+| # | Problema | Onde | Correção |
+|---|---|---|---|
+| 1 | "a recuperação não foi medida com a base atual" e "medir a recuperação com a base atual", depois da medição de 13/11 | Considerações Finais (limitações e trabalhos futuros) | Removido; trabalho futuro: repetir a medição a cada alteração da base |
+| 2 | "na data da avaliação final (12 nov.)", com medições em 13/11; e "(Apêndice A)" citado depois dos números de 13/11, que não estão no Apêndice A | Metodologia | "em 12 nov. 2026 (Apêndice A)"; a referência ao apêndice passou para os números dele |
+| 3 | O Apêndice B atribuía todas as medições, exceto as de 13/11, ao *commit* 14e61bc. Pelo histórico de implantação (Actions): 11/11 8h20–8h38 rodou em `947ea4e`; 12/11 0h59 (`8601ffa5`) em `037adea` | Apêndice B | Versões corrigidas por medição, "conforme o histórico de implantação" |
+| 4 | "após a correção, a de 12 nov." e Tabela B2 "Depois (12 nov.)", mas uma das medições pós-correção é de 11/11 22h52 | Resultados e Tabela B2 | "as de 11 nov. (22h52) e 12 nov."; "Depois (11 e 12 nov.)" |
+| 5 | O Fluxo diz que, sem afirmação aceita, o sistema "mostra a gravidade e os trechos"; os Resultados dizem que "nenhuma [resposta] exibiu trecho cru" | Fluxo × Geração | O Fluxo distingue a verificação de pares (mostra os trechos) das perguntas livres (lê a bula inteira ou se abstém, sem trecho cru); as Considerações Finais dizem "nas perguntas livres". A Discussão, que fala do "caminho da pergunta livre", agora tem onde se apoiar |
+| 6 | Recall conservador da primeira medição não informado (Issue #68: distinguir do recall condicionado) | Nota da Tabela 2 e Tabela B2 | "*recall* conservador de 0,926"; linha nova na Tabela B2 (0,926 → 1,000) |
+| 7 | Ressalva de representatividade pedida no Issue ausente | Discussão | "as amostras são pequenas e não representam o conjunto dos medicamentos comercializados" |
+| 8 | O recorte de 28 produtos / 1.132 / 376 pares sem data | Metodologia | "na medição de 12 nov. 2026" |
+
+**Conferido sem problema:** remissões e numeração (Quadros 1–3, Tabelas 1–3, A1, B1–B2, C1–C4, Diagrama D1, Figuras E1–E2); todas as citações têm referência; circularidade do gabarito (resumo, Metodologia, Discussão, Considerações); DDInter exportado × 2.0; LGPD separando implementado (consentimento, 90 dias, sem identificadores) de pendente (art. 33); legibilidade ≠ compreensão; rejeição do validador não tratada como alucinação; somas das Tabelas C2 e C3; bulas dos EUA 64 prontas e 12 não encontradas.
+
+**Deixado para os autores:** "et al." sem itálico em 6 citações (Lewis, Martins, Sicard, Tian ×2, Xiong) e em itálico nas demais (estilo); paginação no Word.
 
