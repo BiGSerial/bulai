@@ -35,7 +35,7 @@ O verificador de pares (`InteractionEvaluator`, usado nos 1.483 pares) usa outro
 | # | Achado | Sev. | Evidência | Causa-raiz | Ação | Estado |
 |---|---|---|---|---|---|---|
 | 1 | Pergunta livre sobre par grave não traz a interação (anlodipino) | P0 | JSON de sondagem acima; teste `PerguntaInteracaoGraveTest` | Nome não resolvido some; par sem vínculo pulado; gravidade dependia do modelo | Correção desta PR | Corrigido no código; **sem deploy, não verificado em produção** |
-| 2 | Detector não resolve "anlodipino" (e talvez outros nomes com muitas associações) | P0 | 2 sondagens (`medicamentos_resolvidos`) | Não confirmada (ver acima) | Reproduzir com o catálogo de produção; revisar `focus()` | **Aberto** |
+| 2 | Detector não resolve "anlodipino" | P0 | 2 sondagens (`medicamentos_resolvidos`); catálogo de produção (seção 7) | `focus()` decidia pelo texto do catálogo, que grafa o mesmo fármaco de formas incoerentes | Foco pelos vínculos (seção 7) | Corrigido no código; **sem deploy, não verificado em produção** |
 | 3 | Artigo diz que a causa dos 3 casos "não foi investigada" | P2 | `tcc-bula-ia-texto-final.md`, Discussão | Texto anterior ao diagnóstico | Proposta de redação (seção 5); **não alterei DOCX/MD** | Aberto, depende dos autores |
 | 4 | Protocolo de 30 pares citado depois da correção, mas medido antes | P1 | Run `7cdf5716` (11/11 08:22, híbrido, 30/30) é anterior à PR #60; **não há protocolo de 30 pós-correção em produção** | Registro único, anterior | Reexecutar `evaluation:run interactions --dataset=…protocol30.v2.json --mode=hybrid` | **Aberto** (número confirmado, procedência pré-correção) |
 | 5 | Recuperação (369 consultas) medida com 82 bulas; base atual tem 91 | P1 | Run `87d8519f` (11/11 08:22); inventário 17:03 de 12/11: 91 bulas, 6.699 trechos | Base mudou depois da medição; o artigo já ressalva | Reexecutar `evaluation:run retrieval` na base atual | **Aberto** |
@@ -79,3 +79,33 @@ O verificador de pares (`InteractionEvaluator`, usado nos 1.483 pares) usa outro
 ## Comandos e artefatos
 
 `GET /api/v1/{me,stats/knowledge,audit/evaluations,audit/tcc,audit/quality,audit/readability?limit=200|1000}`; 3× `POST /api/v1/evaluation/ask`; `php artisan test --compact` (831 testes); `vendor/bin/pint --dirty`. Hashes dos datasets em `…pos-correcoes-2026-11-11.md`.
+
+## 6. Verificação em produção após o deploy de `8104b3e` (12/11/2026, ~19:00)
+
+Deploy informado pelo responsável; confirmado pelo comportamento: a resposta da API passou a trazer `pair_interactions` e `retrieval.unresolved_names`. 5 perguntas, `docs/qa/auditoria-critica-tcc-2026-11-12.sonda-pos-deploy-8104b3e.json`. É uma sondagem qualitativa, não substitui o conjunto de pares.
+
+| Pergunta | Antes (11–12/11) | Depois (`8104b3e`) |
+|---|---|---|
+| anlodipino + carbamazepina | par ausente; "sem orientação específica" | `unresolved_names: [anlodipino]`; limitação "Não consegui identificar no catálogo: anlodipino… não foi verificada"; resposta diz que não foi possível confirmar |
+| anlodipino + fenobarbital | `no_evidence` | idem (anlodipino não resolvido, declarado) |
+| anlodipino + itraconazol | `needs_info` | idem; `no_evidence`, "a interação não foi verificada" |
+| Norvasc + Tegretol | par existia, gravidade não aparecia | `pair_interactions`: **major**; limitação "DDInter registra interação de gravidade maior entre NORVASC e TEGRETOL" |
+| ibuprofeno + varfarina | alerta pela bula dos EUA, sem gravidade do DDInter | `pair_interactions`: **major** (IBUPROFENO × VARFARINA SÓDICA); limitação com a gravidade |
+
+**Leitura.** A garantia do P0 vale: nenhum dos 5 casos foi apresentado como "sem interação", e a gravidade registrada chega em texto fixo quando o par é resolvido. **A causa nº 2 persiste**: o detector ainda não resolve "anlodipino", então os três pares com anlodipino continuam **sem a interação grave**; agora a falha é declarada, não silenciosa. O achado nº 2 segue aberto, e o critério "os três casos de anlodipino trazem a interação grave" **não foi atendido**. Observação: a resposta do ibuprofeno + varfarina não cita a gravidade no corpo do texto (só em `limitations`).
+
+## 7. Causa de o detector não resolver "anlodipino" (12/11/2026, noite)
+
+**Dados de produção** (consultas de leitura via `bulai-deploy artisan tinker`, rodadas pelo responsável): 172 registros do catálogo citam "anlodip"; os 60 primeiros foram examinados. Quase todos estão ligados a `Amlodipine` (aliases: `besilato de anlodipino`, `amlodipine`, `amlodipina`), mas o **texto** do catálogo é incoerente:
+- `AMLOCOR` (id 8374): ativo "BESILATO DE AMLODIPINA, BESILATO DE ANLODIPINO", o mesmo fármaco escrito duas vezes, ligado só a `Amlodipine`;
+- `ANLODIPINO BESILATO` (id 7367): inativo, sem princípio ativo informado nem vínculo;
+- `VALSARTANA + BESILATO DE ANLODIPINO` (id 11040): ativo informado só "VALSARTANA".
+
+**Mecanismo, reproduzido em teste com os 60 registros reais:** a regra de foco (`MedicationMentionDetector::focus()`) escolhia o grupo "só com o ativo" pelos **componentes do texto**. O `AMLOCOR` faz o grupo de `Amlodipine` parecer uma associação ("amlodipina" + "anlodipino"), então o único grupo "de um componente" era o registro 7367, inativo e sem vínculo: a pergunta virava "ANLODIPINO BESILATO", sem princípio ativo e sem interações. Basta mais um registro incoerente (nome "ANLODIPINO…" com ativo "AMLODIPINA", forma que existe no catálogo) para que nenhum texto seja comum a todos os grupos; com mais de 3 grupos, o termo vira **ambíguo** e some, como observado em produção. **O registro exato que causa o sumiço em produção não foi identificado** (os 112 registros restantes não foram examinados); os dois modos têm a mesma causa e a mesma correção.
+
+**Correção:** antes do foco pelo texto, o detector usa os **vínculos**: se todos os grupos ligados partilham um princípio ativo e há um grupo ligado só a ele, é esse o remédio (`linkedSingleIngredientGroups()`). Termos sem vínculo (ex.: pseudoefedrina só em associações) seguem a regra antiga.
+
+**Testes:** `BuscaToleranteAErrosTest::test_a_base_name_follows_the_ingredient_links_when_the_catalog_text_spells_the_same_drug_inconsistently` e `PerguntaInteracaoGraveTest::test_anlodipino_with_carbamazepine_reaches_the_major_interaction_despite_inconsistent_catalog_spellings` (registros na forma real; anlodipino + carbamazepina chega ao DDInter com gravidade maior). Os dois falham sem a correção e passam com ela. Suíte completa: 833 testes, 831 aprovados, 1 ignorado, 1 falho (o mesmo do DomPDF, de ambiente).
+
+**Pendente:** deploy e nova sondagem dos três pares com anlodipino; conferir se outros nomes do catálogo sofrem do mesmo problema (o padrão vale para qualquer fármaco com grafias incoerentes).
+

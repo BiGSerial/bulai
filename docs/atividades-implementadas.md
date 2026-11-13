@@ -322,6 +322,7 @@ Testes: `ActiveIngredientCatalogTest` (vínculo/criação do princípio), `Knowl
 
 - **Problema:** em perguntas sobre "anlodipino + carbamazepina/itraconazol", a detecção resolvia só um dos remédios e o par nunca chegava ao DDInter; par sem princípio ativo ligado era pulado em silêncio; e a gravidade só aparecia se o modelo a citasse.
 - **Correção:** `MedicationQuestionService` marca o par sem vínculo como `unverified`, declara o nome citado e não resolvido (`retrieval.unresolved_names`) e coloca em `limitations` uma frase fixa com a gravidade registrada no DDInter. A API `POST /evaluation/ask` devolve `pair_interactions`.
-- **Testes:** `tests/Feature/Consulta/PerguntaInteracaoGraveTest.php` (falham sem a correção). **Sem deploy nem verificação em produção.** A causa de o detector não resolver "anlodipino" segue aberta.
+- **Testes:** `tests/Feature/Consulta/PerguntaInteracaoGraveTest.php` (falham sem a correção). Verificado em produção após o deploy de `8104b3e`.
+- **Detector ("anlodipino" sumia):** `MedicationMentionDetector::focus()` decidia pelo texto do catálogo, que grafa o mesmo fármaco de formas incoerentes (`AMLOCOR`: "BESILATO DE AMLODIPINA, BESILATO DE ANLODIPINO"). Agora, antes do texto, usa os vínculos: grupo ligado só ao princípio ativo comum a todos os grupos ligados (`linkedSingleIngredientGroups()`). Testes em `BuscaToleranteAErrosTest` e `PerguntaInteracaoGraveTest`, com registros na forma real. **Sem deploy.**
 - **Relatório:** `docs/qa/auditoria-critica-tcc-2026-11-12.md`.
 

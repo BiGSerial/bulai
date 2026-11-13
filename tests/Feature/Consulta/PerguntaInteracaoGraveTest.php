@@ -141,6 +141,37 @@ final class PerguntaInteracaoGraveTest extends TestCase
         $this->assertTrue(collect($result['limitations'])->contains(fn (string $line): bool => str_contains($line, 'Não consegui identificar no catálogo: anlodipino')));
     }
 
+    /** Produção, 12/11/2026: "anlodipino" sumia porque o catálogo grafa o mesmo fármaco de formas incoerentes (forma real dos registros). */
+    public function test_anlodipino_with_carbamazepine_reaches_the_major_interaction_despite_inconsistent_catalog_spellings(): void
+    {
+        $amlodipine = ActiveIngredient::factory()->create(['canonical_name' => 'Amlodipine', 'normalized_name' => 'amlodipine']);
+        $catalog = function (string $name, ?string $active, string $status, bool $linked) use ($amlodipine): AnvisaMedicine {
+            $medicine = AnvisaMedicine::factory()->create(['product_name' => $name, 'normalized_product_name' => mb_strtolower($name), 'active_ingredient' => $active, 'normalized_active_ingredient' => $active === null ? null : mb_strtolower($active), 'registration_status' => $status]);
+            if ($linked) {
+                $medicine->ingredients()->attach($amlodipine->id, ['component_text' => (string) $active, 'method' => 'alias', 'confidence' => 1]);
+            }
+
+            return $medicine;
+        };
+        $generic = $catalog('BESILATO DE ANLODIPINO', 'BESILATO DE ANLODIPINO', 'Ativo', true);
+        $catalog('AMLOCOR', 'BESILATO DE AMLODIPINA, BESILATO DE ANLODIPINO', 'Inativo', true);
+        $catalog('ANLODIPINO BESILATO', null, 'Inativo', false);
+        $catalog('ANLODIPINO 5 MG', 'BESILATO DE AMLODIPINA', 'Inativo', false);
+        $catalog('LOTAR', 'BESILATO DE ANLODIPINO, losartana potássica', 'Ativo', true)->ingredients()->attach(ActiveIngredient::factory()->create(['canonical_name' => 'Losartan', 'normalized_name' => 'losartan'])->id, ['component_text' => 'losartana', 'method' => 'alias', 'confidence' => 1]);
+        $carbamazepina = $this->medicine('CARBAMAZEPINA', 'CARBAMAZEPINA');
+        $this->majorBetween($generic, $carbamazepina);
+        $this->leaflet($generic);
+        $this->leaflet($carbamazepina);
+
+        $result = $this->ask('Posso tomar anlodipino junto com carbamazepina?', ['anlodipino', 'carbamazepina']);
+
+        $this->assertSame([], $result['retrieval']['unresolved_names']);
+        $this->assertSame(['BESILATO DE ANLODIPINO', 'CARBAMAZEPINA'], array_column($result['medicines'], 'name'));
+        $this->assertSame('major', $result['pair_interactions'][0]['severity']);
+        $this->assertStringContainsString('registra interação de gravidade maior', $this->prompts());
+        $this->assertContains('A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e CARBAMAZEPINA.', $result['limitations']);
+    }
+
     public function test_a_pair_with_no_registered_interaction_keeps_the_honest_absence_wording_and_no_extra_limitation(): void
     {
         $this->leaflet($this->medicine('DORFLEX', 'ORFENADRINA'));

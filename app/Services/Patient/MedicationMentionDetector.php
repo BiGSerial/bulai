@@ -377,6 +377,11 @@ final class MedicationMentionDetector
             return array_values($groups);
         }
 
+        $linkedSingle = $this->linkedSingleIngredientGroups($groups);
+        if ($linkedSingle !== []) {
+            return array_slice($linkedSingle, 0, self::MAX_GROUPS_PER_TERM);
+        }
+
         // Todos os grupos têm em comum o princípio ativo que o termo nomeia ("losartana" → losartana; losartana + hidroclorotiazida;
         // "anlodipino" → besilato de anlodipino):
         // a pessoa quis o remédio só com esse ativo, se existir; senão, os maiores grupos.
@@ -393,6 +398,34 @@ final class MedicationMentionDetector
         }
 
         return count($groups) > self::MAX_GROUPS_PER_TERM ? [] : array_values($groups);
+    }
+
+    /**
+     * Foco pelos vínculos, antes do foco pelo texto: se todos os grupos já ligados partilham um princípio ativo e existe um
+     * grupo ligado só a ele, é esse o remédio. O texto do catálogo tem grafias incoerentes para o mesmo fármaco ("BESILATO DE
+     * AMLODIPINA, BESILATO DE ANLODIPINO" num registro; "ANLODIPINO 5 MG" com ativo "AMLODIPINA" noutro): pelo texto, o grupo
+     * do anlodipino parecia uma associação e o termo ficava ambíguo ou caía num registro inativo e sem vínculo. Produção, 12/11/2026.
+     *
+     * @param  array<string, list<AnvisaMedicine>>  $groups
+     * @return list<list<AnvisaMedicine>>
+     */
+    private function linkedSingleIngredientGroups(array $groups): array
+    {
+        $idsByKey = [];
+        foreach (array_keys($groups) as $key) {
+            if (str_starts_with($key, 'i:')) {
+                $idsByKey[$key] = explode('-', substr($key, 2));
+            }
+        }
+        if ($idsByKey === []) {
+            return [];
+        }
+        $shared = array_values(array_intersect(...array_values($idsByKey)));
+        if ($shared === []) {
+            return [];
+        }
+
+        return array_values(array_filter($groups, fn (string $key): bool => isset($idsByKey[$key]) && count($idsByKey[$key]) === 1 && in_array($idsByKey[$key][0], $shared, true), ARRAY_FILTER_USE_KEY));
     }
 
     /**
