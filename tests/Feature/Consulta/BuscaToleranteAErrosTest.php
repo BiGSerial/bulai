@@ -86,4 +86,34 @@ final class BuscaToleranteAErrosTest extends TestCase
         $this->assertSame(['NORVASC'], $names('anlodipino dá inchaço?'), 'entre o remédio só com o ativo e a combinação, fica o remédio só com ele');
         $this->assertSame([], $names('posso comer sodio?'), 'nome-base curto não vira sal do catálogo');
     }
+
+    /**
+     * Produção, 12/11/2026 (Issue #68): "anlodipino" sumia da pergunta. O catálogo grafa o mesmo fármaco de formas
+     * incoerentes; pelo texto, o grupo ligado ao Amlodipine parecia associação. Registros na forma real do catálogo.
+     */
+    public function test_a_base_name_follows_the_ingredient_links_when_the_catalog_text_spells_the_same_drug_inconsistently(): void
+    {
+        $amlodipine = ActiveIngredient::factory()->create(['canonical_name' => 'Amlodipine', 'normalized_name' => 'amlodipine']);
+        $catalog = fn (string $name, ?string $active, string $status, array $ingredients): AnvisaMedicine => tap(
+            AnvisaMedicine::factory()->create(['product_name' => $name, 'normalized_product_name' => mb_strtolower($name), 'active_ingredient' => $active, 'normalized_active_ingredient' => $active === null ? null : mb_strtolower($active), 'registration_status' => $status]),
+            fn (AnvisaMedicine $medicine) => collect($ingredients)->each(fn (ActiveIngredient $ingredient) => $medicine->ingredients()->attach($ingredient->id, ['component_text' => (string) $active, 'method' => 'alias', 'confidence' => 1])),
+        );
+        $other = fn (string $name): ActiveIngredient => ActiveIngredient::factory()->create(['canonical_name' => $name, 'normalized_name' => mb_strtolower($name)]);
+        $catalog('BESILATO DE ANLODIPINO', 'BESILATO DE ANLODIPINO', 'Ativo', [$amlodipine]);
+        $catalog('NORVASC', 'BESILATO DE ANLODIPINO', 'Inativo', [$amlodipine]);
+        $catalog('AMLOCOR', 'BESILATO DE AMLODIPINA, BESILATO DE ANLODIPINO', 'Inativo', [$amlodipine]);
+        $catalog('ANLODIPINO BESILATO', null, 'Inativo', []);
+        $catalog('BENICARANLO', 'OLMESARTANA MEDOXOMILA, BESILATO DE ANLODIPINO', 'Ativo', [$amlodipine, $other('Olmesartan')]);
+        $catalog('BRASART BCC', 'VALSARTANA, BESILATO DE ANLODIPINO', 'Ativo', [$amlodipine, $valsartan = $other('Valsartan')]);
+        $catalog('EXFORGE HCT', 'VALSARTANA, HIDROCLOROTIAZIDA, BESILATO DE ANLODIPINO', 'Ativo', [$amlodipine, $valsartan, $other('Hydrochlorothiazide')]);
+        $catalog('LOTAR', 'BESILATO DE ANLODIPINO, losartana potássica', 'Ativo', [$amlodipine, $other('Losartan')]);
+        $detector = app(MedicationMentionDetector::class);
+        $found = fn (string $text): array => array_map(fn (array $m): string => $m['name'].($m['identified'] ? '' : ' (sem vínculo)'), $detector->detect($text));
+
+        $this->assertSame(['BESILATO DE ANLODIPINO'], $found('anlodipino dá inchaço?'), 'não cai no registro inativo e sem vínculo');
+
+        $catalog('ANLODIPINO 5 MG', 'BESILATO DE AMLODIPINA', 'Inativo', []);
+        $this->assertSame(['BESILATO DE ANLODIPINO'], $found('anlodipino dá inchaço?'), 'um registro incoerente não torna o termo ambíguo');
+        $this->assertSame(['NORVASC'], $found('Norvasc dá inchaço?'), 'a marca continua pelo nome exato');
+    }
 }

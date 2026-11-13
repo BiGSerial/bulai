@@ -1,0 +1,95 @@
+[
+ {
+  "pergunta": "Posso tomar anlodipino junto com carbamazepina?",
+  "status": "answered",
+  "uuid": "b497eb6b-770d-4bd2-b748-16b986f9d27c",
+  "medicamentos_resolvidos": [
+   "CARBAMAZEPINA"
+  ],
+  "unresolved_names": [
+   "anlodipino"
+  ],
+  "pair_interactions": [],
+  "limitacoes": [
+   "Não consegui identificar no catálogo: anlodipino. A interação com os outros remédios citados não foi verificada na base de interações (DDInter), e isso não indica que ela não exista."
+  ],
+  "resposta": "A carbamazepina pode diminuir a quantidade no sangue de outros remédios que o fígado processa pela mesma via que ela estimula. Isso pode reduzir o efeito desses remédios.\n\nNão foi possível confirmar se existe orientação específica para a combinação de anlodipino com carbamazepina, e esse par não foi verificado na base de interações. Isso não quer dizer que seja seguro tomar os dois juntos. Quem pode avaliar é o seu médico ou farmacêutico."
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com fenobarbital?",
+  "status": "answered",
+  "uuid": "91f87108-57e4-4271-8fcf-9712121c36a1",
+  "medicamentos_resolvidos": [
+   "FENOBARBITAL"
+  ],
+  "unresolved_names": [
+   "anlodipino"
+  ],
+  "pair_interactions": [],
+  "limitacoes": [
+   "Não consegui identificar no catálogo: anlodipino. A interação com os outros remédios citados não foi verificada na base de interações (DDInter), e isso não indica que ela não exista."
+  ],
+  "resposta": "O fenobarbital pode acelerar a eliminação de muitos remédios pelo corpo, o que pode diminuir a quantidade deles no sangue e reduzir o efeito esperado.\n\nNão foi possível verificar a interação específica entre anlodipino e fenobarbital. Isso não quer dizer que ela não exista, nem que a combinação seja segura. Se você usa os dois, vale conversar com seu médico ou farmacêutico. Eles podem avaliar se a combinação é adequada para você e se precisa de acompanhamento.\n\nVocê já usa os dois remédios ou está pensando em começar algum deles?"
+ },
+ {
+  "pergunta": "Posso tomar anlodipino junto com itraconazol?",
+  "status": "no_evidence",
+  "uuid": "7d6e6304-4124-4439-b3b9-eb1230588cd9",
+  "medicamentos_resolvidos": [
+   "ITRACONAZOL"
+  ],
+  "unresolved_names": [
+   "anlodipino"
+  ],
+  "pair_interactions": [],
+  "limitacoes": [
+   "Não consegui identificar no catálogo: anlodipino. A interação com os outros remédios citados não foi verificada na base de interações (DDInter), e isso não indica que ela não exista."
+  ],
+  "resposta": "Não encontrei orientação específica sobre tomar anlodipino junto com itraconazol. A interação entre esses dois remédios não foi verificada, e isso não quer dizer que ela não exista. Só um médico ou farmacêutico pode dizer se essa combinação é adequada para você. Eles conhecem seus outros remédios e sua saúde. Vale contar a eles que você usa os dois."
+ },
+ {
+  "pergunta": "Posso tomar Norvasc junto com Tegretol?",
+  "status": "answered",
+  "uuid": "2084ef64-2e70-4d22-bfe8-6ede041d2abd",
+  "medicamentos_resolvidos": [
+   "NORVASC",
+   "TEGRETOL"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "NORVASC",
+    "b": "TEGRETOL",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "A base de interações (DDInter) registra interação de gravidade maior entre NORVASC e TEGRETOL."
+  ],
+  "resposta": "Avise sempre o médico ou o farmacêutico sobre todos os remédios que você usa, inclusive os comprados sem receita, porque eles podem interagir com o Tegretol.\n\nNão dá para dizer que essa combinação é segura para você. Converse com o seu médico ou farmacêutico antes de tomar os dois juntos, e não mude nada por conta própria."
+ },
+ {
+  "pergunta": "Posso tomar ibuprofeno junto com varfarina?",
+  "status": "answered",
+  "uuid": "9e379b84-c6d6-4df4-b359-f996cbe9ae19",
+  "medicamentos_resolvidos": [
+   "IBUPROFENO",
+   "VARFARINA SÓDICA"
+  ],
+  "unresolved_names": [],
+  "pair_interactions": [
+   {
+    "a": "IBUPROFENO",
+    "b": "VARFARINA SÓDICA",
+    "severity": "major",
+    "severity_label": "Maior"
+   }
+  ],
+  "limitacoes": [
+   "Ainda não há bula cadastrada para: VARFARINA SÓDICA.",
+   "A base de interações (DDInter) registra interação de gravidade maior entre IBUPROFENO e VARFARINA SÓDICA."
+  ],
+  "resposta": "O ibuprofeno não deve ser tomado junto com outros remédios para dor, a não ser que um médico oriente. Também é indicado conversar com um médico antes de usá-lo se você já toma outros medicamentos.\n\nSe você toma varfarina, a decisão sobre usar ou não o ibuprofeno depende da sua situação de saúde e deve ser combinada com seu médico ou farmacêutico antes de tomar qualquer dose."
+ }
+]
