@@ -160,3 +160,10 @@ Leitura completa de `docs/tcc/tcc-bula-ia-texto-final.md` (versão da PR #71), p
 
 **Deixado para os autores:** "et al." sem itálico em 6 citações (Lewis, Martins, Sicard, Tian ×2, Xiong) e em itálico nas demais (estilo); paginação no Word.
 
+## 11. Evidências técnicas acrescentadas aos apêndices (13/11/2026)
+
+- **Tabela B3:** SHA-256 dos 5 conjuntos de teste; conferido que o hash de cada um dos 12 registros de `evaluation:run` em produção coincide com o arquivo do repositório.
+- **Tabela C5:** os 364 motivos de recusa das 820 afirmações da bateria de 11/11, com o significado de cada código do `ExplanationValidator`; 89 (24,5%) são recusas por forma. O texto das afirmações recusadas não é gravado, só o motivo (limitação registrada na nota).
+- **Apêndice F:** Tabela F1, as perguntas de anlodipino em 5 momentos, com a versão do código pelo histórico de implantação e os medicamentos reconhecidos lidos de `GET /api/v1/questions/{uuid}`; Tabela F2, o rastreio completo da pergunta `98ac21b7` (13/11, 10h16), incluindo os limites que ele expõe (trecho mal segmentado; trecho relevante recuperado e não usado).
+- Remissões no corpo: Discussão → Apêndice F; Geração → Tabela C5; Considerações Finais (rastreabilidade) → Apêndice F.
+

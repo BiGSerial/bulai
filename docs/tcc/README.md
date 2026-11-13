@@ -78,7 +78,7 @@ Redigidas em 04/11/2026 a partir do código, dos testes e de execuções registr
 
 ## Texto final (artigo científico)
 
-O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), espelho do artigo em Word `Word/TCC_BULA-IA_artigo_2026-11-12.docx` (a versão em Word é a de referência: título, tema e formatação da FAESA não mudam). Todos os números vêm do servidor de produção, em 11 e 12/11/2026 (registros `prod-*` e API `/audit/*`, Apêndices A a E): a identificação e a verificação de interações foram repetidas após a correção dos princípios ativos duplicados (PR #60); o protocolo de 30 pares e a recuperação foram repetidos em 13/11 (registros `67c9b04b` e `5923700e`, *commit* `0a59cc1`, base de 102 bulas; 362 consultas); a comparação sem recuperação continua a de 11/11 (base de 82 bulas). O artigo tem até 25 páginas até a última referência; os apêndices vêm depois.
+O texto final está em [tcc-bula-ia-texto-final.md](tcc-bula-ia-texto-final.md), espelho do artigo em Word `Word/TCC_BULA-IA_artigo_2026-11-12.docx` (a versão em Word é a de referência: título, tema e formatação da FAESA não mudam). Todos os números vêm do servidor de produção, em 11 e 12/11/2026 (registros `prod-*` e API `/audit/*`, Apêndices A a F): a identificação e a verificação de interações foram repetidas após a correção dos princípios ativos duplicados (PR #60); o protocolo de 30 pares e a recuperação foram repetidos em 13/11 (registros `67c9b04b` e `5923700e`, *commit* `0a59cc1`, base de 102 bulas; 362 consultas); a comparação sem recuperação continua a de 11/11 (base de 82 bulas). O artigo tem até 25 páginas até a última referência; os apêndices vêm depois.
 
 O texto segue o formato de artigo científico e foi revisado em 11/11/2026 contra estas normas:
 

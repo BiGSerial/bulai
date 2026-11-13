@@ -207,7 +207,7 @@ Em 13 nov. 2026, com 102 bulas, nas 362 consultas, uma por assunto da bula para 
 
 ### Geração e Fundamentação das Respostas
 
-Em 11 nov. 2026, 234 perguntas livres foram feitas ao servidor de produção: 199 foram respondidas, entre elas 170 das 196 sobre bulas brasileiras (86,7%). O medicamento certo foi identificado em 92,8% (206/222; IC 95%: 88,6%–95,5%), e 99,4% das respostas (176/177) trouxeram ao menos uma fonte da seção do assunto perguntado. O validador aceitou 55,6% das afirmações propostas pelo modelo (456/820; IC 95%: 52,2%–59,0%), recusando as demais sobretudo por falta de sustentação lexical no trecho citado; mesmo assim, toda resposta exibida teve alguma afirmação aceita, e nenhuma exibiu trecho cru: quando as afirmações aceitas não bastaram, o sistema leu a bula inteira (82 perguntas) ou se absteve. Nenhuma resposta foi revisada por profissional de saúde, e sua correção factual não foi medida (Apêndice C).
+Em 11 nov. 2026, 234 perguntas livres foram feitas ao servidor de produção: 199 foram respondidas, entre elas 170 das 196 sobre bulas brasileiras (86,7%). O medicamento certo foi identificado em 92,8% (206/222; IC 95%: 88,6%–95,5%), e 99,4% das respostas (176/177) trouxeram ao menos uma fonte da seção do assunto perguntado. O validador aceitou 55,6% das afirmações propostas pelo modelo (456/820; IC 95%: 52,2%–59,0%), recusando as demais sobretudo por falta de sustentação lexical no trecho citado (Tabela C5); mesmo assim, toda resposta exibida teve alguma afirmação aceita, e nenhuma exibiu trecho cru: quando as afirmações aceitas não bastaram, o sistema leu a bula inteira (82 perguntas) ou se absteve. Nenhuma resposta foi revisada por profissional de saúde, e sua correção factual não foi medida (Apêndice C).
 
 Nas 200 últimas respostas gravadas, o índice de Flesch adaptado ao português (Martins et al., 1996) teve mediana de 58,3 (“fácil”), contra 30,3 (“difícil”) dos trechos de bula que as sustentam, e a resposta foi mais fácil que sua fonte em 98,0% dos casos (196/200; IC 95%: 95,0%–99,2%); o índice mede a facilidade de leitura, e não a compreensão.
 
@@ -235,7 +235,7 @@ Toda interação apontada pelo modelo está registrada no DDInter, e as 9 graves
 
 Os resultados sustentam parcialmente a hipótese da Introdução. Com a decisão sobre a interação fora do modelo, as respostas tornaram-se rastreáveis, a gravidade passou a ser a da fonte e, diante da falta de informação, o sistema preferiu a abstenção ou o aviso de interação não identificada a completar lacunas; as respostas também foram mais fáceis de ler que as bulas, o que não equivale a compreensão. A detecção mais confiável, porém, não pôde ser verificada em termos clínicos, pois o único gabarito é a própria base consultada, de cobertura parcial: o DDInter importado tem 22% menos interações que a versão 2.0 (Tian et al., 2025). Sem recuperação, o modelo comportou-se ao contrário do relatado por Sicard et al. (2025), em que LLMs usados isoladamente apontaram interações inexistentes: aqui, não indicou interações ausentes da base, embora a amostra tivesse apenas quatro pares sem interação, mas deixou de reconhecer 50 de 114 registradas; aquele estudo, porém, analisou casos clínicos. As amostras são pequenas e não representam o conjunto dos medicamentos comercializados, os gabaritos foram elaborados pela própria equipe e a validação por profissional de saúde não foi realizada, por depender de apreciação por Comitê de Ética em Pesquisa; logo, nenhuma explicação teve a correção factual verificada.
 
-As sete interações graves sem alerta da primeira medição são, além de limitação, evidência sobre a própria arquitetura. A consulta ao DDInter funcionou para os pares que chegaram corretamente à base; as perdas ocorreram antes, no vínculo entre o produto e o princípio ativo, e, em cinco dos sete casos, a resposta informou interação não identificada. A correção eliminou as perdas no conjunto medido, mas ele serviu para ajustar o sistema, e uma sondagem de perguntas livres logo após a implantação ainda não trouxe a interação grave em três casos de anlodipino. A investigação mostrou duas falhas no caminho da pergunta livre, distinto do verificador de pares: o remédio citado e não reconhecido era descartado sem aviso, e o catálogo da ANVISA grafa o mesmo fármaco de formas incoerentes (“besilato de amlodipina” e “besilato de anlodipino” num mesmo registro), o que impedia reconhecer o anlodipino. Após as correções, em 13 nov. 2026, a gravidade registrada passou a ser informada nos três casos, em texto fixo, e não na explicação gerada pelo modelo. A confiabilidade depende, assim, de validar toda a cadeia, do nome digitado ao registro da fonte, repetindo o teste de integração a cada alteração da base.
+As sete interações graves sem alerta da primeira medição são, além de limitação, evidência sobre a própria arquitetura. A consulta ao DDInter funcionou para os pares que chegaram corretamente à base; as perdas ocorreram antes, no vínculo entre o produto e o princípio ativo, e, em cinco dos sete casos, a resposta informou interação não identificada. A correção eliminou as perdas no conjunto medido, mas ele serviu para ajustar o sistema, e uma sondagem de perguntas livres logo após a implantação ainda não trouxe a interação grave em três casos de anlodipino. A investigação mostrou duas falhas no caminho da pergunta livre, distinto do verificador de pares: o remédio citado e não reconhecido era descartado sem aviso, e o catálogo da ANVISA grafa o mesmo fármaco de formas incoerentes (“besilato de amlodipina” e “besilato de anlodipino” num mesmo registro), o que impedia reconhecer o anlodipino. Após as correções, em 13 nov. 2026, a gravidade registrada passou a ser informada nos três casos, em texto fixo, e não na explicação gerada pelo modelo (Apêndice F). A confiabilidade depende, assim, de validar toda a cadeia, do nome digitado ao registro da fonte, repetindo o teste de integração a cada alteração da base.
 
 
 ## CONSIDERAÇÕES FINAIS
@@ -244,7 +244,7 @@ Este trabalho investigou como os LLMs, apoiados por recuperação de fontes ofic
 
 Quanto aos objetivos específicos, as bulas da ANVISA e o DDInter foram reunidos, e as bulas, indexadas para busca lexical, vetorial e híbrida. O sistema identificou os princípios ativos corretos em 93,6% das consultas reservadas e, após a correção dos princípios ativos duplicados, a verificação dos 1.483 pares encontrou as 1.424 interações registradas, sem falso positivo e com a gravidade da fonte nos 666 pares classificados; a primeira medição havia deixado sem alerta 7 das 110 interações graves. Na recuperação, os modos com componente vetorial superaram o lexical, e o validador aceitou 55,6% das afirmações propostas, sem que nenhum trecho cru fosse exibido nas perguntas livres.
 
-A contribuição está na forma de recuperar e apresentar a informação, e não em uma nova base farmacológica, pois cada resposta pode ser rastreada até sua fonte. Como limitações, o DDInter importado corresponde à primeira versão da base e tem cobertura parcial, de modo que a ausência de registro não pode ser comunicada como segurança; a confiabilidade da verificação depende da cadeia que liga o nome digitado ao registro da fonte; o gabarito provém da própria base consultada, o que impede medir a correção clínica; e a transferência internacional de dados ao provedor do modelo ainda carece dos mecanismos do art. 33 da LGPD.
+A contribuição está na forma de recuperar e apresentar a informação, e não em uma nova base farmacológica, pois cada resposta pode ser rastreada até sua fonte (Apêndice F). Como limitações, o DDInter importado corresponde à primeira versão da base e tem cobertura parcial, de modo que a ausência de registro não pode ser comunicada como segurança; a confiabilidade da verificação depende da cadeia que liga o nome digitado ao registro da fonte; o gabarito provém da própria base consultada, o que impede medir a correção clínica; e a transferência internacional de dados ao provedor do modelo ainda carece dos mecanismos do art. 33 da LGPD.
 
 Como trabalhos futuros, propõem-se repetir o teste de integração e a medição da recuperação a cada alteração da base; validar as respostas com profissional de saúde, após aprovação pelo Comitê de Ética em Pesquisa; avaliar a usabilidade e a compreensão com a escala SUS (*System Usability Scale*) junto a usuários leigos; construir um gabarito independente do DDInter; e ampliar a base e a avaliação da geração. Assim, o BULA-IA pode consolidar-se como camada de acesso rastreável à informação sobre medicamentos, sem substituir a orientação profissional.
 
@@ -374,6 +374,20 @@ Tabela B2 - Verificação de interações antes e depois da correção (1.483 pa
 
 Fonte: Elaborado pelos autores (2026), a partir dos registros de evaluation:run.
 
+Os cinco conjuntos de teste não mudaram entre as rodadas: o *hash* gravado em cada um dos 12 registros da Tabela B1 coincide com o do arquivo correspondente no repositório do projeto (database/evaluation/).
+
+Tabela B3 - Conjuntos de teste e respectivos hashes SHA-256
+
+| **Conjunto (uso)** | **SHA-256** |
+| --- | --- |
+| interactions.v2.json (1.483 pares; sorteio dos 120 pares sem recuperação) | 62d2ed86ce1a058e4d8b2ad83d3dcf3e614838b7abf1b1ce4a24b9d8b7905ba4 |
+| interactions.protocol30.v2.json (protocolo de 30 pares) | fa993eeddb401a1e8ce3ccf159ddf4a7aeb12b4f4a1f65386c16fd108398de70 |
+| identification.v2.json (identificação, ajuste) | a5f54b221e1aea631479cbc390c898bd431ca9692a2e97573bfa286ef8edf546 |
+| identification.heldout.json (identificação, reservado) | d3519d0ae8b078120ef18e6aa5fc7d99861fe6f016228733a4b6af4552bc9331 |
+| retrieval.subjects.v1.json (recuperação por assunto) | 5e2b54ee712c66178c32cacbeb39cba4122356344bf1a1065df6efe4f8766f69 |
+
+Fonte: Elaborado pelos autores (2026), a partir dos arquivos do repositório e dos registros de evaluation:run.
+
 
 ## APÊNDICE C – AUDITORIA DOS DADOS E INDICADORES COMPLEMENTARES
 
@@ -435,6 +449,24 @@ Tabela C4 - Tempos, uso e consumo de IA em produção
 
 Fonte: Elaborado pelos autores (2026), a partir da API de auditoria do sistema em produção.
 
+Tabela C5 - Motivos de recusa das afirmações nas 234 perguntas livres (364 de 820 afirmações, 11 nov. 2026)
+
+| **Motivo** | **Afirmações** | **Significado** |
+| --- | --- | --- |
+| Sem sustentação no trecho citado | 181 | O trecho citado não contém os termos da afirmação |
+| Acima do limite de palavras | 66 | A resposta já tinha atingido o número de palavras previsto para o tipo de pergunta |
+| Recomendação de conduta | 51 | Orienta suspender, trocar, evitar ou ajustar a dose de um medicamento |
+| Ressalva desnecessária | 21 | Ressalva numa pergunta já respondida por inteiro |
+| Negação ausente do trecho | 19 | Afirma algo negativo que o trecho não traz |
+| Narração da fonte | 13 | Descreve a consulta ("segundo a bula", "o documento") em vez do conteúdo |
+| Negação invertida | 6 | Contradiz uma negação do trecho |
+| Outros | 7 | Associação fora do assunto (2), pergunta de volta não permitida (2), frases longas demais (2) e pergunta sem ponto de interrogação (1) |
+| Total | 364 |  |
+
+Fonte: Elaborado pelos autores (2026), a partir das respostas do sistema em produção.
+
+Nota: as recusas por forma (limite de palavras, ressalva desnecessária e frases longas) somam 89 (24,5%) e não indicam erro de conteúdo. As demais mostram afirmações sem apoio no trecho ou fora das regras de segurança, o que não equivale a alucinação comprovada, pois o validador é lexical. O sistema grava o motivo de cada recusa, mas não o texto da afirmação recusada.
+
 
 ## APÊNDICE D – FLUXO DE PROCESSAMENTO DO BULA-IA
 
@@ -462,3 +494,36 @@ Figura E2 - Resposta a uma consulta sobre medicamento sem bula vinculada
 ![Tela do BULA-IA respondendo a uma pergunta sobre Zolgensma, medicamento sem bula vinculada, informando que ainda não tem a bula.](figuras/tela-medicamento-sem-bula.png)
 
 Fonte: Elaborado pelos autores (2026), a partir de captura de tela da versão publicada do sistema.
+
+
+## APÊNDICE F – CASO DO ANLODIPINO E RASTREIO DE UMA RESPOSTA
+
+Perguntas livres feitas ao sistema em produção pela conta de avaliação, sem dados de pacientes, citadas na seção Discussão e Limitações. A versão do código em cada data vem do histórico de implantação.
+
+Tabela F1 - Perguntas "Posso tomar anlodipino junto com…?" (carbamazepina, fenobarbital e itraconazol) ao longo das correções
+
+| **Data e versão** | **Medicamentos reconhecidos** | **Gravidade do DDInter informada** |
+| --- | --- | --- |
+| 11 nov., 13h52 (947ea4e) | Só o outro fármaco; o anlodipino não foi reconhecido, sem aviso | Não |
+| 11 nov., 15h10 (14e61bc, após a fusão dos duplicados) | Só o outro fármaco, sem aviso | Não |
+| 12 nov., 17h04 (4b11f67; dois pares) | Só o outro fármaco, sem aviso | Não |
+| 12 nov., 19h51 (8104b3e) | Só o outro fármaco; a resposta avisa que o anlodipino não foi reconhecido e que a interação não foi verificada | Não |
+| 13 nov., 10h16 (0a59cc1) | Besilato de anlodipino e o outro fármaco | Sim: grave, nos três pares |
+
+Fonte: Elaborado pelos autores (2026), a partir dos registros das perguntas no sistema em produção (GET /api/v1/questions).
+
+Tabela F2 - Rastreio de uma resposta: "Posso tomar anlodipino junto com carbamazepina?" (13 nov. 2026, 10h16)
+
+| **Etapa** | **Registro** |
+| --- | --- |
+| Interpretação (Claude Haiku 5.5) | Medicamentos citados: anlodipino e carbamazepina; intenção: interação medicamentosa |
+| Identificação no catálogo | BESILATO DE ANLODIPINO e CARBAMAZEPINA, ambos ligados a princípio ativo |
+| Base estruturada (DDInter) | Interação de gravidade grave (*major*) |
+| Recuperação (híbrida) | 7 trechos, cada um com documento, seção e página; entre eles, a bula do profissional do Tegretol CR, seção "Interações medicamentosas", p. 13 e 14, e a bula do paciente, p. 4 |
+| Geração (Claude Sonnet 5.5) | 3 afirmações propostas: 1 aceita, apoiada na bula do paciente do Tegretol CR, p. 4; 2 recusadas, sem sustentação no trecho citado |
+| Resposta exibida | Orienta informar ao médico ou ao farmacêutico todos os medicamentos em uso e não mudar o tratamento por conta própria; a gravidade grave aparece em texto fixo, fora da explicação do modelo |
+| Tempo no servidor | 8,0 s |
+
+Fonte: Elaborado pelos autores (2026), a partir do registro da pergunta 98ac21b7 (GET /api/v1/questions/{uuid}).
+
+Nota: o rastreio também expõe limites. Um dos trechos recuperados como "Interações medicamentosas" é, na verdade, o título de outra seção ("7. Cuidados de armazenamento do medicamento"), erro de segmentação; e o trecho da bula do Tegretol CR que cita os bloqueadores dos canais de cálcio do grupo diidropiridina foi recuperado, mas não sustentou nenhuma afirmação aceita.
