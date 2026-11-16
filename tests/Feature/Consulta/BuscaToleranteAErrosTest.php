@@ -116,4 +116,16 @@ final class BuscaToleranteAErrosTest extends TestCase
         $this->assertSame(['BESILATO DE ANLODIPINO'], $found('anlodipino dá inchaço?'), 'um registro incoerente não torna o termo ambíguo');
         $this->assertSame(['NORVASC'], $found('Norvasc dá inchaço?'), 'a marca continua pelo nome exato');
     }
+
+    /** Auditoria de 16/11/2026, D4: a pergunta conceitual virava o produto "TESTE SISTEMA", registro de teste do catálogo. */
+    public function test_a_question_about_the_system_itself_is_not_taken_as_a_catalog_test_record(): void
+    {
+        AnvisaMedicine::factory()->create(['product_name' => 'TESTE SISTEMA', 'normalized_product_name' => 'teste sistema', 'active_ingredient' => null, 'normalized_active_ingredient' => null, 'registration_status' => 'Ativo']);
+        $this->medicine('OMEPRAZOL', 'OMEPRAZOL');
+        $detector = app(MedicationMentionDetector::class);
+
+        $this->assertSame([], $detector->detect('O sistema não encontrou interação. Isso significa que a combinação é segura?'));
+        $this->assertNull(app(FuzzyMedicineMatcher::class)->best('sistemma'), 'a tolerância a erros não devolve registro de teste');
+        $this->assertSame(['OMEPRAZOL'], array_column($detector->detect('o omeprasol é seguro?'), 'name'), 'remédio de verdade continua reconhecido');
+    }
 }

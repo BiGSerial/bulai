@@ -326,3 +326,17 @@ Testes: `ActiveIngredientCatalogTest` (vínculo/criação do princípio), `Knowl
 - **Detector ("anlodipino" sumia):** `MedicationMentionDetector::focus()` decidia pelo texto do catálogo, que grafa o mesmo fármaco de formas incoerentes (`AMLOCOR`: "BESILATO DE AMLODIPINA, BESILATO DE ANLODIPINO"). Agora, antes do texto, usa os vínculos: grupo ligado só ao princípio ativo comum a todos os grupos ligados (`linkedSingleIngredientGroups()`). Testes em `BuscaToleranteAErrosTest` e `PerguntaInteracaoGraveTest`, com registros na forma real. **Sem deploy.**
 - **Relatório:** `docs/qa/auditoria-critica-tcc-2026-11-12.md`.
 
+
+### Correções da auditoria científica de 16/11/2026 (D1–D4, D7)
+
+Relatório: `docs/qa/auditoria-cientifica-2026-11-16.md` (PR #72).
+- **D1, fármaco fora do DDInter:** `InteractionLookup::absentFromSource()` lista os princípios ativos sem nenhum registro na base. Na pergunta livre, o par fica `unverified` com `reason: not_in_source` e `absent` ("DIPIRONA não consta da base de interações (DDInter)…"), em vez de "a base não registra interação". No verificador de pares (`PairAnalyzer`), o veredito é `INSUFFICIENT_EVIDENCE` (abstenção), não `NOT_FOUND_IN_SOURCES`. Com registro e um componente fora da base (ex.: Dorflex), a limitação diz qual componente não foi verificado.
+- **D2/D3, gravidade só nas limitações:** `MedicationQuestionService::withSeverityHeader()` abre a resposta com a gravidade registrada ("Atenção: a base de interações (DDInter) registra interação de gravidade maior entre…"), a menos que o texto do modelo já a informe.
+- **D4, "TESTE SISTEMA":** palavras de perguntas sobre o próprio sistema e sobre segurança entram na lista de palavras comuns do detector; a tolerância a erros (`FuzzyMedicineMatcher`) ignora registros do catálogo que começam por "TESTE".
+- **D7, afirmações recusadas:** o validador guarda o texto (até 300 caracteres) junto com o motivo; o gerador grava as 12 primeiras em `generation.rejected` (pares e perguntas livres).
+- **Testes:** `PerguntaInteracaoGraveTest` (D1, D2/D3, D7), `InteractionAnalysisTest` (D1 no verificador de pares), `BuscaToleranteAErrosTest` (D4); falham sem as correções. Testes que simulavam "par sem registro" apagando todas as interações passaram a manter os dois fármacos na base (`onlyWithOtherDrugs`).
+- **Efeito esperado nas métricas:** pares com fármaco fora do DDInter deixam de contar como "sem interação" e viram abstenção. Medir de novo antes de citar números.
+
+### API: consultas para a análise completa do sistema (16/11/2026)
+
+Seis rotas de leitura em `/api/v1/audit` (`SystemInspectionService`), para não depender de tinker na VPS: `catalog` (catálogo da ANVISA com vínculos), `ingredients` (aliases e cobertura no DDInter), `interaction` (par no DDInter, distinguindo "não registrado" de "fármaco fora da base"), `leaflet-summaries` (bulas humanizadas com legibilidade), `documents/{id}/chunks` (segmentação) e `evaluations/{run_id}` (registro completo, com o detalhe por item). Documentação em `docs/api.md`; testes em `SystemInspectionApiTest`.

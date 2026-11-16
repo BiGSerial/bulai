@@ -44,7 +44,8 @@ final class ExplanationValidatorSemanticTest extends TestCase
         if ($expected === null) {
             $this->assertCount(1, $result['accepted'], 'afirmação fiel ao trecho deve passar');
         } else {
-            $this->assertSame([['reason' => $expected]], $result['rejected']);
+            // A recusa guarda o texto da afirmação, para auditoria (auditoria de 16/11/2026, D7).
+            $this->assertSame([['reason' => $expected, 'text' => $text]], $result['rejected']);
         }
     }
 }

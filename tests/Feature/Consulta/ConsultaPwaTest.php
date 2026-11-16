@@ -121,8 +121,9 @@ final class ConsultaPwaTest extends TestCase
         $component->assertRedirectToRoute('consulta.resultado', $consultation);
 
         $this->actingAs($user)->get(route('consulta.resultado', $consultation))->assertOk()
-            ->assertSee('ALFA')->assertSee('BETA')->assertSee('Interação não identificada nas fontes consultadas')
-            ->assertSee('Isto não significa que a combinação seja segura', false);
+            ->assertSee('ALFA')->assertSee('BETA')->assertSee('Evidência insuficiente')
+            // Os dois fármacos de teste não têm registro algum no DDInter: inconclusivo, nunca "não encontrada" (auditoria de 16/11/2026, D1).
+            ->assertSee('não constam da base de interações (DDInter)', false)->assertDontSee('Interação não identificada nas fontes consultadas');
     }
 
     public function test_results_are_private_to_their_owner(): void

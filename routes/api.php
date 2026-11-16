@@ -42,6 +42,13 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
             Route::get('/documents/{documentId}/pdf', [AuditController::class, 'pdf'])->whereNumber('documentId')->name('documents.pdf');
             Route::get('/readability', [AuditController::class, 'readability'])->name('readability');
             Route::get('/evaluations', [AuditController::class, 'evaluations'])->name('evaluations');
+            Route::get('/evaluations/{runId}', [AuditController::class, 'evaluation'])->where('runId', '[0-9a-f-]{8,36}')->name('evaluations.show');
+            // Consultas para analisar o sistema sem tinker na VPS (auditoria de 16/11/2026).
+            Route::get('/catalog', [AuditController::class, 'catalog'])->name('catalog');
+            Route::get('/ingredients', [AuditController::class, 'ingredients'])->name('ingredients');
+            Route::get('/interaction', [AuditController::class, 'interaction'])->name('interaction');
+            Route::get('/leaflet-summaries', [AuditController::class, 'leafletSummaries'])->name('leaflet-summaries');
+            Route::get('/documents/{documentId}/chunks', [AuditController::class, 'chunks'])->whereNumber('documentId')->name('documents.chunks');
         });
     });
 

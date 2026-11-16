@@ -89,6 +89,12 @@ Medem a aplicação inteira para os dados do TCC: tempos, quantidades, embedding
 | `GET /audit/documents/{id}/pdf?text=0&page=` | **Lê o PDF guardado**: hash confere?, método de extração (texto nativo ou OCR), qualidade, páginas, caracteres por página, páginas vazias e **cobertura do índice** (fração das palavras de cada trecho que aparece nas páginas que ele declara; trechos abaixo de 80%; páginas fora do intervalo). Com `text=1` devolve o texto por página (até 6.000 caracteres cada; `page=N` escolhe uma). O arquivo nunca sai do servidor. |
 | `GET /audit/readability?limit=200` | Índice de Flesch pt (Martins et al., 1996) das respostas e dos trechos que as sustentam, com mediana, faixas e proporção de respostas mais fáceis que a fonte (IC de Wilson). Substitui o script não versionado da seção 3.5.5 do TCC. |
 | `GET /audit/evaluations?task=` | Os registros de `evaluation:run` (identificação, interações, recuperação, geração, baseline) e o quadro de experimentos com o mais recente de cada um; as listas por item vêm só contadas. |
+| `GET /audit/evaluations/{run_id}` | Registro **completo** de um `evaluation:run` (aceita o prefixo de 8+ caracteres do `run_id`), inclusive as listas por item que `/audit/evaluations` só conta; por exemplo, o detalhe por consulta da recuperação (`results.details.<modo>`: os 5 primeiros trechos com seção, tipo de bula e relevância). |
+| `GET /audit/catalog?q=&limit=60` | Catálogo da ANVISA: registros cujo nome do produto ou princípio ativo contém `q` (mín. 3 letras), com número de registro, situação e **princípios ativos ligados** (lista vazia = registro sem vínculo). `total` traz a contagem completa. |
+| `GET /audit/ingredients?name=&limit=10` | Princípios ativos pelo nome ou alias: aliases (idioma, origem, revisão), **se constam do DDInter** (`ddinter.in_source`) e quantas interações por gravidade, bulas ligadas e quantos medicamentos do catálogo apontam para ele. |
+| `GET /audit/interaction?a=&b=` | O que o DDInter registra entre dois princípios ativos (ids de `/audit/ingredients`): `registered` (com gravidade e registros), `not_registered` (os dois constam da base, sem registro entre eles) ou `not_verifiable_absent_from_source` (um deles não consta da base). |
+| `GET /audit/leaflet-summaries?limit=50` | Bulas humanizadas geradas: frases por seção, fontes (documento, seção, página, trecho) e **índice de Flesch** de cada seção, do resumo inteiro e dos trechos de origem. O índice mede facilidade de leitura, não compreensão. |
+| `GET /audit/documents/{id}/chunks?full=0` | Trechos de um documento: índice, seção, páginas, tamanho, `token_count`, se tem *embedding* e o modelo; texto limitado a 300 caracteres, ou inteiro com `full=1`. Serve para auditar segmentação e seções mal rotuladas. |
 
 Leitura dos resultados:
 - `error` quebra uma garantia do sistema (ex.: bula pronta sem trechos, vetor de modelo misto, PDF ausente); `warning` merece olhar; `info` é descritivo.
@@ -105,7 +111,7 @@ Correções feitas a partir da primeira auditoria do ambiente de desenvolvimento
 - **Auditoria**: a regra "respondida sem evidência" misturava `and`/`or` sem parênteses e contava perguntas de outros status; corrigida. Pares do DDInter repetidos, trechos repetidos que o PDF realmente traz duas vezes e vetores de textos que só diferem em espaços passaram a `info`.
 - Depois de `knowledge:repair-chunks`, rode `php artisan knowledge:index-embeddings`: o texto mudou e o hash antigo marca o trecho como defasado.
 
-Arquivos: `app/Services/Audit/*` (`EmbeddingAuditService`, `DataQualityAuditService`, `PdfAuditService`, `PipelineTimingService`, `ReadabilityService`, `EvaluationRunsService`, `TccDossierService`, `AuditCheck`), `app/Http/Controllers/Api/V1/AuditController.php`, `routes/api.php` e `Metrics::wilson()`. Testes: `tests/Feature/Api/AuditApiTest.php`.
+Arquivos: `app/Services/Audit/*` (`SystemInspectionService` para catálogo, princípio ativo, par, bulas humanizadas, trechos e registro completo; `EmbeddingAuditService`, `DataQualityAuditService`, `PdfAuditService`, `PipelineTimingService`, `ReadabilityService`, `EvaluationRunsService`, `TccDossierService`, `AuditCheck`), `app/Http/Controllers/Api/V1/AuditController.php`, `routes/api.php` e `Metrics::wilson()`. Testes: `tests/Feature/Api/AuditApiTest.php` e `tests/Feature/Api/SystemInspectionApiTest.php`.
 
 ## Conta de avaliação
 

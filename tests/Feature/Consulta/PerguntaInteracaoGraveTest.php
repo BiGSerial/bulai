@@ -32,6 +32,9 @@ final class PerguntaInteracaoGraveTest extends TestCase
     /** @var list<string> */
     public array $prompts = [];
 
+    /** Resposta roteirizada do modelo; ["ALL"] vira a lista das evidências do prompt (menos o contexto T1). */
+    public string $answer = '{"claims":[]}';
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,8 +51,9 @@ final class PerguntaInteracaoGraveTest extends TestCase
                     return new TextGenerationResponse((string) json_encode($this->test->interpretation), 'scripted', null);
                 }
                 $this->test->prompts[] = $request->prompt;
+                preg_match_all('/<evidencia id="([^"]+)"/', $request->prompt, $ids);
 
-                return new TextGenerationResponse('{"claims":[]}', 'scripted', null);
+                return new TextGenerationResponse(str_replace('["ALL"]', (string) json_encode(array_values(array_diff($ids[1], ['T1']))), $this->test->answer), 'scripted', null);
             }
         });
         $this->app->instance(AiProviderManager::class, $manager);
@@ -172,10 +176,57 @@ final class PerguntaInteracaoGraveTest extends TestCase
         $this->assertContains('A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e CARBAMAZEPINA.', $result['limitations']);
     }
 
+    /** Auditoria de 16/11/2026, D1: dipirona não consta do DDInter; o par não pode sair como "a base não registra interação". */
+    public function test_a_drug_the_interaction_base_does_not_cover_makes_the_pair_unverified_instead_of_no_interaction(): void
+    {
+        $dipirona = $this->medicine('DIPIRONA', 'DIPIRONA');
+        $varfarina = $this->medicine('MAREVAN', 'VARFARINA');
+        $this->leaflet($dipirona);
+        $this->leaflet($varfarina);
+        $outro = $this->medicine('ASPIRINA', 'ACIDO ACETILSALICILICO');
+        $this->majorBetween($varfarina, $outro);
+
+        $result = $this->ask('Dipirona com varfarina tem interação?', ['dipirona', 'varfarina']);
+
+        $this->assertSame(['unverified', 'not_in_source', ['DIPIRONA']], [$result['pair_interactions'][0]['severity'], $result['pair_interactions'][0]['reason'], $result['pair_interactions'][0]['absent']]);
+        $this->assertStringContainsString('DIPIRONA não consta da base de interações', $this->prompts());
+        $this->assertStringNotContainsString('não registra interação', $this->prompts());
+        $this->assertTrue(collect($result['limitations'])->contains(fn (string $line): bool => str_contains($line, 'DIPIRONA não consta da base de interações (DDInter)')));
+    }
+
+    /** Auditoria de 16/11/2026, D2/D3 e D7: a gravidade abre a resposta; a afirmação recusada fica gravada com o texto. */
+    public function test_the_registered_severity_opens_the_answer_and_rejected_claims_keep_their_text(): void
+    {
+        $norvasc = $this->medicine('NORVASC', 'ANLODIPINO');
+        $tegretol = $this->medicine('TEGRETOL', 'CARBAMAZEPINA');
+        $this->majorBetween($norvasc, $tegretol);
+        $this->leaflet($norvasc);
+        $this->leaflet($tegretol);
+        $this->answer = '{"coverage":"full","segments":[{"kind":"fact","text":"Este medicamento pode interagir com outros remédios.","evidence_ids":["ALL"]},{"kind":"fact","text":"O remédio cura a gripe em dois dias.","evidence_ids":["ALL"]}]}';
+
+        $result = $this->ask('Posso tomar Norvasc junto com Tegretol?', ['Norvasc', 'Tegretol']);
+
+        $this->assertStringStartsWith('Atenção: a base de interações (DDInter) registra interação de gravidade maior entre NORVASC e TEGRETOL.', (string) $result['answer']);
+        $this->assertStringContainsString('Este medicamento pode interagir com outros remédios.', (string) $result['answer']);
+        $rejected = collect($result['generation']['rejected'] ?? [])->firstWhere('text', 'O remédio cura a gripe em dois dias.');
+        $this->assertNotNull($rejected, 'a afirmação recusada fica gravada com o texto');
+        $this->assertSame('not_grounded_in_cited_evidence', $rejected['reason']);
+
+        $this->answer = '{"coverage":"full","segments":[{"kind":"fact","text":"Existe registro de interação de gravidade maior entre os dois.","evidence_ids":["T1"]},{"kind":"fact","text":"Este medicamento pode interagir com outros remédios.","evidence_ids":["ALL"]}]}';
+        $again = $this->ask('Posso tomar Norvasc junto com Tegretol?', ['Norvasc', 'Tegretol']);
+        $this->assertStringNotContainsString('Atenção: a base de interações', (string) $again['answer'], 'o texto do modelo já informa a gravidade: não repete');
+    }
+
     public function test_a_pair_with_no_registered_interaction_keeps_the_honest_absence_wording_and_no_extra_limitation(): void
     {
-        $this->leaflet($this->medicine('DORFLEX', 'ORFENADRINA'));
-        $this->leaflet($this->medicine('LOSARTEC', 'LOSARTANA'));
+        $dorflex = $this->medicine('DORFLEX', 'ORFENADRINA');
+        $losartec = $this->medicine('LOSARTEC', 'LOSARTANA');
+        $this->leaflet($dorflex);
+        $this->leaflet($losartec);
+        // Os dois fármacos constam do DDInter (com outros remédios); só não há registro entre eles.
+        $outro = $this->medicine('ASPIRINA', 'ACIDO ACETILSALICILICO');
+        $this->majorBetween($dorflex, $outro);
+        $this->majorBetween($losartec, $outro);
 
         $result = $this->ask('Posso tomar Dorflex junto com Losartec?', ['Dorflex', 'Losartec']);
 
