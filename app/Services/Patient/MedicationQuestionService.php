@@ -206,6 +206,7 @@ final class MedicationQuestionService
         // Rede de segurança: o que a base estruturada registrou (ou não conseguiu verificar) sobre os pares chega à pessoa em texto
         // fixo, sem depender de o modelo citar a gravidade; e um remédio citado e não reconhecido nunca some em silêncio.
         $result['limitations'] = [...($result['limitations'] ?? []), ...$this->pairLimitations($pairs), ...$this->unresolvedLimitations($unresolved)];
+        $result['answer'] = $this->withSeverityHeader($result['answer'] ?? null, $pairs);
         // Verificação do perfil sempre registrada (auditoria), mesmo quando nada foi alertado.
         $result['retrieval']['treatment_check'] = [
             'consented' => $user->hasHealthConsent(),
@@ -306,10 +307,15 @@ final class MedicationQuestionService
         foreach ($pairs as $pair) {
             $lines[] = match ($pair['severity']) {
                 'duplicate' => sprintf('%s e %s têm o mesmo princípio ativo (possível duplicidade; não avaliada por este sistema).', $pair['a'], $pair['b']),
-                'unverified' => sprintf('Não foi possível consultar a base de interações (DDInter) para %s e %s, porque o catálogo não liga um deles a um princípio ativo; a interação não foi verificada, e isso não indica que ela não exista.', $pair['a'], $pair['b']),
+                'unverified' => ($pair['reason'] ?? null) === 'not_in_source'
+                    ? sprintf('Não foi possível verificar a interação entre %s e %s: %s da base de interações (DDInter); a interação não foi verificada, e isso não indica que ela não exista.', $pair['a'], $pair['b'], $this->absentFromBase($pair['absent']))
+                    : sprintf('Não foi possível consultar a base de interações (DDInter) para %s e %s, porque o catálogo não liga um deles a um princípio ativo; a interação não foi verificada, e isso não indica que ela não exista.', $pair['a'], $pair['b']),
                 null => sprintf('A base de interações (DDInter) não registra interação entre %s e %s; isso não comprova que a combinação seja segura.', $pair['a'], $pair['b']),
                 default => sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']),
             };
+            if (! in_array($pair['severity'], ['unverified', 'duplicate'], true) && ($pair['absent'] ?? []) !== []) {
+                $lines[] = sprintf('%s da base de interações (DDInter); a parte da interação que depende dele não foi verificada.', $this->absentFromBase($pair['absent']));
+            }
         }
 
         if ($unresolved !== []) {
@@ -365,13 +371,59 @@ final class MedicationQuestionService
         foreach ($pairs as $pair) {
             $lines[] = match ($pair['severity']) {
                 null, 'duplicate' => null,
-                'unverified' => sprintf('Não foi possível verificar a interação entre %s e %s na base de interações (DDInter): o catálogo não liga um deles a um princípio ativo. Isso não indica que ela não exista.', $pair['a'], $pair['b']),
+                'unverified' => ($pair['reason'] ?? null) === 'not_in_source'
+                    ? sprintf('Não foi possível verificar a interação entre %s e %s: %s da base de interações (DDInter). Isso não indica que ela não exista.', $pair['a'], $pair['b'], $this->absentFromBase($pair['absent']))
+                    : sprintf('Não foi possível verificar a interação entre %s e %s na base de interações (DDInter): o catálogo não liga um deles a um princípio ativo. Isso não indica que ela não exista.', $pair['a'], $pair['b']),
                 'unknown' => sprintf('A base de interações (DDInter) registra interação entre %s e %s, sem gravidade classificada pela fonte.', $pair['a'], $pair['b']),
                 default => sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']),
             };
         }
 
-        return array_values(array_filter($lines));
+        foreach ($pairs as $pair) {
+            if (! in_array($pair['severity'], ['unverified', 'duplicate'], true) && ($pair['absent'] ?? []) !== []) {
+                $lines[] = sprintf('%s da base de interações (DDInter); a interação que depende dele não foi verificada.', $this->absentFromBase($pair['absent']));
+            }
+        }
+
+        return array_values(array_unique(array_filter($lines)));
+    }
+
+    /** "DIPIRONA não consta" / "DIPIRONA e CAFEINA não constam". */
+    private function absentFromBase(array $names): string
+    {
+        $list = count($names) > 1 ? implode(', ', array_slice($names, 0, -1)).' e '.end($names) : (string) ($names[0] ?? '');
+
+        return $list.(count($names) > 1 ? ' não constam' : ' não consta');
+    }
+
+    /**
+     * A gravidade registrada no DDInter abre a resposta, em texto fixo: o modelo nem sempre a cita (14 de 24 respostas na
+     * auditoria de 16/11/2026, D2/D3), e uma interação grave não pode aparecer só nas limitações. Quando o texto do modelo já
+     * informa a gravidade de cada par, nada é acrescentado.
+     *
+     * @param  list<array{a: string, b: string, severity: string|null, severity_label: string|null}>  $pairs
+     */
+    private function withSeverityHeader(?string $answer, array $pairs): ?string
+    {
+        if ($answer === null || trim($answer) === '') {
+            return $answer;
+        }
+        $registered = array_values(array_filter($pairs, fn (array $pair): bool => ! in_array($pair['severity'], [null, 'duplicate', 'unverified'], true)));
+        if ($registered === []) {
+            return $answer;
+        }
+        $plain = $this->normalizerText($answer);
+        $stated = fn (array $pair): bool => $pair['severity'] === 'unknown'
+            ? str_contains($plain, 'sem classificar') || str_contains($plain, 'sem gravidade classificada') || str_contains($plain, 'sem classificacao')
+            : str_contains($plain, ' gravidade '.trim($this->normalizerText((string) $pair['severity_label'])).' ');
+        if (collect($registered)->every($stated)) {
+            return $answer;
+        }
+        $header = array_map(fn (array $pair): string => $pair['severity'] === 'unknown'
+            ? sprintf('Atenção: a base de interações (DDInter) registra interação entre %s e %s, sem gravidade classificada pela fonte.', $pair['a'], $pair['b'])
+            : sprintf('Atenção: a base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']), $registered);
+
+        return implode(' ', $header)."\n\n".$answer;
     }
 
     /**
@@ -385,10 +437,10 @@ final class MedicationQuestionService
 
     /**
      * Resultado da base estruturada para cada par de remédios citados na própria pergunta (a combinação que a pessoa
-     * perguntou). `severity` nulo = a base não registra interação; "duplicate" = mesmo princípio ativo; "unverified" = não foi possível consultar a base.
+     * perguntou). `severity` nulo = a base não registra interação; "duplicate" = mesmo princípio ativo; "unverified" = não foi possível consultar a base (`reason`: "unlinked" = sem princípio ativo ligado; "not_in_source" = fármaco ausente do DDInter, listado em `absent`).
      *
      * @param  list<AnvisaMedicine>  $medicines
-     * @return list<array{a: string, b: string, severity: string|null, severity_label: string|null}>
+     * @return list<array{a: string, b: string, severity: string|null, severity_label: string|null, reason: string|null, absent: list<string>}>
      */
     private function pairInteractions(array $medicines): array
     {
@@ -400,7 +452,7 @@ final class MedicationQuestionService
                 $pair = ['a' => $medicines[$i]->product_name, 'b' => $medicines[$j]->product_name];
                 if ($idsA === [] || $idsB === []) {
                     // Sem princípio ativo ligado não há consulta ao DDInter: o par fica como "não verificado", nunca como "sem interação".
-                    $pairs[] = $pair + ['severity' => 'unverified', 'severity_label' => 'Não verificada (princípio ativo não ligado ao catálogo)'];
+                    $pairs[] = $pair + ['severity' => 'unverified', 'severity_label' => 'Não verificada (princípio ativo não ligado ao catálogo)', 'reason' => 'unlinked', 'absent' => []];
 
                     continue;
                 }
@@ -410,7 +462,17 @@ final class MedicationQuestionService
                     continue;
                 }
                 $structured = $this->lookup->between($idsA, $idsB);
-                $pairs[] = $pair + ['severity' => $structured?->severity->value, 'severity_label' => $structured?->severity->label()];
+                // Fármaco que o DDInter não cobre (ex.: dipirona): sem registro algum, "a base não registra" não é verificação.
+                $absentIds = $this->lookup->absentFromSource([...$idsA, ...$idsB]);
+                $absent = collect([$medicines[$i], $medicines[$j]])->flatMap(fn (AnvisaMedicine $m) => $m->ingredients)
+                    ->filter(fn ($ingredient): bool => in_array((int) $ingredient->id, $absentIds, true))
+                    ->map(fn ($ingredient): string => (string) $ingredient->canonical_name)->unique()->values()->all();
+                if ($structured === null && $absent !== []) {
+                    $pairs[] = $pair + ['severity' => 'unverified', 'severity_label' => 'Não verificada (fármaco ausente da base de interações)', 'reason' => 'not_in_source', 'absent' => $absent];
+
+                    continue;
+                }
+                $pairs[] = $pair + ['severity' => $structured?->severity->value, 'severity_label' => $structured?->severity->label(), 'reason' => null, 'absent' => $absent];
             }
         }
 

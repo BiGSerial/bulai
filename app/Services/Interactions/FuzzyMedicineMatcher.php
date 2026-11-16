@@ -145,8 +145,9 @@ final class FuzzyMedicineMatcher
                     ) as similarity,
                     case when registration_status = 'Ativo' then 0 else 1 end as inactive
                 from anvisa_medicines
-                where split_part(normalized_product_name, ' ', 1) % ? or normalized_product_name % ?
-                    or split_part(coalesce(normalized_active_ingredient, ''), ' ', 1) % ? or normalized_active_ingredient % ?
+                where (split_part(normalized_product_name, ' ', 1) % ? or normalized_product_name % ?
+                    or split_part(coalesce(normalized_active_ingredient, ''), ' ', 1) % ? or normalized_active_ingredient % ?)
+                    and normalized_product_name not like 'teste %'
             ) ranked
             where similarity >= ?
             order by similarity desc, inactive, id

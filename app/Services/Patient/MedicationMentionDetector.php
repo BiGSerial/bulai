@@ -66,6 +66,9 @@ final class MedicationMentionDetector
         'urgente', 'emergencia', 'normal', 'melhor', 'pior', 'forte', 'fraco', 'grande', 'pequeno', 'rapido', 'devagar', 'sempre', 'nunca', 'agora', 'hoje',
         'ontem', 'amanha', 'sozinho', 'sozinha', 'generico', 'similar', 'referencia', 'original', 'caixa', 'frasco', 'ampola', 'injecao', 'pomada', 'creme',
         'spray', 'adesivo', 'supositorio', 'colirio', 'beber', 'comer', 'bastante', 'nada', 'coisa', 'assim', 'ainda', 'tambem', 'outro', 'outra', 'outros',
+        // Perguntas sobre o próprio sistema ou sobre segurança ("O sistema não encontrou interação. Isso significa que a combinação é
+        // segura?"): "sistema" virava o produto "TESTE SISTEMA" pela tolerância a erros. Auditoria de 16/11/2026, D4.
+        'sistema', 'teste', 'significa', 'segura', 'combinacao', 'combinar', 'encontrou', 'existe', 'existem',
     ];
 
     /** Semelhança mínima para aceitar uma palavra digitada errado como nome de remédio ("lozartana" → Losartana). */

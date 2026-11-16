@@ -11,6 +11,27 @@ final class InteractionLookup
      * @param  list<int>  $ingredientsA
      * @param  list<int>  $ingredientsB
      */
+    /**
+     * Princípios ativos, entre os informados, que não aparecem em nenhum registro do DDInter. Para eles, "a base não registra
+     * interação" não quer dizer que o par foi verificado: a base simplesmente não cobre o fármaco (ex.: dipirona). Auditoria
+     * de 16/11/2026, D1.
+     *
+     * @param  list<int>  $ingredientIds
+     * @return list<int>
+     */
+    public function absentFromSource(array $ingredientIds): array
+    {
+        $ingredientIds = array_values(array_unique(array_map('intval', $ingredientIds)));
+        if ($ingredientIds === []) {
+            return [];
+        }
+        $present = DB::table('drug_interactions')->whereIn('drug_a_ingredient_id', $ingredientIds)->distinct()->pluck('drug_a_ingredient_id')
+            ->merge(DB::table('drug_interactions')->whereIn('drug_b_ingredient_id', $ingredientIds)->distinct()->pluck('drug_b_ingredient_id'))
+            ->map(fn ($id): int => (int) $id)->unique()->all();
+
+        return array_values(array_diff($ingredientIds, $present));
+    }
+
     public function between(array $ingredientsA, array $ingredientsB): ?StructuredInteraction
     {
         if ($ingredientsA === [] || $ingredientsB === []) {

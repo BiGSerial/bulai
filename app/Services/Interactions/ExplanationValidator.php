@@ -40,7 +40,7 @@ final class ExplanationValidator
         foreach ($payload['claims'] as $claim) {
             $reason = $this->rejectionReason($claim, $evidenceTexts);
             if ($reason !== null) {
-                $rejected[] = ['reason' => $reason];
+                $rejected[] = ['reason' => $reason, 'text' => $this->rejectedText($claim['text'] ?? null)];
 
                 continue;
             }
@@ -196,7 +196,7 @@ final class ExplanationValidator
             }
             $reason = $text !== '' && preg_match(self::NARRATION, $this->normalize($text)) === 1 ? 'narrates_source' : null;
             if ($reason !== null) {
-                $result['rejected'][] = ['kind' => $kind ?: 'unknown', 'reason' => $reason];
+                $result['rejected'][] = ['kind' => $kind ?: 'unknown', 'reason' => $reason, 'text' => $this->rejectedText($text)];
 
                 continue;
             }
@@ -225,7 +225,7 @@ final class ExplanationValidator
                 $reason = 'unknown_segment_kind';
             }
             if ($reason !== null) {
-                $result['rejected'][] = ['kind' => $kind ?: 'unknown', 'reason' => $reason];
+                $result['rejected'][] = ['kind' => $kind ?: 'unknown', 'reason' => $reason, 'text' => $this->rejectedText($text)];
             }
         }
 
@@ -233,16 +233,16 @@ final class ExplanationValidator
         // não a reduz. "none" declarado com fatos escritos: os fatos eram preenchimento irrelevante e são descartados.
         $declared = is_string($payload['coverage'] ?? null) ? $payload['coverage'] : null;
         if ($declared === 'none' && $result['facts'] !== []) {
-            foreach ($result['facts'] as $unused) {
-                $result['rejected'][] = ['kind' => 'fact', 'reason' => 'declared_irrelevant'];
+            foreach ($result['facts'] as $fact) {
+                $result['rejected'][] = ['kind' => 'fact', 'reason' => 'declared_irrelevant', 'text' => $this->rejectedText($fact['text'])];
             }
             $result['facts'] = [];
         }
         $result['coverage'] = $result['facts'] === [] ? 'none' : ($declared === 'partial' ? 'partial' : 'full');
         // Pergunta informativa respondida por inteiro ("serve para dor de cabeça?"): ressalvas só alongam a resposta.
         if (($options['drop_limits_when_full'] ?? false) && $result['coverage'] === 'full') {
-            foreach ($result['limits'] as $unused) {
-                $result['rejected'][] = ['kind' => 'limit', 'reason' => 'limit_not_needed'];
+            foreach ($result['limits'] as $limit) {
+                $result['rejected'][] = ['kind' => 'limit', 'reason' => 'limit_not_needed', 'text' => $this->rejectedText($limit)];
             }
             $result['limits'] = [];
         }
@@ -254,7 +254,7 @@ final class ExplanationValidator
         foreach ($result['facts'] as $fact) {
             $words = count(preg_split('/\s+/u', $fact['text']) ?: []);
             if ($kept !== [] && $used + $words > $budget) {
-                $result['rejected'][] = ['kind' => 'fact', 'reason' => 'over_word_budget'];
+                $result['rejected'][] = ['kind' => 'fact', 'reason' => 'over_word_budget', 'text' => $this->rejectedText($fact['text'])];
 
                 continue;
             }
@@ -340,5 +340,14 @@ final class ExplanationValidator
         }
 
         return $raw;
+    }
+
+    /**
+     * Texto da afirmação recusada, guardado para auditoria (Auditoria 16/11/2026, D7): sem ele não há como examinar falsos
+     * bloqueios nem inversões. Curto, e só o que o modelo escreveu.
+     */
+    private function rejectedText(mixed $text): ?string
+    {
+        return is_string($text) && trim($text) !== '' ? mb_substr(trim($text), 0, 300) : null;
     }
 }

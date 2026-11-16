@@ -84,6 +84,30 @@ final class InteractionAnalysisTest extends TestCase
         return [$warfarin, $simva];
     }
 
+    /** Sem registro entre os dois, mas os dois constam do DDInter (cada um com outro remédio). */
+    private function onlyWithOtherDrugs(ActiveIngredient ...$ingredients): void
+    {
+        DrugInteraction::query()->delete();
+        $other = ActiveIngredient::factory()->create();
+        foreach ($ingredients as $ingredient) {
+            DrugInteraction::factory()->create(['drug_a_ingredient_id' => $ingredient->id, 'drug_b_ingredient_id' => $other->id, 'severity' => 'moderate']);
+        }
+    }
+
+    /** Auditoria de 16/11/2026, D1: fármaco que o DDInter não cobre não leva a "não encontrada nas fontes". */
+    public function test_a_drug_absent_from_the_interaction_base_makes_the_pair_inconclusive_not_safe(): void
+    {
+        [$warfarin, $simva] = $this->pairWithLeaflet();
+        DB::table('knowledge_chunks')->update(['content' => 'Texto sem relação com o outro fármaco.']);
+        $dipirona = ActiveIngredient::factory()->create(['canonical_name' => 'Dipirona', 'normalized_name' => 'dipirona']);
+
+        $result = $this->analyze($this->med('NOVALGINA', $dipirona), $this->med('MAREVAN', $warfarin));
+
+        $this->assertSame(PairVerdict::InsufficientEvidence, $result['verdict']);
+        $this->assertFalse($result['verdict']->isConclusive());
+        $this->assertStringContainsString('Dipirona não consta da base de interações (DDInter)', $result['limitations'][0]);
+    }
+
     /** @return array{id: int|null, name: string, ingredients: list<array{id: int, name: string}>} */
     private function med(string $name, ?ActiveIngredient ...$ingredients): array
     {
@@ -169,7 +193,7 @@ final class InteractionAnalysisTest extends TestCase
     public function test_pair_without_structured_interaction_is_not_found_unless_leaflets_mention_the_other_drug(): void
     {
         [$warfarin, $simva] = $this->pairWithLeaflet();
-        DrugInteraction::query()->delete();
+        $this->onlyWithOtherDrugs($warfarin, $simva);
 
         $withText = $this->analyze($this->med('A', $warfarin), $this->med('B', $simva));
         $this->assertSame(PairVerdict::InsufficientEvidence, $withText['verdict']);
@@ -186,7 +210,7 @@ final class InteractionAnalysisTest extends TestCase
     public function test_leaflets_of_combination_products_do_not_count_as_interaction_evidence(): void
     {
         [$warfarin, $simva] = $this->pairWithLeaflet();
-        DrugInteraction::query()->delete();
+        $this->onlyWithOtherDrugs($warfarin, $simva);
         DB::table('knowledge_document_ingredients')->insert(['document_id' => KnowledgeDocument::query()->value('id'), 'ingredient_id' => $warfarin->id, 'method' => 'title', 'confidence' => 0.7, 'created_at' => now(), 'updated_at' => now()]);
 
         $result = $this->analyze($this->med('A', $warfarin), $this->med('B', $simva));
@@ -218,6 +242,8 @@ final class InteractionAnalysisTest extends TestCase
         [$warfarin, $simva] = $this->pairWithLeaflet();
         $this->scriptedOutput = json_encode(['claims' => []]);
         $third = ActiveIngredient::factory()->create();
+        // O terceiro consta do DDInter (com outro remédio): o par com ele é "não encontrado", não "fora da base".
+        DrugInteraction::factory()->create(['drug_a_ingredient_id' => $third->id, 'drug_b_ingredient_id' => ActiveIngredient::factory()->create()->id, 'severity' => 'minor']);
         $medicines = [
             AnvisaMedicine::factory()->create(['product_name' => 'MAREVAN']),
             AnvisaMedicine::factory()->create(['product_name' => 'ZOCOR']),

@@ -222,7 +222,7 @@ final class InterpretacaoDaPerguntaTest extends TestCase
         ]]), ['E1' => 'Adultos usam de 10 a 20 gotas por nebulização, diluídas em soro.'], ['single_medicine' => true]);
 
         $this->assertSame([], $validation['limits']);
-        $this->assertSame([['kind' => 'limit', 'reason' => 'combination_off_topic']], $validation['rejected']);
+        $this->assertSame([['kind' => 'limit', 'reason' => 'combination_off_topic', 'text' => 'Não ter gravidade classificada não quer dizer que a combinação seja segura.']], $validation['rejected']);
     }
 
     /**
@@ -235,7 +235,7 @@ final class InterpretacaoDaPerguntaTest extends TestCase
         $validate = fn (string $text): array => (new ExplanationValidator)->validateSegments((string) json_encode(['coverage' => 'full', 'segments' => [['kind' => 'fact', 'text' => $text, 'evidence_ids' => ['E1']]]]), $evidence, ['asked_text' => 'DIPIRONA A dipirona serve para dor de cabeça?', 'max_fact_words' => 100]);
 
         $this->assertCount(1, $validate('Sim, a dipirona é indicada como analgésico, para dor em geral, o que inclui a dor de cabeça.')['facts']);
-        $this->assertSame([['kind' => 'fact', 'reason' => 'not_grounded_in_cited_evidence']], $validate('A dipirona cura enxaqueca crônica e protege o cérebro contra derrame.')['rejected']);
+        $this->assertSame([['kind' => 'fact', 'reason' => 'not_grounded_in_cited_evidence', 'text' => 'A dipirona cura enxaqueca crônica e protege o cérebro contra derrame.']], $validate('A dipirona cura enxaqueca crônica e protege o cérebro contra derrame.')['rejected']);
     }
 
     /**

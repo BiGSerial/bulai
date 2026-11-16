@@ -311,7 +311,10 @@ final class InteligenciaConversacionalTest extends TestCase
         $result = $this->ask(User::factory()->create(), 'Dipirona interage com acetilcisteína?');
 
         $this->assertSame('DRUG_INTERACTION', $result['retrieval']['classification']['primary']);
-        $this->assertStringContainsString('não registra interação entre DIPIRONA e ACETILCISTEINA; isso não comprova que a combinação seja segura', $this->generationPrompt());
+        // A dipirona e, neste banco de teste, a acetilcisteína não têm nenhum registro no DDInter: o par é "não verificado",
+        // e não "a base não registra interação" (auditoria de 16/11/2026, D1).
+        $this->assertStringContainsString('Não foi possível verificar a interação entre DIPIRONA e ACETILCISTEINA', $this->generationPrompt());
+        $this->assertStringNotContainsString('não registra interação entre DIPIRONA e ACETILCISTEINA', $this->generationPrompt());
         $this->assertStringContainsString('não prova que a combinação é segura', $this->generationPrompt());
         $this->assertStringContainsString('não liste interações com outros remédios que ela não citou', $this->generationPrompt(), 'a primeira frase trata do par perguntado (avaliação de 09/11, D2)');
     }

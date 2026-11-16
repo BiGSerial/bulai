@@ -22,6 +22,9 @@ final class ExplanationGenerator
 
     public const STATUS_INVALID = 'invalid';
 
+    /** Afirmações recusadas guardadas com o texto, para auditoria (as primeiras; o motivo de todas fica em rejection_reasons). */
+    public const MAX_REJECTED_KEPT = 12;
+
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly ExplanationValidator $validator,
@@ -67,6 +70,7 @@ final class ExplanationGenerator
         $generation['claims_accepted'] = count($validation['accepted']);
         $generation['claims_rejected'] = count($validation['rejected']);
         $generation['rejection_reasons'] = array_count_values(array_column($validation['rejected'], 'reason'));
+        $generation['rejected'] = array_slice($validation['rejected'], 0, self::MAX_REJECTED_KEPT);
 
         if ($validation['malformed'] || $validation['accepted'] === [] || $generation['truncated']) {
             return ['status' => self::STATUS_INVALID, 'explanation' => null, 'claims' => [], 'generation' => $generation + ['malformed' => $validation['malformed'], 'insufficient_declared' => $validation['insufficient']]];
@@ -143,6 +147,7 @@ final class ExplanationGenerator
         );
 
         $reasons = [];
+        $rejectedClaims = [];
         $metrics = ['attempts' => 0, 'input_tokens' => 0, 'output_tokens' => 0];
         $validation = null;
         $previous = null;
@@ -170,6 +175,7 @@ final class ExplanationGenerator
             $validation = $this->validator->validateSegments($truncated ? '' : $response->content, $texts, ['allow_asks' => ! $urgency && ($context['allow_asks'] ?? true), 'known_text' => (string) $conversation, 'drop_limits_when_full' => (bool) ($context['drop_limits_when_full'] ?? false), 'subject' => preg_match('/\s(e|\+)\s|,/u', $medicine) === 1 ? '' : $medicine, 'asked_text' => $medicine.' '.(is_string($context['subject_terms'] ?? null) ? $context['subject_terms'] : '').' '.$question, 'single_medicine' => preg_match('/\s(e|\+)\s|,/u', $medicine) !== 1 && ($context['primary_intent'] ?? null) !== 'DRUG_INTERACTION'] + (isset($context['fact_words']) ? ['max_fact_words' => (int) $context['fact_words']] : []));
             foreach ($validation['rejected'] as $rejected) {
                 $reasons[] = $rejected['reason'];
+                $rejectedClaims[] = $rejected + ['attempt' => $attempt];
             }
             $usable = $validation['facts'] !== [] || $validation['asks'] !== [] || $validation['limits'] !== [];
             // Resposta aproveitável, mas que abre com uma frase solta: uma reformulação tenta resolver; se não melhorar, fica a primeira.
@@ -192,6 +198,7 @@ final class ExplanationGenerator
             'claims_accepted' => count($validation['facts']),
             'claims_rejected' => count($reasons),
             'rejection_reasons' => array_count_values($reasons),
+            'rejected' => array_slice($rejectedClaims, 0, self::MAX_REJECTED_KEPT),
             'coverage' => $validation['coverage'],
         ];
         $usable = $validation['facts'] !== [] || $validation['asks'] !== [] || $validation['limits'] !== [];

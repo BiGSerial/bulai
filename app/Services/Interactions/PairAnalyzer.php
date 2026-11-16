@@ -64,7 +64,11 @@ class PairAnalyzer
         $evidences = array_map(fn (EvidenceReference $reference): array => $reference->toArray(), $references);
 
         if ($structured === null) {
-            return array_replace($base, $this->withoutStructured($references, $evidences, $retrieval['meta'], $timings, $foreign));
+            $absentIds = $this->lookup->absentFromSource([...$idsA, ...$idsB]);
+            $absent = collect([...$a['ingredients'], ...$b['ingredients']])->filter(fn (array $ingredient): bool => in_array((int) $ingredient['id'], $absentIds, true))
+                ->pluck('name')->unique()->values()->all();
+
+            return array_replace($base, $this->withoutStructured($references, $evidences, $retrieval['meta'], $timings, $foreign, $absent));
         }
 
         $generated = ['explanation' => null, 'claims' => [], 'status' => ExplanationGenerator::STATUS_UNAVAILABLE, 'generation' => ['run_id' => $runId]];
@@ -106,20 +110,29 @@ class PairAnalyzer
      * @param  list<array<string, mixed>>  $evidences
      * @param  array<string, mixed>  $meta
      * @param  array<string, int>  $timings
+     * @param  list<string>  $absent  princípios ativos do par que não aparecem em nenhum registro do DDInter
      * @return array<string, mixed>
      */
-    private function withoutStructured(array $references, array $evidences, array $meta, array $timings, bool $foreign = false): array
+    private function withoutStructured(array $references, array $evidences, array $meta, array $timings, bool $foreign = false, array $absent = []): array
     {
+        // Fármaco que o DDInter não cobre (ex.: dipirona): "não encontrada" seria uma verificação que não aconteceu.
+        // Auditoria de 16/11/2026, D1.
+        $notCovered = $absent === [] ? null : sprintf('%s %s da base de interações (DDInter); não foi possível verificar a interação. Isso não indica que ela não exista.', count($absent) > 1 ? implode(', ', array_slice($absent, 0, -1)).' e '.end($absent) : $absent[0], count($absent) > 1 ? 'não constam' : 'não consta');
         if ($references !== []) {
             return [
                 'verdict' => PairVerdict::InsufficientEvidence,
                 'evidences' => $evidences,
                 'limitations' => array_values(array_filter([
+                    $notCovered,
                     'Trechos de bulas citam o outro medicamento, mas a base estruturada não registra a interação. Não é possível concluir; os trechos abaixo precisam de avaliação profissional.',
                     $foreign ? 'Os trechos são da bula dos EUA (FDA), traduzidos automaticamente; nenhuma bula brasileira cadastrada descreve esta combinação. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine).' : null,
                 ])),
                 'retrieval' => $meta, 'timings' => $timings,
             ];
+        }
+
+        if ($notCovered !== null) {
+            return ['verdict' => PairVerdict::InsufficientEvidence, 'limitations' => [$notCovered], 'retrieval' => $meta, 'timings' => $timings];
         }
 
         return [
