@@ -168,6 +168,11 @@ final class EvaluationPipelineTest extends TestCase
         $this->assertSame(['armazenamento' => 1], $report['by_subject']);
         $this->assertSame(1.0, $report['modes']['lexical']['hit@1']['rate']);
         $this->assertSame(1.0, $report['modes']['lexical']['mrr']);
+
+        // Detalhe por consulta, para auditar a origem dos erros; não altera as métricas acima.
+        $detail = $report['details']['lexical'][0];
+        $this->assertSame(['Omeprazole', 'armazenamento', 'Como devo guardar o omeprazol?', 1], [$detail['ingredient'], $detail['subject'], $detail['query'], $detail['relevant']]);
+        $this->assertSame(['key' => 'omeprazol#1', 'section' => '5. ONDE, COMO E POR QUANTO TEMPO POSSO GUARDAR ESTE MEDICAMENTO?', 'document_type' => 'bula_paciente', 'relevant' => true], $detail['top'][0]);
     }
 
     /**

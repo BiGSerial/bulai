@@ -40,14 +40,17 @@ final class RetrievalEvaluator
 
         foreach ($modes as $mode) {
             $perItem = [];
+            $details = [];
             $skipped = null;
             foreach ($queries as $query) {
                 $result = $this->retriever->retrieve(new RetrievalQuery($query['text'], $mode, max(self::KS), $query['documents']));
                 if (isset($result->configuration['embedding_error'])) {
                     $skipped = $result->configuration['embedding_error'];
                 }
-                $ranked = $this->keys(array_map(fn ($reference): int => $reference->chunkId, $result->references));
+                $chunkIds = array_map(fn ($reference): int => $reference->chunkId, $result->references);
+                $ranked = $this->keys($chunkIds);
                 $perItem[] = ['ranked' => $ranked, 'relevant' => $query['relevant']];
+                $details[] = $this->detail($query, $chunkIds);
             }
 
             if ($skipped !== null) {
@@ -66,9 +69,34 @@ final class RetrievalEvaluator
                 $metrics["hit@$k"] = Metrics::wilson($hits, count($perItem));
             }
             $report['modes'][$mode] = ['status' => 'executed'] + $metrics;
+            $report['details'][$mode] = $details;
         }
 
         return $report;
+    }
+
+    /**
+     * O que cada consulta trouxe, para auditar a origem dos erros (segmentação, seção mal rotulada, tipo de bula): os
+     * primeiros trechos com a seção, o tipo de documento e se contam como relevantes. Não entra em nenhuma métrica.
+     *
+     * @param  array{text: string, relevant: list<string>, ingredient?: string, subject?: string}  $query
+     * @param  list<int>  $chunkIds
+     * @return array{ingredient: string|null, subject: string|null, query: string, relevant: int, top: list<array{key: string, section: string|null, document_type: string|null, relevant: bool}>}
+     */
+    private function detail(array $query, array $chunkIds): array
+    {
+        $rows = DB::table('knowledge_chunks as c')->join('knowledge_documents as d', 'd.id', '=', 'c.document_id')
+            ->whereIn('c.id', $chunkIds)->get(['c.id', 'c.chunk_index', 'c.section', 'd.external_key', 'd.document_type'])->keyBy('id');
+        $top = [];
+        foreach (array_slice($chunkIds, 0, max(self::KS)) as $id) {
+            if (! isset($rows[$id])) {
+                continue;
+            }
+            $key = $rows[$id]->external_key.'#'.$rows[$id]->chunk_index;
+            $top[] = ['key' => $key, 'section' => $rows[$id]->section, 'document_type' => $rows[$id]->document_type, 'relevant' => in_array($key, $query['relevant'], true)];
+        }
+
+        return ['ingredient' => $query['ingredient'] ?? null, 'subject' => $query['subject'] ?? null, 'query' => $query['text'], 'relevant' => count($query['relevant']), 'top' => $top];
     }
 
     /**
