@@ -1,0 +1,716 @@
+{
+ "version": "freeform.independent.v1",
+ "created": "2026-11-16",
+ "description": "Perguntas livres para o fluxo completo do Perguntar (POST /api/v1/evaluation/ask), montadas depois das correções de 11–13/11/2026. Os pares rotulados vêm de interactions.v2.json (rótulo = DDInter, 14 grupos; gold_ref = id do par lá), sorteados com semente 20261116 entre produtos não envolvidos nas correções, e citados por nomes diferentes dos do conjunto de ajuste (genérico, sal, grafia alternativa, erro de digitação, marca). O rótulo é do DDInter: mede integração, não correção clínica. Itens sem par rotulado avaliam comportamento (declarar o não reconhecido, não afirmar segurança).",
+ "reference": {
+  "path": "database/evaluation/interactions.v2.json",
+  "sha256": "62d2ed86ce1a058e4d8b2ad83d3dcf3e614838b7abf1b1ce4a24b9d8b7905ba4"
+ },
+ "keys": {
+  "anlodipino": [
+   "anlodip",
+   "amlodip",
+   "norvasc"
+  ],
+  "carbamazepina": [
+   "carbamaz",
+   "tegretol"
+  ],
+  "ibuprofeno": [
+   "ibupro"
+  ],
+  "varfarina": [
+   "varfar",
+   "marevan",
+   "warfar"
+  ],
+  "fenobarbital": [
+   "fenobarb",
+   "gardenal"
+  ],
+  "itraconazol": [
+   "itracon"
+  ],
+  "haloperidol": [
+   "halop",
+   "haldol"
+  ],
+  "metoclopramida": [
+   "metoclop",
+   "plasil"
+  ],
+  "ciprofloxacino": [
+   "ciproflox",
+   "cipro"
+  ],
+  "prednisona": [
+   "predniso"
+  ],
+  "valsartana": [
+   "valsart",
+   "diovan"
+  ],
+  "espironolactona": [
+   "espironol",
+   "aldactone"
+  ],
+  "diazepam": [
+   "diazep"
+  ],
+  "tramadol": [
+   "tramad",
+   "tramal"
+  ],
+  "naproxeno": [
+   "naprox"
+  ],
+  "enalapril": [
+   "enalapr"
+  ],
+  "clonazepam": [
+   "clonazep",
+   "rivotril"
+  ],
+  "diclofenaco": [
+   "diclofen",
+   "cataflam",
+   "voltaren"
+  ],
+  "carvedilol": [
+   "carvedil"
+  ],
+  "digoxina": [
+   "digox"
+  ],
+  "metronidazol": [
+   "metronid",
+   "flagyl"
+  ],
+  "dexametasona": [
+   "dexamet",
+   "decadron"
+  ],
+  "lamotrigina": [
+   "lamotrig",
+   "lamictal"
+  ],
+  "propranolol": [
+   "propranol"
+  ],
+  "ondansetrona": [
+   "ondanset"
+  ],
+  "furosemida": [
+   "furosem",
+   "lasix"
+  ],
+  "gabapentina": [
+   "gabapent",
+   "neurontin"
+  ],
+  "rosuvastatina": [
+   "rosuvast"
+  ],
+  "amoxicilina": [
+   "amoxic"
+  ],
+  "cetoconazol": [
+   "cetocon"
+  ],
+  "omeprazol": [
+   "omepraz"
+  ],
+  "clopidogrel": [
+   "clopidog",
+   "plavix"
+  ],
+  "aas": [
+   "acetilsalic",
+   "aas",
+   "aspirina"
+  ],
+  "rivaroxabana": [
+   "rivaroxab",
+   "xarelto"
+  ],
+  "amiodarona": [
+   "amiodar",
+   "ancoron"
+  ],
+  "atorvastatina": [
+   "atorvast"
+  ],
+  "claritromicina": [
+   "claritrom",
+   "klaricid"
+  ],
+  "dipirona": [
+   "dipiron",
+   "metamiz"
+  ],
+  "dorflex": [
+   "dorflex",
+   "orfenadr"
+  ],
+  "sertralina": [
+   "sertral"
+  ],
+  "losartana": [
+   "losart"
+  ],
+  "hidroclorotiazida": [
+   "hidroclorot",
+   "hydrochloro"
+  ]
+ },
+ "items": [
+  {
+   "id": "R1",
+   "category": "obrigatória",
+   "question": "Posso tomar anlodipino com carbamazepina?",
+   "expected_medicines": [
+    "anlodipino",
+    "carbamazepina"
+   ],
+   "pairs": [
+    {
+     "a": "anlodipino",
+     "b": "carbamazepina",
+     "gold_ref": 674,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "R2",
+   "category": "obrigatória",
+   "question": "Existe interação entre ibuprofeno e varfarina?",
+   "expected_medicines": [
+    "ibuprofeno",
+    "varfarina"
+   ],
+   "pairs": [
+    {
+     "a": "ibuprofeno",
+     "b": "varfarina",
+     "gold_ref": 44,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "R3",
+   "category": "obrigatória",
+   "question": "Posso combinar fenobarbital e itraconazol?",
+   "expected_medicines": [
+    "fenobarbital",
+    "itraconazol"
+   ],
+   "pairs": [
+    {
+     "a": "fenobarbital",
+     "b": "itraconazol",
+     "gold_ref": 1091,
+     "gold_interaction": true,
+     "gold_severity": "moderate"
+    }
+   ]
+  },
+  {
+   "id": "R4",
+   "category": "obrigatória (tratamento)",
+   "question": "Quais interações existem entre os medicamentos que estou tomando?",
+   "expected_medicines": [],
+   "pairs": []
+  },
+  {
+   "id": "R5",
+   "category": "obrigatória (ausência)",
+   "question": "O sistema não encontrou interação. Isso significa que a combinação é segura?",
+   "expected_medicines": [],
+   "pairs": []
+  },
+  {
+   "id": "G1",
+   "category": "grave, nome genérico",
+   "question": "Posso tomar haloperidol com metoclopramida?",
+   "expected_medicines": [
+    "haloperidol",
+    "metoclopramida"
+   ],
+   "pairs": [
+    {
+     "a": "haloperidol",
+     "b": "metoclopramida",
+     "gold_ref": 1046,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "G2",
+   "category": "grave, grafia alternativa",
+   "question": "Ciprofloxacina e prednisona juntas fazem mal?",
+   "expected_medicines": [
+    "ciprofloxacino",
+    "prednisona"
+   ],
+   "pairs": [
+    {
+     "a": "ciprofloxacino",
+     "b": "prednisona",
+     "gold_ref": 555,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "G3",
+   "category": "grave, genérico de marca",
+   "question": "Valsartana com espironolactona tem algum problema?",
+   "expected_medicines": [
+    "valsartana",
+    "espironolactona"
+   ],
+   "pairs": [
+    {
+     "a": "valsartana",
+     "b": "espironolactona",
+     "gold_ref": 660,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "G4",
+   "category": "grave, erro de digitação",
+   "question": "Tomo diazepan e tramadol, tem interação?",
+   "expected_medicines": [
+    "diazepam",
+    "tramadol"
+   ],
+   "pairs": [
+    {
+     "a": "diazepam",
+     "b": "tramadol",
+     "gold_ref": 1011,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "G5",
+   "category": "grave, nome genérico",
+   "question": "Sertralina com tramadol pode?",
+   "expected_medicines": [
+    "sertralina",
+    "tramadol"
+   ],
+   "pairs": [
+    {
+     "a": "sertralina",
+     "b": "tramadol",
+     "gold_ref": 915,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "M1",
+   "category": "moderada, sal",
+   "question": "Naproxeno sódico pode ser tomado com espironolactona?",
+   "expected_medicines": [
+    "naproxeno",
+    "espironolactona"
+   ],
+   "pairs": [
+    {
+     "a": "naproxeno",
+     "b": "espironolactona",
+     "gold_ref": 1444,
+     "gold_interaction": true,
+     "gold_severity": "moderate"
+    }
+   ]
+  },
+  {
+   "id": "M2",
+   "category": "moderada, genérico de marca",
+   "question": "Enalapril e clonazepam podem ser tomados juntos?",
+   "expected_medicines": [
+    "enalapril",
+    "clonazepam"
+   ],
+   "pairs": [
+    {
+     "a": "enalapril",
+     "b": "clonazepam",
+     "gold_ref": 785,
+     "gold_interaction": true,
+     "gold_severity": "moderate"
+    }
+   ]
+  },
+  {
+   "id": "M3",
+   "category": "moderada, sal",
+   "question": "Diclofenaco potássico com carvedilol tem interação?",
+   "expected_medicines": [
+    "diclofenaco",
+    "carvedilol"
+   ],
+   "pairs": [
+    {
+     "a": "diclofenaco",
+     "b": "carvedilol",
+     "gold_ref": 302,
+     "gold_interaction": true,
+     "gold_severity": "moderate"
+    }
+   ]
+  },
+  {
+   "id": "L1",
+   "category": "leve, marca fora do ajuste",
+   "question": "Posso tomar digoxina com Plasil?",
+   "expected_medicines": [
+    "digoxina",
+    "metoclopramida"
+   ],
+   "pairs": [
+    {
+     "a": "digoxina",
+     "b": "metoclopramida",
+     "gold_ref": 1228,
+     "gold_interaction": true,
+     "gold_severity": "minor"
+    }
+   ]
+  },
+  {
+   "id": "L2",
+   "category": "leve, marcas abreviadas",
+   "question": "Cipro com Flagyl, pode?",
+   "expected_medicines": [
+    "ciprofloxacino",
+    "metronidazol"
+   ],
+   "pairs": [
+    {
+     "a": "ciprofloxacino",
+     "b": "metronidazol",
+     "gold_ref": 567,
+     "gold_interaction": true,
+     "gold_severity": "minor"
+    }
+   ]
+  },
+  {
+   "id": "L3",
+   "category": "leve, marca fora do ajuste",
+   "question": "Diazepam e Decadron juntos tem problema?",
+   "expected_medicines": [
+    "diazepam",
+    "dexametasona"
+   ],
+   "pairs": [
+    {
+     "a": "diazepam",
+     "b": "dexametasona",
+     "gold_ref": 994,
+     "gold_interaction": true,
+     "gold_severity": "minor"
+    }
+   ]
+  },
+  {
+   "id": "U1",
+   "category": "gravidade desconhecida",
+   "question": "Lamotrigina com carvedilol tem interação?",
+   "expected_medicines": [
+    "lamotrigina",
+    "carvedilol"
+   ],
+   "pairs": [
+    {
+     "a": "lamotrigina",
+     "b": "carvedilol",
+     "gold_ref": 1127,
+     "gold_interaction": true,
+     "gold_severity": "unknown"
+    }
+   ]
+  },
+  {
+   "id": "U2",
+   "category": "gravidade desconhecida",
+   "question": "Propranolol e ondansetrona podem ser usados juntos?",
+   "expected_medicines": [
+    "propranolol",
+    "ondansetrona"
+   ],
+   "pairs": [
+    {
+     "a": "propranolol",
+     "b": "ondansetrona",
+     "gold_ref": 1476,
+     "gold_interaction": true,
+     "gold_severity": "unknown"
+    }
+   ]
+  },
+  {
+   "id": "U3",
+   "category": "gravidade desconhecida",
+   "question": "Furosemida com gabapentina tem interação?",
+   "expected_medicines": [
+    "furosemida",
+    "gabapentina"
+   ],
+   "pairs": [
+    {
+     "a": "furosemida",
+     "b": "gabapentina",
+     "gold_ref": 827,
+     "gold_interaction": true,
+     "gold_severity": "unknown"
+    }
+   ]
+  },
+  {
+   "id": "N1",
+   "category": "sem registro",
+   "question": "Haloperidol com rosuvastatina tem interação?",
+   "expected_medicines": [
+    "haloperidol",
+    "rosuvastatina"
+   ],
+   "pairs": [
+    {
+     "a": "haloperidol",
+     "b": "rosuvastatina",
+     "gold_ref": 1029,
+     "gold_interaction": false,
+     "gold_severity": null
+    }
+   ]
+  },
+  {
+   "id": "N2",
+   "category": "sem registro",
+   "question": "Amoxicilina e cetoconazol juntos tem problema?",
+   "expected_medicines": [
+    "amoxicilina",
+    "cetoconazol"
+   ],
+   "pairs": [
+    {
+     "a": "amoxicilina",
+     "b": "cetoconazol",
+     "gold_ref": 478,
+     "gold_interaction": false,
+     "gold_severity": null
+    }
+   ]
+  },
+  {
+   "id": "N3",
+   "category": "sem registro, marca",
+   "question": "Lamictal com cetoconazol tem interação?",
+   "expected_medicines": [
+    "lamotrigina",
+    "cetoconazol"
+   ],
+   "pairs": [
+    {
+     "a": "lamotrigina",
+     "b": "cetoconazol",
+     "gold_ref": 1117,
+     "gold_interaction": false,
+     "gold_severity": null
+    }
+   ]
+  },
+  {
+   "id": "T1",
+   "category": "erros de digitação",
+   "question": "posso tomar anlodipno com carbamazepna?",
+   "expected_medicines": [
+    "anlodipino",
+    "carbamazepina"
+   ],
+   "pairs": [
+    {
+     "a": "anlodipino",
+     "b": "carbamazepina",
+     "gold_ref": 674,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "T2",
+   "category": "erro de digitação",
+   "question": "omeprazou com clopidogrel, pode?",
+   "expected_medicines": [
+    "omeprazol",
+    "clopidogrel"
+   ],
+   "pairs": [
+    {
+     "a": "omeprazol",
+     "b": "clopidogrel",
+     "gold_ref": 381,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "A1",
+   "category": "sigla e marca",
+   "question": "AAS com Xarelto tem perigo?",
+   "expected_medicines": [
+    "aas",
+    "rivaroxabana"
+   ],
+   "pairs": [
+    {
+     "a": "aas",
+     "b": "rivaroxabana",
+     "gold_ref": 189,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "A2",
+   "category": "associação (sem gabarito)",
+   "question": "Posso tomar losartana com hidroclorotiazida?",
+   "expected_medicines": [
+    "losartana",
+    "hidroclorotiazida"
+   ],
+   "pairs": [
+    {
+     "a": "losartana",
+     "b": "hidroclorotiazida",
+     "gold_ref": 224,
+     "gold_interaction": true,
+     "gold_severity": "unknown"
+    }
+   ]
+  },
+  {
+   "id": "C1",
+   "category": "associação com dipirona (sem gabarito)",
+   "question": "Dorflex com clonazepam tem interação?",
+   "expected_medicines": [
+    "dorflex",
+    "clonazepam"
+   ],
+   "pairs": []
+  },
+  {
+   "id": "D1",
+   "category": "fármaco sem correspondência no DDInter (sem gabarito)",
+   "question": "Dipirona com varfarina tem interação?",
+   "expected_medicines": [
+    "dipirona",
+    "varfarina"
+   ],
+   "pairs": []
+  },
+  {
+   "id": "B1",
+   "category": "sem bula brasileira de um dos fármacos",
+   "question": "Varfarina com amiodarona tem interação?",
+   "expected_medicines": [
+    "varfarina",
+    "amiodarona"
+   ],
+   "pairs": [
+    {
+     "a": "varfarina",
+     "b": "amiodarona",
+     "gold_ref": 32,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    }
+   ]
+  },
+  {
+   "id": "X1",
+   "category": "três medicamentos",
+   "question": "Posso tomar atorvastatina, claritromicina e digoxina juntos?",
+   "expected_medicines": [
+    "atorvastatina",
+    "claritromicina",
+    "digoxina"
+   ],
+   "pairs": [
+    {
+     "a": "atorvastatina",
+     "b": "claritromicina",
+     "gold_ref": 1318,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    },
+    {
+     "a": "claritromicina",
+     "b": "digoxina",
+     "gold_ref": 1218,
+     "gold_interaction": true,
+     "gold_severity": "major"
+    },
+    {
+     "a": "atorvastatina",
+     "b": "digoxina",
+     "gold_ref": 1212,
+     "gold_interaction": true,
+     "gold_severity": "moderate"
+    }
+   ]
+  },
+  {
+   "id": "Z1",
+   "category": "nome não reconhecido",
+   "question": "Posso tomar Zylofrex com ibuprofeno?",
+   "expected_medicines": [
+    "zylofrex",
+    "ibuprofeno"
+   ],
+   "pairs": []
+  },
+  {
+   "id": "H1",
+   "category": "histórico de conversa",
+   "conversation_setup": [
+    "Para que serve a espironolactona?"
+   ],
+   "question": "E posso tomar junto com naproxeno?",
+   "expected_medicines": [
+    "espironolactona",
+    "naproxeno"
+   ],
+   "pairs": [
+    {
+     "a": "naproxeno",
+     "b": "espironolactona",
+     "gold_ref": 1444,
+     "gold_interaction": true,
+     "gold_severity": "moderate"
+    }
+   ]
+  }
+ ]
+}
