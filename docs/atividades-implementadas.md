@@ -336,3 +336,7 @@ Relatório: `docs/qa/auditoria-cientifica-2026-11-16.md` (PR #72).
 - **D7, afirmações recusadas:** o validador guarda o texto (até 300 caracteres) junto com o motivo; o gerador grava as 12 primeiras em `generation.rejected` (pares e perguntas livres).
 - **Testes:** `PerguntaInteracaoGraveTest` (D1, D2/D3, D7), `InteractionAnalysisTest` (D1 no verificador de pares), `BuscaToleranteAErrosTest` (D4); falham sem as correções. Testes que simulavam "par sem registro" apagando todas as interações passaram a manter os dois fármacos na base (`onlyWithOtherDrugs`).
 - **Efeito esperado nas métricas:** pares com fármaco fora do DDInter deixam de contar como "sem interação" e viram abstenção. Medir de novo antes de citar números.
+
+### API: consultas para a análise completa do sistema (16/11/2026)
+
+Seis rotas de leitura em `/api/v1/audit` (`SystemInspectionService`), para não depender de tinker na VPS: `catalog` (catálogo da ANVISA com vínculos), `ingredients` (aliases e cobertura no DDInter), `interaction` (par no DDInter, distinguindo "não registrado" de "fármaco fora da base"), `leaflet-summaries` (bulas humanizadas com legibilidade), `documents/{id}/chunks` (segmentação) e `evaluations/{run_id}` (registro completo, com o detalhe por item). Documentação em `docs/api.md`; testes em `SystemInspectionApiTest`.

@@ -10,6 +10,7 @@ use App\Services\Audit\EvaluationRunsService;
 use App\Services\Audit\PdfAuditService;
 use App\Services\Audit\PipelineTimingService;
 use App\Services\Audit\ReadabilityService;
+use App\Services\Audit\SystemInspectionService;
 use App\Services\Audit\TccDossierService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -80,5 +81,55 @@ class AuditController extends Controller
         $task = $request->validate(['task' => ['nullable', 'string', 'in:identification,interactions,retrieval,generation,baseline']])['task'] ?? null;
 
         return response()->json(['experiments' => $task === null ? $evaluations->experiments() : [], 'runs' => $evaluations->runs($task)]);
+    }
+
+    /** Catálogo da ANVISA: registros cujo nome ou princípio ativo contém `q`, com os princípios ativos ligados. */
+    public function catalog(Request $request, SystemInspectionService $inspection): JsonResponse
+    {
+        $data = $request->validate(['q' => ['required', 'string', 'min:3', 'max:80'], 'limit' => ['nullable', 'integer', 'min:1', 'max:200']]);
+
+        return response()->json($inspection->catalog($data['q'], (int) ($data['limit'] ?? 60)));
+    }
+
+    /** Princípios ativos por nome ou alias (`name`): aliases, cobertura no DDInter, bulas e medicamentos ligados. */
+    public function ingredients(Request $request, SystemInspectionService $inspection): JsonResponse
+    {
+        $data = $request->validate(['name' => ['required', 'string', 'min:3', 'max:80'], 'limit' => ['nullable', 'integer', 'min:1', 'max:50']]);
+
+        return response()->json(['ingredients' => $inspection->ingredients($data['name'], (int) ($data['limit'] ?? 10))]);
+    }
+
+    /** O que o DDInter registra entre os princípios ativos `a` e `b` (ids de /audit/ingredients) e se cada um consta da base. */
+    public function interaction(Request $request, SystemInspectionService $inspection): JsonResponse
+    {
+        $data = $request->validate(['a' => ['required', 'integer', 'exists:active_ingredients,id'], 'b' => ['required', 'integer', 'exists:active_ingredients,id', 'different:a']]);
+
+        return response()->json($inspection->interaction((int) $data['a'], (int) $data['b']));
+    }
+
+    /** Bulas humanizadas geradas, com frases, fontes e legibilidade (Flesch). */
+    public function leafletSummaries(Request $request, SystemInspectionService $inspection): JsonResponse
+    {
+        $data = $request->validate(['limit' => ['nullable', 'integer', 'min:1', 'max:200']]);
+
+        return response()->json($inspection->leafletSummaries((int) ($data['limit'] ?? 50)));
+    }
+
+    /** Trechos de um documento (seção, páginas, embedding); `full=1` traz o texto inteiro de cada trecho. */
+    public function chunks(Request $request, int $documentId, SystemInspectionService $inspection): JsonResponse
+    {
+        $document = KnowledgeDocument::query()->findOrFail($documentId);
+        $data = $request->validate(['full' => ['nullable', 'boolean']]);
+
+        return response()->json($inspection->documentChunks($document, (bool) ($data['full'] ?? false)));
+    }
+
+    /** Registro completo de um `evaluation:run`, com as listas por item, pelo `run_id` (ou prefixo de 8+ caracteres). */
+    public function evaluation(string $runId, SystemInspectionService $inspection): JsonResponse
+    {
+        $run = $inspection->evaluationRun($runId);
+        abort_if($run === null, 404);
+
+        return response()->json($run);
     }
 }
