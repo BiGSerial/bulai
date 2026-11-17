@@ -7,6 +7,7 @@ use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Interactions\InteractionLookup;
 use App\Services\Interactions\InteractionSeverity;
+use App\Services\Safety\PromptInjectionDetector;
 
 /**
  * Contexto de tratamento de um usuário em relação a UM medicamento: se ele está em uso, com que posologia, alergias
@@ -20,6 +21,7 @@ final class TreatmentContextService
     public function __construct(
         private readonly InteractionLookup $lookup,
         private readonly AllergyChecker $allergies,
+        private readonly PromptInjectionDetector $injection,
     ) {}
 
     /**
@@ -114,7 +116,7 @@ final class TreatmentContextService
                 : sprintf('A base de interações (DDInter) registra interação de gravidade %s entre %s e %s, que o paciente usa.', mb_strtolower($interaction['severity_label']), $medicineName, $interaction['medicine']);
         }
         foreach ($context['allergy_alerts'] as $alert) {
-            $lines[] = sprintf('O paciente registrou alergia a %s; %s %s %s.', $alert['allergy'], $medicineName, $alert['via'] === 'classe' ? 'pertence à mesma classe de' : 'contém', $alert['ingredient']);
+            $lines[] = sprintf('O paciente registrou alergia a %s; %s %s %s.', $this->injection->clean((string) $alert['allergy'], '(anotação omitida)'), $medicineName, $alert['via'] === 'classe' ? 'pertence à mesma classe de' : 'contém', $alert['ingredient']);
         }
         if ($withPosology && $context['in_use'] && ($posology = $this->posologyText($context['posology'])) !== '') {
             $lines[] = sprintf('No tratamento registrado pelo paciente, %s está anotado assim%s.', $medicineName, $posology);
@@ -129,7 +131,8 @@ final class TreatmentContextService
         if ($posology === null) {
             return '';
         }
-        $parts = array_filter([$posology['dosage'], $posology['frequency']]);
+        // Anotação digitada pelo paciente ou lida da receita: dado, nunca instrução para a IA.
+        $parts = array_filter(array_map(fn (?string $part): ?string => $part === null || $this->injection->flags($part) !== [] ? null : $part, [$posology['dosage'], $posology['frequency']]));
 
         return $parts === [] ? '' : ' ('.implode(', ', $parts).')';
     }

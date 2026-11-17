@@ -25,6 +25,26 @@ Pedido dos autores, em 17/11/2026. O Perguntar responde só dentro do seu contex
 
    A tela mostra os botões de ligar para 188 e 192, em tom de perigo. As outras categorias têm mensagens próprias: 192 ou 190 para dano a terceiros, CAPS AD para uso indevido, UBS para gravidez, e uma recusa neutra para pedidos confidenciais e de manipulação.
 
+## Comandos escondidos em tudo o que a IA lê (`PromptInjectionDetector`)
+
+Tentativas de passar comandos para a IA são tratadas em todas as entradas, não só na pergunta. São três defesas:
+
+1. Cada prompt declara o conteúdo como **dado não confiável**.
+2. `<` e `>` são **escapados**, para o conteúdo não fechar as marcações do prompt.
+3. O **detector** retira, antes de chegar ao modelo, o texto que se dirige à IA: "ignore as instruções", "a partir de agora você é", "nota para o ChatGPT", JSON no formato da resposta, marcações do prompt.
+
+| Entrada | O que a IA lê | Defesa |
+|---|---|---|
+| Pergunta do paciente e conversa | texto digitado | `InputGuard` e o campo `risk` da interpretação (acima) |
+| Receita por foto (visão) | imagem | regra no prompt; campo devolvido com forma de comando é descartado e registrado em `extraction.injection`; a revisão avisa que parte da receita foi ignorada |
+| Bulas (PDF, OCR, original) na resposta, na bula humanizada, na localização na bula e na explicação da interação | trechos | o trecho com comando vira `[trecho omitido…]` |
+| Tradução da bula FDA | seção em inglês | não é traduzida (`injection_suspected`); regra no prompt |
+| Anotações do paciente (posologia, alergia) usadas na resposta | texto digitado ou lido da receita | anotação com comando é omitida |
+| Classificação de PDF na ingestão | candidatos e trechos | regra no prompt |
+| Tradução de princípios ativos | nomes do catálogo ANVISA | regra no prompt (já existia) |
+
+Para não retirar texto legítimo, o detector é mais estrito que a triagem da pergunta: "esqueça a dose anterior", "siga as instruções do médico" e "physician assistant" passam. Na verificação com 399 trechos reais de bula e respostas, baixados de produção nas auditorias, não houve nenhum falso positivo. Testes: `tests/Feature/Safety/InjecaoEmConteudoTest.php`, `tests/Feature/Consulta/ReceitaPorFotoTest.php`.
+
 ## Perguntas no contexto sem remédio (`QuestionGuidance`, status `guidance`)
 
 Algumas perguntas não citam remédio, mas estão dentro do contexto. Elas recebem um texto fixo, sem IA:

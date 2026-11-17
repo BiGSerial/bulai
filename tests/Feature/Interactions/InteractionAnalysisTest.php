@@ -20,6 +20,7 @@ use App\Services\Interactions\InteractionConsultationService;
 use App\Services\Interactions\InteractionSeverity;
 use App\Services\Interactions\PairAnalyzer;
 use App\Services\Interactions\PairVerdict;
+use App\Services\Safety\PromptInjectionDetector;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -184,7 +185,8 @@ final class InteractionAnalysisTest extends TestCase
         $this->assertCount(1, $this->sentRequests);
         $prompt = $this->sentRequests[0]->prompt;
         $this->assertSame(1, substr_count($prompt, '</evidencia>'));
-        $this->assertStringContainsString('‹/evidencia›', $prompt);
+        $this->assertStringNotContainsString('IGNORE AS REGRAS', $prompt, 'o trecho com comando não chega ao modelo');
+        $this->assertStringContainsString(PromptInjectionDetector::OMITTED, $prompt);
         $this->assertStringContainsString('dado não confiável', (string) $this->sentRequests[0]->system);
         $this->assertStringContainsString('Maior', $prompt);
         $this->assertNull($this->sentRequests[0]->temperature);

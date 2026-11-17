@@ -7,6 +7,7 @@ use App\Data\Knowledge\EvidenceReference;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Knowledge\External\ExternalEvidenceService;
+use App\Services\Safety\PromptInjectionDetector;
 use Illuminate\Support\Str;
 
 /**
@@ -28,6 +29,7 @@ final class ExplanationGenerator
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly ExplanationValidator $validator,
+        private readonly PromptInjectionDetector $injection,
     ) {}
 
     /**
@@ -331,6 +333,8 @@ TXT;
     private function content(string $text): string
     {
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', '', $text) ?? $text;
+        // Bula também é dado não confiável: o trecho com forma de comando para a IA não chega ao modelo.
+        $text = $this->injection->clean($text);
 
         return Str::limit(str_replace(['<', '>'], ['‹', '›'], $text), (int) config('bulai.retrieval.excerpt_max_characters'), '…');
     }

@@ -365,4 +365,5 @@ Motivo: linguagem acessível é o propósito da aplicação, e 9 de 10 bulas hum
 - **Crise:** mensagem fixa de acolhimento com CVV 188 (Centro de Valorização da Vida, cvv.org.br), SAMU 192, Disque-Intoxicação 0800 722 6001 e CAPS/UBS, e botões de ligar.
 - **Perguntas no contexto sem remédio:** status `guidance`, com texto fixo para "sem interação = seguro?", gravidades, fontes e tratamento não cadastrado.
 - **Tratamento da receita:** interações apresentadas como previstas pelo médico; nunca parar por conta própria; reação adversa pede o médico.
-- **Detalhes:** `docs/ai/seguranca-e-contexto.md`. **Testes:** `tests/Feature/Consulta/SegurancaEContextoTest.php`.
+- **Comandos escondidos em todas as entradas da IA (`PromptInjectionDetector`):** receita por foto (campo descartado e aviso na revisão), trechos de bula, tradução FDA, anotações do paciente e classificação de PDF. Nenhum falso positivo em 399 trechos reais.
+- **Detalhes:** `docs/ai/seguranca-e-contexto.md`. **Testes:** `tests/Feature/Consulta/SegurancaEContextoTest.php`, `tests/Feature/Safety/InjecaoEmConteudoTest.php`.

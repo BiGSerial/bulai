@@ -9,6 +9,7 @@ use App\Services\Ai\AiProviderException;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Interactions\MedicationSearchService;
 use App\Services\Safety\InputGuard;
+use App\Services\Safety\PromptInjectionDetector;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -29,6 +30,7 @@ final class PrescriptionExtractionService
         private readonly AiProviderManager $providers,
         private readonly MedicationSearchService $search,
         private readonly InputGuard $guard,
+        private readonly PromptInjectionDetector $injection,
     ) {}
 
     /** Guarda a imagem enviada em área transitória privada e devolve o caminho relativo ao disco de conhecimento. */
@@ -97,6 +99,7 @@ final class PrescriptionExtractionService
             'extraction' => [
                 'items' => $parsed['items'],
                 'legibility' => $parsed['legibility'],
+                'injection' => $parsed['injection'],
                 'model' => $response->model,
                 'input_tokens' => $response->usage?->inputTokens,
                 'output_tokens' => $response->usage?->outputTokens,
@@ -125,8 +128,16 @@ final class PrescriptionExtractionService
             return null;
         }
 
-        $text = function (mixed $value, int $max): ?string {
+        // A receita fotografada pode trazer texto escrito para manipular a IA ("ignore as regras…"). O que a leitura devolve com
+        // forma de comando é descartado e registrado, porque esses campos voltam aos prompts como tratamento do paciente.
+        $injection = [];
+        $text = function (mixed $value, int $max, string $field) use (&$injection): ?string {
             if (! is_string($value)) {
+                return null;
+            }
+            if (($flags = $this->injection->flags($value)) !== []) {
+                $injection[] = ['field' => $field, 'flags' => $flags];
+
                 return null;
             }
             $clean = mb_substr($this->guard->sanitize($value), 0, $max);
@@ -140,16 +151,16 @@ final class PrescriptionExtractionService
                 continue;
             }
             $confidence = is_numeric($item['confidence'] ?? null) ? max(0.0, min(1.0, (float) $item['confidence'])) : 0.0;
-            $name = $text($item['name_as_written'] ?? null, 120);
+            $name = $text($item['name_as_written'] ?? null, 120, 'items.name_as_written');
             if ($name === null) {
                 continue;
             }
             $items[] = [
                 'name_as_written' => $name,
-                'dosage' => $text($item['dosage'] ?? null, 120),
-                'frequency' => $text($item['frequency'] ?? null, 120),
-                'duration' => $text($item['duration'] ?? null, 80),
-                'notes' => $text($item['notes'] ?? null, 255),
+                'dosage' => $text($item['dosage'] ?? null, 120, 'items.dosage'),
+                'frequency' => $text($item['frequency'] ?? null, 120, 'items.frequency'),
+                'duration' => $text($item['duration'] ?? null, 80, 'items.duration'),
+                'notes' => $text($item['notes'] ?? null, 255, 'items.notes'),
                 'confidence' => round($confidence, 2),
             ];
         }
@@ -158,11 +169,12 @@ final class PrescriptionExtractionService
         $legibility = in_array($payload['legibility'] ?? null, self::LEGIBILITY, true) ? $payload['legibility'] : 'partial';
 
         return [
-            'prescriber_name' => $text($payload['prescriber_name'] ?? null, 120),
-            'prescriber_registration' => $text($payload['prescriber_registration'] ?? null, 40),
+            'prescriber_name' => $text($payload['prescriber_name'] ?? null, 120, 'prescriber_name'),
+            'prescriber_registration' => $text($payload['prescriber_registration'] ?? null, 40, 'prescriber_registration'),
             'issued_at' => $issued,
             'legibility' => $legibility,
             'items' => $items,
+            'injection' => $injection,
         ];
     }
 
