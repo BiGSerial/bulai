@@ -56,6 +56,9 @@ final class MedicationQuestionService
 
     public const NO_MEDICINE = 'no_medicine';
 
+    /** Pergunta dentro do contexto sem remédio, respondida com texto fixo da equipe (`QuestionGuidance`), sem IA. */
+    public const GUIDANCE = 'guidance';
+
     /** Sem fatos para afirmar, mas há o que perguntar à pessoa (qual é o outro remédio, alergias…) ou o que não se pode confirmar. */
     public const NEEDS_INFO = 'needs_info';
 
@@ -86,6 +89,7 @@ final class MedicationQuestionService
         private readonly UrgencyDetector $urgencies,
         private readonly QuestionInterpreter $interpreter,
         private readonly ExternalEvidenceService $external,
+        private readonly QuestionGuidance $guidance,
     ) {}
 
     /**
@@ -142,6 +146,21 @@ final class MedicationQuestionService
         if ($base['urgency'] === null && ($interpretation['urgency'] ?? null) !== null) {
             $base['urgency'] = $this->urgencies->fromInterpretation($interpretation['urgency']);
         }
+        // Segunda camada da triagem: a IA lê a intenção ("quero dormir e não acordar mais, quantos comprimidos?") que as regras
+        // não pegam. Com risco, nada é buscado nem gerado: a resposta é a mensagem fixa da categoria. Auditoria de 17/11/2026.
+        if (($interpretation['risk'] ?? null) !== null) {
+            $category = match ($interpretation['risk']) {
+                'self_harm' => GuardVerdict::HARM_RISK,
+                'harm_others' => GuardVerdict::HARM_OTHERS,
+                'misuse' => GuardVerdict::MISUSE,
+                'sensitive' => GuardVerdict::SENSITIVE,
+                'confidential' => GuardVerdict::CONFIDENTIAL,
+                default => GuardVerdict::INJECTION,
+            };
+            $flagged = new GuardVerdict($category, $verdict->sanitized, ['interpretation:'.$interpretation['risk']]);
+
+            return $this->finish($user, ['status' => self::BLOCKED, 'message' => $flagged->userMessage(), 'guard' => $flagged->toArray(), 'urgency' => null] + $base, $started);
+        }
         // Com interpretação, a detecção procura os remédios que a IA apontou (e conferiu na pergunta/conversa), não as palavras
         // soltas da pergunta: "e na versão gotas?" não vira o remédio VERSA. Sem remédio apontado e com conversa, vale a conversa.
         $named = $interpretation['medicines'] ?? [];
@@ -168,6 +187,15 @@ final class MedicationQuestionService
             // Nada reconhecido: nomes parecidos com o que foi escrito ("você quis dizer…?") e os remédios em uso, para a pessoa tocar.
             $guesses = array_values(array_filter($this->detector->guesses($detectionText), fn (array $g): bool => ! in_array($g['id'], $excludedMedicineIds, true)));
 
+            // Pergunta dentro do contexto sem remédio ("isso significa que é seguro?", "o que é gravidade maior?", "os remédios
+            // que estou tomando" sem tratamento cadastrado): resposta fixa da equipe, sem IA.
+            $guidance = $this->guidance->for($verdict->sanitized, $this->detector->asksAboutTreatment($verdict->sanitized) && $suggestions === []);
+            if ($guidance !== null) {
+                $base['retrieval']['guidance'] = $guidance['key'];
+
+                return $this->finish($user, ['status' => self::GUIDANCE, 'answer' => $guidance['answer'], 'suggestions' => $suggestions] + $base, $started);
+            }
+
             return $this->finish($user, ['status' => self::NO_MEDICINE, 'suggestions' => $suggestions, 'guesses' => $guesses] + $base, $started);
         }
 
@@ -181,6 +209,10 @@ final class MedicationQuestionService
         $pairs = $this->pairInteractions($ordered);
         $unresolved = count($named) >= 2 ? $this->unresolvedNames($named, $medicines) : [];
         $facts = $this->freeformFacts($pairs, $treatments, ($interpretation['intent'] ?? null) === 'DOSAGE' || in_array('como_usar', $this->intents->topics($interpretation['question'] ?? $verdict->sanitized, count($ordered)), true), $unresolved);
+        $prescribed = $this->prescribedTreatment($user, $ordered);
+        if ($prescribed && count($ordered) >= 2) {
+            $facts = trim(($facts ?? '').' Os remédios perguntados fazem parte do tratamento registrado pelo paciente, que vem de receita médica: as interações entre eles são previstas na orientação do médico que receitou. Não sugira parar, trocar nem mudar a dose; diga que, se surgir alguma reação adversa, o paciente deve procurar o médico.');
+        }
 
         $lastTurn = $conversation !== [] ? $conversation[array_key_last($conversation)] : [];
         // A pessoa trocou de remédio ("e o ibuprofeno?" depois de falar da dipirona): a conversa anterior era sobre outro remédio e
@@ -206,7 +238,9 @@ final class MedicationQuestionService
         // Rede de segurança: o que a base estruturada registrou (ou não conseguiu verificar) sobre os pares chega à pessoa em texto
         // fixo, sem depender de o modelo citar a gravidade; e um remédio citado e não reconhecido nunca some em silêncio.
         $result['limitations'] = [...($result['limitations'] ?? []), ...$this->pairLimitations($pairs), ...$this->unresolvedLimitations($unresolved)];
-        $result['answer'] = $this->withSeverityHeader($result['answer'] ?? null, $pairs);
+        $result['answer'] = $this->withSeverityHeader($result['answer'] ?? null, $pairs, $prescribed && count($ordered) >= 2);
+        $result['answer'] = $this->withPrescriptionFraming($result['answer'], $prescribed, count($ordered), ($interpretation['intent'] ?? null) === 'ADVERSE_EFFECT');
+        $result['retrieval']['prescribed_treatment'] = $prescribed;
         // Verificação do perfil sempre registrada (auditoria), mesmo quando nada foi alertado.
         $result['retrieval']['treatment_check'] = [
             'consented' => $user->hasHealthConsent(),
@@ -388,6 +422,35 @@ final class MedicationQuestionService
         return array_values(array_unique(array_filter($lines)));
     }
 
+    /** Todos os remédios da pergunta estão no tratamento ativo registrado pelo paciente (com consentimento): vêm da receita. */
+    private function prescribedTreatment(User $user, array $ordered): bool
+    {
+        if ($ordered === [] || ! $user->hasHealthConsent()) {
+            return false;
+        }
+        $inUse = PatientMedication::query()->where('user_id', $user->id)->get()->filter(fn (PatientMedication $item): bool => $item->isActive())->pluck('medicine_id')->map(fn ($id): int => (int) $id)->all();
+
+        return collect($ordered)->every(fn (AnvisaMedicine $medicine): bool => in_array((int) $medicine->id, $inUse, true));
+    }
+
+    /**
+     * Pergunta sobre o próprio tratamento (pedido dos autores, 17/11/2026): as interações entre remédios da mesma receita são
+     * previstas na orientação médica; nada de parar ou mudar por conta própria; reação adversa pede o médico. Texto fixo.
+     */
+    private function withPrescriptionFraming(?string $answer, bool $prescribed, int $medicines, bool $adverseEffect): ?string
+    {
+        if (! $prescribed || $answer === null || trim($answer) === '') {
+            return $answer;
+        }
+        $framing = match (true) {
+            $medicines >= 2 => 'Esses remédios fazem parte da sua receita: as interações entre eles são previstas na orientação do médico que a fez. Não pare nem mude nenhum remédio por conta própria. Se notar alguma reação diferente depois de tomar, como um efeito colateral, procure o médico.',
+            $adverseEffect => 'Se notar alguma reação diferente depois de tomar, como um efeito colateral, procure o médico que receitou. Não pare nem mude o remédio por conta própria.',
+            default => null,
+        };
+
+        return $framing === null ? $answer : rtrim($answer)."\n\n".$framing;
+    }
+
     /** "DIPIRONA não consta" / "DIPIRONA e CAFEINA não constam". */
     private function absentFromBase(array $names): string
     {
@@ -403,7 +466,7 @@ final class MedicationQuestionService
      *
      * @param  list<array{a: string, b: string, severity: string|null, severity_label: string|null}>  $pairs
      */
-    private function withSeverityHeader(?string $answer, array $pairs): ?string
+    private function withSeverityHeader(?string $answer, array $pairs, bool $prescribed = false): ?string
     {
         if ($answer === null || trim($answer) === '') {
             return $answer;
@@ -419,9 +482,10 @@ final class MedicationQuestionService
         if (collect($registered)->every($stated)) {
             return $answer;
         }
+        $prefix = $prescribed ? 'A' : 'Atenção: a';
         $header = array_map(fn (array $pair): string => $pair['severity'] === 'unknown'
-            ? sprintf('Atenção: a base de interações (DDInter) registra interação entre %s e %s, sem gravidade classificada pela fonte.', $pair['a'], $pair['b'])
-            : sprintf('Atenção: a base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']), $registered);
+            ? sprintf('%s base de interações (DDInter) registra interação entre %s e %s, sem gravidade classificada pela fonte.', $prefix, $pair['a'], $pair['b'])
+            : sprintf('%s base de interações (DDInter) registra interação de gravidade %s entre %s e %s.', $prefix, mb_strtolower((string) $pair['severity_label']), $pair['a'], $pair['b']), $registered);
 
         return implode(' ', $header)."\n\n".$answer;
     }

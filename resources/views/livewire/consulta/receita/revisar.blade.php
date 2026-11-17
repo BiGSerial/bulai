@@ -39,6 +39,9 @@
             <x-consulta.botao variant="accent" :href="route('consulta.hoje')">Ver remédios de hoje</x-consulta.botao>
         </x-consulta.cartao>
     @else
+        @if ($ignorado)
+            <x-consulta.cartao tone="warning" role="alert" class="border-2"><p class="text-lg leading-snug">Parte do que estava escrito na receita foi ignorada porque não parecia ser receita. Confira os remédios e complete o que faltar.</p></x-consulta.cartao>
+        @endif
         @if ($legibilidade === 'poor')
             <x-consulta.cartao tone="warning" role="alert" class="border-2"><p class="text-xl font-semibold leading-snug">A foto ficou pouco legível.</p><p>Confira cada item com atenção ou <a class="font-semibold underline" href="{{ route('consulta.receita.nova') }}" wire:navigate>tente outra foto</a>.</p></x-consulta.cartao>
         @else

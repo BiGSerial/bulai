@@ -2,7 +2,7 @@
 @php
     $context = $question->treatment_context ?? [];
     $severityTone = fn (?string $severity): string => match ($severity) { 'major' => 'danger', 'moderate' => 'warning', 'minor' => 'info', 'duplicate' => 'warning', default => 'neutral' };
-    $statusLabels = ['answered' => 'Respondida', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado'];
+    $statusLabels = ['answered' => 'Respondida', 'guidance' => 'Orientação geral', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado'];
 @endphp
     <x-knowledge-admin.page-header :badge="$statusLabels[$question->status] ?? $question->status" :badge-tone="$question->status === 'answered' ? 'success' : ($question->status === 'blocked' ? 'danger' : 'warning')" :meta="['Pergunta '.substr($question->uuid, 0, 8), $question->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i'), 'usuário #'.($question->user_id ?? '—'), $question->duration_ms !== null ? number_format($question->duration_ms, 0, ',', '.').' ms' : null]" />
 

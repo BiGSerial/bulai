@@ -41,7 +41,7 @@ final class MedicationMentionDetector
     /** Nome já conferido pela interpretação: a sigla de 2 ou 3 letras ("AAS") vale. */
     private const MIN_VERIFIED_NAME_LENGTH = 2;
 
-    private const TREATMENT_PATTERN = '/\b(meus? (remedios?|medicamentos?|comprimidos?|tratamento|medicacao)|o que (eu )?(tomo|uso)|que eu (tomo|uso)|minha medicacao|meu tratamento|tudo que tomo)\b/';
+    private const TREATMENT_PATTERN = '/\b(meus? (remedios?|medicamentos?|comprimidos?|tratamento|medicacao)|o que (eu )?(tomo|uso)|que eu (tomo|uso)|que (eu )?estou (tomando|usando)|que (eu )?(tomo|uso) (hoje|agora|todo dia)|minha (medicacao|receita)|meu tratamento|tudo que tomo)\b/';
 
     /** Palavras frequentes em perguntas (já normalizadas) que nunca são nomes de medicamento. */
     private const STOPWORDS = [
@@ -170,6 +170,12 @@ final class MedicationMentionDetector
         }
 
         return $unique;
+    }
+
+    /** A pergunta fala dos remédios em uso ("os medicamentos que estou tomando", "minha receita"). */
+    public function asksAboutTreatment(string $text): bool
+    {
+        return preg_match(self::TREATMENT_PATTERN, ' '.$this->normalizer->text($text).' ') === 1;
     }
 
     /**

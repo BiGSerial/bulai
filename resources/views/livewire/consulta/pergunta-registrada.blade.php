@@ -8,7 +8,12 @@
     @if ($question->status === Q::BLOCKED)
         <x-consulta.cartao :tone="$risco ? 'danger' : 'neutral'" class="border-2">
             <p class="break-words italic text-slate-600">“{{ $question->question }}”</p>
-            <p class="break-words text-xl font-semibold leading-snug">Esta pergunta não foi enviada à IA. {{ $bloqueio }}</p>
+            <p class="whitespace-pre-line break-words text-xl font-semibold leading-snug">Esta pergunta não foi respondida. {{ $bloqueio }}</p>
+        </x-consulta.cartao>
+    @elseif ($question->status === Q::GUIDANCE)
+        <x-consulta.cartao tone="brand" class="border-2">
+            <p class="break-words italic">“{{ $question->question }}”</p>
+            <p class="whitespace-pre-line break-words text-xl leading-snug">{{ $question->answer }}</p>
         </x-consulta.cartao>
     @elseif ($question->status === Q::NO_MEDICINE)
         <x-consulta.cartao tone="warning" class="border-2">

@@ -9,6 +9,7 @@ use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeLeafletFact;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\AiProviderManager;
+use App\Services\Safety\PromptInjectionDetector;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,7 @@ final class LeafletEvidenceService
     public function __construct(
         private readonly AiProviderManager $providers,
         private readonly OriginalLeafletReader $original,
+        private readonly PromptInjectionDetector $injection,
     ) {}
 
     /** Há provedor de texto configurado e a consulta à bula inteira está ligada. */
@@ -407,6 +409,8 @@ TXT;
     private function content(string $text): string
     {
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/u', '', $text) ?? $text;
+        // Bula também é dado não confiável: o trecho com forma de comando para a IA não chega ao modelo.
+        $text = $this->injection->clean($text);
 
         return str_replace(['<', '>'], ['‹', '›'], $text);
     }

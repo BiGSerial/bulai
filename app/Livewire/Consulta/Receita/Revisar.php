@@ -231,6 +231,7 @@ class Revisar extends Component
         return view('livewire.consulta.receita.revisar', [
             'status' => $this->prescription->status,
             'legibilidade' => $this->prescription->extraction['legibility'] ?? null,
+            'ignorado' => ($this->prescription->extraction['injection'] ?? []) !== [],
             'buscas' => $buscas,
             'lendo' => in_array($this->prescription->status, [PatientPrescription::STATUS_PENDING, PatientPrescription::STATUS_PROCESSING], true),
         ]);
