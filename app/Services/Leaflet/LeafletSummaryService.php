@@ -80,6 +80,53 @@ final class LeafletSummaryService
     }
 
     /**
+     * Gera de novo, na versão atual do prompt, a bula humanizada do mesmo conjunto de princípios ativos de `$summary`
+     * (pedido do Admin). Se já existe um registro com a mesma identidade de cache, ele é atualizado e guarda o índice
+     * anterior em `generation.readability.previous`; senão, um novo é criado e o antigo fica como histórico.
+     */
+    public function regenerate(MedicineLeafletSummary $summary): ?MedicineLeafletSummary
+    {
+        $medicine = $this->medicineFor((string) $summary->ingredient_key);
+        $target = $medicine === null ? null : $this->target($medicine);
+        if ($target === null) {
+            return null;
+        }
+        $attributes = $this->generate($medicine, $target['documents'], $target['document_type']);
+        $existing = $this->find($target);
+        if ($existing === null) {
+            return MedicineLeafletSummary::query()->create($attributes + [
+                'uuid' => (string) Str::uuid(),
+                'ingredient_key' => $target['key'],
+                'prompt_version' => $target['prompt_version'],
+                'documents_fingerprint' => $target['fingerprint'],
+            ]);
+        }
+        $previous = $existing->readability()['summary']['index'] ?? null;
+        $attributes['generation']['readability']['previous'] = [
+            ...(array) ($existing->generation['readability']['previous'] ?? []),
+            ['index' => $previous, 'status' => $existing->status, 'generated_at' => $existing->updated_at?->toIso8601String()],
+        ];
+        $existing->forceFill($attributes)->save();
+
+        return $existing->fresh();
+    }
+
+    /** Um medicamento do catálogo com exatamente os princípios ativos da chave (ou, na chave por produto, o próprio produto). */
+    public function medicineFor(string $key): ?AnvisaMedicine
+    {
+        if (str_starts_with($key, 'p:')) {
+            return AnvisaMedicine::query()->where('normalized_product_name', substr($key, 2))->orderBy('id')->first();
+        }
+        $ids = array_map('intval', explode('-', $key));
+        sort($ids);
+
+        return AnvisaMedicine::query()->with('ingredients:id')
+            ->whereHas('ingredients', fn ($query) => $query->where('active_ingredients.id', $ids[0]))
+            ->orderByRaw("case when registration_status = 'Ativo' then 0 else 1 end")->orderBy('id')->limit(300)->get()
+            ->first(fn (AnvisaMedicine $medicine): bool => $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->sort()->values()->all() === $ids);
+    }
+
+    /**
      * @return array{key: string, prompt_version: string, fingerprint: string, documents: list<int>, document_type: string}|null
      */
     private function target(AnvisaMedicine $medicine): ?array

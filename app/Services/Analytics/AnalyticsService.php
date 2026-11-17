@@ -413,8 +413,11 @@ final class AnalyticsService
     /**
      * @return LengthAwarePaginator<int, MedicineLeafletSummary>
      */
-    public function recentLeaflets(?string $status = null, int $perPage = 25): LengthAwarePaginator
+    /** `$onlyLatest`: só a versão mais recente de cada conjunto de princípios ativos (as anteriores ficam como histórico). */
+    public function recentLeaflets(?string $status = null, int $perPage = 25, bool $onlyLatest = false): LengthAwarePaginator
     {
-        return MedicineLeafletSummary::query()->when($status, fn ($query) => $query->where('status', $status))->latest('id')->paginate($perPage);
+        return MedicineLeafletSummary::query()->when($status, fn ($query) => $query->where('status', $status))
+            ->when($onlyLatest, fn ($query) => $query->whereIn('id', MedicineLeafletSummary::query()->selectRaw('max(id)')->groupBy('ingredient_key')))
+            ->latest('id')->paginate($perPage);
     }
 }

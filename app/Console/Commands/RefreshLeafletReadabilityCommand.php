@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\Consultation\MedicineLeafletSummary;
-use App\Models\Knowledge\AnvisaMedicine;
 use App\Services\Leaflet\LeafletSummaryService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
@@ -32,7 +31,7 @@ class RefreshLeafletReadabilityCommand extends Command
 
                 continue;
             }
-            $medicine = $this->medicineFor((string) $summary->ingredient_key);
+            $medicine = $service->medicineFor((string) $summary->ingredient_key);
             if ($medicine === null) {
                 $rows[] = [...$row, '—', 'medicamento do catálogo não encontrado'];
 
@@ -53,25 +52,6 @@ class RefreshLeafletReadabilityCommand extends Command
         $this->components->info(sprintf('Alvo: %s. Refeitas nesta execução: %d.', $this->index((float) config('bulai.leaflet.readability.min_flesch')), $done));
 
         return self::SUCCESS;
-    }
-
-    /** Um medicamento do catálogo com exatamente os princípios ativos da chave (ou, na chave por produto, o próprio produto). */
-    private function medicineFor(string $key): ?AnvisaMedicine
-    {
-        if (str_starts_with($key, 'p:')) {
-            return AnvisaMedicine::query()->where('normalized_product_name', substr($key, 2))->orderBy('id')->first();
-        }
-        $ids = array_map('intval', explode('-', $key));
-        sort($ids);
-
-        return AnvisaMedicine::query()->with('ingredients:id')
-            ->whereHas('ingredients', fn ($query) => $query->where('active_ingredients.id', $ids[0]))
-            ->orderByRaw("case when registration_status = 'Ativo' then 0 else 1 end")->orderBy('id')->limit(300)->get()
-            ->first(function (AnvisaMedicine $medicine) use ($ids): bool {
-                $linked = $medicine->ingredients->pluck('id')->map(fn ($id): int => (int) $id)->sort()->values()->all();
-
-                return $linked === $ids;
-            });
     }
 
     private function index(?float $index): string
