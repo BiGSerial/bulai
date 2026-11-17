@@ -70,6 +70,8 @@ O sistema armazena documentos farmacêuticos e metadados operacionais. Mesmo qua
 | Vazamento em mensagens de erro | Erros sanitizados e referência interna | Logs ainda exigem controle de acesso e retenção |
 | PDF malicioso ou excessivo | MIME e limites configurados | Parser continua sendo uma superfície de ataque |
 | Cache de conteúdo autenticado | Exclusão das rotas administrativas no service worker | Cache do navegador e máquina cliente permanecem fora do sistema |
+| Comando para a IA na pergunta ou no conteúdo (bula, receita por foto, anotações do paciente) | Triagem por regras e pela IA na pergunta; conteúdo tratado como dado; `PromptInjectionDetector` retira o texto com forma de comando ([seguranca-e-contexto](../ai/seguranca-e-contexto.md)) | Frases novas dependem do modelo; o detector de conteúdo é por regras |
+| Pergunta com sinal de risco de suicídio ou de dano | Sem dose nem resposta gerada; mensagem fixa com CVV 188, SAMU 192, Disque-Intoxicação e CAPS/UBS | Triagem probabilística na camada da IA; a pergunta vai ao provedor no exterior (LGPD, art. 33) |
 
 ## Privacidade e governança
 

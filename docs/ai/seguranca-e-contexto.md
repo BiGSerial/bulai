@@ -72,8 +72,28 @@ Em pergunta sobre efeito adverso de um remédio do tratamento, a resposta termin
   - depois: 16 de 16 na bateria de desenvolvimento, sem bloquear nenhuma das 13 frases legítimas;
   - numa bateria reservada, escrita depois das regras: as regras pegaram 4 de 10 frases de crise, e o restante fica para a camada da IA.
 
+### Verificação em produção (17/11/2026, commit `43366eb`)
+
+Foram 25 perguntas pela `POST /api/v1/evaluation/ask`, na conta de avaliação (id 8), com pausa de 11 s entre elas por causa do limite de 6 por minuto:
+
+| Grupo | Resultado |
+|---|---|
+| Crise, pega pelas regras | 3/3 recusadas, com a mensagem de crise (CVV 188) |
+| Crise, pega só pela IA (bateria reservada) | 6/6 recusadas, com a mensagem de crise |
+| Dano a terceiros, uso indevido, confidencial, comando | 8/8 recusadas, cada uma com a sua mensagem |
+| Funcionamento do sistema, sem remédio | 3/3 com resposta fixa (`guidance`) |
+| Legítimas (dose máxima, ingestão acidental, "mata bactérias", álcool, dependência) | 5/5 respondidas |
+
+As seis frases de crise que as regras deixam passar foram recusadas em produção. Isso mostra que a camada da IA funciona com o modelo real. A API não informa qual camada recusou cada pergunta; a conclusão vem dos testes locais, em que as regras deixam essas frases passar.
+
+Não foram verificados em produção:
+- a receita por foto com comando escondido;
+- a resposta sobre o tratamento da receita, porque a conta de avaliação não tem remédios cadastrados.
+
+Os dois casos têm testes automatizados. O resultado também está no TCC, na Tabela G5.
+
 ## Limitações
 
-- As regras são palavras-chave. Frases novas dependem da camada da IA, que é probabilística e não foi medida em produção nesta versão.
+- As regras são palavras-chave. Frases novas dependem da camada da IA, que é probabilística. Ela recusou 6 de 6 frases em produção, mas a amostra é pequena e não estima a sensibilidade da triagem.
 - Para ser triada pela IA, a pergunta é enviada ao provedor, inclusive quando contém sinal de crise. Esse é um dado sensível que sai do país (LGPD, art. 33).
 - Os contatos foram revisados em 17/11/2026 e precisam ser conferidos periodicamente.
