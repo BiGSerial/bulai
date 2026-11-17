@@ -25,6 +25,15 @@ final class ExplanationValidator
     private const FORBIDDEN = '/\b(suspend\w*|interromp\w*|substitu\w*|troque\w*|trocar|pare de|deixe de|evite\w*|nao (use|tome|utilize)\w*|nunca (use|tome)\w*|ajust\w+ (a |da |de |na )?dose|(aument|reduz|diminu|dobr)\w+ (a |da |de )?dose)\b/';
 
     /**
+     * Orientação de NÃO mexer no tratamento sem falar com o profissional ("Não mude nem suspenda nenhum dos dois por conta
+     * própria"): é o conselho seguro, não uma recomendação de conduta. Só vale com a ressalva de orientação na mesma frase.
+     * Auditoria de 16/11/2026, V2.
+     */
+    private const KEEP_TREATMENT = '/\b(nao|nem)\s+(?:\w+\s+){0,3}?(?:mud\w*|suspend\w*|interromp\w*|troqu\w*|troca\w*|pare|parar|deix\w* de|substitu\w*)\b/';
+
+    private const ORIENTATION = '/por conta propria|sem (orientacao|falar|conversar|consultar)|antes de (falar|conversar|consultar)|\bmedic[oa]\b|farmaceutic[oa]/';
+
+    /**
      * @param  array<string, string>  $evidenceTexts  id da evidência (ex.: "E1") => texto do trecho
      * @return array{accepted: list<array{text: string, evidence_ids: list<string>}>, rejected: list<array{reason: string}>, insufficient: bool, malformed: bool}
      */
@@ -39,6 +48,17 @@ final class ExplanationValidator
         $rejected = [];
         foreach ($payload['claims'] as $claim) {
             $reason = $this->rejectionReason($claim, $evidenceTexts);
+            if (in_array($reason, [null, 'not_grounded_in_cited_evidence'], true) && ($kept = $this->groundedSentences($claim, $evidenceTexts)) !== null) {
+                if ($kept['text'] === '') {
+                    $reason = 'not_grounded_in_cited_evidence';
+                } else {
+                    foreach ($kept['dropped'] as $dropped) {
+                        $rejected[] = ['reason' => 'sentence_not_grounded', 'text' => $this->rejectedText($dropped)];
+                    }
+                    $claim['text'] = $kept['text'];
+                    $reason = null;
+                }
+            }
             if ($reason !== null) {
                 $rejected[] = ['reason' => $reason, 'text' => $this->rejectedText($claim['text'] ?? null)];
 
@@ -75,7 +95,7 @@ final class ExplanationValidator
             }
             $cited .= ' '.$evidenceTexts[$id];
         }
-        if (preg_match(self::FORBIDDEN, $this->normalize($claim['text'])) === 1) {
+        if ($this->recommendsConduct($claim['text'])) {
             return 'forbidden_recommendation';
         }
 
@@ -202,6 +222,17 @@ final class ExplanationValidator
             }
             if ($kind === 'fact') {
                 $reason = count($result['facts']) >= $maxFacts ? 'too_many_facts' : ($this->rejectionReason($segment, $evidenceTexts, (string) ($options['asked_text'] ?? '')) ?? $this->denseness($text));
+                if (in_array($reason, [null, 'not_grounded_in_cited_evidence'], true) && ($kept = $this->groundedSentences($segment, $evidenceTexts, (string) ($options['asked_text'] ?? ''))) !== null) {
+                    if ($kept['text'] === '') {
+                        $reason = 'not_grounded_in_cited_evidence';
+                    } else {
+                        $segment['text'] = $text = $kept['text'];
+                        foreach ($kept['dropped'] as $dropped) {
+                            $result['rejected'][] = ['kind' => 'fact', 'reason' => 'sentence_not_grounded', 'text' => $this->rejectedText($dropped)];
+                        }
+                        $reason = $this->denseness($text);
+                    }
+                }
                 if ($reason === null) {
                     $result['facts'][] = ['text' => $text, 'evidence_ids' => array_values(array_unique($segment['evidence_ids']))];
                 }
@@ -303,7 +334,7 @@ final class ExplanationValidator
             return 'invalid_length';
         }
 
-        return preg_match(self::FORBIDDEN, $this->normalize($text)) === 1 ? 'forbidden_recommendation' : null;
+        return $this->recommendsConduct($text) ? 'forbidden_recommendation' : null;
     }
 
     /** Frases longas demais são difíceis de ler (principalmente por idosos): média acima do limite reprova a afirmação. */
@@ -349,5 +380,50 @@ final class ExplanationValidator
     private function rejectedText(mixed $text): ?string
     {
         return is_string($text) && trim($text) !== '' ? mb_substr(trim($text), 0, 300) : null;
+    }
+
+    /**
+     * Afirmação com mais de uma frase: cada frase é validada sozinha, contra os mesmos trechos. Ficam as frases apoiadas; as
+     * sem apoio saem e são registradas. Antes, a sobreposição medida na afirmação inteira tinha dois efeitos: uma frase
+     * interpretativa emendada ("Isso quer dizer que…") derrubava a afirmação correta inteira, inclusive a gravidade
+     * registrada no DDInter (V1), e uma frase apoiada "carregava" outra sem apoio ("O par é perigoso para idosos").
+     * Auditoria de 16/11/2026. Devolve null quando não há o que mudar; texto vazio quando nenhuma frase tem apoio.
+     *
+     * @param  array<string, mixed>  $claim
+     * @param  array<string, string>  $evidenceTexts
+     * @return array{text: string, dropped: list<string>}|null
+     */
+    private function groundedSentences(array $claim, array $evidenceTexts, string $askedText = ''): ?array
+    {
+        $sentences = array_values(array_filter(array_map('trim', preg_split('/(?<=[.!?])\s+/u', (string) $claim['text']) ?: [])));
+        if (count($sentences) < 2) {
+            return null;
+        }
+        $kept = [];
+        $dropped = [];
+        foreach ($sentences as $sentence) {
+            if ($this->rejectionReason(['text' => $sentence] + $claim, $evidenceTexts, $askedText) === null) {
+                $kept[] = $sentence;
+            } else {
+                $dropped[] = $sentence;
+            }
+        }
+
+        if ($dropped === []) {
+            return null;
+        }
+
+        return ['text' => implode(' ', $kept), 'dropped' => $dropped];
+    }
+
+    /** Recomendação de conduta (suspender, trocar, ajustar dose…), sem contar o conselho negado de não mexer sem orientação. */
+    private function recommendsConduct(string $text): bool
+    {
+        $normalized = $this->normalize($text);
+        if (preg_match(self::ORIENTATION, $normalized) === 1) {
+            $normalized = (string) preg_replace(self::KEEP_TREATMENT, ' ', $normalized);
+        }
+
+        return preg_match(self::FORBIDDEN, $normalized) === 1;
     }
 }
