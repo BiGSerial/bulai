@@ -2,7 +2,15 @@
 @php
     $statusLabels = ['generated' => 'Gerada', 'partial' => 'Parcial', 'invalid' => 'Rejeitada na validação', 'unavailable' => 'Indisponível'];
 @endphp
-    <x-knowledge-admin.page-header :badge="$statusLabels[$summary->status] ?? $summary->status" :badge-tone="$summary->status === 'generated' ? 'success' : 'warning'" :meta="['Bula humanizada '.substr($summary->uuid, 0, 8), 'gerada em '.$summary->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i'), $summary->views.' visualizações (reuso do cache)', $summary->duration_ms !== null ? number_format($summary->duration_ms, 0, ',', '.').' ms' : null]" />
+    <x-knowledge-admin.page-header :badge="$statusLabels[$summary->status] ?? $summary->status" :badge-tone="$summary->status === 'generated' ? 'success' : 'warning'" :meta="['Bula humanizada '.substr($summary->uuid, 0, 8), 'gerada em '.$summary->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i'), $summary->views.' visualizações (reuso do cache)', $summary->duration_ms !== null ? number_format($summary->duration_ms, 0, ',', '.').' ms' : null]">
+        <x-slot:primary>
+            <x-knowledge-admin.confirm-modal action="refazer" title="Refazer esta bula humanizada?" message="Gera de novo, na versão atual do prompt, com a medição de legibilidade e até duas reescritas (até 3 chamadas ao modelo). Roda em segundo plano; se já for a versão atual, o texto é substituído e o índice anterior fica registrado." confirm-label="Refazer">
+                <x-knowledge-admin.button>Refazer</x-knowledge-admin.button>
+            </x-knowledge-admin.confirm-modal>
+        </x-slot:primary>
+    </x-knowledge-admin.page-header>
+    @if ($mensagem)<x-knowledge-admin.alert tone="success">{{ $mensagem }}</x-knowledge-admin.alert>@endif
+    @if ($newer)<x-knowledge-admin.alert tone="warning">Esta é uma versão anterior, já substituída. <a class="font-medium underline" href="{{ route('admin.analytics.leaflets.show', $newer) }}" wire:navigate>Ver a versão atual</a> ({{ $newer->prompt_version }}, gerada em {{ $newer->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}).</x-knowledge-admin.alert>@endif
 
     <x-knowledge-admin.card class="grid gap-4 !p-0">
         <x-knowledge-admin.tabs class="px-2" :tabs="[['key' => 'texto', 'label' => 'Texto e legibilidade'], ['key' => 'secoes', 'label' => 'Seções geradas', 'count' => count($summary->sections ?? [])], ['key' => 'geracao', 'label' => 'Geração, recuperação e cache'], ['key' => 'evidencias', 'label' => 'Evidências', 'count' => count($summary->evidences ?? [])]]" :active="$tab" model="tab" />
@@ -21,6 +29,9 @@
                 <x-knowledge-admin.fact label="Palavras por frase">{{ ($legibilidade['summary']['sentences'] ?? 0) > 0 ? number_format($legibilidade['summary']['words'] / $legibilidade['summary']['sentences'], 1, ',', '') : '—' }}</x-knowledge-admin.fact>
             </x-knowledge-admin.facts>
             <p class="text-xs text-slate-500">Índice de Flesch adaptado ao português (Martins et al., 1996): 75 ou mais, muito fácil; 50 a 75, fácil; 25 a 50, difícil; abaixo de 25, muito difícil. Mede a facilidade de leitura, não a compreensão; nomes de remédios baixam o índice mesmo em frases claras.</p>
+            @if (! empty($summary->generation['readability']['previous']))
+                <p class="text-sm text-slate-700">Refeita pelo Admin. Índice das versões anteriores: {{ collect($summary->generation['readability']['previous'])->map(fn ($p) => ($p['index'] ?? null) === null ? '—' : number_format($p['index'], 1, ',', ''))->join(' → ') }} → {{ $indice($legibilidade['summary']) }}.</p>
+            @endif
             @if (count($tentativas) > 1)
                 <div class="grid gap-1">
                     <h3 class="text-sm font-semibold text-slate-800">Reescritas para linguagem mais simples</h3>

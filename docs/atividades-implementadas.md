@@ -358,12 +358,9 @@ Motivo: linguagem acessível é o propósito da aplicação, e 9 de 10 bulas hum
 - **Limitação:** o validador exige as palavras do trecho citado (40%); simplificar demais pode reduzir as frases aceitas. O índice mede facilidade de leitura, não compreensão.
 - **Testes:** `tests/Feature/Consulta/LegibilidadeBulaHumanizadaTest.php`.
 
-## Segurança e contexto do Perguntar (17/11/2026)
+### Admin: refazer bula humanizada e versões atuais × histórico (17/11/2026)
 
-- **Triagem por regras ampliada (`InputGuard`):** crise suicida (16/16 na bateria, antes 2/16), dano a terceiros, uso indevido, gravidez, dados confidenciais e manipulação. As frases legítimas continuam passando (13/13).
-- **Segunda camada:** campo `risk` na interpretação pela IA. Com risco, nada é buscado nem gerado.
-- **Crise:** mensagem fixa de acolhimento com CVV 188 (Centro de Valorização da Vida, cvv.org.br), SAMU 192, Disque-Intoxicação 0800 722 6001 e CAPS/UBS, e botões de ligar.
-- **Perguntas no contexto sem remédio:** status `guidance`, com texto fixo para "sem interação = seguro?", gravidades, fontes e tratamento não cadastrado.
-- **Tratamento da receita:** interações apresentadas como previstas pelo médico; nunca parar por conta própria; reação adversa pede o médico.
-- **Comandos escondidos em todas as entradas da IA (`PromptInjectionDetector`):** receita por foto (campo descartado e aviso na revisão), trechos de bula, tradução FDA, anotações do paciente e classificação de PDF. Nenhum falso positivo em 399 trechos reais.
-- **Detalhes:** `docs/ai/seguranca-e-contexto.md`. **Testes:** `tests/Feature/Consulta/SegurancaEContextoTest.php`, `tests/Feature/Safety/InjecaoEmConteudoTest.php`.
+- **Refazer:** botão no detalhe (Analytics › Bulas › bula), com confirmação. Despacha `RegenerateLeafletSummary` (fila, único por bula) → `LeafletSummaryService::regenerate()`, que gera de novo na versão atual do prompt, com a medição de legibilidade e as reescritas. Mesma identidade de cache (chave, versão, bulas): o registro é atualizado e o índice anterior fica em `generation.readability.previous` (mostrado na aba "Texto e legibilidade"); senão, cria um registro novo e o antigo fica no histórico.
+- **Lista:** por padrão, só a versão mais recente de cada conjunto de princípios ativos; o filtro "Versões › Todas" mostra as substituídas, marcadas como "Substituída". O detalhe de uma versão antiga avisa e aponta para a atual.
+- `LeafletSummaryService::medicineFor()` (antes só no comando) acha o medicamento do catálogo a partir da chave da bula.
+- Testes: `LegibilidadeBulaHumanizadaTest`.

@@ -1,0 +1,215 @@
+{
+ "summaries": 10,
+ "current_prompt": "humanized-leaflet-v3",
+ "current": {
+  "n": 10,
+  "bands": {
+   "fácil": 10
+  },
+  "flesch_median": 56.45,
+  "source_flesch_median": 32.2,
+  "easier_than_source": "10/10",
+  "words_per_sentence_median": 11.600000000000001
+ },
+ "by_section_median": {
+  "Para que serve": {
+   "median": 34.650000000000006,
+   "n": 10,
+   "band": "difícil"
+  },
+  "Interações com outros remédios, álcool e alimentos": {
+   "median": 38.2,
+   "n": 9,
+   "band": "difícil"
+  },
+  "Procure ajuda se": {
+   "median": 49.4,
+   "n": 10,
+   "band": "difícil"
+  },
+  "Efeitos colaterais mais comuns": {
+   "median": 60.4,
+   "n": 10,
+   "band": "fácil"
+  },
+  "Não use se": {
+   "median": 62.449999999999996,
+   "n": 8,
+   "band": "fácil"
+  },
+  "Benefícios esperados (prós)": {
+   "median": 62.7,
+   "n": 10,
+   "band": "fácil"
+  },
+  "Riscos e cuidados (contras)": {
+   "median": 64.65,
+   "n": 10,
+   "band": "fácil"
+  },
+  "Como usar": {
+   "median": 72.65,
+   "n": 10,
+   "band": "fácil"
+  }
+ },
+ "sentences": 193,
+ "sentences_with_listed_technical_terms": 21,
+ "technical_terms": {
+  "agranulocit": 6,
+  "broncoespasmo": 3,
+  "contraindica": 2,
+  "microrganism": 2,
+  "anafila": 2,
+  "arritmia": 1,
+  "gastrointestina": 1,
+  "mucoviscidose": 1,
+  "anticolinergic": 1,
+  "adrenergic": 1,
+  "agonista": 1
+ },
+ "long_words_13_plus": {
+  "agranulocitose": 6,
+  "imediatamente": 3,
+  "broncoespasmo": 3,
+  "tetraciclinas": 2,
+  "isotretinoína": 2,
+  "microrganismos": 2,
+  "respiratórias": 2,
+  "pirazolidinas": 2,
+  "acetilsalicílico": 2,
+  "inflamatórios": 2,
+  "acetilcisteína": 2,
+  "contraindicada": 1,
+  "carbamazepina": 1,
+  "antidiabéticos": 1,
+  "sulfametoxazol": 1,
+  "gastrointestinais": 1,
+  "contraindicado": 1,
+  "hidroclorotiazida": 1,
+  "sensibilidade": 1,
+  "anticoagulantes": 1
+ },
+ "rows": [
+  {
+   "id": 21,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 21,
+   "flesch": 56.6,
+   "band": "fácil",
+   "source_flesch": 36.1,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 13.7
+  },
+  {
+   "id": 20,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 21,
+   "flesch": 57.1,
+   "band": "fácil",
+   "source_flesch": 32.8,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 12.3
+  },
+  {
+   "id": 19,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 19,
+   "flesch": 54.3,
+   "band": "fácil",
+   "source_flesch": 45.5,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 10.0
+  },
+  {
+   "id": 18,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 17,
+   "flesch": 54.7,
+   "band": "fácil",
+   "source_flesch": 31.6,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 10.5
+  },
+  {
+   "id": 17,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "partial",
+   "claims": 19,
+   "flesch": 63,
+   "band": "fácil",
+   "source_flesch": 39.6,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 13.7
+  },
+  {
+   "id": 16,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 22,
+   "flesch": 60.3,
+   "band": "fácil",
+   "source_flesch": 30.8,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 10.4
+  },
+  {
+   "id": 15,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "partial",
+   "claims": 18,
+   "flesch": 50.7,
+   "band": "fácil",
+   "source_flesch": 24.1,
+   "source_band": "muito difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 13.5
+  },
+  {
+   "id": 14,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 19,
+   "flesch": 56.3,
+   "band": "fácil",
+   "source_flesch": 37.5,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 13.5
+  },
+  {
+   "id": 13,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "generated",
+   "claims": 20,
+   "flesch": 54.7,
+   "band": "fácil",
+   "source_flesch": 31.6,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 10.9
+  },
+  {
+   "id": 12,
+   "prompt_version": "humanized-leaflet-v3",
+   "status": "partial",
+   "claims": 17,
+   "flesch": 56.6,
+   "band": "fácil",
+   "source_flesch": 13.2,
+   "source_band": "muito difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 10.7
+  }
+ ]
+}
