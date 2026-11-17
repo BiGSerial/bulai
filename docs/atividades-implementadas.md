@@ -357,3 +357,10 @@ Motivo: linguagem acessível é o propósito da aplicação, e 9 de 10 bulas hum
 - **Comando:** `php artisan leaflets:refresh-readability [--dry-run] [--limit=50]` refaz as bulas de versão anterior do prompt; as da versão atual abaixo do alvo só são listadas.
 - **Limitação:** o validador exige as palavras do trecho citado (40%); simplificar demais pode reduzir as frases aceitas. O índice mede facilidade de leitura, não compreensão.
 - **Testes:** `tests/Feature/Consulta/LegibilidadeBulaHumanizadaTest.php`.
+
+### Admin: refazer bula humanizada e versões atuais × histórico (17/11/2026)
+
+- **Refazer:** botão no detalhe (Analytics › Bulas › bula), com confirmação. Despacha `RegenerateLeafletSummary` (fila, único por bula) → `LeafletSummaryService::regenerate()`, que gera de novo na versão atual do prompt, com a medição de legibilidade e as reescritas. Mesma identidade de cache (chave, versão, bulas): o registro é atualizado e o índice anterior fica em `generation.readability.previous` (mostrado na aba "Texto e legibilidade"); senão, cria um registro novo e o antigo fica no histórico.
+- **Lista:** por padrão, só a versão mais recente de cada conjunto de princípios ativos; o filtro "Versões › Todas" mostra as substituídas, marcadas como "Substituída". O detalhe de uma versão antiga avisa e aponta para a atual.
+- `LeafletSummaryService::medicineFor()` (antes só no comando) acha o medicamento do catálogo a partir da chave da bula.
+- Testes: `LegibilidadeBulaHumanizadaTest`.
