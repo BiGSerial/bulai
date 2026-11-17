@@ -1,0 +1,418 @@
+[
+ {
+  "id": "R1",
+  "uuid": "4dbce37a-9334-479f-9606-372002801f4f",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação merece atenção especial de quem acompanha o seu tratamento.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "R1",
+  "uuid": "4dbce37a-9334-479f-9606-372002801f4f",
+  "kind": "fact",
+  "text": "Por isso, ela pode diminuir a quantidade no sangue de outros remédios que o corpo processa por esse caminho.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "R1",
+  "uuid": "4dbce37a-9334-479f-9606-372002801f4f",
+  "kind": "fact",
+  "text": "O anlodipino é desse mesmo tipo de remédio, e o efeito dele no corpo também pode ser alterado por medicamentos que mexem com essa enzima.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "R1",
+  "uuid": "4dbce37a-9334-479f-9606-372002801f4f",
+  "kind": "fact",
+  "text": "Quando o anlodipino é usado junto com remédios que aceleram essa enzima, a orientação é ter cautela e acompanhamento médico.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "R2",
+  "uuid": "946ba19a-643a-4fa4-8c87-fb7a000b3360",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação merece atenção especial e acompanhamento de um profissional.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "R2",
+  "uuid": "946ba19a-643a-4fa4-8c87-fb7a000b3360",
+  "kind": "fact",
+  "text": "A varfarina não aparece na lista de remédios que o ibuprofeno pede para evitar. Mas o ibuprofeno orienta consultar um médico antes de usá-lo junto com qualquer outro medicamento.",
+  "reason": "negation_not_in_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "R3",
+  "uuid": "5f17bd95-03e7-4a84-82c2-168376581a89",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação pede atenção e acompanhamento médico.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "R3",
+  "uuid": "5f17bd95-03e7-4a84-82c2-168376581a89",
+  "kind": "fact",
+  "text": "Com isso, o itraconazol pode ficar em menor quantidade no sangue e agir menos.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "R3",
+  "uuid": "5f17bd95-03e7-4a84-82c2-168376581a89",
+  "kind": "fact",
+  "text": "A bula do fenobarbital (Gardenal) também coloca o itraconazol entre os remédios que pedem cuidado, acompanhamento médico e, às vezes, ajuste do tratamento.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "R3",
+  "uuid": "5f17bd95-03e7-4a84-82c2-168376581a89",
+  "kind": "fact",
+  "text": "É importante avisar o médico se você usa os dois.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G1",
+  "uuid": "f3cc19de-1665-4a23-89be-35a044df386e",
+  "kind": "fact",
+  "text": "Isso quer dizer que usar os dois juntos merece atenção especial de um profissional de saúde.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G2",
+  "uuid": "8cca7086-7d67-44ec-8efb-2927756e6d6a",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação merece atenção e acompanhamento de perto por um profissional de saúde.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "a8b98a38-dfd6-404b-888a-b512628b8e73",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação merece atenção especial do médico.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "a8b98a38-dfd6-404b-888a-b512628b8e73",
+  "kind": "fact",
+  "text": "Essa informação vem da bula dos Estados Unidos. Usar os dois juntos pode aumentar o potássio no sangue, porque a espironolactona é um diurético que poupa potássio e a valsartana também pode elevar esse nível.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "a8b98a38-dfd6-404b-888a-b512628b8e73",
+  "kind": "fact",
+  "text": "Em pessoas com insuficiência cardíaca (o coração que tem dificuldade de bombear o sangue), a combinação também pode aumentar a creatinina, que é um exame usado para avaliar os rins.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "a8b98a38-dfd6-404b-888a-b512628b8e73",
+  "kind": "fact",
+  "text": "Quando o médico considera necessário usar os dois, a orientação é acompanhar o potássio no sangue com exames.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G4",
+  "uuid": "fca6fd99-82bf-4fbd-abf9-3f3d63679aca",
+  "kind": "fact",
+  "text": "Você contou que toma diazepam e tramadol.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G4",
+  "uuid": "fca6fd99-82bf-4fbd-abf9-3f3d63679aca",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação merece atenção especial.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G4",
+  "uuid": "fca6fd99-82bf-4fbd-abf9-3f3d63679aca",
+  "kind": "fact",
+  "text": "O diazepam é um calmante da família dos benzodiazepínicos.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G4",
+  "uuid": "fca6fd99-82bf-4fbd-abf9-3f3d63679aca",
+  "kind": "fact",
+  "text": "Usados juntos, os dois somam o efeito de deixar o corpo mais lento e sonolento.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G4",
+  "uuid": "fca6fd99-82bf-4fbd-abf9-3f3d63679aca",
+  "kind": "fact",
+  "text": "O álcool também entra nesse mesmo grupo e pode aumentar ainda mais esse efeito.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G5",
+  "uuid": "47727d67-4132-406d-9a33-45dcf1487d52",
+  "kind": "fact",
+  "text": "Isso quer dizer que juntar os dois merece atenção séria e acompanhamento de perto por um profissional.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "G5",
+  "uuid": "47727d67-4132-406d-9a33-45dcf1487d52",
+  "kind": "fact",
+  "text": "Se você usa os dois, é importante que o médico saiba. Ele é quem avalia se a combinação faz sentido no seu caso e como acompanhar. Não pare nem mude nenhum dos remédios por conta própria.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "M2",
+  "uuid": "60622fab-b56d-47a5-8d29-70ee4dbe19ba",
+  "kind": "fact",
+  "text": "Isso quer dizer que, quando usados juntos, a combinação merece atenção e acompanhamento de um profissional.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "M2",
+  "uuid": "60622fab-b56d-47a5-8d29-70ee4dbe19ba",
+  "kind": "fact",
+  "text": "O enalapril é um remédio que baixa a pressão. Os textos que tratam dele falam de efeito somado quando ele é usado com outros remédios para pressão, mas não explicam como seria essa interação com o clonazepam.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "M2",
+  "uuid": "60622fab-b56d-47a5-8d29-70ee4dbe19ba",
+  "kind": "fact",
+  "text": "O clonazepam pode dar mais sono e deixar a pessoa mais desanimada quando é usado com outros remédios que agem no sistema nervoso central (o \"comando\" do corpo, no cérebro).",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "M3",
+  "uuid": "00035503-91f5-4ae7-ae41-ce0f092e02c1",
+  "kind": "fact",
+  "text": "O diclofenaco é um anti-inflamatório.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "M3",
+  "uuid": "00035503-91f5-4ae7-ae41-ce0f092e02c1",
+  "kind": "fact",
+  "text": "O carvedilol faz parte desse grupo.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "M3",
+  "uuid": "00035503-91f5-4ae7-ae41-ce0f092e02c1",
+  "kind": "fact",
+  "text": "Na prática, isso quer dizer que o carvedilol pode controlar a pressão um pouco menos quando é usado junto com o diclofenaco.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "L1",
+  "uuid": "6c1b26c8-484a-45ac-8063-e55b2a015ce7",
+  "kind": "fact",
+  "text": "Isso quer dizer que um pode mexer um pouco com o efeito do outro, mas o registro não a classifica como uma interação grave.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "L1",
+  "uuid": "6c1b26c8-484a-45ac-8063-e55b2a015ce7",
+  "kind": "fact",
+  "text": "Ela está entre os remédios que podem diminuir a quantidade de digoxina no sangue quando usados juntos.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "L1",
+  "uuid": "6c1b26c8-484a-45ac-8063-e55b2a015ce7",
+  "kind": "fact",
+  "text": "Em caso de dúvida, o médico pode pedir um exame para medir a quantidade de digoxina no sangue.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "L3",
+  "uuid": "af756b8f-a40c-415c-853b-08137ad4a495",
+  "kind": "fact",
+  "text": "Isso quer dizer que, na base consultada, o problema esperado é pequeno.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "L3",
+  "uuid": "af756b8f-a40c-415c-853b-08137ad4a495",
+  "kind": "fact",
+  "text": "O diazepam não aparece nessa lista.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "N2",
+  "uuid": "fb9b92cd-4ad8-4f89-986a-744019dc2f61",
+  "kind": "fact",
+  "text": "O cetoconazol não aparece nessa lista.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "T1",
+  "uuid": "0fe87252-2a5e-4756-81d2-7245fada9b78",
+  "kind": "fact",
+  "text": "Isso quer dizer que a combinação merece atenção especial e acompanhamento de perto por um profissional de saúde.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "T1",
+  "uuid": "0fe87252-2a5e-4756-81d2-7245fada9b78",
+  "kind": "fact",
+  "text": "O anlodipino é um remédio que usa esse mesmo caminho no corpo. Por isso, quando ele é usado junto de remédios que aceleram essa enzima, é preciso cautela e acompanhamento médico.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T1",
+  "uuid": "0fe87252-2a5e-4756-81d2-7245fada9b78",
+  "kind": "fact",
+  "text": "Ela ainda avisa que muitos remédios interagem com a carbamazepina e que, às vezes, pode ser preciso mudar a dose de um deles.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "T2",
+  "uuid": "96a1b4ce-26ff-420f-ae8a-2c4332fd6628",
+  "kind": "fact",
+  "text": "Omeprazol e clopidogrel não costumam ser uma boa combinação: o uso dos dois juntos deve ser evitado.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T2",
+  "uuid": "96a1b4ce-26ff-420f-ae8a-2c4332fd6628",
+  "kind": "fact",
+  "text": "Por isso, o omeprazol atrapalha esse processo e o clopidogrel pode funcionar menos.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "T2",
+  "uuid": "96a1b4ce-26ff-420f-ae8a-2c4332fd6628",
+  "kind": "fact",
+  "text": "Isso quer dizer que é uma combinação que merece atenção especial.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "A1",
+  "uuid": "5ceaa336-3817-43ca-be2c-75cc3a5785a0",
+  "kind": "fact",
+  "text": "Isso quer dizer que o uso dos dois juntos merece atenção especial.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "A1",
+  "uuid": "5ceaa336-3817-43ca-be2c-75cc3a5785a0",
+  "kind": "fact",
+  "text": "O AAS impede que as plaquetas (células do sangue que ajudam a coagular) se grudem.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "A2",
+  "uuid": "3215dfbb-439e-4a6c-acf9-ae8a1a053924",
+  "kind": "fact",
+  "text": "Por isso a pressão pode ficar mais baixa do que o esperado.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "A2",
+  "uuid": "3215dfbb-439e-4a6c-acf9-ae8a1a053924",
+  "kind": "fact",
+  "text": "Isso é um ponto de atenção.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "C1",
+  "uuid": "e32d6e8c-23ab-42e6-bd46-54b6a5a48117",
+  "kind": "fact",
+  "text": "Isso quer dizer que usar os dois juntos merece atenção, porque um pode influenciar o efeito do outro.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "C1",
+  "uuid": "e32d6e8c-23ab-42e6-bd46-54b6a5a48117",
+  "kind": "fact",
+  "text": "Por isso, quem usa clonazepam deve evitar bebida alcoólica.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "B1",
+  "uuid": "4ae587f4-b3da-4995-a06c-8fec1852582a",
+  "kind": "fact",
+  "text": "Na prática, a amiodarona pode aumentar o efeito da varfarina, que é um remédio para deixar o sangue mais \"fino\".",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "B1",
+  "uuid": "4ae587f4-b3da-4995-a06c-8fec1852582a",
+  "kind": "fact",
+  "text": "Por isso, durante o tratamento com amiodarona e depois dele, é preciso fazer com regularidade o exame que mede o tempo de coagulação do sangue (chamado INR). A dose da varfarina pode precisar de ajuste, e quem decide isso é o médico.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "X1",
+  "uuid": "569353b5-0b94-43b7-9493-a92a4e375f7a",
+  "kind": "fact",
+  "text": "Isso quer dizer que tomar os três juntos exige atenção especial do médico.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "X1",
+  "uuid": "569353b5-0b94-43b7-9493-a92a4e375f7a",
+  "kind": "fact",
+  "text": "A claritromicina também pode aumentar a quantidade de digoxina no corpo.",
+  "reason": "sentence_not_grounded",
+  "attempt": 1
+ },
+ {
+  "id": "Z1",
+  "uuid": "2e85da7d-84cb-4fa6-87b3-addbedd32998",
+  "kind": "fact",
+  "text": "Não foi possível identificar o Zylofrex, então não dá para dizer o que se sabe sobre essa combinação específica. A checagem de interação entre os dois não foi feita, e isso não quer dizer que a interação não exista.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ }
+]
