@@ -162,7 +162,7 @@ class Perguntar extends Component
         $this->resposta = $service->askFreeform(auth()->user(), $question, $this->fixos, $contexto, $this->removidos) + ['pergunta' => $question];
         $this->resposta['medicamento'] = implode(' + ', array_column($this->resposta['medicines'], 'name'));
         // Depois de responder, os remédios "fixos" (link ou correção) deixam de valer: a conversa passa a guiar as próximas.
-        if (! in_array($this->resposta['status'], [MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::BLOCKED], true)) {
+        if (! in_array($this->resposta['status'], [MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::BLOCKED, MedicationQuestionService::GUIDANCE], true)) {
             $this->fixos = [];
         }
     }
@@ -257,7 +257,10 @@ class Perguntar extends Component
                 break;
             case MedicationQuestionService::BLOCKED:
                 $fala['texto'] = (string) ($resposta['message'] ?? 'Não posso ajudar com essa pergunta.');
-                $fala['tone'] = ($resposta['guard']['category'] ?? null) === 'harm_risk' ? 'danger' : 'neutral';
+                $fala['tone'] = in_array($resposta['guard']['category'] ?? null, ['harm_risk', 'harm_others'], true) ? 'danger' : 'neutral';
+                break;
+            case MedicationQuestionService::GUIDANCE:
+                $fala['texto'] = (string) ($resposta['answer'] ?? '');
                 break;
         }
 
@@ -316,7 +319,7 @@ class Perguntar extends Component
      */
     public static function alerta(array $resposta): ?array
     {
-        if (in_array($resposta['status'] ?? null, [MedicationQuestionService::BLOCKED, MedicationQuestionService::NO_MEDICINE], true)) {
+        if (in_array($resposta['status'] ?? null, [MedicationQuestionService::BLOCKED, MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::GUIDANCE], true)) {
             return null;
         }
         $alergias = [];
@@ -458,6 +461,7 @@ class Perguntar extends Component
             MedicationQuestionService::UNAVAILABLE => 'Não consegui consultar o assistente nessa hora.',
             MedicationQuestionService::NO_MEDICINE => 'Perguntei sobre qual remédio você queria saber.',
             MedicationQuestionService::BLOCKED => 'Não pude ajudar com essa pergunta.',
+            MedicationQuestionService::GUIDANCE => 'Expliquei como o sistema funciona nesse ponto.',
             default => 'Respondi com base na bula de '.$nome.'.',
         };
     }

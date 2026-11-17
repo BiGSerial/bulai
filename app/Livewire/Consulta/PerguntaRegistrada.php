@@ -41,7 +41,7 @@ class PerguntaRegistrada extends Component
             'medicamentos' => $this->question->medicines ?? [],
             'tratamentos' => $treatments,
             'bloqueio' => $this->question->status === MedicationQuestion::STATUS_BLOCKED && $category !== null ? (new GuardVerdict($category, ''))->userMessage() : null,
-            'risco' => $category === GuardVerdict::HARM_RISK,
+            'risco' => in_array($category, [GuardVerdict::HARM_RISK, GuardVerdict::HARM_OTHERS], true),
         ]);
     }
 }

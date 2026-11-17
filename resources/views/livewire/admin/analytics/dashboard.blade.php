@@ -13,7 +13,7 @@
     $severityTones = ['major' => 'danger', 'moderate' => 'warning', 'minor' => 'info', 'unknown' => 'muted'];
     $generationLabels = ['generated' => 'Gerada e validada', 'invalid' => 'Rejeitada na validação', 'unavailable' => 'Não gerada (sem evidência/provedor)', 'desconhecido' => 'Sem registro'];
     $rejectionLabels = ['not_grounded_in_cited_evidence' => 'Não ancorada na evidência citada', 'forbidden_recommendation' => 'Recomendação proibida', 'unknown_evidence_reference' => 'Evidência citada inexistente', 'no_evidence_reference' => 'Sem citação de evidência', 'invalid_length' => 'Tamanho inválido', 'malformed_claim' => 'Afirmação malformada', 'no_verifiable_terms' => 'Sem termos verificáveis'];
-    $questionLabels = ['answered' => 'Respondida', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado'];
+    $questionLabels = ['answered' => 'Respondida', 'guidance' => 'Orientação geral', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado'];
     $leafletLabels = ['generated' => 'Gerada', 'partial' => 'Parcial', 'invalid' => 'Rejeitada na validação', 'unavailable' => 'Indisponível'];
     $t = $overview['timeline'];
     $dayLabels = array_map(fn (string $day): string => \Carbon\Carbon::parse($day)->format('d/m'), $t['days']);
@@ -23,7 +23,7 @@
     $aiDayLabels = $aiDays->map(fn (string $day): string => \Carbon\Carbon::parse($day)->format('d/m'))->all();
     $verdictTones = ['INTERACTION_FOUND' => 'danger', 'NOT_FOUND_IN_SOURCES' => 'success', 'INSUFFICIENT_EVIDENCE' => 'warning', 'CONTRADICTORY_EVIDENCE' => 'accent', 'MEDICATION_NOT_IDENTIFIED' => 'muted', 'TECHNICAL_ERROR' => 'danger'];
     $generationTones = ['generated' => 'success', 'invalid' => 'danger', 'unavailable' => 'muted', 'desconhecido' => 'muted'];
-    $questionTones = ['answered' => 'success', 'excerpts_only' => 'info', 'no_evidence' => 'warning', 'no_leaflet' => 'muted', 'not_identified' => 'muted', 'blocked' => 'danger', 'no_medicine' => 'muted'];
+    $questionTones = ['answered' => 'success', 'guidance' => 'info', 'excerpts_only' => 'info', 'no_evidence' => 'warning', 'no_leaflet' => 'muted', 'not_identified' => 'muted', 'blocked' => 'danger', 'no_medicine' => 'muted'];
     $leafletTones = ['generated' => 'success', 'partial' => 'warning', 'invalid' => 'danger', 'unavailable' => 'muted'];
     $stages = [
         'Consulta de interação' => $c['duration'], 'Pergunta livre' => $q['duration'], 'Bula humanizada' => ['avg' => $l['duration']['avg'], 'p50' => $l['duration']['p50'], 'p95' => $l['duration']['p95']],

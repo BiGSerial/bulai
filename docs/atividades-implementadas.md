@@ -357,3 +357,12 @@ Motivo: linguagem acessível é o propósito da aplicação, e 9 de 10 bulas hum
 - **Comando:** `php artisan leaflets:refresh-readability [--dry-run] [--limit=50]` refaz as bulas de versão anterior do prompt; as da versão atual abaixo do alvo só são listadas.
 - **Limitação:** o validador exige as palavras do trecho citado (40%); simplificar demais pode reduzir as frases aceitas. O índice mede facilidade de leitura, não compreensão.
 - **Testes:** `tests/Feature/Consulta/LegibilidadeBulaHumanizadaTest.php`.
+
+## Segurança e contexto do Perguntar (17/11/2026)
+
+- **Triagem por regras ampliada (`InputGuard`):** crise suicida (16/16 na bateria, antes 2/16), dano a terceiros, uso indevido, gravidez, dados confidenciais e manipulação. As frases legítimas continuam passando (13/13).
+- **Segunda camada:** campo `risk` na interpretação pela IA. Com risco, nada é buscado nem gerado.
+- **Crise:** mensagem fixa de acolhimento com CVV 188 (Centro de Valorização da Vida, cvv.org.br), SAMU 192, Disque-Intoxicação 0800 722 6001 e CAPS/UBS, e botões de ligar.
+- **Perguntas no contexto sem remédio:** status `guidance`, com texto fixo para "sem interação = seguro?", gravidades, fontes e tratamento não cadastrado.
+- **Tratamento da receita:** interações apresentadas como previstas pelo médico; nunca parar por conta própria; reação adversa pede o médico.
+- **Detalhes:** `docs/ai/seguranca-e-contexto.md`. **Testes:** `tests/Feature/Consulta/SegurancaEContextoTest.php`.

@@ -3,7 +3,7 @@
     use App\Services\Patient\MedicationQuestionService as Q;
     $statusPergunta = fn (string $status): array => match ($status) {
         Q::ANSWERED => ['Respondida', 'success'], Q::NEEDS_INFO => ['Pediu mais informações', 'brand'], Q::UNAVAILABLE => ['Assistente indisponível', 'warning'], Q::EXCERPTS_ONLY => ['Só trechos da bula', 'brand'], Q::NO_EVIDENCE => ['Sem trecho na bula', 'neutral'],
-        Q::NO_LEAFLET => ['Sem bula cadastrada', 'neutral'], Q::NOT_IDENTIFIED => ['Substância não identificada', 'warning'], 'blocked' => ['Recusada pela triagem', 'danger'], 'no_medicine' => ['Sem medicamento identificado', 'warning'], default => [$status, 'neutral'],
+        Q::NO_LEAFLET => ['Sem bula cadastrada', 'neutral'], Q::GUIDANCE => ['Orientação geral', 'neutral'], Q::NOT_IDENTIFIED => ['Substância não identificada', 'warning'], 'blocked' => ['Recusada pela triagem', 'danger'], 'no_medicine' => ['Sem medicamento identificado', 'warning'], default => [$status, 'neutral'],
     };
     $statusConsulta = fn (string $status): array => match ($status) { 'COMPLETED' => ['Concluída', 'success'], 'FAILED' => ['Falhou', 'danger'], 'RUNNING' => ['Em análise', 'brand'], default => ['Na fila', 'neutral'] };
     $fuso = auth()->user()->treatmentTimezone();

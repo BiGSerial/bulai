@@ -78,7 +78,7 @@
                 @endif
 
                 @if ($status === Q::BLOCKED && ($resposta['guard']['category'] ?? null) === 'harm_risk')
-                    <p class="break-words">Ligue <a class="text-2xl font-bold underline" href="tel:188">188</a> (CVV, gratuito, 24 h) ou procure a emergência mais próxima. Você não está sozinho.</p>
+                    <p class="break-words">Ligue <a class="text-2xl font-bold underline" href="tel:188">188</a> (CVV, Centro de Valorização da Vida, gratuito, 24 h) para conversar agora, ou <a class="text-2xl font-bold underline" href="tel:192">192</a> (SAMU) em caso de perigo. Você não precisa passar por isso sem apoio.</p>
                 @endif
 
                 {{-- 2. Partes da bula (só quando não deu para resumir). --}}
