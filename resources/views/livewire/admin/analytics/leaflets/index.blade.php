@@ -1,4 +1,4 @@
-<x-knowledge-admin.shell title="Analytics" subtitle="Resumos em linguagem simples gerados por conjunto de princípios ativos, com as evidências de cada afirmação.">
+<x-knowledge-admin.shell title="Analytics" subtitle="Resumos em linguagem simples gerados por conjunto de princípios ativos, com a legibilidade (índice de Flesch) e as evidências de cada afirmação.">
 @php
     $statusLabels = ['generated' => 'Gerada', 'partial' => 'Parcial', 'invalid' => 'Rejeitada na validação', 'unavailable' => 'Indisponível'];
     $tone = fn (string $status): string => match ($status) { 'generated' => 'success', 'partial' => 'info', default => 'warning' };
@@ -18,11 +18,20 @@
     </x-knowledge-admin.toolbar>
 
     <div wire:loading.class="opacity-60" wire:target="status">
-        <x-knowledge-admin.data-table :columns="[['label' => 'Princípios ativos'], ['label' => 'Gerada em'], ['label' => 'Seções', 'align' => 'right'], ['label' => 'Evidências', 'align' => 'right'], ['label' => 'Visualizações', 'align' => 'right'], ['label' => 'Duração', 'align' => 'right'], ['label' => 'Situação'], ['label' => 'Ações', 'align' => 'right']]">
+        <x-knowledge-admin.data-table :columns="[['label' => 'Princípios ativos'], ['label' => 'Gerada em'], ['label' => 'Legibilidade (Flesch)'], ['label' => 'Seções', 'align' => 'right'], ['label' => 'Evidências', 'align' => 'right'], ['label' => 'Visualizações', 'align' => 'right'], ['label' => 'Duração', 'align' => 'right'], ['label' => 'Situação'], ['label' => 'Ações', 'align' => 'right']]">
             @foreach ($summaries as $summary)
                 <tr wire:key="l-{{ $summary->uuid }}">
                     <td><a class="rounded hover:text-brand-700 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" href="{{ route('admin.analytics.leaflets.show', $summary) }}" wire:navigate>{{ $summary->subjectLabel() }}</a><span class="block text-xs font-normal text-slate-400">{{ substr($summary->uuid, 0, 8) }}</span></td>
                     <td class="tabular text-slate-600">{{ $summary->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i') }}</td>
+                    @php $legibilidade = $summary->readability(); $indice = $legibilidade['summary']['index'] ?? null; @endphp
+                    <td>
+                        @if ($indice === null)
+                            <span class="text-slate-500">—</span>
+                        @else
+                            <x-knowledge-admin.badge :tone="$legibilidade['meets_target'] ? 'success' : ($indice < 25 ? 'danger' : 'warning')">{{ number_format($indice, 1, ',', '') }} · {{ $legibilidade['summary']['band'] }}</x-knowledge-admin.badge>
+                            <span class="block text-xs text-slate-500">{{ $legibilidade['meets_target'] ? 'no alvo' : 'abaixo do alvo de '.number_format($legibilidade['target'], 0, ',', '') }}@if (($legibilidade['sources']['index'] ?? null) !== null) · fonte {{ number_format($legibilidade['sources']['index'], 1, ',', '') }}@endif</span>
+                        @endif
+                    </td>
                     <td class="tabular">{{ count($summary->sections ?? []) }}</td>
                     <td class="tabular">{{ count($summary->evidences ?? []) }}</td>
                     <td class="tabular">{{ $summary->views }}</td>

@@ -44,7 +44,8 @@ final class BulaHumanizadaTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        config(['bulai.generation.enabled' => true, 'ai.text.default' => 'scripted', 'bulai.retrieval.mode' => 'lexical']);
+        // A reescrita por legibilidade tem teste próprio (LegibilidadeBulaHumanizadaTest); aqui, uma chamada por bula.
+        config(['bulai.generation.enabled' => true, 'ai.text.default' => 'scripted', 'bulai.retrieval.mode' => 'lexical', 'bulai.leaflet.readability.max_rewrites' => 0]);
         $test = $this;
         $manager = new AiProviderManager;
         $manager->extend(AiProviderManager::TEXT, 'scripted', fn () => new class($test) implements TextGenerationProvider
@@ -196,7 +197,7 @@ final class BulaHumanizadaTest extends TestCase
         $this->assertSame(5, $summary->generation['claims_accepted']);
         $this->assertSame(['no_evidence_reference' => 1], $summary->generation['rejection_reasons']);
         $this->assertSame('scripted-model', $summary->generation['model']);
-        $this->assertSame('humanized-leaflet-v2', $summary->prompt_version);
+        $this->assertSame(config('bulai.leaflet.prompt_version'), $summary->prompt_version);
         $this->assertSame('bula_paciente', $summary->pipeline['document_type']);
         $this->assertContains('para_que_serve#0', collect($summary->evidences)->firstWhere('section', 'INDICAÇÕES')['supports_claims']);
         $this->assertSame('lexical', $summary->retrieval['mode']);

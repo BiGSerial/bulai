@@ -7,17 +7,17 @@ use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
-/** Detalhe auditável de uma bula humanizada: seções com afirmações, evidências que as sustentam e métricas. */
+/** Detalhe auditável de uma bula humanizada: o texto como o paciente lê, com a legibilidade (Flesch), seções com afirmações, evidências e métricas. */
 class Show extends Component
 {
     /** Aba visível. */
-    #[Url(as: 'aba', except: 'secoes')]
-    public string $tab = 'secoes';
+    #[Url(as: 'aba', except: 'texto')]
+    public string $tab = 'texto';
 
     public function updatedTab(): void
     {
-        if (! in_array($this->tab, ['secoes', 'geracao', 'evidencias'], true)) {
-            $this->tab = 'secoes';
+        if (! in_array($this->tab, ['texto', 'secoes', 'geracao', 'evidencias'], true)) {
+            $this->tab = 'texto';
         }
     }
 

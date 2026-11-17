@@ -5,7 +5,52 @@
     <x-knowledge-admin.page-header :badge="$statusLabels[$summary->status] ?? $summary->status" :badge-tone="$summary->status === 'generated' ? 'success' : 'warning'" :meta="['Bula humanizada '.substr($summary->uuid, 0, 8), 'gerada em '.$summary->created_at->timezone(config('app.timezone'))->format('d/m/Y H:i'), $summary->views.' visualizações (reuso do cache)', $summary->duration_ms !== null ? number_format($summary->duration_ms, 0, ',', '.').' ms' : null]" />
 
     <x-knowledge-admin.card class="grid gap-4 !p-0">
-        <x-knowledge-admin.tabs class="px-2" :tabs="[['key' => 'secoes', 'label' => 'Seções geradas', 'count' => count($summary->sections ?? [])], ['key' => 'geracao', 'label' => 'Geração, recuperação e cache'], ['key' => 'evidencias', 'label' => 'Evidências', 'count' => count($summary->evidences ?? [])]]" :active="$tab" model="tab" />
+        <x-knowledge-admin.tabs class="px-2" :tabs="[['key' => 'texto', 'label' => 'Texto e legibilidade'], ['key' => 'secoes', 'label' => 'Seções geradas', 'count' => count($summary->sections ?? [])], ['key' => 'geracao', 'label' => 'Geração, recuperação e cache'], ['key' => 'evidencias', 'label' => 'Evidências', 'count' => count($summary->evidences ?? [])]]" :active="$tab" model="tab" />
+
+        @php
+            $legibilidade = $summary->readability();
+            $indice = fn (?array $r): string => ($r['index'] ?? null) === null ? '—' : number_format($r['index'], 1, ',', '').' · '.$r['band'];
+            $tom = fn (?array $r): string => ($r['index'] ?? null) === null ? 'neutral' : ($r['index'] >= $legibilidade['target'] ? 'success' : ($r['index'] < 25 ? 'danger' : 'warning'));
+            $tentativas = $summary->generation['readability']['attempts'] ?? [];
+        @endphp
+        <div id="painel-texto" role="tabpanel" class="grid gap-5 px-4 pb-4 sm:px-5 sm:pb-5" @if ($tab !== 'texto') hidden @endif>
+            <x-knowledge-admin.facts class="sm:grid-cols-4">
+                <x-knowledge-admin.fact label="Legibilidade da bula humanizada"><x-knowledge-admin.badge :tone="$tom($legibilidade['summary'])">{{ $indice($legibilidade['summary']) }}</x-knowledge-admin.badge></x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Alvo">{{ number_format($legibilidade['target'], 0, ',', '') }} ou mais ({{ $legibilidade['meets_target'] === null ? 'sem texto' : ($legibilidade['meets_target'] ? 'atingido' : 'não atingido') }})</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Trechos de origem (bula original)">{{ $indice($legibilidade['sources']) }}</x-knowledge-admin.fact>
+                <x-knowledge-admin.fact label="Palavras por frase">{{ ($legibilidade['summary']['sentences'] ?? 0) > 0 ? number_format($legibilidade['summary']['words'] / $legibilidade['summary']['sentences'], 1, ',', '') : '—' }}</x-knowledge-admin.fact>
+            </x-knowledge-admin.facts>
+            <p class="text-xs text-slate-500">Índice de Flesch adaptado ao português (Martins et al., 1996): 75 ou mais, muito fácil; 50 a 75, fácil; 25 a 50, difícil; abaixo de 25, muito difícil. Mede a facilidade de leitura, não a compreensão; nomes de remédios baixam o índice mesmo em frases claras.</p>
+            @if (count($tentativas) > 1)
+                <div class="grid gap-1">
+                    <h3 class="text-sm font-semibold text-slate-800">Reescritas para linguagem mais simples</h3>
+                    <ol class="grid gap-1 text-sm text-slate-700">
+                        @foreach ($tentativas as $tentativa)
+                            <li>Tentativa {{ $tentativa['attempt'] }}: @if (isset($tentativa['error_code'])) falha do provedor ({{ $tentativa['error_code'] }}) @else Flesch {{ $tentativa['flesch'] === null ? '—' : number_format($tentativa['flesch'], 1, ',', '') }}, {{ $tentativa['sections_with_claims'] }} seções, {{ $tentativa['claims_accepted'] }} frases aceitas @endif @if (($summary->generation['readability']['chosen_attempt'] ?? null) === $tentativa['attempt'])<strong>(versão usada)</strong>@endif</li>
+                        @endforeach
+                    </ol>
+                </div>
+            @endif
+            <article class="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                @forelse ($summary->sections ?? [] as $key => $section)
+                    @php $frases = $summary->claimTexts($section); $secaoIndice = $legibilidade['sections'][$key] ?? null; @endphp
+                    <section class="grid gap-1" wire:key="t-{{ $key }}">
+                        <h3 class="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">{{ $sectionLabels[$key] ?? (is_array($section) ? ($section['label'] ?? $key) : $key) }}
+                            @if ($secaoIndice)<x-knowledge-admin.badge :tone="$tom($secaoIndice)">Flesch {{ $indice($secaoIndice) }}</x-knowledge-admin.badge>@endif
+                        </h3>
+                        @if ($frases === [])
+                            <p class="text-sm text-slate-500">Sem texto validado para esta seção.</p>
+                        @else
+                            <ul class="grid list-disc gap-1 pl-5 text-base leading-relaxed text-slate-800">
+                                @foreach ($frases as $frase)<li>{{ $frase }}</li>@endforeach
+                            </ul>
+                        @endif
+                    </section>
+                @empty
+                    <p class="text-sm text-slate-500">Nenhuma seção gerada.</p>
+                @endforelse
+            </article>
+        </div>
 
         <div id="painel-secoes" role="tabpanel" class="grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5" @if ($tab !== 'secoes') hidden @endif>
             <p class="text-xs text-slate-500">Cada afirmação cita os trechos da lista de evidências (aba ao lado).</p>
