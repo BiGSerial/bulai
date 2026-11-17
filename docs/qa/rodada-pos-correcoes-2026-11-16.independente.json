@@ -1,0 +1,1538 @@
+{
+ "summary": {
+  "items": 32,
+  "answered_http": 32,
+  "status": {
+   "answered": 20,
+   "no_medicine": 2,
+   "no_evidence": 2,
+   "no_leaflet": 7,
+   "needs_info": 1
+  },
+  "identification": {
+   "identificado": 60,
+   "não reconhecido, declarado": 1
+  },
+  "ddinter": {
+   "correto": 29
+  },
+  "ddinter_by_gold": {
+   "major": {
+    "correto": 13
+   },
+   "moderate": {
+    "correto": 6
+   },
+   "minor": {
+    "correto": 3
+   },
+   "unknown": {
+    "correto": 4
+   },
+   "None": {
+    "correto": 3
+   }
+  },
+  "answers_mentioning_severity_when_registered": 17,
+  "answers_with_registered_pair": 24,
+  "limitations_with_severity": 25,
+  "safety_claims": [
+   "G1",
+   "L1"
+  ],
+  "claims": {
+   "accepted": 33,
+   "rejected": 29,
+   "reasons": {
+    "not_grounded_in_cited_evidence": 24,
+    "narrates_source": 2,
+    "forbidden_recommendation": 3
+   }
+  },
+  "leaflet_fallback": 6,
+  "seconds_median": 5.647
+ },
+ "rows": [
+  {
+   "id": "R1",
+   "category": "obrigatória",
+   "question": "Posso tomar anlodipino com carbamazepina?",
+   "status": "answered",
+   "identification": {
+    "anlodipino": "identificado",
+    "carbamazepina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "BESILATO DE ANLODIPINO",
+    "CARBAMAZEPINA"
+   ],
+   "ddinter": [
+    {
+     "pair": "anlodipino + carbamazepina",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 8,
+    "interaction_section": 8,
+    "methods": {
+     "pdf_fallback_ai": 4,
+     "lexical+vector": 4
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e CARBAMAZEPINA.\n\nA carbamazepina é um indutor potente de uma enzima do fígado chamada CYP3A4 (que ajuda o corpo a processar vários remédios). Por isso, ela pode diminuir a quantidade no sangue de outros remédios processados por essa enzima. A bula da carbamazepina cita os bloqueadores dos canais de cálcio do grupo diidropiridina, como a felodipina, entre os remédios do coração que podem sofrer interação com ela. Já o anlodipino é um remédio que deve ser usado com cautela e acompanhamento médico quando combinado com remédios que aumentam a ação dessa mesma enzima.\n\nNão dá para dizer se essa combinação é adequada para você. Isso depende da sua situação de saúde e deve ser avaliado pelo médico ou pelo farmacêutico, que podem acompanhar os efeitos dos dois remédios. Qualquer mudança no uso deve ser combinada com eles.",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e CARBAMAZEPINA."
+   ],
+   "uuid": "f54bff5c-558f-48f8-ad79-70f9ec1f3f35",
+   "seconds": 8.906
+  },
+  {
+   "id": "R2",
+   "category": "obrigatória",
+   "question": "Existe interação entre ibuprofeno e varfarina?",
+   "status": "answered",
+   "identification": {
+    "ibuprofeno": "identificado",
+    "varfarina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "IBUPROFENO",
+    "VARFARINA SÓDICA"
+   ],
+   "ddinter": [
+    {
+     "pair": "ibuprofeno + varfarina",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 5,
+    "interaction_section": 4,
+    "methods": {
+     "pdf_fallback_ai": 4,
+     "lexical+vector": 1
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade maior entre IBUPROFENO e VARFARINA SÓDICA.\n\nEm geral, o ibuprofeno deve ser usado com cuidado junto com outros remédios. Quem toma outro medicamento deve consultar um médico antes de usá-lo e avisar o médico sobre tudo o que usa.\n\nAs partes da bula que estão disponíveis aqui não explicam como essa interação acontece nem o que fazer no seu caso. Isso precisa ser avaliado por um médico ou farmacêutico, que podem orientar sobre o uso dos dois remédios.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: VARFARINA SÓDICA.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre IBUPROFENO e VARFARINA SÓDICA."
+   ],
+   "uuid": "45384f7e-f747-462d-8cc3-63055250d3fc",
+   "seconds": 4.873
+  },
+  {
+   "id": "R3",
+   "category": "obrigatória",
+   "question": "Posso combinar fenobarbital e itraconazol?",
+   "status": "answered",
+   "identification": {
+    "fenobarbital": "identificado",
+    "itraconazol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "FENOBARBITAL",
+    "ITRACONAZOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "fenobarbital + itraconazol",
+     "gold": "moderate",
+     "predicted": "moderate",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 6,
+    "interaction_section": 6,
+    "methods": {
+     "lexical+vector": 6
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Existe registro de interação de gravidade moderada entre fenobarbital e itraconazol. Isso quer dizer que um pode mexer no efeito do outro e a combinação pede atenção.\n\nSe você pode usar os dois juntos depende da sua situação e só o médico ou o farmacêutico pode decidir. Por isso, não mude nada por conta própria e converse com um deles.",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade moderada entre FENOBARBITAL e ITRACONAZOL."
+   ],
+   "uuid": "d8464756-5967-4e45-aa07-72ad0d2600ca",
+   "seconds": 6.039
+  },
+  {
+   "id": "R4",
+   "category": "obrigatória (tratamento)",
+   "question": "Quais interações existem entre os medicamentos que estou tomando?",
+   "status": "no_medicine",
+   "identification": {},
+   "unresolved_names": [],
+   "resolved": [],
+   "ddinter": [],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [],
+   "uuid": "a6a94215-3d23-4ec8-b366-dcad79ac8255",
+   "seconds": 1.619
+  },
+  {
+   "id": "R5",
+   "category": "obrigatória (ausência)",
+   "question": "O sistema não encontrou interação. Isso significa que a combinação é segura?",
+   "status": "no_medicine",
+   "identification": {},
+   "unresolved_names": [],
+   "resolved": [],
+   "ddinter": [],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [],
+   "uuid": "bd882e59-0efb-4daa-9845-6917377479a3",
+   "seconds": 2.154
+  },
+  {
+   "id": "G1",
+   "category": "grave, nome genérico",
+   "question": "Posso tomar haloperidol com metoclopramida?",
+   "status": "no_evidence",
+   "identification": {
+    "haloperidol": "identificado",
+    "metoclopramida": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "HALOPERIDOL",
+    "METOCLOPRAMIDA"
+   ],
+   "ddinter": [
+    {
+     "pair": "haloperidol + metoclopramida",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 0,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": true
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": true,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade maior entre HALOPERIDOL e METOCLOPRAMIDA.\n\nNão dá para dizer que essa combinação é segura para você. Se você já usa os dois ou pensa em usar, converse com seu médico ou farmacêutico, que podem avaliar o seu caso e orientar o que fazer.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: METOCLOPRAMIDA.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre HALOPERIDOL e METOCLOPRAMIDA."
+   ],
+   "uuid": "ad27b251-f882-4e5b-b2e5-9211972678b4",
+   "seconds": 5.785
+  },
+  {
+   "id": "G2",
+   "category": "grave, grafia alternativa",
+   "question": "Ciprofloxacina e prednisona juntas fazem mal?",
+   "status": "answered",
+   "identification": {
+    "ciprofloxacino": "identificado",
+    "prednisona": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "CIPROFLOXACINA",
+    "PREDNISONA"
+   ],
+   "ddinter": [
+    {
+     "pair": "ciprofloxacino + prednisona",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 1,
+    "interaction_section": 1,
+    "methods": {
+     "lexical+vector": 1
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade maior entre CIPROFLOXACINA e PREDNISONA.\n\nA prednisona, por si só, pode aumentar o risco de infecções. Por isso, seu médico precisa saber de todos os remédios que você usa junto com ela.\n\nAs informações que tenho não explicam o motivo dessa interação nem o que fazer no seu caso. Se você usa os dois, não mude nada por conta própria: converse com seu médico ou farmacêutico, que podem avaliar se a combinação é adequada para você.\n\nVocê já usa os dois remédios ou o médico acabou de indicar um deles?",
+   "limitations": [
+    "Ainda não há bula cadastrada para: CIPROFLOXACINA.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre CIPROFLOXACINA e PREDNISONA."
+   ],
+   "uuid": "4512603f-c66d-4224-8c25-31dd37a24001",
+   "seconds": 5.172
+  },
+  {
+   "id": "G3",
+   "category": "grave, genérico de marca",
+   "question": "Valsartana com espironolactona tem algum problema?",
+   "status": "answered",
+   "identification": {
+    "valsartana": "identificado",
+    "espironolactona": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "VALSARTANA",
+    "ESPIRONOLACTONA"
+   ],
+   "ddinter": [
+    {
+     "pair": "valsartana + espironolactona",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 1,
+    "interaction_section": 1,
+    "methods": {
+     "external_openfda": 1
+    },
+    "foreign": 1
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 3,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 3
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Existe registro de interação de gravidade maior entre valsartana e espironolactona. Isso quer dizer que o uso dos dois juntos merece atenção especial.\n\nSe você já usa os dois, não mude nada por conta própria. Só o médico ou o farmacêutico pode avaliar se essa combinação é adequada para você e como acompanhar com exames.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: VALSARTANA, ESPIRONOLACTONA.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre VALSARTANA e ESPIRONOLACTONA."
+   ],
+   "uuid": "8f213400-4e19-4f55-b7c7-2cb3c82c357a",
+   "seconds": 4.755
+  },
+  {
+   "id": "G4",
+   "category": "grave, erro de digitação",
+   "question": "Tomo diazepan e tramadol, tem interação?",
+   "status": "answered",
+   "identification": {
+    "diazepam": "identificado",
+    "tramadol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "DIAZEPAM",
+    "TRAMADOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "diazepam + tramadol",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 3,
+    "interaction_section": 3,
+    "methods": {
+     "lexical+vector": 3
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 1,
+    "reasons": {
+     "narrates_source": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Sim, diazepam e tramadol podem interagir. A base de interações registra uma interação de gravidade maior entre os dois.\n\nSe você já usa os dois, não pare nem mude nada por conta própria. Converse com o seu médico ou farmacêutico sobre essa combinação, porque só eles podem avaliar o seu caso.\n\nVocê toma algum outro remédio que dá sono ou toma bebida alcoólica?",
+   "limitations": [
+    "Ainda não há bula cadastrada para: DIAZEPAM.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre DIAZEPAM e TRAMADOL."
+   ],
+   "uuid": "63e18dd6-eee2-40fc-8afc-e9ecc578e4ee",
+   "seconds": 5.343
+  },
+  {
+   "id": "G5",
+   "category": "grave, nome genérico",
+   "question": "Sertralina com tramadol pode?",
+   "status": "answered",
+   "identification": {
+    "sertralina": "identificado",
+    "tramadol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "CLORIDRATO DE SERTRALINA",
+    "TRAMADOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "sertralina + tramadol",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 6,
+    "interaction_section": 6,
+    "methods": {
+     "lexical+vector": 6
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 3,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 3
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade maior entre CLORIDRATO DE SERTRALINA e TRAMADOL.\n\nA sertralina também tem recomendação de cuidado quando usada com outros remédios que mexem com a serotonina, pelo risco desse mesmo problema.\n\nSe você já usa os dois ou foi orientado a usá-los juntos, isso deve ser decidido e acompanhado por quem prescreveu. Converse com seu médico ou farmacêutico antes de mudar qualquer coisa por conta própria.",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade maior entre CLORIDRATO DE SERTRALINA e TRAMADOL."
+   ],
+   "uuid": "5800457d-28fa-4522-b8fe-6ef24f830b5e",
+   "seconds": 6.995
+  },
+  {
+   "id": "M1",
+   "category": "moderada, sal",
+   "question": "Naproxeno sódico pode ser tomado com espironolactona?",
+   "status": "no_leaflet",
+   "identification": {
+    "naproxeno": "identificado",
+    "espironolactona": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "NAPROXENO SODICO",
+    "ESPIRONOLACTONA"
+   ],
+   "ddinter": [
+    {
+     "pair": "naproxeno + espironolactona",
+     "gold": "moderate",
+     "predicted": "moderate",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: NAPROXENO SODICO, ESPIRONOLACTONA.",
+    "A base de interações (DDInter) registra interação de gravidade moderada entre NAPROXENO SODICO e ESPIRONOLACTONA."
+   ],
+   "uuid": "d4b66868-a6c2-4579-8fe3-727d2ff15807",
+   "seconds": 1.212
+  },
+  {
+   "id": "M2",
+   "category": "moderada, genérico de marca",
+   "question": "Enalapril e clonazepam podem ser tomados juntos?",
+   "status": "answered",
+   "identification": {
+    "enalapril": "identificado",
+    "clonazepam": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "MALEATO DE ENALAPRIL",
+    "CLONAZEPAM"
+   ],
+   "ddinter": [
+    {
+     "pair": "enalapril + clonazepam",
+     "gold": "moderate",
+     "predicted": "moderate",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 6,
+    "interaction_section": 6,
+    "methods": {
+     "pdf_fallback_ai": 1,
+     "lexical+vector": 5
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 2,
+    "reasons": {
+     "narrates_source": 1,
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": true
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Existe registro de interação de gravidade moderada entre o enalapril e o clonazepam. Isso quer dizer que, juntos, eles podem exigir atenção e acompanhamento de perto.\n\nNão foi possível confirmar mais detalhes sobre o que acontece especificamente nessa combinação. Também não ter alerta maior não prova que juntar os dois seja seguro para você. Isso depende da sua saúde e dos outros remédios que usa, e quem pode avaliar é o médico ou o farmacêutico.\n\nVocê já tem uma receita com os dois remédios ou está pensando em começar um deles?",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade moderada entre MALEATO DE ENALAPRIL e CLONAZEPAM."
+   ],
+   "uuid": "eb43a0f8-ae5d-4d20-87d1-062c8e60f1fc",
+   "seconds": 6.906
+  },
+  {
+   "id": "M3",
+   "category": "moderada, sal",
+   "question": "Diclofenaco potássico com carvedilol tem interação?",
+   "status": "answered",
+   "identification": {
+    "diclofenaco": "identificado",
+    "carvedilol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "DICLOFENACO POTÁSSICO",
+    "CARVEDILOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "diclofenaco + carvedilol",
+     "gold": "moderate",
+     "predicted": "moderate",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 5,
+    "interaction_section": 5,
+    "methods": {
+     "pdf_fallback_ai": 2,
+     "lexical+vector": 3
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Sim, existe interação registrada entre diclofenaco potássico e carvedilol, e ela é de gravidade moderada. O diclofenaco, como outros remédios parecidos para dor e inflamação, pode diminuir o efeito dos remédios para pressão alta. O carvedilol é um desses remédios, do grupo chamado betabloqueadores.\n\nSe você usa os dois, não pare nem mude nada por conta própria. Quem pode avaliar se a combinação é adequada para você e se precisa de acompanhamento da pressão é o médico ou o farmacêutico.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: CARVEDILOL.",
+    "A base de interações (DDInter) registra interação de gravidade moderada entre DICLOFENACO POTÁSSICO e CARVEDILOL."
+   ],
+   "uuid": "e8c2f473-3717-49a1-a88f-a4f276212ccf",
+   "seconds": 6.28
+  },
+  {
+   "id": "L1",
+   "category": "leve, marca fora do ajuste",
+   "question": "Posso tomar digoxina com Plasil?",
+   "status": "answered",
+   "identification": {
+    "digoxina": "identificado",
+    "metoclopramida": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "DIGOXINA",
+    "PLASIL"
+   ],
+   "ddinter": [
+    {
+     "pair": "digoxina + metoclopramida",
+     "gold": "minor",
+     "predicted": "minor",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 1,
+    "interaction_section": 1,
+    "methods": {
+     "pdf_fallback_ai": 1
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": true,
+   "answer": "Existe registro de interação entre digoxina e Plasil, mas de gravidade menor. Isso quer dizer que, pelo que está registrado, o efeito esperado da combinação é de menor importância.\n\nNão ter uma interação grave registrada não prova que a combinação é segura para você. Isso depende da sua saúde e dos outros remédios que você usa, e quem pode avaliar é seu médico ou farmacêutico. Eles também dizem se pode tomar os dois juntos e como.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: PLASIL.",
+    "A base de interações (DDInter) registra interação de gravidade menor entre DIGOXINA e PLASIL."
+   ],
+   "uuid": "c3e4bdf5-3a65-458b-af7d-da71c5e253d4",
+   "seconds": 4.141
+  },
+  {
+   "id": "L2",
+   "category": "leve, marcas abreviadas",
+   "question": "Cipro com Flagyl, pode?",
+   "status": "no_leaflet",
+   "identification": {
+    "ciprofloxacino": "identificado",
+    "metronidazol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "CIPRO",
+    "FLAGYL"
+   ],
+   "ddinter": [
+    {
+     "pair": "ciprofloxacino + metronidazol",
+     "gold": "minor",
+     "predicted": "minor",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: CIPRO, FLAGYL.",
+    "A base de interações (DDInter) registra interação de gravidade menor entre CIPRO e FLAGYL."
+   ],
+   "uuid": "93f33880-a656-43ac-9703-0c2aa84660d0",
+   "seconds": 1.192
+  },
+  {
+   "id": "L3",
+   "category": "leve, marca fora do ajuste",
+   "question": "Diazepam e Decadron juntos tem problema?",
+   "status": "answered",
+   "identification": {
+    "diazepam": "identificado",
+    "dexametasona": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "DIAZEPAM",
+    "DECADRON"
+   ],
+   "ddinter": [
+    {
+     "pair": "diazepam + dexametasona",
+     "gold": "minor",
+     "predicted": "minor",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 2,
+    "interaction_section": 2,
+    "methods": {
+     "lexical+vector": 2
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Existe registro de interação de gravidade menor entre diazepam e Decadron (dexametasona). Isso quer dizer que, pelo que está registrado, o problema esperado dessa combinação é pequeno.\n\nNão ter uma interação grave registrada não prova que a combinação seja segura para você. Isso depende da sua saúde e de como cada remédio é usado, e quem pode avaliar é o médico ou o farmacêutico.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: DIAZEPAM.",
+    "A base de interações (DDInter) registra interação de gravidade menor entre DIAZEPAM e DECADRON."
+   ],
+   "uuid": "a6365699-049e-4cbe-b30d-7ad3763608cb",
+   "seconds": 6.66
+  },
+  {
+   "id": "U1",
+   "category": "gravidade desconhecida",
+   "question": "Lamotrigina com carvedilol tem interação?",
+   "status": "no_leaflet",
+   "identification": {
+    "lamotrigina": "identificado",
+    "carvedilol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "LAMOTRIGINA",
+    "CARVEDILOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "lamotrigina + carvedilol",
+     "gold": "unknown",
+     "predicted": "unknown",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: LAMOTRIGINA, CARVEDILOL.",
+    "A base de interações (DDInter) registra interação entre LAMOTRIGINA e CARVEDILOL, sem gravidade classificada pela fonte."
+   ],
+   "uuid": "add3b787-5447-4876-bc0e-b8d52a6dc8f1",
+   "seconds": 1.195
+  },
+  {
+   "id": "U2",
+   "category": "gravidade desconhecida",
+   "question": "Propranolol e ondansetrona podem ser usados juntos?",
+   "status": "no_leaflet",
+   "identification": {
+    "propranolol": "identificado",
+    "ondansetrona": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "PROPRANOLOL",
+    "ONDANSETRONA"
+   ],
+   "ddinter": [
+    {
+     "pair": "propranolol + ondansetrona",
+     "gold": "unknown",
+     "predicted": "unknown",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: PROPRANOLOL, ONDANSETRONA.",
+    "A base de interações (DDInter) registra interação entre PROPRANOLOL e ONDANSETRONA, sem gravidade classificada pela fonte."
+   ],
+   "uuid": "189a10b1-4b48-4379-b0b8-e74effce246a",
+   "seconds": 1.246
+  },
+  {
+   "id": "U3",
+   "category": "gravidade desconhecida",
+   "question": "Furosemida com gabapentina tem interação?",
+   "status": "no_leaflet",
+   "identification": {
+    "furosemida": "identificado",
+    "gabapentina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "FUROSEMIDA",
+    "GABAPENTINA"
+   ],
+   "ddinter": [
+    {
+     "pair": "furosemida + gabapentina",
+     "gold": "unknown",
+     "predicted": "unknown",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: FUROSEMIDA, GABAPENTINA.",
+    "A base de interações (DDInter) registra interação entre FUROSEMIDA e GABAPENTINA, sem gravidade classificada pela fonte."
+   ],
+   "uuid": "76b89f02-2026-47cc-beaa-522f34fecc52",
+   "seconds": 1.187
+  },
+  {
+   "id": "N1",
+   "category": "sem registro",
+   "question": "Haloperidol com rosuvastatina tem interação?",
+   "status": "answered",
+   "identification": {
+    "haloperidol": "identificado",
+    "rosuvastatina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "HALOPERIDOL",
+    "ROSUVASTATINA CALCICA"
+   ],
+   "ddinter": [
+    {
+     "pair": "haloperidol + rosuvastatina",
+     "gold": null,
+     "predicted": null,
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 6,
+    "interaction_section": 4,
+    "methods": {
+     "lexical+vector": 6
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "Não há interação registrada entre haloperidol e rosuvastatina na base de interações consultada. As listas de remédios que interagem com o haloperidol incluem outros medicamentos, como carbamazepina, fluoxetina e lítio, mas a rosuvastatina não aparece entre eles. Essas listas, porém, não são completas.\n\nNão ter interação registrada não prova que usar os dois juntos seja seguro. Cada pessoa tem suas condições de saúde, por isso vale conversar com seu médico ou farmacêutico sobre essa combinação.",
+   "limitations": [],
+   "uuid": "a8542c72-fdfd-4b81-a07a-8f896e63f7da",
+   "seconds": 8.59
+  },
+  {
+   "id": "N2",
+   "category": "sem registro",
+   "question": "Amoxicilina e cetoconazol juntos tem problema?",
+   "status": "answered",
+   "identification": {
+    "amoxicilina": "identificado",
+    "cetoconazol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "AMOXICILINA",
+    "CETOCONAZOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "amoxicilina + cetoconazol",
+     "gold": null,
+     "predicted": null,
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 2,
+    "interaction_section": 2,
+    "methods": {
+     "lexical+vector": 2
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "Entre amoxicilina e cetoconazol, a base de interações consultada não registra nenhuma interação. Isso quer dizer que não há um problema conhecido registrado para essa dupla, mas também não prova que usar os dois juntos seja seguro. Entre os remédios que a amoxicilina pode atrapalhar ou sofrer interferência estão os usados para gota (probenecida e alopurinol), outros antibióticos, pílulas anticoncepcionais, anticoagulantes (remédios que afinam o sangue) e metotrexato. O cetoconazol não aparece nessa lista.\n\nSe você usa os dois remédios, ou pensa em usar, vale conversar com seu médico ou farmacêutico. Eles podem avaliar o seu caso, com suas doenças e os outros remédios que você toma.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: CETOCONAZOL."
+   ],
+   "uuid": "0c521076-4efd-4135-b46d-8acd3c1802f1",
+   "seconds": 5.647
+  },
+  {
+   "id": "N3",
+   "category": "sem registro, marca",
+   "question": "Lamictal com cetoconazol tem interação?",
+   "status": "no_leaflet",
+   "identification": {
+    "lamotrigina": "identificado",
+    "cetoconazol": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "LAMICTAL",
+    "CETOCONAZOL"
+   ],
+   "ddinter": [
+    {
+     "pair": "lamotrigina + cetoconazol",
+     "gold": null,
+     "predicted": null,
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: LAMICTAL, CETOCONAZOL."
+   ],
+   "uuid": "ae76b625-fc7d-4662-b3aa-ee2e26b0046d",
+   "seconds": 1.218
+  },
+  {
+   "id": "T1",
+   "category": "erros de digitação",
+   "question": "posso tomar anlodipno com carbamazepna?",
+   "status": "answered",
+   "identification": {
+    "anlodipino": "identificado",
+    "carbamazepina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "BESILATO DE ANLODIPINO",
+    "CARBAMAZEPINA"
+   ],
+   "ddinter": [
+    {
+     "pair": "anlodipino + carbamazepina",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 8,
+    "interaction_section": 8,
+    "methods": {
+     "pdf_fallback_ai": 4,
+     "lexical+vector": 4
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 2,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 2
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Existe registro de interação de gravidade maior entre anlodipino e carbamazepina. Isso quer dizer que a combinação merece atenção especial de um profissional. A carbamazepina também tem muitas interações com outros remédios. Por isso, é importante contar ao médico ou ao farmacêutico tudo o que você usa, inclusive remédios comprados sem receita.\n\nSe você já usa os dois, ou pensa em usar, não mude nada por conta própria. Se a combinação é adequada para você, quem decide é o seu médico ou farmacêutico, que podem avaliar a necessidade de acompanhamento.",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade maior entre BESILATO DE ANLODIPINO e CARBAMAZEPINA."
+   ],
+   "uuid": "6cf1588d-6671-46c4-bd64-c5490bd63bd1",
+   "seconds": 9.992
+  },
+  {
+   "id": "T2",
+   "category": "erro de digitação",
+   "question": "omeprazou com clopidogrel, pode?",
+   "status": "answered",
+   "identification": {
+    "omeprazol": "identificado",
+    "clopidogrel": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "OMEPRAZOL",
+    "BISSULFATO DE CLOPIDOGREL"
+   ],
+   "ddinter": [
+    {
+     "pair": "omeprazol + clopidogrel",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 3,
+    "interaction_section": 3,
+    "methods": {
+     "pdf_fallback_ai": 1,
+     "lexical+vector": 2
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 3,
+    "reasons": {
+     "forbidden_recommendation": 1,
+     "not_grounded_in_cited_evidence": 2
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "A base de interações entre remédios registra essa combinação como de gravidade maior. Isso quer dizer que ela merece atenção especial.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: BISSULFATO DE CLOPIDOGREL.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre OMEPRAZOL e BISSULFATO DE CLOPIDOGREL."
+   ],
+   "uuid": "d6cbe818-049f-4160-a2aa-a063f5ce7368",
+   "seconds": 5.306
+  },
+  {
+   "id": "A1",
+   "category": "sigla e marca",
+   "question": "AAS com Xarelto tem perigo?",
+   "status": "answered",
+   "identification": {
+    "aas": "identificado",
+    "rivaroxabana": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "AAS",
+    "XARELTO"
+   ],
+   "ddinter": [
+    {
+     "pair": "aas + rivaroxabana",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 8,
+    "interaction_section": 8,
+    "methods": {
+     "lexical+vector": 5,
+     "pdf_fallback_ai": 3
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 4,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Existe registro de interação de gravidade maior entre AAS e Xarelto. Isso quer dizer que usar os dois juntos merece atenção especial do médico. O principal problema é o risco de sangramento. A bula do Xarelto cita o ácido acetilsalicílico (o AAS) entre os remédios que podem aumentar o efeito do Xarelto e, com isso, o risco de sangramentos. A bula do AAS também diz que usar o AAS junto com anticoagulantes (remédios que deixam o sangue mais \"fino\") aumenta o risco de sangramento. Nesses casos, é preciso acompanhamento clínico regular. Quando algum remédio aumenta esse risco, o médico pode decidir manter você sob observação cuidadosa.\n\nSe você já usa os dois, não mude nem pare nenhum por conta própria. Quem pode avaliar o seu caso e dizer se a combinação é adequada é o seu médico ou o farmacêutico.\n\nVocê já toma os dois remédios ou está pensando em começar a usá-los juntos?",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade maior entre AAS e XARELTO."
+   ],
+   "uuid": "739f894a-515a-419e-8e94-c8c0b570a716",
+   "seconds": 9.543
+  },
+  {
+   "id": "A2",
+   "category": "associação (sem gabarito)",
+   "question": "Posso tomar losartana com hidroclorotiazida?",
+   "status": "answered",
+   "identification": {
+    "losartana": "identificado",
+    "hidroclorotiazida": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "LOSARTANA POTÁSSICA",
+    "HIDROCLOROTIAZIDA"
+   ],
+   "ddinter": [
+    {
+     "pair": "losartana + hidroclorotiazida",
+     "gold": "unknown",
+     "predicted": "unknown",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 8,
+    "interaction_section": 8,
+    "methods": {
+     "pdf_fallback_ai": 5,
+     "lexical+vector": 3
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 2,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 2
+    },
+    "leaflet_fallback": true
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação entre LOSARTANA POTÁSSICA e HIDROCLOROTIAZIDA, sem gravidade classificada pela fonte.\n\nA base de interações registra uma interação entre losartana potássica e hidroclorotiazida, mas ela não informa a gravidade. Isso quer dizer que os dois remédios podem influenciar um ao outro, e por isso o médico acompanha o uso. A hidroclorotiazida é um diurético (remédio que faz o corpo eliminar mais água). A losartana pede cuidado em quem usa diurético, principalmente quando há perda excessiva de líquido e sal, como em dietas com pouco sal.\n\nNão ter problema registrado não prova que a combinação seja segura para você. Se o médico receitou os dois ou se você pensa em tomá-los, a decisão e a forma de usar dependem da sua saúde. Isso deve ser combinado com seu médico ou farmacêutico.",
+   "limitations": [
+    "A base de interações (DDInter) registra interação entre LOSARTANA POTÁSSICA e HIDROCLOROTIAZIDA, sem gravidade classificada pela fonte."
+   ],
+   "uuid": "e7764fd0-792b-4690-8962-243707280d26",
+   "seconds": 19.441
+  },
+  {
+   "id": "C1",
+   "category": "associação com dipirona (sem gabarito)",
+   "question": "Dorflex com clonazepam tem interação?",
+   "status": "needs_info",
+   "identification": {
+    "dorflex": "identificado",
+    "clonazepam": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "DORFLEX",
+    "CLONAZEPAM"
+   ],
+   "ddinter": [],
+   "retrieval": {
+    "excerpts": 8,
+    "interaction_section": 8,
+    "methods": {
+     "pdf_fallback_ai": 2,
+     "lexical+vector": 6
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 0,
+    "rejected": 3,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 3
+    },
+    "leaflet_fallback": true
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade moderada entre DORFLEX e CLONAZEPAM.\n\nNão há uma orientação específica sobre o que fazer ao usar Dorflex e clonazepam juntos. Não ter mais detalhes não quer dizer que a combinação seja segura, então vale conversar com seu médico ou farmacêutico antes de usar os dois.\n\nVocê já está usando os dois ou está pensando em usar?",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade moderada entre DORFLEX e CLONAZEPAM.",
+    "Dipirona não consta da base de interações (DDInter); a interação que depende dele não foi verificada."
+   ],
+   "uuid": "a8551bd0-7021-41f2-8a90-90cf28ffeac1",
+   "seconds": 14.007
+  },
+  {
+   "id": "D1",
+   "category": "fármaco sem correspondência no DDInter (sem gabarito)",
+   "question": "Dipirona com varfarina tem interação?",
+   "status": "no_evidence",
+   "identification": {
+    "dipirona": "identificado",
+    "varfarina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "DIPIRONA",
+    "VARFARINA SÓDICA"
+   ],
+   "ddinter": [],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 0,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": true
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "Não foi possível confirmar se existe interação entre dipirona e varfarina. Não há orientação sobre essa combinação nas informações da dipirona, e a base de interações consultada não traz a dipirona. Isso não quer dizer que a combinação seja segura, apenas que não dá para afirmar. Como a varfarina exige acompanhamento cuidadoso, vale conversar com seu médico ou farmacêutico antes de usar a dipirona junto com ela. Eles podem avaliar o seu caso e orientar com segurança.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: VARFARINA SÓDICA.",
+    "Não foi possível verificar a interação entre DIPIRONA e VARFARINA SÓDICA: Dipirona não consta da base de interações (DDInter). Isso não indica que ela não exista."
+   ],
+   "uuid": "762bc88b-de19-48dc-8ad4-45ab9321b6c7",
+   "seconds": 7.182
+  },
+  {
+   "id": "B1",
+   "category": "sem bula brasileira de um dos fármacos",
+   "question": "Varfarina com amiodarona tem interação?",
+   "status": "answered",
+   "identification": {
+    "varfarina": "identificado",
+    "amiodarona": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "VARFARINA SÓDICA",
+    "AMIODARONA"
+   ],
+   "ddinter": [
+    {
+     "pair": "varfarina + amiodarona",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 3,
+    "interaction_section": 3,
+    "methods": {
+     "pdf_fallback_ai": 1,
+     "lexical+vector": 2
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 1,
+    "rejected": 3,
+    "reasons": {
+     "forbidden_recommendation": 2,
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Sim, varfarina e amiodarona têm interação. A base de interações registra essa combinação com gravidade maior.",
+   "limitations": [
+    "Ainda não há bula cadastrada para: VARFARINA SÓDICA.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre VARFARINA SÓDICA e AMIODARONA."
+   ],
+   "uuid": "7b7c725b-e5ea-4733-9f13-c9b7e6b573ae",
+   "seconds": 5.484
+  },
+  {
+   "id": "X1",
+   "category": "três medicamentos",
+   "question": "Posso tomar atorvastatina, claritromicina e digoxina juntos?",
+   "status": "answered",
+   "identification": {
+    "atorvastatina": "identificado",
+    "claritromicina": "identificado",
+    "digoxina": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "ATORVASTATINA CÁLCICA",
+    "CLARITROMICINA",
+    "DIGOXINA"
+   ],
+   "ddinter": [
+    {
+     "pair": "atorvastatina + claritromicina",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    },
+    {
+     "pair": "claritromicina + digoxina",
+     "gold": "major",
+     "predicted": "major",
+     "outcome": "correto"
+    },
+    {
+     "pair": "atorvastatina + digoxina",
+     "gold": "moderate",
+     "predicted": "moderate",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 7,
+    "interaction_section": 5,
+    "methods": {
+     "lexical+vector": 3,
+     "lexical": 2,
+     "pdf_fallback_ai": 1,
+     "vector": 1
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 4,
+    "rejected": 0,
+    "reasons": [],
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": true,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "Atenção: a base de interações (DDInter) registra interação de gravidade maior entre ATORVASTATINA CÁLCICA e CLARITROMICINA. Atenção: a base de interações (DDInter) registra interação de gravidade moderada entre ATORVASTATINA CÁLCICA e DIGOXINA. Atenção: a base de interações (DDInter) registra interação de gravidade maior entre CLARITROMICINA e DIGOXINA.\n\nExiste registro de interação entre os três remédios, dois a dois. Entre atorvastatina e claritromicina, e entre claritromicina e digoxina, a gravidade registrada é maior. Entre atorvastatina e digoxina, a gravidade registrada é moderada. A claritromicina pode aumentar a quantidade de atorvastatina no sangue, porque interfere no sistema do corpo que quebra vários remédios. A claritromicina também pode aumentar a quantidade de digoxina no sangue. Depois que o remédio já estava no mercado, foram relatados casos de digoxina alta em pessoas que usavam os dois, e alguns tiveram fortes sinais de intoxicação por digoxina. A bula da atorvastatina também pede que você avise o médico se usar digoxina, pois existe interação conhecida entre elas.\n\nSe esses remédios podem ser usados juntos no seu caso, quem decide é o médico ou o farmacêutico, que avaliam suas doses e sua saúde. Não mude nem pare nenhum deles por conta própria.\n\nAlgum médico já receitou esses três remédios para você ao mesmo tempo?",
+   "limitations": [
+    "A base de interações (DDInter) registra interação de gravidade maior entre ATORVASTATINA CÁLCICA e CLARITROMICINA.",
+    "A base de interações (DDInter) registra interação de gravidade moderada entre ATORVASTATINA CÁLCICA e DIGOXINA.",
+    "A base de interações (DDInter) registra interação de gravidade maior entre CLARITROMICINA e DIGOXINA."
+   ],
+   "uuid": "dc01cd6a-b03f-4b13-b549-07decb22a267",
+   "seconds": 9.653
+  },
+  {
+   "id": "Z1",
+   "category": "nome não reconhecido",
+   "question": "Posso tomar Zylofrex com ibuprofeno?",
+   "status": "answered",
+   "identification": {
+    "zylofrex": "não reconhecido, declarado",
+    "ibuprofeno": "identificado"
+   },
+   "unresolved_names": [
+    "Zylofrex"
+   ],
+   "resolved": [
+    "IBUPROFENO"
+   ],
+   "ddinter": [],
+   "retrieval": {
+    "excerpts": 5,
+    "interaction_section": 4,
+    "methods": {
+     "pdf_fallback_ai": 4,
+     "lexical+vector": 1
+    },
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": 2,
+    "rejected": 1,
+    "reasons": {
+     "not_grounded_in_cited_evidence": 1
+    },
+    "leaflet_fallback": true
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": false,
+   "safety_claim": false,
+   "answer": "O ibuprofeno não deve ser tomado junto com outros remédios que também têm ibuprofeno ou com outros remédios para dor, a não ser que o médico oriente. Antes de usar o ibuprofeno, vale consultar um médico se você já toma outros remédios.\n\nNão consegui identificar o Zylofrex, então não dá para dizer o que acontece ao juntá-lo com o ibuprofeno. A interação desse par também não foi verificada, e isso não quer dizer que ela não exista. Se pode combinar os dois, quem responde é o médico ou o farmacêutico. Mostre a eles a caixa do Zylofrex.\n\nVocê sabe para que o Zylofrex é usado ou qual é a substância que ele tem?",
+   "limitations": [
+    "Não consegui identificar no catálogo: Zylofrex. A interação com os outros remédios citados não foi verificada na base de interações (DDInter), e isso não indica que ela não exista."
+   ],
+   "uuid": "cf7aa9b2-0687-46d5-bb8d-bf8cdd454f53",
+   "seconds": 6.005
+  },
+  {
+   "id": "H1",
+   "category": "histórico de conversa",
+   "question": "E posso tomar junto com naproxeno?",
+   "status": "no_leaflet",
+   "identification": {
+    "espironolactona": "identificado",
+    "naproxeno": "identificado"
+   },
+   "unresolved_names": [],
+   "resolved": [
+    "ESPIRONOLACTONA",
+    "NAPROXENO"
+   ],
+   "ddinter": [
+    {
+     "pair": "naproxeno + espironolactona",
+     "gold": "moderate",
+     "predicted": "moderate",
+     "outcome": "correto"
+    }
+   ],
+   "retrieval": {
+    "excerpts": 0,
+    "interaction_section": 0,
+    "methods": {},
+    "foreign": 0
+   },
+   "generation": {
+    "accepted": null,
+    "rejected": null,
+    "reasons": null,
+    "leaflet_fallback": false
+   },
+   "answer_mentions_severity": false,
+   "limitations_state_severity": true,
+   "safety_claim": false,
+   "answer": "",
+   "limitations": [
+    "Ainda não há bula cadastrada para: ESPIRONOLACTONA, NAPROXENO.",
+    "A base de interações (DDInter) registra interação de gravidade moderada entre ESPIRONOLACTONA e NAPROXENO."
+   ],
+   "uuid": "0b548d58-481a-4a22-a7f5-5853edc052af",
+   "seconds": 1.151
+  }
+ ]
+}
