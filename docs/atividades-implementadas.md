@@ -364,3 +364,14 @@ Motivo: linguagem acessível é o propósito da aplicação, e 9 de 10 bulas hum
 - **Lista:** por padrão, só a versão mais recente de cada conjunto de princípios ativos; o filtro "Versões › Todas" mostra as substituídas, marcadas como "Substituída". O detalhe de uma versão antiga avisa e aponta para a atual.
 - `LeafletSummaryService::medicineFor()` (antes só no comando) acha o medicamento do catálogo a partir da chave da bula.
 - Testes: `LegibilidadeBulaHumanizadaTest`.
+
+## Segurança e contexto do Perguntar (17/11/2026)
+
+- **Triagem por regras ampliada (`InputGuard`):** crise suicida (16/16 na bateria; antes, 2/16), dano a terceiros, uso indevido, gravidez, dados confidenciais e manipulação. As perguntas legítimas continuam passando (13/13).
+- **Segunda camada:** campo `risk` na interpretação pela IA. Com risco, nada é buscado nem gerado.
+- **Crise:** mensagem fixa de acolhimento com CVV 188 (Centro de Valorização da Vida, cvv.org.br), SAMU 192, Disque-Intoxicação 0800 722 6001 e CAPS/UBS, com botões de ligar.
+- **Perguntas no contexto sem remédio:** status `guidance`, com texto fixo para "sem interação significa seguro?", gravidades, fontes e tratamento não cadastrado.
+- **Tratamento da receita:** as interações aparecem como previstas pelo médico; nunca parar por conta própria; reação adversa pede o médico.
+- **Comandos escondidos em todas as entradas da IA (`PromptInjectionDetector`):** receita por foto (campo descartado e aviso na revisão), trechos de bula, tradução FDA, anotações do paciente e classificação de PDF. Nenhum falso positivo em 399 trechos reais.
+- **Verificação em produção (17/11/2026, commit `43366eb`):** 25/25 perguntas com o comportamento esperado, incluindo 6 frases de crise recusadas só pela camada da IA (Tabela G5 do TCC).
+- **Detalhes:** `docs/ai/seguranca-e-contexto.md`. **Testes:** `tests/Feature/Consulta/SegurancaEContextoTest.php`, `tests/Feature/Safety/InjecaoEmConteudoTest.php`.
