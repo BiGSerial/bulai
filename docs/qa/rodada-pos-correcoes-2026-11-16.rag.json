@@ -1,0 +1,149 @@
+{
+ "run_id": "78c5668c-5684-4fc8-ad99-6a78c0e58893",
+ "modes": {
+  "lexical": {
+   "queries": 362,
+   "misses@3": 288,
+   "relevant_only_at_4_or_5": 24,
+   "miss_slots_by_origin": {
+    "outra seção da bula": 410,
+    "seção de interações": 193,
+    "seção vizinha que também trata do assunto": 156,
+    "rótulo que não é seção (nome de produto, arquivo)": 60,
+    "seção administrativa (composição, identificação, apresentação)": 44,
+    "sem seção": 1
+   },
+   "miss_slots_by_document_type": {
+    "bula_profissional": 456,
+    "bula_paciente": 330,
+    "bula": 78
+   },
+   "by_subject": {
+    "indicacao": {
+     "hit@3": "2/52",
+     "relevant_median": 6.0
+    },
+    "posologia": {
+     "hit@3": "22/52",
+     "relevant_median": 6.0
+    },
+    "efeitos": {
+     "hit@3": "8/51",
+     "relevant_median": 7
+    },
+    "contraindicacao": {
+     "hit@3": "0/52",
+     "relevant_median": 3.0
+    },
+    "armazenamento": {
+     "hit@3": "1/51",
+     "relevant_median": 2
+    },
+    "advertencias": {
+     "hit@3": "40/52",
+     "relevant_median": 11.0
+    },
+    "superdose": {
+     "hit@3": "1/52",
+     "relevant_median": 3.0
+    }
+   }
+  },
+  "vector": {
+   "queries": 362,
+   "misses@3": 228,
+   "relevant_only_at_4_or_5": 53,
+   "miss_slots_by_origin": {
+    "outra seção da bula": 245,
+    "seção administrativa (composição, identificação, apresentação)": 171,
+    "rótulo que não é seção (nome de produto, arquivo)": 150,
+    "seção vizinha que também trata do assunto": 66,
+    "seção de interações": 30,
+    "sem seção": 22
+   },
+   "miss_slots_by_document_type": {
+    "bula_paciente": 353,
+    "bula_profissional": 278,
+    "bula": 53
+   },
+   "by_subject": {
+    "indicacao": {
+     "hit@3": "23/52",
+     "relevant_median": 6.0
+    },
+    "posologia": {
+     "hit@3": "4/52",
+     "relevant_median": 6.0
+    },
+    "efeitos": {
+     "hit@3": "8/51",
+     "relevant_median": 7
+    },
+    "contraindicacao": {
+     "hit@3": "28/52",
+     "relevant_median": 3.0
+    },
+    "armazenamento": {
+     "hit@3": "30/51",
+     "relevant_median": 2
+    },
+    "advertencias": {
+     "hit@3": "17/52",
+     "relevant_median": 11.0
+    },
+    "superdose": {
+     "hit@3": "24/52",
+     "relevant_median": 3.0
+    }
+   }
+  },
+  "hybrid": {
+   "queries": 362,
+   "misses@3": 218,
+   "relevant_only_at_4_or_5": 38,
+   "miss_slots_by_origin": {
+    "outra seção da bula": 250,
+    "seção de interações": 136,
+    "seção vizinha que também trata do assunto": 99,
+    "rótulo que não é seção (nome de produto, arquivo)": 89,
+    "seção administrativa (composição, identificação, apresentação)": 74,
+    "sem seção": 6
+   },
+   "miss_slots_by_document_type": {
+    "bula_profissional": 337,
+    "bula_paciente": 262,
+    "bula": 55
+   },
+   "by_subject": {
+    "indicacao": {
+     "hit@3": "18/52",
+     "relevant_median": 6.0
+    },
+    "posologia": {
+     "hit@3": "23/52",
+     "relevant_median": 6.0
+    },
+    "efeitos": {
+     "hit@3": "8/51",
+     "relevant_median": 7
+    },
+    "contraindicacao": {
+     "hit@3": "17/52",
+     "relevant_median": 3.0
+    },
+    "armazenamento": {
+     "hit@3": "23/51",
+     "relevant_median": 2
+    },
+    "advertencias": {
+     "hit@3": "43/52",
+     "relevant_median": 11.0
+    },
+    "superdose": {
+     "hit@3": "12/52",
+     "relevant_median": 3.0
+    }
+   }
+  }
+ }
+}

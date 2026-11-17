@@ -1,0 +1,237 @@
+{
+ "summaries": 11,
+ "current_prompt": "humanized-leaflet-v2",
+ "current": {
+  "n": 10,
+  "bands": {
+   "difícil": 9,
+   "fácil": 1
+  },
+  "flesch_median": 41.900000000000006,
+  "source_flesch_median": 32.2,
+  "easier_than_source": "9/10",
+  "words_per_sentence_median": 14.6
+ },
+ "by_section_median": {
+  "Interações com outros remédios, álcool e alimentos": {
+   "median": 23.6,
+   "n": 9,
+   "band": "muito difícil"
+  },
+  "Para que serve": {
+   "median": 23.9,
+   "n": 10,
+   "band": "muito difícil"
+  },
+  "Procure ajuda se": {
+   "median": 33.45,
+   "n": 10,
+   "band": "difícil"
+  },
+  "Efeitos colaterais mais comuns": {
+   "median": 37.75,
+   "n": 10,
+   "band": "difícil"
+  },
+  "Benefícios esperados (prós)": {
+   "median": 43.75,
+   "n": 10,
+   "band": "difícil"
+  },
+  "Não use se": {
+   "median": 49.5,
+   "n": 8,
+   "band": "difícil"
+  },
+  "Riscos e cuidados (contras)": {
+   "median": 52.849999999999994,
+   "n": 10,
+   "band": "fácil"
+  },
+  "Como usar": {
+   "median": 70.6,
+   "n": 10,
+   "band": "fácil"
+  }
+ },
+ "sentences": 197,
+ "sentences_with_listed_technical_terms": 54,
+ "technical_terms": {
+  "administra": 9,
+  "contraindica": 9,
+  "agranulocit": 6,
+  "anafila": 5,
+  "broncoespasmo": 5,
+  "hipersensibilidade": 4,
+  "intravenos": 4,
+  "agonista": 3,
+  "hepatic": 3,
+  "hipotens": 3,
+  "mucoviscidose": 2,
+  "insuficiencia": 2,
+  "microrganism": 2,
+  "gastrointestina": 2,
+  "sistemic": 2,
+  "anticolinergic": 1,
+  "adrenergic": 1,
+  "atelectasia": 1,
+  "arritmia": 1,
+  "teratogen": 1
+ },
+ "long_words_13_plus": {
+  "imediatamente": 13,
+  "administração": 7,
+  "agranulocitose": 6,
+  "broncoespasmo": 5,
+  "hipersensibilidade": 4,
+  "contraindicado": 4,
+  "broncodilatador": 3,
+  "acetilsalicílico": 3,
+  "contraindicada": 3,
+  "respiratórias": 3,
+  "acetilcisteína": 3,
+  "hidroclorotiazida": 3,
+  "significativa": 2,
+  "aproximadamente": 2,
+  "pirazolidinas": 2,
+  "especializado": 2,
+  "antitussígenos": 2,
+  "nitroglicerina": 2,
+  "mucoviscidose": 2,
+  "descontinuado": 2
+ },
+ "rows": [
+  {
+   "id": 11,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "partial",
+   "claims": 18,
+   "flesch": 32.5,
+   "band": "difícil",
+   "source_flesch": 13.2,
+   "source_band": "muito difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 16.0
+  },
+  {
+   "id": 10,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 17,
+   "flesch": 44.9,
+   "band": "difícil",
+   "source_flesch": 31.6,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 13.9
+  },
+  {
+   "id": 9,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 16,
+   "flesch": 43.1,
+   "band": "difícil",
+   "source_flesch": 37.5,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 14.5
+  },
+  {
+   "id": 8,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "partial",
+   "claims": 15,
+   "flesch": 37.7,
+   "band": "difícil",
+   "source_flesch": 24.1,
+   "source_band": "muito difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 14.6
+  },
+  {
+   "id": 7,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 18,
+   "flesch": 48.5,
+   "band": "difícil",
+   "source_flesch": 30.8,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 15.4
+  },
+  {
+   "id": 6,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "partial",
+   "claims": 18,
+   "flesch": 50.1,
+   "band": "fácil",
+   "source_flesch": 39.6,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 14.7
+  },
+  {
+   "id": 5,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 19,
+   "flesch": 39.5,
+   "band": "difícil",
+   "source_flesch": 31.6,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 14.6
+  },
+  {
+   "id": 4,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 20,
+   "flesch": 39.3,
+   "band": "difícil",
+   "source_flesch": 45.5,
+   "source_band": "difícil",
+   "easier_than_source": false,
+   "words_per_sentence": 14.1
+  },
+  {
+   "id": 3,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 19,
+   "flesch": 40.7,
+   "band": "difícil",
+   "source_flesch": 32.8,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 14.1
+  },
+  {
+   "id": 2,
+   "prompt_version": "humanized-leaflet-v2",
+   "status": "generated",
+   "claims": 18,
+   "flesch": 49.9,
+   "band": "difícil",
+   "source_flesch": 36.1,
+   "source_band": "difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 14.8
+  },
+  {
+   "id": 1,
+   "prompt_version": "humanized-leaflet-v1",
+   "status": "generated",
+   "claims": 19,
+   "flesch": 43.9,
+   "band": "difícil",
+   "source_flesch": 24.1,
+   "source_band": "muito difícil",
+   "easier_than_source": true,
+   "words_per_sentence": 21.0
+  }
+ ]
+}

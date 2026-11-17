@@ -1,0 +1,234 @@
+[
+ {
+  "id": "R1",
+  "uuid": "f54bff5c-558f-48f8-ad79-70f9ec1f3f35",
+  "kind": "fact",
+  "text": "Existe registro de interação de gravidade maior entre anlodipino e carbamazepina. Isso quer dizer que a combinação merece atenção especial e acompanhamento de perto.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "R2",
+  "uuid": "45384f7e-f747-462d-8cc3-63055250d3fc",
+  "kind": "fact",
+  "text": "Sim, existe interação registrada entre ibuprofeno e varfarina, e ela é classificada como de gravidade maior. Isso quer dizer que a combinação merece atenção especial e acompanhamento de um profissional de saúde.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "R3",
+  "uuid": "d8464756-5967-4e45-aa07-72ad0d2600ca",
+  "kind": "fact",
+  "text": "O fenobarbital faz o corpo eliminar vários remédios mais depressa, e com isso a quantidade deles no sangue pode cair e eles podem funcionar menos. O itraconazol aparece na lista de remédios que, junto com o fenobarbital, precisam de cuidado, acompanhamento do médico e, às vezes, ajuste durante o uso",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G1",
+  "uuid": "ad27b251-f882-4e5b-b2e5-9211972678b4",
+  "kind": "fact",
+  "text": "Existe registro de interação de gravidade maior entre haloperidol e metoclopramida. Isso quer dizer que usar os dois juntos merece atenção especial e acompanhamento de perto por um profissional de saúde.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G2",
+  "uuid": "4512603f-c66d-4224-8c25-31dd37a24001",
+  "kind": "fact",
+  "text": "Existe registro de interação de gravidade maior entre ciprofloxacina e prednisona. Isso quer dizer que os dois juntos merecem atenção especial e acompanhamento de perto por um profissional.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "8f213400-4e19-4f55-b7c7-2cb3c82c357a",
+  "kind": "fact",
+  "text": "O motivo é que os dois podem fazer o potássio no sangue subir. A espironolactona é um diurético que poupa potássio, ou seja, faz o corpo guardar esse mineral. A valsartana também pode aumentar o potássio.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "8f213400-4e19-4f55-b7c7-2cb3c82c357a",
+  "kind": "fact",
+  "text": "Em pessoas com insuficiência cardíaca (coração que bombeia com dificuldade), essa combinação também pode aumentar a creatinina, que é um sinal de como os rins estão trabalhando.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G3",
+  "uuid": "8f213400-4e19-4f55-b7c7-2cb3c82c357a",
+  "kind": "fact",
+  "text": "Essa informação vem da bula dos Estados Unidos. Ela diz que, se o médico achar necessário usar os dois, é aconselhável acompanhar o potássio no sangue com exames.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G4",
+  "uuid": "63e18dd6-eee2-40fc-8afc-e9ecc578e4ee",
+  "kind": "fact",
+  "text": "O diazepam é um tipo de calmante chamado benzodiazepínico. Usar esse tipo de remédio junto com o tramadol aumenta o risco de respiração mais lenta e fraca (depressão respiratória), de coma e até de morte, porque os dois somam o efeito de \"desacelerar\" o sistema nervoso.",
+  "reason": "narrates_source",
+  "attempt": 1
+ },
+ {
+  "id": "G5",
+  "uuid": "5800457d-28fa-4522-b8fe-6ef24f830b5e",
+  "kind": "fact",
+  "text": "Existe registro de interação de gravidade maior entre sertralina e tramadol. Isso quer dizer que o uso dos dois juntos merece atenção especial de um profissional de saúde.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G5",
+  "uuid": "5800457d-28fa-4522-b8fe-6ef24f830b5e",
+  "kind": "fact",
+  "text": "O tramadol pode causar a chamada síndrome serotoninérgica (excesso de serotonina no corpo) quando usado junto com remédios como a sertralina. Os sinais incluem agitação, suor, tremores e movimentos involuntários dos músculos ou dos olhos.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "G5",
+  "uuid": "5800457d-28fa-4522-b8fe-6ef24f830b5e",
+  "kind": "fact",
+  "text": "O tramadol também pode aumentar o risco de convulsões (ataques com perda de controle do corpo) em quem usa antidepressivos como a sertralina.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "M2",
+  "uuid": "eb43a0f8-ae5d-4d20-87d1-062c8e60f1fc",
+  "kind": "fact",
+  "text": "O enalapril baixa a pressão. Se for usado junto com outro remédio que também baixa a pressão, os efeitos podem se somar.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "M2",
+  "uuid": "eb43a0f8-ae5d-4d20-87d1-062c8e60f1fc",
+  "kind": "fact",
+  "text": "O clonazepam pode causar sonolência e deixar a pessoa mais devagar. Esse efeito aumenta quando ele é usado com outros remédios que acalmam o sistema nervoso e com álcool, que deve ser evitado.",
+  "reason": "narrates_source",
+  "attempt": 1
+ },
+ {
+  "id": "M3",
+  "uuid": "e8c2f473-3717-49a1-a88f-a4f276212ccf",
+  "kind": "fact",
+  "text": "Na prática, isso quer dizer que, usando os dois juntos, a pressão pode ficar menos controlada do que ficaria só com o carvedilol.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T1",
+  "uuid": "6cf1588d-6671-46c4-bd64-c5490bd63bd1",
+  "kind": "fact",
+  "text": "A carbamazepina é um forte indutor de uma enzima do fígado chamada CYP3A4, ou seja, ela acelera o trabalho dessa enzima. Por isso, pode diminuir a quantidade no sangue de outros remédios que o corpo processa por esse caminho.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T1",
+  "uuid": "6cf1588d-6671-46c4-bd64-c5490bd63bd1",
+  "kind": "fact",
+  "text": "O anlodipino é um remédio que pode ser afetado por substâncias que mexem nessa mesma enzima. Quando isso acontece, ele deve ser usado com cautela e com acompanhamento médico.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T2",
+  "uuid": "d6cbe818-049f-4160-a2aa-a063f5ce7368",
+  "kind": "fact",
+  "text": "Omeprazol e clopidogrel têm uma interação importante: o uso dos dois juntos deve ser evitado.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T2",
+  "uuid": "d6cbe818-049f-4160-a2aa-a063f5ce7368",
+  "kind": "fact",
+  "text": "Os dois remédios são processados pelas mesmas enzimas do fígado. Por isso, um atrapalha o trabalho do outro, e o efeito do tratamento pode ficar menor.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "T2",
+  "uuid": "d6cbe818-049f-4160-a2aa-a063f5ce7368",
+  "kind": "limit",
+  "text": "Se você já usa os dois, não pare nem troque nenhum por conta própria. Converse com seu médico ou farmacêutico, que podem avaliar o seu caso e ver se existe outra opção para você.",
+  "reason": "forbidden_recommendation",
+  "attempt": 1
+ },
+ {
+  "id": "A2",
+  "uuid": "e7764fd0-792b-4690-8962-243707280d26",
+  "kind": "fact",
+  "text": "Losartana e hidroclorotiazida existem juntas no mesmo comprimido, por exemplo na apresentação de 50 mg + 12,5 mg. Isso mostra que a combinação é usada como um só medicamento.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "A2",
+  "uuid": "e7764fd0-792b-4690-8962-243707280d26",
+  "kind": "fact",
+  "text": "A hidroclorotiazida, quando usada com outros remédios para pressão alta, pode somar o efeito deles ou deixá-lo mais forte. A losartana também serve para pressão alta.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "C1",
+  "uuid": "a8551bd0-7021-41f2-8a90-90cf28ffeac1",
+  "kind": "fact",
+  "text": "Existe registro de interação de gravidade moderada entre Dorflex e clonazepam. Isso quer dizer que usar os dois juntos pode exigir atenção, mas não explica por si só o que acontece no seu caso.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "C1",
+  "uuid": "a8551bd0-7021-41f2-8a90-90cf28ffeac1",
+  "kind": "fact",
+  "text": "O clonazepam pode causar mais sono e lentidão quando é usado junto com outros remédios que agem no sistema nervoso central (o \"comando\" do corpo). O álcool entra nesse grupo e deve ser evitado por quem usa clonazepam.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "C1",
+  "uuid": "a8551bd0-7021-41f2-8a90-90cf28ffeac1",
+  "kind": "fact",
+  "text": "A dipirona, que faz parte do Dorflex, pode mexer com a forma como o corpo trata alguns remédios. Nos exemplos citados não aparece o clonazepam.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "B1",
+  "uuid": "7b7c725b-e5ea-4733-9f13-c9b7e6b573ae",
+  "kind": "fact",
+  "text": "Quando usadas juntas, a amiodarona pode aumentar o efeito da varfarina, que é um remédio que afina o sangue. Com isso, o risco de sangramento fica maior.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ },
+ {
+  "id": "B1",
+  "uuid": "7b7c725b-e5ea-4733-9f13-c9b7e6b573ae",
+  "kind": "fact",
+  "text": "Por causa disso, é preciso fazer com regularidade o exame que mede a coagulação do sangue (chamado INR), durante o uso da amiodarona e também depois que ela termina. Pode ser necessário ajustar a dose da varfarina, e isso é decisão do médico.",
+  "reason": "forbidden_recommendation",
+  "attempt": 1
+ },
+ {
+  "id": "B1",
+  "uuid": "7b7c725b-e5ea-4733-9f13-c9b7e6b573ae",
+  "kind": "limit",
+  "text": "Não mude nem suspenda nenhum dos dois remédios por conta própria. Quem acompanha o seu caso, o médico ou o farmacêutico, é quem pode orientar o controle e os ajustes necessários.",
+  "reason": "forbidden_recommendation",
+  "attempt": 1
+ },
+ {
+  "id": "Z1",
+  "uuid": "cf7aa9b2-0687-46d5-bb8d-bf8cdd454f53",
+  "kind": "fact",
+  "text": "Se o Zylofrex for um remédio para dor, febre ou inflamação, essa regra pode valer para ele. Isso só dá para confirmar sabendo o que ele contém.",
+  "reason": "not_grounded_in_cited_evidence",
+  "attempt": 1
+ }
+]
