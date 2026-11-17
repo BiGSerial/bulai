@@ -125,7 +125,7 @@ Esse recorte condiciona os resultados: na medição de 12 nov. 2026, dos 55 prod
 
 O desenvolvimento ocorreu de setembro a novembro de 2026, com o código versionado em Git, em cinco fases: (i) ingestão e leitura das bulas; (ii) importação do catálogo da ANVISA, reconhecimento óptico de caracteres (OCR) e infraestrutura de produção; (iii) importação do DDInter; (iv) recuperação, integração com o modelo de linguagem, validador e interface do usuário; e (v) montagem dos conjuntos de teste e execução dos experimentos.
 
-A avaliação foi feita no servidor de produção (bulai.vixforge.com.br), por experimentos automatizados, executados por um comando do próprio sistema, e por uma auditoria dos dados, feita pela interface de programação (API) de leitura. Cada execução gerou um registro com o *hash* do conjunto de teste, o modelo e os parâmetros (Apêndice B). Como os experimentos de 11 nov. 2026 revelaram um defeito de dados, descrito na seção Verificação de Interações, a identificação e a verificação de interações foram repetidas após a correção, com o código implantado a partir do *commit* 14e61bc. A comparação sem recuperação mantém a rodada de 11 nov. 2026, com 82 bulas e 5.652 trechos, e usou o Claude Sonnet 5.5, modelo de produção. A recuperação e o protocolo de 30 pares foram repetidos em 13 nov. 2026, com o código implantado a partir do *commit* 0a59cc1.
+A avaliação foi feita no servidor de produção (bulai.vixforge.com.br), por experimentos automatizados, executados por um comando do próprio sistema, e por uma auditoria dos dados, feita pela interface de programação (API) de leitura. Essa API de auditoria é instrumento da pesquisa, destinado à coleta de métricas, à consulta dos registros de execução e à verificação da integridade dos dados: não integra o escopo funcional de uma versão oficial do BULA-IA, tem uso restrito ao ambiente de avaliação e aos responsáveis autorizados pela pesquisa, e sua remoção ou desativação está prevista numa implantação definitiva. Cada execução gerou um registro com o *hash* do conjunto de teste, o modelo e os parâmetros (Apêndice B). Como os experimentos de 11 nov. 2026 revelaram um defeito de dados, descrito na seção Verificação de Interações, a identificação e a verificação de interações foram repetidas após a correção, com o código implantado a partir do *commit* 14e61bc. A comparação sem recuperação mantém a rodada de 11 nov. 2026, com 82 bulas e 5.652 trechos, e usou o Claude Sonnet 5.5, modelo de produção. A recuperação e o protocolo de 30 pares foram repetidos em 13 nov. 2026, com o código implantado a partir do *commit* 0a59cc1.
 
 Foram definidos os princípios ativos esperados de 55 produtos, e formaram-se os pares entre eles, exceto os dois pares formados por produtos de mesmo princípio ativo (Aspirina e AAS; Cataflam e Voltaren), totalizando 1.483 pares. Com os 14 grupos do DDInter, 1.424 desses pares têm interação registrada e 59 não têm. Também foi aplicado o protocolo de 30 pares previsto no projeto, sorteado com semente fixa entre os 1.483: 10 interações graves, 5 moderadas, 5 leves e 10 pares sem interação registrada. As respostas foram comparadas ao DDInter por precisão, *recall* e F1, e as inconclusivas foram contadas como abstenção; calcularam-se também o *recall* conservador, que conta as abstenções como erro, e a concordância de gravidade. Como o sistema consulta a mesma base usada como referência, esse experimento parte do número de registro do produto e verifica o vínculo com o princípio ativo e a consulta da interação, e não a correção clínica nem o reconhecimento do nome digitado, medido na identificação e nas perguntas livres. Só 59 dos 1.483 pares (4%) não têm interação registrada, o que torna a precisão pouco informativa. Para as proporções, calcularam-se intervalos de confiança de 95% pelo método de Wilson (Wilson, 1927); as comparações são descritivas. A auditoria verificou, por 24 regras, a coerência das bulas, dos trechos e do catálogo e, por 8 regras, a integridade dos *embeddings* (Apêndice C). As demais etapas seguiram o Quadro 3.
 
@@ -137,7 +137,7 @@ Quadro 3 - Experimentos de avaliação das demais etapas
 | Recuperação de trechos | 362 consultas (52 princípios ativos × até 7 assuntos) | Acerto@k, P@k, R@k e MRR, nos modos lexical, vetorial e híbrido |
 | Perguntas livres com validação | 234 perguntas em 7 grupos (Apêndice C) | Identificação, fontes, afirmações aceitas e legibilidade |
 | Modelo sem RAG | 120 pares sorteados (116 com interação e 4 sem) | Precisão, *recall*, F1, acurácia e concordância de gravidade |
-| Perguntas livres independentes | 32 perguntas, 29 pares rotulados pelo DDInter, nomes fora do ajuste (Apêndice G) | Identificação, gravidade e declaração do não reconhecido |
+| Perguntas livres independentes | 32 perguntas, 29 pares rotulados pelo DDInter, nomes fora do ajuste; independente só na primeira rodada (Apêndice G) | Identificação, gravidade e declaração do não reconhecido |
 | Legibilidade das bulas humanizadas | 10 bulas, antes e depois da revisão do *prompt* | Índice de Flesch adaptado |
 
 Foram definidos dois protocolos: a aplicação da *System Usability Scale* (SUS) (Brooke, 1996) a um grupo de 5 a 10 voluntários leigos e a revisão, por profissional de farmácia ou medicina, dos 30 pares e de explicações geradas. Essas avaliações não foram realizadas, por envolverem participantes humanos e exigirem apreciação por Comitê de Ética em Pesquisa, e são retomadas nas Considerações Finais.
@@ -148,7 +148,7 @@ Foram definidos dois protocolos: a aplicação da *System Usability Scale* (SUS)
 
 ### Arquitetura do Sistema – Abordagem RAG
 
-A abordagem RAG (Lewis et al., 2020) foi adotada por vincular cada resposta a um trecho de bula, reduzir o risco de alucinação e permitir incorporar novas bulas sem retreinar o modelo; a existência e a gravidade da interação vêm do DDInter, e o modelo apenas explica os trechos recuperados. Como dados de saúde são sensíveis pela LGPD (Brasil, 2018), alergias e medicamentos em uso só são gravados com consentimento explícito e revogável, e as consultas são apagadas após 90 dias. O provedor do modelo recebe a pergunta, os medicamentos e os trechos de bula, sem nome, e-mail ou outro identificador, e dados do perfil só quando há achado relevante ou quando a pessoa pergunta sobre a dose de um remédio que usa (dose e frequência registradas). Por estar sediado fora do Brasil, esse envio é transferência internacional de dados, sujeita ao art. 33 da LGPD, cujos mecanismos não foram formalizados neste protótipo. O sistema não realiza diagnóstico nem substitui a orientação profissional.
+A abordagem RAG (Lewis et al., 2020) foi adotada por vincular cada resposta a um trecho de bula, reduzir o risco de alucinação e permitir incorporar novas bulas sem retreinar o modelo; a existência e a gravidade da interação vêm do DDInter, e o modelo apenas explica os trechos recuperados. Como dados de saúde são sensíveis pela LGPD (Brasil, 2018), alergias, medicamentos em uso e receitas só são gravados com consentimento explícito e revogável; a revogação apaga perfil, receitas e perguntas, e consultas e perguntas são apagadas após 90 dias. A foto da receita é enviada ao modelo para leitura e apagada em seguida, mas os itens lidos e o nome e o registro do prescritor, dado de terceiro, ficam gravados até a revogação; o acompanhamento por um cuidador depende da aprovação do paciente, que escolhe o que ele vê. O provedor do modelo recebe a pergunta, inclusive as com sinal de crise que as regras da triagem não reconhecem, os medicamentos e os trechos de bula, sem nome, e-mail ou outro identificador, e dados do perfil só quando há achado relevante, quando a pessoa pergunta sobre a dose de um remédio que usa (dose e frequência registradas) ou quando os remédios perguntados estão no seu tratamento. A API de auditoria, instrumento da pesquisa restrito aos responsáveis autorizados por token com validade, devolve o texto das perguntas, identificadas apenas por número, e não integra uma versão definitiva do sistema. Por estar sediado fora do Brasil, esse envio é transferência internacional de dados, sujeita ao art. 33 da LGPD, cujos mecanismos não foram formalizados neste protótipo. O sistema não realiza diagnóstico nem substitui a orientação profissional.
 
 
 ### Fluxo de Processamento
@@ -204,7 +204,7 @@ A gravidade coincidiu com a do DDInter nos 666 pares classificados que o sistema
 
 ### Recuperação de Trechos
 
-Em 13 nov. 2026, com 102 bulas, nas 362 consultas, uma por assunto da bula para cada princípio ativo, com relevância decidida pelo título da seção do trecho, a busca híbrida trouxe um trecho da seção certa entre os três primeiros resultados em 39,8% das consultas (IC 95%: 34,9%–44,9%), a vetorial em 37,0% (32,2%–42,1%) e a lexical em 20,4% (16,6%–24,9%), com MRR de 0,308, 0,307 e 0,168, respectivamente; entre os cinco primeiros, a vetorial chegou a 51,7%, contra 50,3% da híbrida. A rodada de 11 nov. 2026, com 82 bulas e 369 consultas, teve resultado semelhante (40,1%, 36,0% e 20,6%); o número de consultas mudou sobretudo porque o avaliador passou a não contar duas vezes o princípio ativo fundido, e as rodadas não formam comparação controlada. A busca é restrita às bulas do princípio ativo, e a relevância, decidida pelo título da seção, não conta seções vizinhas que tratam do assunto (Apêndice G). A lexical foi a mais fraca; a vetorial e a híbrida ficaram próximas, com intervalos sobrepostos, o que sustenta um modo com componente vetorial, mas não a superioridade da híbrida (Apêndice B).
+Em 13 nov. 2026, com 102 bulas, nas 362 consultas, uma por assunto da bula para cada princípio ativo, com relevância decidida pelo título da seção do trecho, a busca híbrida trouxe um trecho da seção certa entre os três primeiros resultados em 39,8% das consultas (IC 95%: 34,9%–44,9%), a vetorial em 37,0% (32,2%–42,1%) e a lexical em 20,4% (16,6%–24,9%), com MRR de 0,308, 0,307 e 0,168, respectivamente; entre os cinco primeiros, a vetorial chegou a 51,7%, contra 50,3% da híbrida. A rodada de 11 nov. 2026, com 82 bulas e 369 consultas, teve resultado semelhante (40,1%, 36,0% e 20,6%); o número de consultas mudou sobretudo porque o avaliador passou a não contar duas vezes o princípio ativo fundido, e as rodadas não formam comparação controlada. A busca é restrita às bulas do princípio ativo, e a relevância, decidida pelo título da seção, não conta seções vizinhas que tratam do assunto e conta como acerto um trecho com o título certo mesmo quando mal segmentado (Apêndices F e G); os números medem a localização da seção esperada, e não a relevância semântica do trecho, que não foi avaliada por pessoas. A lexical foi a mais fraca; a vetorial e a híbrida ficaram próximas, com intervalos sobrepostos, o que sustenta um modo com componente vetorial, mas não a superioridade da híbrida (Apêndice B).
 
 
 ### Geração e Fundamentação das Respostas
@@ -244,7 +244,7 @@ As sete interações graves sem alerta da primeira medição são, além de limi
 
 Este trabalho investigou como os LLMs, apoiados por recuperação de fontes oficiais, podem facilitar a compreensão das bulas e apoiar a identificação de interações medicamentosas de forma rastreável. A arquitetura mostrou-se tecnicamente viável quando a base estruturada decide sobre a interação e o modelo apenas explica os trechos recuperados, e a hipótese confirmou-se parcialmente: a decisão tornou-se rastreável e passou a usar a gravidade da fonte, enquanto o modelo isolado deixou de reconhecer quase metade das interações registradas. O efeito sobre a compreensão dos usuários, porém, não foi medido, e a fundamentação das respostas ainda carece de validação profissional. A linguagem acessível, propósito da aplicação, passou a ser medida e exigida: respostas e bulas humanizadas ficaram na faixa “fácil” do índice de Flesch.
 
-Quanto aos objetivos específicos, as bulas da ANVISA e o DDInter foram reunidos, e as bulas, indexadas para busca lexical, vetorial e híbrida. O sistema identificou os princípios ativos corretos em 93,6% das consultas reservadas e, após a correção dos princípios ativos duplicados, a verificação dos 1.483 pares encontrou as 1.424 interações registradas, sem falso positivo e com a gravidade da fonte nos 666 pares classificados; a primeira medição havia deixado sem alerta 7 das 110 interações graves. Na recuperação, os modos com componente vetorial superaram o lexical, e o validador aceitou 55,6% das afirmações propostas, sem que nenhum trecho cru fosse exibido nas perguntas livres.
+Quanto aos objetivos específicos, as bulas da ANVISA e o DDInter foram reunidos, e as bulas, indexadas para busca lexical, vetorial e híbrida. O sistema identificou os princípios ativos corretos em 93,6% das consultas reservadas e, após a correção dos princípios ativos duplicados, a verificação dos 1.483 pares encontrou as 1.424 interações registradas, sem falso positivo e com a gravidade da fonte nos 666 pares classificados; a primeira medição havia deixado sem alerta 7 das 110 interações graves. Na recuperação, pelo critério do título da seção, os modos com componente vetorial superaram o lexical, e o validador aceitou 55,6% das afirmações propostas, sem que nenhum trecho cru fosse exibido nas perguntas livres.
 
 A contribuição está na forma de recuperar e apresentar a informação, e não em uma nova base farmacológica, pois cada resposta pode ser rastreada até sua fonte (Apêndice F). Como limitações, o DDInter importado corresponde à primeira versão da base e tem cobertura parcial, de modo que a ausência de registro não pode ser comunicada como segurança; a confiabilidade da verificação depende da cadeia que liga o nome digitado ao registro da fonte; o gabarito provém da própria base consultada, o que impede medir a correção clínica; e a transferência internacional de dados ao provedor do modelo ainda carece dos mecanismos do art. 33 da LGPD, o que inclui as perguntas com sinal de crise, enviadas ao modelo para a triagem.
 
@@ -339,7 +339,7 @@ Princípios ativos com bula brasileira (60): Acetaminophen, Acetylcysteine, Acet
 
 ## APÊNDICE B – REGISTROS DE EXECUÇÃO E COMPARAÇÃO ANTES E DEPOIS DA CORREÇÃO
 
-Os registros ficam em storage/app/evaluation/runs/ no servidor e podem ser consultados por GET /api/v1/audit/evaluations; cada um guarda o *hash* SHA-256 do conjunto de teste, os modelos, os parâmetros e os resultados. O campo de versão do código não é gravado nos registros: a versão implantada, conforme o histórico de implantação, foi o *commit* 0a59cc1 nas medições de 13 nov.; o 947ea4e nas de 11 nov., 8h20–8h38; o 037adea na de 12 nov., 0h59, de resultado idêntico ao da anterior; e o *commit* 14e61bc nas de 11 nov., 22h50–22h52; a auditoria foi feita com o *commit* 4b11f67; as verificações finais de 16 nov., com o aba1f43, reproduziram os mesmos valores. A verificação dos 1.483 pares usou a busca lexical; o protocolo de 30 pares, a híbrida; a recuperação, os três modos; a semente dos sorteios foi 42.
+Os registros ficam em storage/app/evaluation/runs/ no servidor e podem ser consultados por GET /api/v1/audit/evaluations; cada um guarda o *hash* SHA-256 do conjunto de teste, os modelos, os parâmetros e os resultados. O campo de versão do código não é gravado nos registros: a versão implantada, conforme o histórico de implantação, foi o *commit* 0a59cc1 nas medições de 13 nov.; o 947ea4e nas de 11 nov., 8h20–8h38; o 037adea na de 12 nov., 0h58, de resultado idêntico ao da anterior; e o *commit* 14e61bc nas de 11 nov., 22h50–22h52; a auditoria foi feita com o *commit* 4b11f67; as verificações finais de 16 nov., com o aba1f43, reproduziram os mesmos valores. A verificação dos 1.483 pares usou a busca lexical; o protocolo de 30 pares, a híbrida; a recuperação, os três modos; a semente dos sorteios foi 42.
 
 Tabela B1 - Registros dos experimentos em produção (2026)
 
@@ -350,10 +350,10 @@ Tabela B1 - Registros dos experimentos em produção (2026)
 | Interações (antes) | 0d46ca9e | 11 nov., 8h20 | 1.483 pares |
 | Protocolo de 30 pares (híbrida, antes) | 7cdf5716 | 11 nov., 8h22 | 30 pares |
 | Recuperação por assunto (antes) | 87d8519f | 11 nov., 8h22 | 369 consultas |
-| Sem recuperação (Claude Sonnet 5.5) | 9d8c430b | 11 nov., 8h38 | 120 pares |
+| Sem recuperação (Claude Sonnet 5.5) | 9d8c430b | 11 nov., 8h33 | 120 pares |
 | Identificação, ajuste (depois) | 26e00d60 | 11 nov., 22h50 | 59 consultas |
 | Identificação, reservado (depois) | c3356ab6 | 11 nov., 22h50 | 47 consultas |
-| Interações (depois) | 1264b525; 8601ffa5 | 11 nov., 22h52; 12 nov., 0h59 | 1.483 pares |
+| Interações (depois) | 1264b525; 8601ffa5 | 11 nov., 22h50; 12 nov., 0h58 | 1.483 pares |
 | Protocolo de 30 pares (híbrida, depois) | 67c9b04b | 13 nov., 12h39 | 30 pares |
 | Recuperação por assunto (depois) | 5923700e | 13 nov., 12h41 | 362 consultas |
 | Interações (verificação final) | 28343bc9 | 16 nov., 20h36 | 1.483 pares |
@@ -380,7 +380,7 @@ Tabela B2 - Verificação de interações antes e depois da correção (1.483 pa
 
 Fonte: Elaborado pelos autores (2026), a partir dos registros de evaluation:run.
 
-Os cinco conjuntos de teste não mudaram entre as rodadas: o *hash* gravado em cada um dos 12 registros da Tabela B1 coincide com o do arquivo correspondente no repositório do projeto (database/evaluation/).
+Os cinco conjuntos de teste não mudaram entre as rodadas: o *hash* gravado em cada um dos 16 registros da Tabela B1 (5 de identificação, 7 de interações, 3 de recuperação e 1 sem recuperação) coincide com o do arquivo correspondente no repositório do projeto (database/evaluation/), conferido em 17 nov. 2026 por GET /api/v1/audit/evaluations. Os três registros de recuperação usam o mesmo conjunto; a passagem de 369 para 362 consultas veio do avaliador, que deixou de contar duas vezes o princípio ativo fundido, e não de mudança no conjunto.
 
 Tabela B3 - Conjuntos de teste e respectivos hashes SHA-256
 
@@ -406,8 +406,8 @@ Tabela C1 - Resultado da auditoria dos dados
 | Cobertura de *embeddings* | 6.699 de 6.699 trechos (100%); modelo único (BGE-M3), 1.024 dimensões, vetores de norma 1 |
 | Integridade dos *embeddings* (8 regras) | Sem violação: sem vetor nulo, sem mistura de modelos, texto igual ao indexado, sem vetor repetido para textos diferentes |
 | Coerência dos *embeddings* (amostra de 40 trechos) | Vizinho mais próximo no mesmo documento em 47,5% (IC 95%: 32,9%–62,5%); similaridade média de 0,724 no mesmo documento e de 0,650 entre documentos |
-| Qualidade dos dados (24 regras) | 19 sem violação, 0 erros e 1 aviso: 648 das 234.981 interações (0,28%) com princípio ativo não resolvido |
-| Itens informativos | 36 trechos sem seção identificada; 23 bulas com trechos repetidos; 13.734 registros do catálogo (34,8%) sem princípio ativo |
+| Qualidade dos dados (24 regras: 14 de erro, 6 de aviso e 4 informativas) | 19 sem ocorrência: nenhuma violação nas 14 de erro e em 5 das 6 de aviso; 1 aviso: 648 das 234.981 interações (0,28%) com princípio ativo não resolvido; as 4 informativas registram as ocorrências da linha seguinte |
+| Itens informativos (4 regras) | 36 trechos sem seção identificada; 23 bulas com trechos repetidos; 8.243 pares de princípios ativos com mais de um registro no DDInter (variantes como “(topical)”); 13.734 registros do catálogo (34,8%) sem princípio ativo |
 
 Fonte: Elaborado pelos autores (2026), a partir da API de auditoria do sistema em produção.
 
@@ -471,7 +471,7 @@ Tabela C5 - Motivos de recusa das afirmações nas 234 perguntas livres (364 de 
 
 Fonte: Elaborado pelos autores (2026), a partir das respostas do sistema em produção.
 
-Nota: as recusas por forma (limite de palavras, ressalva desnecessária e frases longas) somam 89 (24,5%) e não indicam erro de conteúdo. As demais mostram afirmações sem apoio no trecho ou fora das regras de segurança, o que não equivale a alucinação comprovada, pois o validador é lexical. O sistema grava o motivo de cada recusa, mas não o texto da afirmação recusada.
+Nota: as recusas por forma (limite de palavras, ressalva desnecessária e frases longas) somam 89 (24,5%) e não indicam erro de conteúdo. As demais mostram afirmações sem apoio no trecho ou fora das regras de segurança, o que não equivale a alucinação comprovada, pois o validador é lexical. Até 16 nov. 2026, o sistema gravava o motivo de cada recusa, mas não o texto da afirmação recusada; desde então grava também o texto (Tabela G4), mas não o trecho citado pelo modelo.
 
 
 ## APÊNDICE D – FLUXO DE PROCESSAMENTO DO BULA-IA
@@ -537,9 +537,9 @@ Nota: o rastreio também expõe limites. Um dos trechos recuperados como "Intera
 
 ## APÊNDICE G – VERIFICAÇÃO FINAL APÓS A AUDITORIA (16 NOV. 2026)
 
-Auditoria do artigo e do sistema em produção, correções e nova medição. Os experimentos de referência (1.483 pares, protocolo de 30 pares, identificação reservada e recuperação) foram repetidos com o commit aba1f43 e reproduziram os mesmos valores (Tabela B1). As tabelas abaixo trazem o que mudou.
+Auditoria do artigo e do sistema em produção, correções e nova medição. Os experimentos de referência (1.483 pares, protocolo de 30 pares, identificação reservada e recuperação) foram repetidos com o commit aba1f43 e reproduziram os mesmos valores (Tabela B1). As tabelas abaixo trazem o que mudou. O conjunto de 32 perguntas livres (freeform.independent.v1) foi escrito antes da rodada com o commit 0a59cc1, com produtos e nomes fora dos ajustes, e só essa rodada é independente: as correções dos commits aba1f43 e cc9cc9a partiram das falhas que ela mostrou, como a gravidade ausente do texto e a dipirona declarada sem interação, de modo que as rodadas seguintes são testes de regressão no mesmo conjunto, e não nova validação.
 
-Tabela G1 - Rodada independente: 32 perguntas livres em três versões do sistema
+Tabela G1 - 32 perguntas livres: rodada independente (0a59cc1) e regressão após as correções (aba1f43 e cc9cc9a)
 
 | **Indicador** | **0a59cc1 (antes)** | **aba1f43 (correções)** | **cc9cc9a (final)** |
 | --- | --- | --- | --- |
@@ -571,7 +571,7 @@ Tabela G2 - Legibilidade das bulas humanizadas antes e depois da revisão (mesmo
 
 Fonte: Elaborado pelos autores (2026), a partir de GET /api/v1/audit/leaflet-summaries (16 nov. 2026).
 
-Nota: índice de Flesch adaptado (Martins et al., 1996); 50 é o início da faixa “fácil”. Nas 10 bulas da versão v3, o alvo foi atingido na primeira geração, sem reescrita. O índice mede facilidade de leitura, não compreensão, e nomes de fármacos o reduzem mesmo em frases claras.
+Nota: índice de Flesch adaptado (Martins et al., 1996); 50 é o início da faixa “fácil”. Nas 10 bulas da versão v3, o alvo foi atingido na primeira geração, sem reescrita. As 10 não foram sorteadas: são todas as bulas humanizadas existentes em produção em 16 nov. 2026, geradas sob demanda quando a tela da bula foi aberta, de 10 a 15 nov., no uso e nos testes; 3 são de associações e 3 ficaram parciais. A versão v3 refez exatamente esses 10 conjuntos, o que permite a comparação pareada, mas não representa o catálogo. O índice mede facilidade de leitura, não compreensão, e nomes de fármacos o reduzem mesmo em frases claras.
 
 Tabela G3 - Origem dos erros da recuperação por assunto (362 consultas; registro 78c5668c)
 
@@ -587,7 +587,7 @@ Tabela G3 - Origem dos erros da recuperação por assunto (362 consultas; regist
 
 Fonte: Elaborado pelos autores (2026), a partir do detalhe por consulta do registro 78c5668c (GET /api/v1/audit/evaluations/78c5668c).
 
-Nota: classificação pelo título da seção do trecho, e não pelo conteúdo. A busca é restrita às bulas do princípio ativo, de modo que o teste não mede a recuperação de documento errado.
+Nota: classificação pelo título da seção do trecho, e não pelo conteúdo. O mesmo critério define o acerto, de modo que as taxas de recuperação medem a localização da seção esperada, e não a relevância semântica: um trecho de seção vizinha que trata do assunto conta como erro, e um trecho com o título certo mal segmentado (Apêndice F), como acerto. A busca é restrita às bulas do princípio ativo, de modo que o teste não mede a recuperação de documento errado.
 
 Tabela G4 - O que as afirmações recusadas mostraram e o que foi corrigido
 
@@ -597,11 +597,13 @@ Tabela G4 - O que as afirmações recusadas mostraram e o que foi corrigido
 | Frase apoiada “carregava” outra sem apoio | “… gravidade maior entre A e B. O par é perigoso para idosos.” | Corrigido: validação frase a frase |
 | Conselho de não mexer no tratamento recusado como conduta | “Não mude nem suspenda nenhum dos dois por conta própria.” | Corrigido |
 | Avisos coerentes com a bula recusados por falta de correspondência lexical | síndrome serotoninérgica (sertralina e tramadol) | Aberto |
-| Decisão diferente entre rodadas | amiodarona aumenta o efeito da varfarina: aceita numa rodada, recusada na seguinte | Aberto |
+| Decisão diferente entre rodadas | amiodarona aumenta o efeito da varfarina: aceita numa rodada, recusada na seguinte; reexecutada, a mesma frase é aceita com o trecho da bula e recusada com o registro do DDInter | Aberto: a variação vem da geração |
+| Frase explicativa pedida pelo próprio prompt recusada pela validação frase a frase | “Isso quer dizer que a combinação merece atenção especial.” (17 das 52 recusas da rodada final) | Aberto |
+| Conteúdo correto com outras palavras | “exame que mede o tempo de coagulação (INR)”, contra “monitorar os níveis de protrombina (INR)” na bula da amiodarona | Aberto |
 
 Fonte: Elaborado pelos autores (2026), a partir das afirmações recusadas gravadas pelo sistema desde 16 nov. 2026.
 
-Nota: a leitura das recusas é dos autores e não equivale a validação clínica. A taxa de aceitação do validador não mede erro do modelo.
+Nota: a leitura das recusas é dos autores e não equivale a validação clínica. A taxa de aceitação do validador não mede erro do modelo. Na rodada final (cc9cc9a), 52 afirmações foram recusadas, 39 delas pela regra frase a frase; 17 eram a frase explicativa que o próprio *prompt* pede depois da gravidade. Reexecutado em 17 nov. 2026 sobre os textos gravados, o validador decidiu sempre igual para o mesmo texto e o mesmo trecho; a variação entre rodadas vem da geração (redação, divisão em frases e trecho citado). Como o trecho citado nas recusas não é gravado, cada caso não pode ser reconstituído.
 
 Tabela G5 - Triagem de segurança e perguntas sobre o funcionamento do sistema em produção (25 perguntas, 17 nov. 2026)
 
