@@ -1,5 +1,7 @@
 # API de estatística e avaliação (`/api/v1`)
 
+> **Escopo.** Esta API é instrumento da pesquisa (TCC): serve para coletar métricas, consultar os registros de execução e verificar a integridade dos dados. Não faz parte do escopo funcional de uma versão oficial do BULA-IA. O uso é restrito ao ambiente de avaliação e aos responsáveis autorizados pela pesquisa, e a remoção ou desativação está prevista numa implantação definitiva.
+
 ## Propósito
 
 Dar a um script ou a um agente externo (por exemplo, o agente de desenvolvimento que avalia as respostas) acesso de leitura aos números do painel Analytics, ao consumo de IA e ao rastreio de cada resposta do Perguntar, e permitir avaliar o Perguntar com perguntas reais, pontuadas pela mesma régua do `evaluation:conversation`. Tudo por Bearer Token com escopo, validade e revogação imediata.

@@ -12,7 +12,7 @@ Revisão pedida pelos autores antes da entrega. Não houve alteração funcional
 | 4 | RAG: título da seção × relevância semântica | O acerto é decidido pelo título da seção. Isso não é relevância semântica nem um limite inferior dela: conta como erro um trecho de seção vizinha que trata do assunto (15,1% dos erros da híbrida) e como acerto um trecho mal segmentado com o título certo (caso do Apêndice F) | Recuperação de Trechos, Considerações finais ("pelo critério do título da seção") e nota da Tabela G3 |
 | 5 | Instabilidade do validador | Reexecutado localmente sobre os textos gravados (mesmo código da rodada final), o validador decide sempre igual para o mesmo texto e o mesmo trecho. A variação vem da geração: a frase da amiodarona é aceita com o trecho da bula e recusada quando cita o registro do DDInter. Na rodada final, 52 recusas, 39 pela regra frase a frase; **17 são a frase "Isso quer dizer que…", que o próprio prompt pede**. Exemplo de conteúdo correto recusado: "exame que mede o tempo de coagulação (INR)", contra "monitorar os níveis de protrombina (INR)" na bula. O registro da recusa não guarda o trecho citado, então cada caso não pode ser reconstituído | Tabela G4 (linha revista e duas novas) e nota da Tabela G4; nota da Tabela C5 (o texto da recusa passou a ser gravado em 16/11, mas o trecho citado não) |
 | 6 | Seleção das 10 bulas | As 10 não foram sorteadas. São todas as bulas humanizadas que existiam em produção: geradas sob demanda de 10 a 15/11, no uso e nos testes, quando a tela da bula foi aberta; 3 são associações e 3 ficaram parciais. A v3 refez exatamente os mesmos 10 conjuntos | Nota da Tabela G2: pareada, mas não representa o catálogo |
-| 7 | LGPD × receitas, perfil e triagem | O parágrafo citava só alergias, remédios e consultas | Arquitetura: receita por foto (imagem enviada ao modelo e apagada; itens, nome e registro do prescritor gravados até a revogação); revogação apaga perfil, receitas e perguntas; cuidador só com aprovação do paciente; perguntas com sinal de crise enviadas ao modelo; tratamento informado ao modelo; API de auditoria devolve o texto das perguntas, identificadas por número |
+| 7 | LGPD × receitas, perfil e triagem | O parágrafo citava só alergias, remédios e consultas | Arquitetura: receita por foto (imagem enviada ao modelo e apagada; itens, nome e registro do prescritor gravados até a revogação); revogação apaga perfil, receitas e perguntas; cuidador só com aprovação do paciente; perguntas com sinal de crise enviadas ao modelo; tratamento informado ao modelo; API de auditoria apresentada como instrumento da pesquisa (restrita aos responsáveis autorizados, fora do escopo de uma versão oficial, com remoção ou desativação prevista), que devolve o texto das perguntas identificadas por número. A Metodologia também declara esse escopo |
 
 ## Limitações que continuam
 
@@ -21,13 +21,13 @@ Revisão pedida pelos autores antes da entrega. Não houve alteração funcional
 - **Recuperação:** a relevância semântica não foi avaliada por pessoas, e as taxas medem só a localização da seção esperada.
 - **Perguntas livres:** depois das correções, não há conjunto independente novo; as rodadas seguintes são de regressão.
 - **Legibilidade:** a amostra de 10 bulas é de conveniência e não representa o catálogo.
-- **LGPD:** faltam os mecanismos do art. 33. Também ficam em aberto o dado de terceiro (prescritor), o acesso ao texto das perguntas pela API de auditoria, a política de privacidade, o encarregado e o relatório de impacto, que não fazem parte do protótipo.
+- **LGPD:** faltam os mecanismos do art. 33. Também ficam em aberto o dado de terceiro (prescritor), a política de privacidade, o encarregado e o relatório de impacto, que não fazem parte do protótipo.
 - **Tamanho do texto:** o corpo do artigo passou de 6.436 para 6.586 palavras. Os autores precisam conferir as páginas no Word.
 
 ## Trechos modificados no artigo (`.md` e Word)
 
 1. **Arquitetura do Sistema:** o parágrafo de LGPD (item 7).
-2. **Metodologia, Quadro de experimentos:** "independente só na primeira rodada".
+2. **Metodologia:** o escopo da API de auditoria, como instrumento da pesquisa, e no Quadro de experimentos, "independente só na primeira rodada".
 3. **Recuperação de Trechos:** fim do parágrafo, sobre a relevância pelo título.
 4. **Considerações finais:** "pelo critério do título da seção".
 5. **Apêndice B:** horário do commit `037adea` no texto; 3 horários da Tabela B1; o parágrafo dos hashes (16 registros, distribuição, data da conferência, 369 → 362).
