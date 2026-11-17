@@ -3,6 +3,7 @@
 namespace App\Models\Consultation;
 
 use App\Models\Knowledge\ActiveIngredient;
+use App\Services\Audit\ReadabilityService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
@@ -60,5 +61,52 @@ class MedicineLeafletSummary extends Model
             ->orderBy('canonical_name')->pluck('canonical_name')->all();
 
         return $names !== [] ? implode(', ', $names) : 'Princípios ativos '.$this->ingredient_key;
+    }
+
+    /** @var array<string, mixed>|null */
+    private ?array $readabilityCache = null;
+
+    /**
+     * Legibilidade (índice de Flesch adaptado, Martins et al., 1996) do resumo, de cada seção e dos trechos de origem, e se
+     * atinge o alvo configurado. Calculada do texto gravado: vale também para bulas geradas antes da medição.
+     *
+     * @return array{summary: array<string, mixed>|null, sources: array<string, mixed>|null, sections: array<string, array<string, mixed>|null>, target: float, meets_target: bool|null}
+     */
+    public function readability(): array
+    {
+        if ($this->readabilityCache !== null) {
+            return $this->readabilityCache;
+        }
+        $service = app(ReadabilityService::class);
+        $sections = [];
+        $all = [];
+        foreach ($this->sections ?? [] as $key => $section) {
+            $texts = $this->claimTexts($section);
+            $all = [...$all, ...$texts];
+            $sections[$key] = $texts === [] ? null : $service->flesch(implode(' ', $texts));
+        }
+        $sources = array_values(array_filter(array_map(fn ($evidence): string => is_array($evidence) ? (string) ($evidence['excerpt'] ?? '') : '', $this->evidences ?? [])));
+        $summary = $all === [] ? null : $service->flesch(implode(' ', $all));
+        $target = (float) config('bulai.leaflet.readability.min_flesch');
+
+        return $this->readabilityCache = [
+            'summary' => $summary,
+            'sources' => $sources === [] ? null : $service->flesch(implode(' ', $sources)),
+            'sections' => $sections,
+            'target' => $target,
+            'meets_target' => ($summary['index'] ?? null) === null ? null : $summary['index'] >= $target,
+        ];
+    }
+
+    /**
+     * Frases de uma seção, nos dois formatos gravados (lista de afirmações ou {label, claims}).
+     *
+     * @return list<string>
+     */
+    public function claimTexts(mixed $section): array
+    {
+        $claims = is_array($section) && array_is_list($section) ? $section : (is_array($section) ? ($section['claims'] ?? []) : []);
+
+        return array_values(array_filter(array_map(fn ($claim): string => trim(is_array($claim) ? (string) ($claim['text'] ?? '') : (string) $claim), (array) $claims)));
     }
 }

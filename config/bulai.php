@@ -134,7 +134,14 @@ return [
     ],
     'leaflet' => [
         // Bula humanizada: seções pedidas ao modelo e padrões de seção das bulas usados na recuperação de cada uma.
-        'prompt_version' => 'humanized-leaflet-v2',
+        // v3 (16/11/2026): linguagem acessível como alvo medido; trocar a versão refaz as bulas antigas na próxima visualização.
+        'prompt_version' => 'humanized-leaflet-v3',
+        // Legibilidade (índice de Flesch adaptado, Martins et al., 1996): abaixo do alvo, o modelo é chamado de novo para
+        // reescrever em linguagem mais simples, até `max_rewrites` vezes; fica a melhor versão. 50 = início da faixa "fácil".
+        'readability' => [
+            'min_flesch' => (float) env('BULAI_LEAFLET_MIN_FLESCH', 50),
+            'max_rewrites' => (int) env('BULAI_LEAFLET_MAX_REWRITES', 2),
+        ],
         'max_output_tokens' => (int) env('BULAI_LEAFLET_MAX_OUTPUT_TOKENS', 4096),
         'evidence_per_section' => (int) env('BULAI_LEAFLET_EVIDENCE_PER_SECTION', 3),
         // `keywords`: palavras da pergunta do paciente que pedem essa seção (QuestionIntentDetector; comparação normalizada).

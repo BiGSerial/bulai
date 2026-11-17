@@ -340,3 +340,20 @@ Relatório: `docs/qa/auditoria-cientifica-2026-11-16.md` (PR #72).
 ### API: consultas para a análise completa do sistema (16/11/2026)
 
 Seis rotas de leitura em `/api/v1/audit` (`SystemInspectionService`), para não depender de tinker na VPS: `catalog` (catálogo da ANVISA com vínculos), `ingredients` (aliases e cobertura no DDInter), `interaction` (par no DDInter, distinguindo "não registrado" de "fármaco fora da base"), `leaflet-summaries` (bulas humanizadas com legibilidade), `documents/{id}/chunks` (segmentação) e `evaluations/{run_id}` (registro completo, com o detalhe por item). Documentação em `docs/api.md`; testes em `SystemInspectionApiTest`.
+
+### Validador: frase a frase e conselho negado (16/11/2026, V1 e V2)
+
+Relatório: `docs/qa/rodada-pos-correcoes-2026-11-16.md`, seção 4.
+- **V1:** numa afirmação com mais de uma frase, `ExplanationValidator` valida cada frase contra os mesmos trechos. Ficam as apoiadas; as sem apoio saem e são registradas (`sentence_not_grounded`). Corrige dois efeitos da sobreposição medida na afirmação inteira: a frase interpretativa emendada derrubava a gravidade correta do DDInter, e uma frase apoiada "carregava" outra sem apoio. Vale para a pergunta livre, os pares e a bula humanizada.
+- **V2:** "Não mude nem suspenda… por conta própria" (com ressalva de orientação: por conta própria, sem orientação, médico ou farmacêutico) deixa de ser `forbidden_recommendation`. "Suspenda…", "Não use…" e "Não suspenda, mas reduza a dose…" continuam bloqueados.
+- **Testes:** `tests/Feature/Interactions/ValidadorFalsosBloqueiosTest.php`.
+
+### Bula humanizada: legibilidade medida e reescrita até o alvo (16/11/2026)
+
+Motivo: linguagem acessível é o propósito da aplicação, e 9 de 10 bulas humanizadas ficavam na faixa "difícil" do índice de Flesch (relatório de 16/11, seção 6).
+- **Geração (`LeafletSummaryService`):** depois de validar, mede o Flesch do texto aceito (inteiro e por seção). Abaixo de `bulai.leaflet.readability.min_flesch` (padrão 50, início da faixa "fácil"), chama o modelo de novo com o índice, as seções mais difíceis e regras de simplificação, até `max_rewrites` vezes (padrão 2). Fica a melhor versão (válida, no alvo, mais seções, mais legível); todas as tentativas ficam em `generation.readability`. Abaixo do alvo depois das tentativas, a bula continua disponível e marcada.
+- **Prompt `humanized-leaflet-v3`:** escrever para pouca escolaridade, frases de até 12 palavras, trocar o termo técnico pela palavra comum e explicar entre parênteses o indispensável. A troca de versão faz as bulas antigas serem refeitas na próxima visualização.
+- **Admin (Analytics › Bulas):** coluna "Legibilidade (Flesch)" com índice, faixa e alvo; no detalhe, aba "Texto e legibilidade" (padrão) com o texto como o paciente lê, o índice de cada seção, o da fonte e as tentativas de reescrita. `MedicineLeafletSummary::readability()` calcula do texto gravado, inclusive para bulas antigas.
+- **Comando:** `php artisan leaflets:refresh-readability [--dry-run] [--limit=50]` refaz as bulas de versão anterior do prompt; as da versão atual abaixo do alvo só são listadas.
+- **Limitação:** o validador exige as palavras do trecho citado (40%); simplificar demais pode reduzir as frases aceitas. O índice mede facilidade de leitura, não compreensão.
+- **Testes:** `tests/Feature/Consulta/LegibilidadeBulaHumanizadaTest.php`.
