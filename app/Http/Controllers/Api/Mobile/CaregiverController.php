@@ -177,6 +177,7 @@ final class CaregiverController extends Controller
         return [
             'caring_for' => ['link_id' => $link->id, 'first_name' => CaregiverLink::firstName($link->patient)],
             'can_edit' => $link->allows(CaregiverLink::PERMISSION_MANAGE),
+            'posology_presets' => HealthProfileService::presets(),
             'intro' => $link->allows(CaregiverLink::PERMISSION_MANAGE)
                 ? 'Você pode mudar a dose e os horários de '.CaregiverLink::firstName($link->patient).'. Cada mudança fica registrada para '.CaregiverLink::firstName($link->patient).' ver.'
                 : 'Você vê os remédios de '.CaregiverLink::firstName($link->patient).'. Para mudar dose e horários, '.CaregiverLink::firstName($link->patient).' precisa liberar a permissão.',

@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import br.com.vixforge.bulai.dados.PerfilRepositorio
+import br.com.vixforge.bulai.dados.api.AtalhosDePosologia
 import br.com.vixforge.bulai.dados.api.DoseEHorarios
 import br.com.vixforge.bulai.dados.api.RemedioDoPerfil
 import br.com.vixforge.bulai.dados.api.RemediosDeQuemCuido
@@ -70,7 +71,7 @@ class RemediosDeQuemCuidoViewModel(private val perfil: PerfilRepositorio, privat
         _editando.value = remedio
     }
 
-    suspend fun sugerir(frequencia: String, posologia: DoseEHorarios): DoseEHorarios? = perfil.sugerirHorarios(frequencia, posologia).getOrNull()
+    suspend fun sugerir(frequencia: String, posologia: DoseEHorarios, atalho: Boolean): DoseEHorarios? = perfil.sugerirHorarios(frequencia, posologia, atalho).getOrNull()
 
     fun salvar(posologia: DoseEHorarios) {
         val remedio = _editando.value ?: return
@@ -128,6 +129,6 @@ fun RemediosDeQuemCuidoTela(vinculo: Long, preenchimento: PaddingValues, recado:
     }
 
     editando?.let { remedio ->
-        EditorDePosologia(remedio.name, remedio.posologia, emptyList(), salvando, erro, vm::sugerir, vm::salvar) { vm.editar(null) }
+        EditorDePosologia(remedio.name, remedio.posologia, emptyList(), carga.dados?.atalhos ?: AtalhosDePosologia(), salvando, erro, vm::sugerir, vm::salvar) { vm.editar(null) }
     }
 }

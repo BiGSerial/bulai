@@ -7,6 +7,7 @@ use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Knowledge\External\ExternalEvidenceService;
+use App\Services\Safety\GuardVerdict;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -125,6 +126,37 @@ final class QuestionConversation
         $medicine = AnvisaMedicine::query()->find($medicineId);
 
         return $medicine === null ? null : ['medicine' => $medicine->product_name, 'context' => $this->treatment->for($user, $medicine)];
+    }
+
+    /** Telefones de ajuda (número a discar, como aparece, quem atende e quando ligar). */
+    private const HELP_LINES = [
+        'cvv' => ['tel' => '188', 'number' => '188', 'name' => 'CVV', 'detail' => 'Conversar agora, de graça, 24 horas'],
+        'samu' => ['tel' => '192', 'number' => '192', 'name' => 'SAMU', 'detail' => 'Emergência: perigo agora ou passando mal'],
+        'intoxicacao' => ['tel' => '08007226001', 'number' => '0800 722 6001', 'name' => 'Disque-Intoxicação', 'detail' => 'Tomou remédio a mais ou por engano'],
+        'policia' => ['tel' => '190', 'number' => '190', 'name' => 'Polícia', 'detail' => 'Alguém corre perigo agora'],
+    ];
+
+    /**
+     * Telefones de ajuda que a resposta mostra como botões de ligar, conforme o caso (crise, superdose, sintoma grave,
+     * pedido recusado por risco). Os textos da resposta citam os mesmos números; os botões só facilitam a ligação.
+     *
+     * @param  array<string, mixed>  $resposta
+     * @return list<array{tel: string, number: string, name: string, detail: string}>
+     */
+    public static function helpLines(array $resposta): array
+    {
+        $category = $resposta['guard']['category'] ?? null;
+        $kinds = is_array($resposta['urgency'] ?? null) ? (array) ($resposta['urgency']['kinds'] ?? []) : null;
+        $keys = match (true) {
+            ($resposta['status'] ?? null) === MedicationQuestionService::BLOCKED && $category === GuardVerdict::HARM_RISK => ['cvv', 'samu', 'intoxicacao'],
+            ($resposta['status'] ?? null) === MedicationQuestionService::BLOCKED && $category === GuardVerdict::HARM_OTHERS => ['samu', 'policia'],
+            ($resposta['status'] ?? null) === MedicationQuestionService::BLOCKED && in_array($category, [GuardVerdict::MISUSE, GuardVerdict::SENSITIVE], true) => ['samu'],
+            $kinds !== null && array_intersect($kinds, UrgencyDetector::OVERDOSE_KINDS) !== [] => ['intoxicacao', 'samu'],
+            $kinds !== null => ['samu'],
+            default => [],
+        };
+
+        return array_map(fn (string $key): array => self::HELP_LINES[$key], $keys);
     }
 
     /**

@@ -71,6 +71,7 @@ data class Resposta(
     val source: String? = null,
     @SerialName("can_listen") val podeOuvir: Boolean = false,
     val crisis: Boolean = false,
+    @SerialName("help_lines") val telefones: List<TelefoneDeAjuda> = emptyList(),
     val suggestions: List<String> = emptyList(),
     @SerialName("other_medicines") val outrosRemedios: List<String> = emptyList(),
     val guesses: List<RemedioSimples> = emptyList(),
@@ -95,6 +96,10 @@ data class Resposta(
         const val BLOQUEADA = "blocked"
     }
 }
+
+/** Telefone de ajuda da resposta (crise, superdose, sintoma grave): vira botão de ligar. */
+@Serializable
+data class TelefoneDeAjuda(val tel: String, val number: String, val name: String, val detail: String = "")
 
 @Serializable
 data class RespostaDaPergunta(val answer: Resposta)

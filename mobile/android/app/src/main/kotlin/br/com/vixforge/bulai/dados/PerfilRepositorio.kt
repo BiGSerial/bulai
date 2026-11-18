@@ -50,8 +50,9 @@ class PerfilRepositorio(context: Context, private val api: BulaiApi, private val
 
     suspend fun tirarAlergia(alergia: Long): Result<Perfil> = mudou { api.tirarAlergia(alergia) }
 
-    /** O que muda no formulário quando a pessoa escreve "quando tomar" (nada é salvo). */
-    suspend fun sugerirHorarios(frequencia: String, posologia: DoseEHorarios): Result<DoseEHorarios> = chamar { api.sugerirHorarios(PedidoDeSugestao(frequencia, posologia)).posology }
+    /** O que muda no formulário quando a pessoa escreve "quando tomar" ou toca num atalho ([atalho]); nada é salvo. */
+    suspend fun sugerirHorarios(frequencia: String, posologia: DoseEHorarios, atalho: Boolean = false): Result<DoseEHorarios> =
+        chamar { api.sugerirHorarios(PedidoDeSugestao(frequencia, posologia, atalho)).posology }
 
     suspend fun remediosDeQuemCuido(vinculo: Long): Result<RemediosDeQuemCuido> = chamar { api.remediosDeQuemCuido(vinculo) }
 

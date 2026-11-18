@@ -187,6 +187,7 @@ final class QuestionController extends Controller
             'source' => $speech['fonte'],
             'can_listen' => in_array($status, [MedicationQuestionService::ANSWERED, MedicationQuestionService::NEEDS_INFO], true),
             'crisis' => $status === MedicationQuestionService::BLOCKED && ($answer['guard']['category'] ?? null) === GuardVerdict::HARM_RISK,
+            'help_lines' => QuestionConversation::helpLines($answer),
             'suggestions' => $speech['sugestoes'],
             'other_medicines' => $speech['remedios'],
             'guesses' => $status === MedicationQuestionService::NO_MEDICINE ? $pick($answer['guesses'] ?? []) : [],

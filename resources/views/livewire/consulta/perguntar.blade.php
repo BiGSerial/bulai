@@ -58,7 +58,11 @@
                 x-data="{ podeOuvir: 'speechSynthesis' in window, falando: false }" data-testid="resposta-atual">
                 {{-- 1. O que o BULA-IA diz, em parágrafos curtos, com remédios, componentes e o que é crítico em negrito. --}}
                 @if ($fala['intro'])<p class="break-words text-lg text-slate-700" data-testid="fala-intro">{{ $fala['intro'] }}</p>@endif
-                @if ($fala['urgencia'])<p role="alert" class="break-words rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-3 text-lg font-semibold text-rose-900" data-testid="urgencia">{{ $fala['urgencia'] }}</p>@endif
+                @if ($fala['urgencia'])
+                    <p role="alert" class="break-words rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-3 text-lg font-semibold text-rose-900" data-testid="urgencia">{{ $fala['urgencia'] }}</p>
+                    {{-- Telefones de ajuda logo abaixo do aviso, em destaque, antes do resto da resposta. --}}
+                    <x-consulta.ajuda-telefones :linhas="$ajuda" />
+                @endif
                 <div class="grid gap-3 break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">
                     @foreach ($paragrafos as $paragrafo)
                         <p>{{ $paragrafo }}</p>
@@ -77,9 +81,8 @@
                     </ul>
                 @endif
 
-                @if ($status === Q::BLOCKED && ($resposta['guard']['category'] ?? null) === 'harm_risk')
-                    <p class="break-words">Ligue <a class="text-2xl font-bold underline" href="tel:188">188</a> (CVV, Centro de Valorização da Vida, gratuito, 24 h) para conversar agora, ou <a class="text-2xl font-bold underline" href="tel:192">192</a> (SAMU) em caso de perigo. Você não precisa passar por isso sem apoio.</p>
-                @endif
+                {{-- Sem aviso de urgência (crise, pedido recusado por risco), os telefones vêm depois da fala. --}}
+                @unless ($fala['urgencia'])<x-consulta.ajuda-telefones :linhas="$ajuda" />@endunless
 
                 {{-- 2. Partes da bula (só quando não deu para resumir). --}}
                 @if ($fala['trechos'] !== [])
@@ -204,8 +207,9 @@
         @endif
 
         {{-- A pergunta enviada aparece na hora; some quando a resposta chega (ela volta junto com a resposta). --}}
-        <div wire:loading.flex wire:target="perguntar" class="hidden justify-end pl-6 sm:pl-16" x-ref="pendente" data-testid="pergunta-pendente">
-            <p class="min-w-0 max-w-full break-words [overflow-wrap:anywhere] rounded-2xl rounded-br-md bg-brand-700 px-4 py-3 text-lg leading-relaxed text-white shadow-sm" aria-label="Sua pergunta" x-text="pendente"></p>
+        <div wire:loading.flex wire:target="perguntar" class="hidden flex-col items-end gap-1 pl-6 sm:pl-16" x-ref="pendente" data-testid="pergunta-pendente">
+            <p data-voo-alvo class="balao-eu min-w-0 max-w-full break-words [overflow-wrap:anywhere] rounded-2xl rounded-br-md bg-brand-700 px-4 py-3 text-lg leading-relaxed text-white shadow-sm" aria-label="Sua pergunta" x-text="pendente"></p>
+            <p class="bulai-entregue flex items-center gap-1 px-1 text-sm text-slate-500"><x-consulta.icone name="check" plain class="size-4" />Enviada</p>
         </div>
 
         {{-- "Digitando…" enquanto procura na bula. --}}
@@ -226,17 +230,27 @@
     <x-slot:sticky>
         <form class="grid gap-2" wire:submit="perguntar" x-on:submit="$refs.pergunta.value.trim() !== '' && $dispatch('pergunta-enviada', { texto: $refs.pergunta.value.trim() })" x-data="ditado({ aplicar: (t) => { $refs.pergunta.value = t }, confirmar: (t) => $wire.set('pergunta', t, false), texto: () => $refs.pergunta.value })" aria-label="Fazer uma pergunta">
             <label for="pergunta" class="sr-only">Sua pergunta sobre um remédio</label>
-            <textarea id="pergunta" x-ref="pergunta" rows="1" class="ui-control max-h-36 min-h-12 resize-none text-lg leading-snug [field-sizing:content]" wire:model="pergunta" maxlength="{{ $maximo }}" autocomplete="off" enterkeyhint="send" placeholder="{{ $resposta || $conversa !== [] ? 'Continue a conversa…' : 'Ex.: posso tomar omeprazol com café?' }}" x-on:keydown.enter.prevent="$refs.pergunta.value.trim() !== '' && $dispatch('pergunta-enviada', { texto: $refs.pergunta.value.trim() }); $wire.set('pergunta', $refs.pergunta.value, false); $wire.perguntar()"></textarea>
+            {{--
+                Como no aplicativo: uma caixa só com o texto, o microfone e o botão de enviar juntos. Ao enviar, a pergunta
+                sai desta caixa (`data-voo-origem`) e voa até o balão dela na conversa (resources/js/animacoes.js).
+            --}}
+            <div class="flex min-w-0 items-end gap-1 rounded-[1.75rem] border border-slate-300 bg-white p-1.5 pl-4 shadow-sm focus-within:border-brand-600 focus-within:ring-2 focus-within:ring-brand-600/20" data-voo-origem>
+                <textarea id="pergunta" x-ref="pergunta" rows="1" class="max-h-36 min-h-11 min-w-0 flex-1 resize-none border-0 bg-transparent px-0 py-2 text-lg leading-snug text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 [field-sizing:content]" wire:model="pergunta" maxlength="{{ $maximo }}" autocomplete="off" enterkeyhint="send" placeholder="{{ $resposta || $conversa !== [] ? 'Continue a conversa…' : 'Sua dúvida sobre um remédio' }}" x-on:keydown.enter.prevent="const t = $refs.pergunta.value; $wire.set('pergunta', t, false); t.trim() !== '' && $dispatch('pergunta-enviada', { texto: t.trim() }); $wire.perguntar()"
+                    x-on:pergunta-enviada.window="if ($event.detail.texto.length >= {{ $minimo }}) { $el.value = '' }"></textarea>
+                <button type="button" x-cloak x-show="suportado" x-on:click="alternar()" x-bind:aria-pressed="ouvindo" x-bind:aria-label="ouvindo ? 'Parar de ouvir' : 'Falar a pergunta'" title="Falar a pergunta"
+                    class="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"
+                    x-bind:class="ouvindo ? 'animate-pulse bg-rose-100 text-rose-700' : ''">
+                    <x-consulta.icone name="microfone" plain class="size-6" />
+                </button>
+                <button type="submit" aria-label="Perguntar" title="Perguntar" wire:loading.attr="disabled" wire:target="perguntar,corrigir,remover"
+                    class="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-accent-600 text-white hover:bg-accent-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-accent-600/40 disabled:opacity-70">
+                    <span wire:loading.remove wire:target="perguntar,corrigir,remover"><x-consulta.icone name="enviar" plain class="size-6" /></span>
+                    <span wire:loading wire:target="perguntar,corrigir,remover" class="size-5 animate-spin rounded-full border-[3px] border-white/40 border-t-white" aria-hidden="true"></span>
+                </button>
+            </div>
             <p x-cloak x-show="parcial !== ''" class="px-1 text-base italic text-slate-500" aria-live="polite" x-text="parcial"></p>
             <p x-cloak x-show="erro !== ''" role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-base font-medium text-amber-900" x-text="erro"></p>
-            <p x-cloak x-show="! suportado" class="px-1 text-base text-slate-600">Para falar a pergunta, use o microfone do teclado do celular.</p>
-            <div class="flex gap-2">
-                <button type="button" x-cloak x-show="suportado" x-on:click="alternar()" x-bind:aria-pressed="ouvindo" class="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border-2 border-brand-700 bg-white px-3 text-lg font-semibold text-brand-900 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40" x-bind:class="ouvindo ? 'animate-pulse bg-rose-50 border-rose-500 text-rose-900' : ''">
-                    <svg class="size-7 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" /></svg>
-                    <span class="truncate" x-text="ouvindo ? 'Parar' : 'Falar'">Falar</span>
-                </button>
-                <x-knowledge-admin.button variant="accent" type="submit" class="min-h-12 flex-1 text-lg" loadingTarget="perguntar,corrigir,remover" loading="Procurando na bula…">Perguntar</x-knowledge-admin.button>
-            </div>
+            <p x-cloak x-show="! suportado" class="px-1 text-sm text-slate-600">Para falar a pergunta, use o microfone do teclado do celular.</p>
         </form>
     </x-slot:sticky>
 </x-consulta.shell>
