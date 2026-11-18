@@ -12,3 +12,11 @@ regexes = ['''(?i)external_?key''']
 [[allowlists]]
 description = "Documentação de skills de terceiros com exemplos fictícios."
 paths = ['''^\.claude/skills/''']
+
+[[allowlists]]
+description = "Senhas fictícias dos testes de feature (cadastro, troca de senha): só em tests/ e só nos campos de senha do pedido."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^tests/''']
+regexTarget = "line"
+regexes = ['''(?i)'(current_)?password(_confirmation)?' =>''']
