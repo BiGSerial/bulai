@@ -7,7 +7,7 @@ import java.util.UUID
 
 /**
  * Estado local do aplicativo (SharedPreferences privadas, fora de backup):
- * token do aparelho, conta conectada, última agenda recebida, preferências do alarme e marcações ainda não enviadas.
+ * token do aparelho (cifrado), conta conectada, última agenda recebida, preferências do alarme e marcações ainda não enviadas.
  */
 class Preferencias(context: Context) {
     private val prefs: SharedPreferences = context.applicationContext.getSharedPreferences(ARQUIVO, Context.MODE_PRIVATE)
@@ -16,9 +16,15 @@ class Preferencias(context: Context) {
     val instalacao: String
         get() = prefs.getString(INSTALACAO, null) ?: UUID.randomUUID().toString().also { prefs.edit { putString(INSTALACAO, it) } }
 
+    /** Token do aparelho, cifrado pelo [Cofre] (Android Keystore). */
     var token: String?
-        get() = prefs.getString(TOKEN, null)
-        set(valor) = prefs.edit { putString(TOKEN, valor) }
+        get() = prefs.getString(TOKEN, null)?.let { Cofre.abrir(it) }
+        set(valor) = prefs.edit { putString(TOKEN, valor?.let { Cofre.fechar(it) }) }
+
+    /** Conta conectada (JSON de [br.com.vixforge.bulai.dados.api.Usuario]), para abrir o app sem esperar a rede. */
+    var contaJson: String?
+        get() = prefs.getString(CONTA, null)
+        set(valor) = prefs.edit { putString(CONTA, valor) }
 
     var usuario: String
         get() = prefs.getString(USUARIO, "") ?: ""
@@ -81,6 +87,7 @@ class Preferencias(context: Context) {
         prefs.edit {
             remove(TOKEN)
             remove(USUARIO)
+            remove(CONTA)
             remove(AGENDA)
             remove(AGENDA_EM)
             remove(AVISOS_DESDE)
@@ -96,6 +103,7 @@ class Preferencias(context: Context) {
         const val INSTALACAO = "instalacao"
         const val TOKEN = "token"
         const val USUARIO = "usuario"
+        const val CONTA = "conta"
         const val AGENDA = "agenda"
         const val AGENDA_EM = "agenda_em"
         const val MODO_ALARME = "modo_alarme"

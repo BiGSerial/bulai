@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Telas do BULA-IA (WebView) e API do aparelho. -->
+    <!-- API do BULA-IA (/api/mobile/v1). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
@@ -15,25 +15,6 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- Ditado da pergunta (reconhecimento de voz do Android). -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
-
-    <!-- Baixar o resumo para o médico (PDF) em aparelhos Android 8 e 9. -->
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-
-    <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.microphone" android:required="false" />
-
-    <queries>
-        <intent>
-            <action android:name="android.speech.RecognitionService" />
-        </intent>
-        <intent>
-            <action android:name="android.media.action.IMAGE_CAPTURE" />
-        </intent>
-    </queries>
 
     <application
         android:name=".BulaiApp"
@@ -59,7 +40,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- bulai://abrir/hoje → abre /hoje (atalhos, widget e notificações). -->
+            <!-- bulai://abrir/hoje → tela Hoje (atalhos, widget e notificações). -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -112,15 +93,5 @@
                 android:resource="@xml/widget_proxima_dose_info" />
         </receiver>
 
-        <!-- Foto da receita tirada pela câmera para o campo de arquivo da página. -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.arquivos"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
     </application>
 </manifest>

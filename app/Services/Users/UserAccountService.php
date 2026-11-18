@@ -377,27 +377,31 @@ final class UserAccountService
      * Troca de senha pela própria pessoa: limpa a troca obrigatória e derruba as outras sessões,
      * mantendo a sessão atual.
      */
-    public function changePassword(User $user, string $newPassword, ?string $currentSessionId): void
+    public function changePassword(User $user, string $newPassword, ?string $currentSessionId, ?int $currentMobileDeviceId = null): void
     {
-        $this->storeOwnPassword($user, $newPassword, $currentSessionId);
+        $this->storeOwnPassword($user, $newPassword, $currentSessionId, [], $currentMobileDeviceId);
     }
 
     /**
      * Troca da senha provisória na tela de primeiro acesso: mesmo efeito de changePassword, com a
      * origem registrada na auditoria (details.via = first_access).
      */
-    public function completeFirstAccess(User $user, string $newPassword, ?string $currentSessionId): void
+    public function completeFirstAccess(User $user, string $newPassword, ?string $currentSessionId, ?int $currentMobileDeviceId = null): void
     {
-        $this->storeOwnPassword($user, $newPassword, $currentSessionId, ['via' => UserAuditEvent::VIA_FIRST_ACCESS]);
+        $this->storeOwnPassword($user, $newPassword, $currentSessionId, ['via' => UserAuditEvent::VIA_FIRST_ACCESS], $currentMobileDeviceId);
     }
 
-    /** @param array<string, string> $details */
-    private function storeOwnPassword(User $user, string $newPassword, ?string $currentSessionId, array $details = []): void
+    /**
+     * Pelo aplicativo, a "sessão atual" é o aparelho que pediu a troca: ele continua conectado e os demais caem.
+     *
+     * @param  array<string, string>  $details
+     */
+    private function storeOwnPassword(User $user, string $newPassword, ?string $currentSessionId, array $details = [], ?int $currentMobileDeviceId = null): void
     {
-        DB::transaction(function () use ($user, $newPassword, $currentSessionId, $details): void {
+        DB::transaction(function () use ($user, $newPassword, $currentSessionId, $details, $currentMobileDeviceId): void {
             $user = $this->lock($user);
             $user->forceFill(['password' => $newPassword, 'must_change_password' => false])->save();
-            $this->revokeAccess($user, $currentSessionId);
+            $this->revokeAccess($user, $currentSessionId, $currentMobileDeviceId);
             $this->record($user, UserAuditEvent::EVENT_PASSWORD_CHANGED, $user, $details);
         });
     }
@@ -479,12 +483,12 @@ final class UserAccountService
      * gravadas no banco, exceto a indicada. Com outro driver de sessão, o middleware de usuário
      * ativo e o perfil relido a cada requisição continuam barrando o acesso.
      */
-    private function revokeAccess(User $user, ?string $exceptSessionId = null): void
+    private function revokeAccess(User $user, ?string $exceptSessionId = null, ?int $exceptMobileDeviceId = null): void
     {
         $user->setRememberToken(Str::random(60));
         $user->save();
         // O aplicativo Android usa token próprio (não sessão): perder o acesso também desconecta os aparelhos.
-        $user->mobileDevices()->delete();
+        $user->mobileDevices()->when($exceptMobileDeviceId !== null, fn ($query) => $query->whereKeyNot($exceptMobileDeviceId))->delete();
 
         if (config('session.driver') !== 'database') {
             return;

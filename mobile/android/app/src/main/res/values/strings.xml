@@ -28,15 +28,5 @@
 
     <string name="atalho_hoje">Remédios de hoje</string>
     <string name="atalho_hoje_curto">Hoje</string>
-    <string name="atalho_perguntar">Perguntar sobre um remédio</string>
-    <string name="atalho_perguntar_curto">Perguntar</string>
-    <string name="atalho_receita">Fotografar receita</string>
-    <string name="atalho_receita_curto">Receita</string>
-    <string name="atalho_consulta">Ver interações</string>
-    <string name="atalho_consulta_curto">Interações</string>
 
-    <string name="baixando">Baixando o arquivo…</string>
-    <string name="sem_app_para_abrir">Nenhum aplicativo para abrir este link.</string>
-    <string name="escolher_arquivo">Escolher a imagem</string>
-    <string name="compartilhar">Compartilhar</string>
 </resources>

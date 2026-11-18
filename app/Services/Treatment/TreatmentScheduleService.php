@@ -237,6 +237,28 @@ final class TreatmentScheduleService
         return ['medication' => $medication, 'time' => $scheduled->format('H:i'), 'scheduled_for' => $scheduled, 'status' => $status, 'event' => $event, 'dynamic' => $dynamic, 'taken_at' => $takenAt];
     }
 
+    /**
+     * Em remédios dinâmicos, uma dose projetada depois de uma tomada fora do horário ganha `ajustado` = "HH:MM" (o
+     * horário real da dose anterior, de onde a cadeia foi recontada). As demais linhas ficam com `ajustado` nulo.
+     *
+     * @param  Collection<int, array<string, mixed>>  $agenda
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function annotateAdjustments(Collection $agenda): Collection
+    {
+        $base = [];
+
+        return $agenda->sortBy('time')->values()->map(function (array $dose) use (&$base): array {
+            $id = $dose['medication']->id;
+            $dose['ajustado'] = $dose['dynamic'] && $dose['event'] === null ? ($base[$id] ?? null) : null;
+            if ($dose['dynamic'] && $dose['taken_at'] !== null) {
+                $base[$id] = $dose['taken_at']->format('H:i') !== $dose['time'] ? $dose['taken_at']->format('H:i') : null;
+            }
+
+            return $dose;
+        });
+    }
+
     /** Próxima dose ainda não marcada (hoje ou amanhã), no fuso do paciente. @return array{medication: PatientMedication, time: string, scheduled_for: CarbonImmutable, status: string, event: MedicationDoseEvent|null}|null */
     public function nextDose(User $user, ?CarbonImmutable $now = null): ?array
     {

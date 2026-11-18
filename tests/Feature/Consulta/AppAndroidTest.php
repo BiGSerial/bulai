@@ -9,15 +9,17 @@ use App\Models\PatientProfile;
 use App\Models\User;
 use App\Models\UserAuditEvent;
 use App\Notifications\MedicationReminderNotification;
+use App\Notifications\ResetPasswordNotification;
 use App\Notifications\UnmatchedMedicineResolvedNotification;
 use App\Services\Users\UserAccountService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
-/** Aplicativo Android: ligar o aparelho à conta, agenda dos alarmes, marcação pela notificação, avisos e revogação. */
+/** Aplicativo Android nativo (API /api/mobile/v1): conta, Início, Remédios do dia, avisos, agenda dos alarmes e revogação. */
 final class AppAndroidTest extends TestCase
 {
     use RefreshDatabase;
@@ -59,27 +61,97 @@ final class AppAndroidTest extends TestCase
         return MobileDevice::issueFor($user, ['installation_id' => (string) Str::uuid(), 'device_name' => 'Pixel 8'])['token'];
     }
 
-    public function test_the_page_connects_the_app_storing_only_the_hash_and_reconnecting_rotates_the_token(): void
+    /** @return array<string, string> */
+    private function bearer(User $user): array
+    {
+        return ['Authorization' => 'Bearer '.$this->connect($user)];
+    }
+
+    public function test_login_issues_a_device_token_storing_only_the_hash_and_signing_in_again_rotates_it(): void
     {
         $user = $this->patient();
+        $user->forceFill(['email' => 'maria@exemplo.com'])->save();
         $installation = (string) Str::uuid();
+        $credentials = ['email' => ' MARIA@exemplo.com ', 'password' => 'password', 'installation_id' => $installation, 'device_name' => 'Pixel 8', 'app_version' => '1.0.0'];
 
-        $this->postJson(route('mobile-device.store'), ['installation_id' => $installation])->assertUnauthorized();
-
-        $first = $this->actingAs($user)->postJson(route('mobile-device.store'), ['installation_id' => $installation, 'device_name' => 'Pixel 8', 'app_version' => '1.0.0'])
-            ->assertOk()->assertJsonPath('user_id', $user->id)->json('token');
+        $first = $this->postJson(route('api.mobile.login'), $credentials)->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertJsonPath('user.id', $user->id)->assertJsonPath('user.must_change_password', false)->assertJsonPath('user.health_consent', true)
+            ->json('token');
         $this->assertStringStartsWith(MobileDevice::TOKEN_PREFIX, $first);
         $device = MobileDevice::query()->sole();
-        $this->assertSame(MobileDevice::hashFor($first), $device->token_hash);
-        $this->assertSame('Pixel 8', $device->device_name);
+        $this->assertSame([MobileDevice::hashFor($first), 'Pixel 8'], [$device->token_hash, $device->device_name]);
+        $this->assertNotNull($user->refresh()->last_login_at);
         $this->assertTrue(UserAuditEvent::query()->where('user_id', $user->id)->where('event', UserAuditEvent::EVENT_MOBILE_DEVICE_CONNECTED)->exists());
 
-        $second = $this->actingAs($user)->postJson(route('mobile-device.store'), ['installation_id' => $installation])->assertOk()->json('token');
+        $second = $this->postJson(route('api.mobile.login'), $credentials)->assertOk()->json('token');
         $this->assertSame(1, MobileDevice::query()->count());
-        $this->getJson(route('api.mobile.agenda'), ['Authorization' => 'Bearer '.$first])->assertUnauthorized();
-        $this->getJson(route('api.mobile.agenda'), ['Authorization' => 'Bearer '.$second])->assertOk();
+        $this->getJson(route('api.mobile.me'), ['Authorization' => 'Bearer '.$first])->assertUnauthorized();
+        $this->getJson(route('api.mobile.me'), ['Authorization' => 'Bearer '.$second])->assertOk()->assertJsonPath('user.first_name', explode(' ', $user->name)[0]);
+    }
 
-        $this->actingAs($user)->postJson(route('mobile-device.store'), ['installation_id' => 'nao-e-uuid'])->assertUnprocessable();
+    public function test_login_refuses_wrong_passwords_and_only_reveals_blocked_accounts_to_who_knows_the_password(): void
+    {
+        $installation = (string) Str::uuid();
+        $pending = User::factory()->awaitingApproval()->create(['email' => 'pendente@exemplo.com']);
+
+        $this->postJson(route('api.mobile.login'), ['email' => 'pendente@exemplo.com', 'password' => 'errada', 'installation_id' => $installation])
+            ->assertUnprocessable()->assertJsonPath('errors.email.0', __('auth.failed'));
+        $this->postJson(route('api.mobile.login'), ['email' => 'pendente@exemplo.com', 'password' => 'password', 'installation_id' => $installation])
+            ->assertUnprocessable()->assertJsonPath('errors.email.0', $pending->signInBlockedMessage());
+        $this->postJson(route('api.mobile.login'), ['email' => 'pendente@exemplo.com', 'password' => 'password', 'installation_id' => 'nao-e-uuid'])
+            ->assertUnprocessable()->assertJsonValidationErrors('installation_id');
+        $this->assertSame(0, MobileDevice::query()->count());
+    }
+
+    public function test_login_is_throttled_with_a_json_message(): void
+    {
+        $payload = ['email' => 'alguem@exemplo.com', 'password' => 'errada', 'installation_id' => (string) Str::uuid()];
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->postJson(route('api.mobile.login'), $payload)->assertUnprocessable();
+        }
+
+        $this->postJson(route('api.mobile.login'), $payload)->assertStatus(429)->assertJsonStructure(['message']);
+    }
+
+    public function test_register_creates_an_account_awaiting_approval_without_a_token(): void
+    {
+        $this->postJson(route('api.mobile.register'), ['name' => 'Joana Silva', 'email' => 'joana@exemplo.com', 'password' => 'senha-forte-123', 'password_confirmation' => 'senha-forte-123'])
+            ->assertUnprocessable()->assertJsonValidationErrors('terms');
+
+        $this->postJson(route('api.mobile.register'), ['name' => 'Joana Silva', 'email' => 'joana@exemplo.com', 'password' => 'senha-forte-123', 'password_confirmation' => 'senha-forte-123', 'terms' => true])
+            ->assertCreated()->assertJsonMissingPath('token')->assertJsonPath('message', fn (string $message): bool => str_contains($message, 'Joana'));
+        $this->assertTrue(User::query()->where('email', 'joana@exemplo.com')->sole()->isAwaitingApproval());
+    }
+
+    public function test_forgot_password_answers_the_same_whether_the_email_exists_or_not(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create(['email' => 'ana@exemplo.com']);
+
+        $known = $this->postJson(route('api.mobile.password.forgot'), ['email' => 'ana@exemplo.com'])->assertOk()->json('message');
+        $unknown = $this->postJson(route('api.mobile.password.forgot'), ['email' => 'ninguem@exemplo.com'])->assertOk()->json('message');
+
+        $this->assertSame($known, $unknown);
+        Notification::assertSentTo($user, ResetPasswordNotification::class);
+    }
+
+    public function test_a_temporary_password_only_allows_the_first_access_and_changing_it_keeps_this_device(): void
+    {
+        $user = User::factory()->mustChangePassword()->create();
+        $headers = $this->bearer($user);
+        $otherDevice = $this->connect($user);
+
+        $this->getJson(route('api.mobile.home'), $headers)->assertForbidden()->assertJsonPath('code', 'must_change_password');
+        $this->getJson(route('api.mobile.me'), $headers)->assertOk()->assertJsonPath('user.must_change_password', true);
+
+        $this->postJson(route('api.mobile.first-access'), ['password' => 'password', 'password_confirmation' => 'password'], $headers)
+            ->assertUnprocessable()->assertJsonValidationErrors('password');
+        $this->postJson(route('api.mobile.first-access'), ['password' => 'nova-senha-123', 'password_confirmation' => 'nova-senha-123'], $headers)
+            ->assertOk()->assertJsonPath('user.must_change_password', false);
+
+        $this->getJson(route('api.mobile.home'), $headers)->assertOk();
+        $this->getJson(route('api.mobile.me'), ['Authorization' => 'Bearer '.$otherDevice])->assertUnauthorized();
     }
 
     public function test_agenda_lists_today_and_tomorrow_with_what_should_ring_and_what_is_already_marked(): void
@@ -148,11 +220,12 @@ final class AppAndroidTest extends TestCase
         $other->notify(new UnmatchedMedicineResolvedNotification($this->medication($other, 'Privado ZZ')));
         $headers = ['Authorization' => 'Bearer '.$this->connect($user)];
 
-        $notices = $this->getJson(route('api.mobile.notices'), $headers)->assertOk()->assertJsonCount(2, 'notices')->json('notices');
+        $notices = $this->getJson(route('api.mobile.notices.fresh'), $headers)->assertOk()->assertJsonCount(2, 'notices')->json('notices');
         $this->assertEqualsCanonicalizing(['dose', 'medicine_resolved'], array_column($notices, 'kind'));
-        $this->assertSame('/hoje', collect($notices)->firstWhere('kind', 'dose')['url']);
+        $this->assertSame(['/hoje', 'consulta.hoje'], [collect($notices)->firstWhere('kind', 'dose')['url'], collect($notices)->firstWhere('kind', 'dose')['destination']['route']]);
+        $this->assertStringContainsString('"params":{}', $this->getJson(route('api.mobile.notices.fresh'), $headers)->getContent());
 
-        $this->getJson(route('api.mobile.notices', ['desde' => now()->addMinute()->toIso8601String()]), $headers)->assertOk()->assertJsonCount(0, 'notices');
+        $this->getJson(route('api.mobile.notices.fresh', ['desde' => now()->addMinute()->toIso8601String()]), $headers)->assertOk()->assertJsonCount(0, 'notices');
     }
 
     public function test_invalid_tokens_blocked_accounts_and_lost_access_disconnect_the_app(): void
@@ -181,14 +254,74 @@ final class AppAndroidTest extends TestCase
         $this->getJson(route('api.mobile.agenda'), ['Authorization' => 'Bearer '.$token])->assertUnauthorized();
     }
 
-    public function test_pages_tell_the_app_who_is_signed_in_and_the_notices_screen_has_the_alarm_settings(): void
+    public function test_home_shows_the_day_card_with_the_next_dose_and_who_the_patient_cares_for(): void
     {
-        $this->get(route('login'))->assertOk()->assertSee('<meta name="bulai-sessao" content="">', false);
         $user = $this->patient();
         $this->medication($user, 'Losartana');
+        $user->notify(new UnmatchedMedicineResolvedNotification($this->medication($user, 'Dipirona', ['dose_times' => ['22:00']])));
 
-        $this->actingAs($user)->get(route('consulta.avisos'))->assertOk()
-            ->assertSee('<meta name="bulai-sessao" content="'.$user->id.'">', false)
-            ->assertSee('Alarmes neste celular')->assertSee('Tocar como despertador')->assertSee('Testar o alarme agora');
+        $this->getJson(route('api.mobile.home'), $this->bearer($user))->assertOk()
+            ->assertJsonPath('health_consent', true)->assertJsonPath('has_medications', true)
+            ->assertJsonPath('next_dose.name', 'Losartana')->assertJsonPath('next_dose.time', '08:00')->assertJsonPath('next_dose.status', 'pending')->assertJsonPath('next_dose.is_today', true)
+            ->assertJsonPath('progress.total', 3)->assertJsonPath('progress.done', 0)->assertJsonPath('unread_notices', 1)
+            ->assertJsonPath('date_label', 'Quinta-feira, 5 de novembro')
+            ->assertJsonPath('caring_for', []);
+
+        $semConsentimento = $this->patient(['health_consent_at' => null]);
+        $this->getJson(route('api.mobile.home'), $this->bearer($semConsentimento))->assertOk()
+            ->assertJsonPath('health_consent', false)->assertJsonPath('next_dose', null)->assertJsonPath('progress.total', 0);
+    }
+
+    public function test_the_day_screen_lists_yesterday_today_or_tomorrow_and_marks_and_unmarks_doses(): void
+    {
+        $user = $this->patient();
+        $losartana = $this->medication($user, 'Losartana');
+        $this->medication($user, 'Dipirona SOS', ['dose_times' => [], 'as_needed' => true]);
+        $alheio = $this->medication($this->patient(), 'Privado ZZ');
+        $headers = $this->bearer($user);
+
+        $this->getJson(route('api.mobile.day'), $headers)->assertOk()
+            ->assertJsonPath('offset', 0)->assertJsonPath('date', '2026-11-05')->assertJsonCount(2, 'doses')
+            ->assertJsonPath('doses.0.period', 'manha')->assertJsonPath('doses.1.period', 'noite')
+            ->assertJsonPath('as_needed.0.name', 'Dipirona SOS')->assertJsonMissing(['name' => 'Privado ZZ']);
+        $this->getJson(route('api.mobile.day', ['dia' => -1]), $headers)->assertOk()->assertJsonPath('date', '2026-11-04');
+        $this->getJson(route('api.mobile.day', ['dia' => 5]), $headers)->assertUnprocessable();
+
+        $dose = ['medication_id' => $losartana->id, 'scheduled_for' => '2026-11-05T08:00:00-03:00'];
+        $this->postJson(route('api.mobile.day.mark'), $dose + ['status' => 'taken'], $headers)->assertOk()
+            ->assertJsonPath('doses.0.status', 'taken')->assertJsonPath('summary.taken', 1)->assertJsonPath('summary.done', 1);
+        $this->deleteJson(route('api.mobile.day.unmark'), $dose, $headers)->assertOk()->assertJsonPath('doses.0.status', 'pending');
+        $this->assertSame(0, MedicationDoseEvent::query()->count());
+
+        $this->postJson(route('api.mobile.day.mark'), ['medication_id' => $alheio->id, 'scheduled_for' => '2026-11-05T08:00:00-03:00', 'status' => 'taken'], $headers)->assertNotFound();
+    }
+
+    public function test_the_notice_center_opens_reads_deletes_and_saves_reminder_preferences(): void
+    {
+        $user = $this->patient();
+        $medication = $this->medication($user, 'Losartana');
+        $user->notify(new UnmatchedMedicineResolvedNotification($medication));
+        $user->notify(new MedicationReminderNotification($medication, CarbonImmutable::parse('2026-11-05 08:00', 'America/Sao_Paulo')));
+        $headers = $this->bearer($user);
+
+        $list = $this->getJson(route('api.mobile.notices'), $headers)->assertOk()
+            ->assertJsonPath('unread', 2)->assertJsonCount(2, 'notices')->assertJsonPath('preferences.reminders', true)->assertJsonPath('preferences.timezone', 'America/Sao_Paulo')
+            ->assertJsonPath('timezones.0.id', 'America/Sao_Paulo')->json('notices');
+        $resolved = collect($list)->firstWhere('kind', 'medicine_resolved');
+        $this->assertSame(['Ver meus remédios', false], [$resolved['action'], $resolved['read']]);
+
+        $this->postJson(route('api.mobile.notices.open', $resolved['id']), [], $headers)->assertOk()->assertJsonPath('destination.route', 'consulta.perfil');
+        $this->getJson(route('api.mobile.notices'), $headers)->assertJsonPath('unread', 1);
+        $this->postJson(route('api.mobile.notices.read-all'), [], $headers)->assertOk()->assertJsonPath('unread', 0);
+        $this->deleteJson(route('api.mobile.notices.destroy', $resolved['id']), [], $headers)->assertOk()->assertJsonCount(1, 'notices');
+        $this->deleteJson(route('api.mobile.notices.destroy-all'), [], $headers)->assertOk()->assertJsonCount(0, 'notices');
+
+        $this->putJson(route('api.mobile.notices.preferences'), ['reminders' => false, 'email' => true, 'timezone' => 'America/Manaus'], $headers)->assertOk()
+            ->assertJsonPath('preferences.reminders', false)->assertJsonPath('preferences.email', true)->assertJsonPath('preferences.timezone', 'America/Manaus');
+        $this->putJson(route('api.mobile.notices.preferences'), ['timezone' => 'Europe/Lisbon'], $headers)->assertUnprocessable();
+
+        $other = $this->patient();
+        $other->notify(new UnmatchedMedicineResolvedNotification($this->medication($other, 'Privado ZZ')));
+        $this->postJson(route('api.mobile.notices.open', $other->notifications()->first()->id), [], $headers)->assertNotFound();
     }
 }

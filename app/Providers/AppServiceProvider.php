@@ -24,6 +24,7 @@ use App\Services\Mail\KingHostSmtpTransport;
 use App\Services\Queue\WorkerHeartbeat;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobFailed;
@@ -117,9 +118,25 @@ class AppServiceProvider extends ServiceProvider
         // Bloqueio progressivo do login por e-mail + IP: 5 tentativas por minuto e 20 por 15 minutos. Ao exceder,
         // volta ao formulário com a mensagem (e o tempo restante) no campo de e-mail, em vez da página 429.
         // Aplicativo Android: por aparelho (hash do token) e por IP.
+        // As telas nativas chamam a API a cada navegação e busca (com debounce no app): 120/min por aparelho.
         RateLimiter::for('mobile-api', fn (Request $request): array => [
-            Limit::perMinute(30)->by('mobile:'.hash('sha256', (string) $request->bearerToken())),
-            Limit::perMinute(120)->by('mobile-ip:'.$request->ip()),
+            Limit::perMinute(120)->by('mobile:'.hash('sha256', (string) $request->bearerToken())),
+            Limit::perMinute(300)->by('mobile-ip:'.$request->ip()),
+        ]);
+
+        // Conta pelo aplicativo: mesmos limites do site, com a resposta em JSON (429 + mensagem com o tempo restante).
+        $mobileThrottled = fn (Request $request, array $headers): JsonResponse => response()->json(
+            ['message' => self::throttleMessage((int) ($headers['Retry-After'] ?? 60))], 429, $headers,
+        );
+        $emailKey = fn (Request $request): string => (is_string($email = $request->input('email')) ? Str::lower(trim($email)) : '').'|'.$request->ip();
+        RateLimiter::for('mobile-login', fn (Request $request): array => [
+            Limit::perMinute(5)->by('mobile-login|'.$emailKey($request))->response($mobileThrottled),
+            Limit::perMinutes(15, 20)->by('mobile-login-15|'.$emailKey($request))->response($mobileThrottled),
+        ]);
+        RateLimiter::for('mobile-password-reset', fn (Request $request): Limit => Limit::perMinute(3)->by('mobile-reset|'.$emailKey($request))->response($mobileThrottled));
+        RateLimiter::for('mobile-register', fn (Request $request): array => [
+            Limit::perMinute(3)->by('mobile-register|'.$request->ip())->response($mobileThrottled),
+            Limit::perHour(10)->by('mobile-register-hour|'.$request->ip())->response($mobileThrottled),
         ]);
 
         RateLimiter::for('login', function (Request $request): array {

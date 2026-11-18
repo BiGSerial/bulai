@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Gerado a partir de resources/views/components/consulta/icone.blade.php (pergunta). -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
-    <path android:fillColor="#E3ECF3" android:pathData="M24,0a24,24 0 1,0 0.01,0z" />
-    <group android:scaleX="1.1" android:scaleY="1.1" android:translateX="10.8" android:translateY="10.8">
-        <path android:pathData="M8.625 9.75a3.375 3.375 0 1 1 6.75 0c0 1.5-1.125 2.25-2.25 3-.75.5-1.125 1-1.125 1.875M12 18h.008M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" android:strokeColor="#12344D" android:strokeWidth="1.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
-    </group>
-</vector>

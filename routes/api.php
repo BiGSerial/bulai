@@ -1,8 +1,10 @@
 <?php
 
 use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
+use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
 use App\Http\Controllers\Api\Mobile\NoticeController as MobileNoticeController;
+use App\Http\Controllers\Api\Mobile\TreatmentController as MobileTreatmentController;
 use App\Http\Controllers\Api\V1\AuditController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\QuestionController;
@@ -61,10 +63,35 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     });
 });
 
-// Aplicativo Android (docs/app-android.md): token do aparelho emitido em POST /aparelho (sessão do WebView).
-Route::prefix('mobile/v1')->name('api.mobile.')->middleware([AuthenticateMobileDevice::class, 'throttle:mobile-api'])->group(function (): void {
-    Route::get('/agenda', [MobileAgendaController::class, 'index'])->name('agenda');
-    Route::post('/doses', [MobileAgendaController::class, 'mark'])->name('doses.mark');
-    Route::get('/avisos', [MobileNoticeController::class, 'index'])->name('notices');
-    Route::delete('/aparelho', [MobileDeviceController::class, 'destroy'])->name('device.destroy');
+// Aplicativo Android nativo (docs/app-android.md). Conta: e-mail e senha geram o token do aparelho (Bearer bulai_app_…).
+Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
+    Route::post('/entrar', [MobileAuthController::class, 'login'])->middleware('throttle:mobile-login')->name('login');
+    Route::post('/cadastro', [MobileAuthController::class, 'register'])->middleware('throttle:mobile-register')->name('register');
+    Route::post('/esqueci-senha', [MobileAuthController::class, 'forgotPassword'])->middleware('throttle:mobile-password-reset')->name('password.forgot');
+
+    // Também com a senha provisória pendente: ver a conta, trocar a senha e sair.
+    Route::middleware([AuthenticateMobileDevice::class.':'.AuthenticateMobileDevice::FIRST_ACCESS, 'throttle:mobile-api'])->group(function (): void {
+        Route::get('/eu', [MobileAuthController::class, 'me'])->name('me');
+        Route::post('/primeiro-acesso', [MobileAuthController::class, 'firstAccess'])->name('first-access');
+        Route::delete('/aparelho', [MobileDeviceController::class, 'destroy'])->name('device.destroy');
+    });
+
+    Route::middleware([AuthenticateMobileDevice::class, 'throttle:mobile-api'])->group(function (): void {
+        // Alarmes do aparelho (sincronização em segundo plano) e marcação pela notificação/despertador/widget.
+        Route::get('/agenda', [MobileAgendaController::class, 'index'])->name('agenda');
+        Route::post('/doses', [MobileAgendaController::class, 'mark'])->name('doses.mark');
+
+        Route::get('/inicio', [MobileTreatmentController::class, 'home'])->name('home');
+        Route::get('/dia', [MobileTreatmentController::class, 'day'])->name('day');
+        Route::post('/dia/doses', [MobileTreatmentController::class, 'mark'])->name('day.mark');
+        Route::delete('/dia/doses', [MobileTreatmentController::class, 'unmark'])->name('day.unmark');
+
+        Route::get('/avisos', [MobileNoticeController::class, 'index'])->name('notices');
+        Route::get('/avisos/novos', [MobileNoticeController::class, 'fresh'])->name('notices.fresh');
+        Route::post('/avisos/lidos', [MobileNoticeController::class, 'markAllRead'])->name('notices.read-all');
+        Route::put('/avisos/preferencias', [MobileNoticeController::class, 'preferences'])->name('notices.preferences');
+        Route::delete('/avisos', [MobileNoticeController::class, 'destroyAll'])->name('notices.destroy-all');
+        Route::post('/avisos/{notice}/abrir', [MobileNoticeController::class, 'open'])->whereUuid('notice')->name('notices.open');
+        Route::delete('/avisos/{notice}', [MobileNoticeController::class, 'destroy'])->whereUuid('notice')->name('notices.destroy');
+    });
 });

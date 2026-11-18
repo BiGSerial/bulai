@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Atalhos do ícone (toque longo), os mesmos do manifesto do PWA. -->
+<!-- Atalhos do ícone (toque longo). Perguntar, Receita e Interações entram quando as telas nativas existirem. -->
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
     <shortcut
         android:icon="@drawable/ic_atalho_hoje"
@@ -7,26 +7,5 @@
         android:shortcutLongLabel="@string/atalho_hoje"
         android:shortcutShortLabel="@string/atalho_hoje_curto">
         <intent android:action="android.intent.action.VIEW" android:data="bulai://abrir/hoje" />
-    </shortcut>
-    <shortcut
-        android:icon="@drawable/ic_atalho_perguntar"
-        android:shortcutId="perguntar"
-        android:shortcutLongLabel="@string/atalho_perguntar"
-        android:shortcutShortLabel="@string/atalho_perguntar_curto">
-        <intent android:action="android.intent.action.VIEW" android:data="bulai://abrir/perguntar" />
-    </shortcut>
-    <shortcut
-        android:icon="@drawable/ic_atalho_receita"
-        android:shortcutId="receita"
-        android:shortcutLongLabel="@string/atalho_receita"
-        android:shortcutShortLabel="@string/atalho_receita_curto">
-        <intent android:action="android.intent.action.VIEW" android:data="bulai://abrir/receitas/nova" />
-    </shortcut>
-    <shortcut
-        android:icon="@drawable/ic_atalho_consulta"
-        android:shortcutId="consulta"
-        android:shortcutLongLabel="@string/atalho_consulta"
-        android:shortcutShortLabel="@string/atalho_consulta_curto">
-        <intent android:action="android.intent.action.VIEW" android:data="bulai://abrir/consulta" />
     </shortcut>
 </shortcuts>

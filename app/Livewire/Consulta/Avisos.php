@@ -17,18 +17,7 @@ use Livewire\Component;
 class Avisos extends Component
 {
     /** Fusos oferecidos (Brasil). Qualquer outro valor é recusado e cai no padrão. */
-    public const TIMEZONES = [
-        'America/Sao_Paulo' => 'Brasília (São Paulo, Rio, Minas, Sul)',
-        'America/Manaus' => 'Manaus (Amazonas, Roraima, Rondônia)',
-        'America/Belem' => 'Belém (Pará, Amapá)',
-        'America/Fortaleza' => 'Fortaleza (Ceará, Maranhão, Piauí)',
-        'America/Recife' => 'Recife (Pernambuco, Paraíba)',
-        'America/Bahia' => 'Salvador (Bahia, Sergipe, Alagoas)',
-        'America/Cuiaba' => 'Cuiabá (Mato Grosso)',
-        'America/Campo_Grande' => 'Campo Grande (Mato Grosso do Sul)',
-        'America/Rio_Branco' => 'Rio Branco (Acre)',
-        'America/Noronha' => 'Fernando de Noronha',
-    ];
+    public const TIMEZONES = PatientProfile::TIMEZONES;
 
     public bool $lembretes = true;
 

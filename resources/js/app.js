@@ -89,7 +89,6 @@ import './pwa.js';
 import './charts.js';
 import './tema.js';
 import './alertas.js';
-import './nativo.js';
 
 // Web Push: inscreve (ou consulta) este aparelho. A chave pública VAPID vem da página; o servidor guarda só o endpoint.
 function chaveVapid(base64) {
