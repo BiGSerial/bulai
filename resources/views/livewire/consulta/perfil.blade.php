@@ -87,6 +87,18 @@
                                 @unless ($item->isMatched())<p class="sr-only">Não encontrado no catálogo: vamos conferir</p>@endunless
                                 @if ($item->scheduledTimes() !== [] && ! $item->as_needed && ! $item->isDynamic())<p class="sr-only">às {{ implode(', ', $item->scheduledTimes()) }}</p>@endif
 
+                                {{-- Como no aplicativo: as duas ações mais usadas ficam à vista no cartão (as outras, no "..."). --}}
+                                @unless ($editandoId === $item->id)
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <button type="button" wire:click="editarPosologia({{ $item->id }})" aria-label="Dose e horários de {{ $item->displayName() }}"
+                                            class="{{ $item->isMatched() ? '' : 'col-span-2' }} inline-flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl bg-brand-50 px-3 text-lg font-semibold text-brand-900 ring-1 ring-inset ring-brand-600/20 hover:bg-brand-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"><x-consulta.icone name="relogio" plain class="size-6 shrink-0" />Horários</button>
+                                        @if ($item->isMatched())
+                                            <a href="{{ route('consulta.bula', $item->medicine_id) }}" wire:navigate aria-label="Bula simples de {{ $item->displayName() }}"
+                                                class="inline-flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-2xl bg-white px-3 text-lg font-semibold text-brand-900 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"><x-consulta.icone name="bula" plain class="size-6 shrink-0" />Bula</a>
+                                        @endif
+                                    </div>
+                                @endunless
+
                                 <x-consulta.opcoes-do-remedio :item="$item" :editando="$editandoId === $item->id" :posologia="$posologia" :receitas="$receitas" />
                             </article>
                         </li>

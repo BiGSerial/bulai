@@ -153,6 +153,7 @@ fun PerfilTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbrirBu
             nome = remedio.name,
             inicial = remedio.posologia,
             receitas = carga.dados?.receitas.orEmpty(),
+            atalhos = carga.dados?.atalhos ?: br.com.vixforge.bulai.dados.api.AtalhosDePosologia(),
             salvando = estado.ocupado,
             erro = estado.erro,
             aoSugerir = vm::sugerir,

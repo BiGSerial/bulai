@@ -122,6 +122,7 @@ final class ConsultaPwaTest extends TestCase
         $consultation = InteractionConsultation::query()->sole();
         $component->assertRedirectToRoute('consulta.resultado', $consultation);
 
+        $this->actingAs($user)->get('/consulta/perguntar')->assertNotFound();
         $this->actingAs($user)->get(route('consulta.resultado', $consultation))->assertOk()
             ->assertSee('ALFA')->assertSee('BETA')->assertSee('Evidência insuficiente')
             // Os dois fármacos de teste não têm registro algum no DDInter: inconclusivo, nunca "não encontrada" (auditoria de 16/11/2026, D1).

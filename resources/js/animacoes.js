@@ -4,6 +4,8 @@
 //   o verde de volta para o botão.
 // - `proximaDose`: no Início, o fundo do bloco "Próximo" enche até o horário da dose, com a ponta balançando irregular
 //   no lugar, como líquido mexido.
+// - voo da pergunta: no Perguntar, a pergunta enviada sai da caixa de texto e voa até o balão dela na conversa
+//   (acompanha o balão enquanto a conversa rola), igual ao aplicativo.
 // As animações usam a Web Animations API (sobrevivem à atualização do Livewire, que só troca atributos e textos) e
 // respeitam "reduzir movimento" do sistema.
 
@@ -181,6 +183,65 @@ function proximaDose({ desde, horario, cheio }) {
         },
     };
 }
+
+const DURACAO_DO_VOO = 520;
+const suave = (t) => 1 - Math.pow(1 - t, 3);
+
+/**
+ * A pergunta voa da caixa (`[data-voo-origem]`) até o balão pendente (`[data-voo-alvo]`): um balão "fantasma" sai do
+ * tamanho e do lugar da caixa e chega ao tamanho e ao lugar do balão, que fica escondido até o pouso. O alvo é medido a
+ * cada quadro porque a conversa rola enquanto isso.
+ */
+function vooDaPergunta(evento) {
+    const texto = evento.detail?.texto;
+    const origem = document.querySelector('[data-voo-origem]');
+    if (!texto || !origem || reduzirMovimento()) {
+        return;
+    }
+    const de = origem.getBoundingClientRect();
+    let tentativas = 0;
+    const esperarOBalao = () => {
+        const alvo = document.querySelector('[data-voo-alvo]');
+        if (!alvo || alvo.offsetParent === null || alvo.textContent.trim() === '') {
+            if (++tentativas < 40) {
+                requestAnimationFrame(esperarOBalao);
+            }
+            return;
+        }
+        voar(alvo, texto, de);
+    };
+    requestAnimationFrame(esperarOBalao);
+}
+
+function voar(alvo, texto, de) {
+    const fantasma = document.createElement('div');
+    fantasma.className = 'balao-eu pointer-events-none fixed z-50 break-words rounded-2xl rounded-br-md bg-brand-700 px-4 py-3 text-lg leading-relaxed text-white shadow-lg';
+    fantasma.setAttribute('aria-hidden', 'true');
+    fantasma.textContent = texto;
+    document.body.appendChild(fantasma);
+    alvo.classList.add('invisible');
+
+    const inicio = performance.now();
+    const quadro = (agora) => {
+        const t = Math.min(1, (agora - inicio) / DURACAO_DO_VOO);
+        const p = suave(t);
+        const para = alvo.getBoundingClientRect();
+        const entre = (a, b) => a + (b - a) * p;
+        fantasma.style.left = `${entre(de.left, para.left)}px`;
+        fantasma.style.top = `${entre(de.top, para.top)}px`;
+        fantasma.style.width = `${entre(de.width, para.width)}px`;
+        fantasma.style.opacity = String(Math.min(1, 0.35 + t * 1.6));
+        if (t < 1 && alvo.isConnected) {
+            requestAnimationFrame(quadro);
+            return;
+        }
+        alvo.classList.remove('invisible');
+        fantasma.remove();
+    };
+    requestAnimationFrame(quadro);
+}
+
+window.addEventListener('pergunta-enviada', vooDaPergunta);
 
 document.addEventListener('alpine:init', () => {
     window.Alpine?.data('doseAnimada', doseAnimada);

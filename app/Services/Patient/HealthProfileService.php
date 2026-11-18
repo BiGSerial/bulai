@@ -26,6 +26,18 @@ final class HealthProfileService
     /** Formulário vazio de "Dose e horários". */
     public const EMPTY_POSOLOGY = ['dosage' => '', 'frequency' => '', 'started_at' => null, 'ends_at' => null, 'prescription_id' => null, 'notes' => '', 'times' => [], 'as_needed' => false, 'reminders_enabled' => true, 'interval_hours' => null, 'schedule_mode' => PatientMedication::MODE_FIXED];
 
+    /** Atalhos de "quando tomar": o mesmo texto que a pessoa escreveria (o `DoseScheduleParser` sugere os horários). */
+    public const FREQUENCY_PRESETS = ['1 vez ao dia', '2 vezes ao dia', '3 vezes ao dia', 'De 8 em 8 horas', 'De 12 em 12 horas', 'Só se precisar'];
+
+    /** Atalhos de dose mais comuns; a pessoa pode escrever outra. */
+    public const DOSE_PRESETS = ['1 comprimido', '2 comprimidos', '½ comprimido', '1 cápsula', '10 gotas', '5 ml'];
+
+    /** @return array{frequencies: list<string>, doses: list<string>} */
+    public static function presets(): array
+    {
+        return ['frequencies' => self::FREQUENCY_PRESETS, 'doses' => self::DOSE_PRESETS];
+    }
+
     public function __construct(
         private readonly IngredientNameNormalizer $normalizer,
         private readonly DoseScheduleParser $parser,
@@ -164,6 +176,18 @@ final class HealthProfileService
             'interval_hours' => $parsed['interval_hours'],
             'schedule_mode' => $parsed['interval_hours'] !== null ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED,
         ] + $posology;
+    }
+
+    /**
+     * Atalho de "quando tomar" escolhido (ou frequência reescrita do zero): troca o texto e refaz os horários sugeridos,
+     * em vez de manter os que já estavam.
+     *
+     * @param  array<string, mixed>  $posology
+     * @return array<string, mixed>
+     */
+    public function choosePreset(array $posology, string $frequency): array
+    {
+        return $this->applyFrequency(['frequency' => $frequency, 'times' => []] + $posology, $frequency);
     }
 
     /**

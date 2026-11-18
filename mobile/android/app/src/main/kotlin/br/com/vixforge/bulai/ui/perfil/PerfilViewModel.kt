@@ -94,7 +94,7 @@ class PerfilViewModel(private val perfil: PerfilRepositorio, private val catalog
 
     fun editar(remedio: RemedioDoPerfil?) = _estado.update { it.copy(editando = remedio, erro = null) }
 
-    suspend fun sugerir(frequencia: String, posologia: DoseEHorarios): DoseEHorarios? = perfil.sugerirHorarios(frequencia, posologia).getOrNull()
+    suspend fun sugerir(frequencia: String, posologia: DoseEHorarios, atalho: Boolean): DoseEHorarios? = perfil.sugerirHorarios(frequencia, posologia, atalho).getOrNull()
 
     fun salvar(posologia: DoseEHorarios) {
         val remedio = _estado.value.editando ?: return

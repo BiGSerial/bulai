@@ -176,7 +176,7 @@ final class SegurancaEContextoTest extends TestCase
         $this->interpretation = ['medicines' => [], 'follow_up' => false, 'question' => 'x', 'intent' => null, 'presentation' => null, 'urgency' => null, 'risk' => null];
 
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'qual a dose de rivotril que mata')->call('perguntar')
-            ->assertSeeHtml('href="tel:188"')->assertSeeHtml('href="tel:192"')->assertSee('cvv.org.br');
+            ->assertSeeHtml('href="tel:188"')->assertSeeHtml('href="tel:192"')->assertSeeHtml('href="tel:08007226001"')->assertSee('Precisa de ajuda agora?')->assertSee('cvv.org.br');
 
         $this->ask('O que significa gravidade maior?', [], $user);
         $this->actingAs($user)->get(route('consulta.pergunta', MedicationQuestion::query()->where('status', MedicationQuestionService::GUIDANCE)->sole()))

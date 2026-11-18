@@ -122,7 +122,7 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
     Route::get('/inicio', ConsultaInicio::class)->name('consulta.inicio');
     Route::view('/sobre', 'consulta.sobre')->name('consulta.sobre');
     Route::get('/consulta', ConsultaPesquisa::class)->name('consulta.pesquisa');
-    Route::get('/consulta/{consultation}', ConsultaResultado::class)->name('consulta.resultado');
+    Route::get('/consulta/{consultation}', ConsultaResultado::class)->whereUuid('consultation')->name('consulta.resultado');
     Route::get('/historico', ConsultaHistorico::class)->name('consulta.historico');
     Route::get('/perguntar', ConsultaPerguntar::class)->name('consulta.perguntar');
     Route::get('/perfil', ConsultaPerfil::class)->name('consulta.perfil');

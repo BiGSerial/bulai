@@ -108,12 +108,17 @@ final class ProfileController extends Controller
         return $this->fresh($request, message: $item ? $item->displayName().' saiu da sua lista.' : null);
     }
 
-    /** O que muda no formulário quando a pessoa escreve "quando tomar" (sugestão de horários; nada é salvo). */
+    /**
+     * O que muda no formulário quando a pessoa escreve "quando tomar" (sugestão de horários; nada é salvo). Com `preset`
+     * (atalho tocado), os horários são refeitos do zero.
+     */
     public function suggestSchedule(Request $request): JsonResponse
     {
-        $data = $request->validate(['frequency' => ['nullable', 'string', 'max:120'], 'posology' => ['nullable', 'array']]);
+        $data = $request->validate(['frequency' => ['nullable', 'string', 'max:120'], 'posology' => ['nullable', 'array'], 'preset' => ['nullable', 'boolean']]);
+        $posology = ($data['posology'] ?? []) + HealthProfileService::EMPTY_POSOLOGY;
+        $frequency = (string) ($data['frequency'] ?? '');
 
-        return response()->json(['posology' => $this->profile->applyFrequency(($data['posology'] ?? []) + HealthProfileService::EMPTY_POSOLOGY, (string) ($data['frequency'] ?? ''))]);
+        return response()->json(['posology' => ($data['preset'] ?? false) ? $this->profile->choosePreset($posology, $frequency) : $this->profile->applyFrequency($posology, $frequency)]);
     }
 
     private function fresh(Request $request, int $status = 200, ?string $message = null): JsonResponse
@@ -133,12 +138,13 @@ final class ProfileController extends Controller
     {
         $consent = $profile->hasConsent($user);
         if (! $consent) {
-            return ['health_consent' => false, 'medications' => [], 'ended' => [], 'allergies' => [], 'prescriptions' => []];
+            return ['health_consent' => false, 'medications' => [], 'ended' => [], 'allergies' => [], 'prescriptions' => [], 'posology_presets' => HealthProfileService::presets()];
         }
         $medications = PatientMedication::query()->with(['medicine', 'prescription'])->where('user_id', $user->id)->orderBy('id')->get();
 
         return [
             'health_consent' => true,
+            'posology_presets' => HealthProfileService::presets(),
             'medications' => $medications->filter(fn (PatientMedication $item): bool => $item->isActive())->map(fn (PatientMedication $item): array => self::medication($item, $profile))->values()->all(),
             'ended' => $medications->reject(fn (PatientMedication $item): bool => $item->isActive())->sortByDesc('ends_at')->map(fn (PatientMedication $item): array => self::medication($item, $profile))->values()->all(),
             'allergies' => PatientAllergy::query()->where('user_id', $user->id)->orderBy('substance')->get()

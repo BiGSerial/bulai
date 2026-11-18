@@ -269,7 +269,7 @@ final class PerguntaLivreTest extends TestCase
     public function test_the_question_screen_offers_dictation_with_a_keyboard_fallback_hint(): void
     {
         Livewire::actingAs(User::factory()->create())->test(Perguntar::class)
-            ->assertSeeHtml('x-data="ditado(')->assertSee('Falar')->assertSee('use o microfone do teclado do celular')->assertSee('Qual é a sua dúvida sobre um remédio?');
+            ->assertSeeHtml('x-data="ditado(')->assertSee('Falar a pergunta')->assertSee('use o microfone do teclado do celular')->assertSee('Qual é a sua dúvida sobre um remédio?');
     }
 
     public function test_partially_covered_questions_explain_which_medicines_lack_a_leaflet(): void

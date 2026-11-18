@@ -1,8 +1,15 @@
 package br.com.vixforge.bulai.ui.perfil
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -12,14 +19,23 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.NightsStay
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -28,13 +44,14 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.InputChip
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,27 +64,49 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import br.com.vixforge.bulai.dados.api.AtalhosDePosologia
+import br.com.vixforge.bulai.dados.api.DoseEHorarios
 import br.com.vixforge.bulai.dados.api.MODO_FIXO
 import br.com.vixforge.bulai.dados.api.MODO_INTERVALO
-import br.com.vixforge.bulai.dados.api.DoseEHorarios
 import br.com.vixforge.bulai.dados.api.ReceitaDoPerfil
 import br.com.vixforge.bulai.ui.componentes.BotaoPrincipal
 import br.com.vixforge.bulai.ui.componentes.Campo
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 
+/** Período do dia de um horário "HH:MM", com o ícone (a mesma divisão do site). */
+fun periodoDoDia(horario: String): Pair<String, ImageVector> {
+    val hora = horario.take(2).toIntOrNull() ?: return "Escolha a hora" to Icons.Rounded.Schedule
+    return when (hora) {
+        in 5..11 -> "Manhã" to Icons.Rounded.WbSunny
+        in 12..17 -> "Tarde" to Icons.Rounded.WbSunny
+        in 18..23 -> "Noite" to Icons.Rounded.NightsStay
+        else -> "Madrugada" to Icons.Rounded.NightsStay
+    }
+}
+
+private fun mesmoTexto(a: String, b: String) = a.trim().equals(b.trim(), ignoreCase = true)
+
 /**
- * "Dose e horários" de um remédio, igual ao formulário do site: dose, "quando tomar" (que sugere horários, como "de 8 em 8
- * horas"), só quando precisar, horários (relógio do sistema), contar a partir de quando tomar ou horários fixos, início e
- * fim, receita, observações e lembretes. [aoSugerir] pergunta ao servidor o que muda com o "quando tomar" digitado.
+ * "Dose e horários" de um remédio, igual ao formulário do site e pensado para o celular, em três passos:
+ * 1. Quanto tomar (atalhos de dose), 2. Quando tomar (atalhos grandes, como "2 vezes ao dia", ou o texto da receita) e
+ * 3. Horários do dia (cada um com Manhã/Tarde/Noite, tocando para mudar). Datas, receita e observações ficam recolhidas.
+ * [aoSugerir] pergunta ao servidor o que muda com o "quando tomar" (com `atalho`, os horários são refeitos do zero).
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -75,9 +114,10 @@ fun EditorDePosologia(
     nome: String,
     inicial: DoseEHorarios,
     receitas: List<ReceitaDoPerfil>,
+    atalhos: AtalhosDePosologia,
     salvando: Boolean,
     erro: String?,
-    aoSugerir: suspend (String, DoseEHorarios) -> DoseEHorarios?,
+    aoSugerir: suspend (String, DoseEHorarios, Boolean) -> DoseEHorarios?,
     aoSalvar: (DoseEHorarios) -> Unit,
     aoFechar: () -> Unit,
 ) {
@@ -86,99 +126,178 @@ fun EditorDePosologia(
     var horarioEditado by remember { mutableStateOf<Int?>(null) }
     var novoHorario by remember { mutableStateOf(false) }
     var data by remember { mutableStateOf<String?>(null) }
+    val atalhoEscolhido = atalhos.frequencias.firstOrNull { mesmoTexto(it, posologia.frequency) }
+    var outroJeito by remember(inicial) { mutableStateOf(atalhoEscolhido == null && inicial.frequency.isNotBlank()) }
+    var detalhes by remember { mutableStateOf(false) }
+    val escopo = rememberCoroutineScope()
 
-    // "Quando tomar" mudou: espera a pessoa parar de digitar e aplica a sugestão (horários, intervalo, só quando precisar).
+    // "Quando tomar" escrito: espera a pessoa parar de digitar e aplica a sugestão (horários, intervalo, só quando precisar).
     LaunchedEffect(frequenciaDigitada) {
         val texto = frequenciaDigitada ?: return@LaunchedEffect
         delay(600)
-        aoSugerir(texto, posologia)?.let { posologia = it }
+        aoSugerir(texto, posologia, false)?.let { posologia = it }
+    }
+    val escolherAtalho = { texto: String ->
+        outroJeito = false
+        posologia = posologia.copy(frequency = texto)
+        escopo.launch { aoSugerir(texto, posologia, true)?.let { posologia = it } }
+        Unit
     }
 
     ModalBottomSheet(onDismissRequest = { if (!salvando) aoFechar() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp).imePadding(),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp).imePadding().animateContentSize(),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            Text("Dose e horários", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
-            Text(nome, style = MaterialTheme.typography.titleMedium)
-            Campo(posologia.dosage, { posologia = posologia.copy(dosage = it.take(120)) }, "Dose (ex.: 1 comprimido)")
-            Campo(
-                posologia.frequency,
-                {
-                    posologia = posologia.copy(frequency = it.take(120))
-                    frequenciaDigitada = it
-                },
-                "Quando tomar (ex.: de 8 em 8 horas)",
-                ajuda = "Os horários são sugeridos a partir do que você escrever.",
-            )
-            LinhaComChave("Só quando precisar", "Sem horário fixo (ex.: se tiver dor)", posologia.seNecessario) {
-                posologia = posologia.copy(seNecessario = it)
+            Column {
+                Text("Dose e horários", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
+                Text(nome, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AnimatedVisibility(!posologia.seNecessario) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Horários", style = MaterialTheme.typography.titleMedium)
+
+            // 1. Quanto tomar
+            Passo(1, "Quanto tomar") {
+                if (atalhos.doses.isNotEmpty()) {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        posologia.times.forEachIndexed { indice, horario ->
-                            InputChip(
-                                selected = false,
-                                onClick = { horarioEditado = indice },
-                                label = { Text(horario.ifBlank { "--:--" }, style = MaterialTheme.typography.titleMedium) },
-                                trailingIcon = {
-                                    Icon(
-                                        Icons.Rounded.Close,
-                                        contentDescription = "Tirar o horário $horario",
-                                        modifier = Modifier.clickable { posologia = posologia.copy(times = posologia.times.filterIndexed { i, _ -> i != indice }) },
-                                    )
-                                },
-                                modifier = Modifier.heightIn(min = 48.dp),
-                            )
-                        }
-                        OutlinedButton(onClick = { novoHorario = true }, modifier = Modifier.heightIn(min = 48.dp)) {
-                            Icon(Icons.Rounded.Add, contentDescription = null)
-                            Spacer(Modifier.width(6.dp))
-                            Text("Horário")
+                        atalhos.doses.forEach { dose ->
+                            ChipDeEscolha(dose, mesmoTexto(dose, posologia.dosage)) { posologia = posologia.copy(dosage = dose) }
                         }
                     }
+                }
+                Campo(posologia.dosage, { posologia = posologia.copy(dosage = it.take(120)) }, "Ou escreva (ex.: 1 comprimido de 500 mg)")
+            }
+
+            // 2. Quando tomar
+            Passo(2, "Quando tomar") {
+                atalhos.frequencias.chunked(2).forEach { linha ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        linha.forEach { atalho -> CartaoDeAtalho(atalho, atalho == atalhoEscolhido, Modifier.weight(1f)) { escolherAtalho(atalho) } }
+                        if (linha.size == 1) Spacer(Modifier.weight(1f))
+                    }
+                }
+                if (!outroJeito) {
+                    TextButton(onClick = { outroJeito = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Outro jeito? Escreva como está na receita", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                AnimatedVisibility(outroJeito, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Campo(
+                        posologia.frequency,
+                        {
+                            posologia = posologia.copy(frequency = it.take(120))
+                            frequenciaDigitada = it
+                        },
+                        "Como está na receita",
+                        ajuda = "Ex.: pela manhã e à noite. Os horários são sugeridos a partir disto.",
+                    )
+                }
+            }
+
+            // 3. Horários do dia
+            Passo(3, "Horários do dia") {
+                if (posologia.seNecessario) {
+                    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) {
+                        Text(
+                            "Sem horário fixo: toma só quando precisar. Para ter horários, escolha outra opção em “Quando tomar”.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(14.dp),
+                        )
+                    }
+                } else {
+                    val dinamico = posologia.intervaloEmHoras != null && posologia.modo == MODO_INTERVALO
                     posologia.intervaloEmHoras?.let { horas ->
-                        Column(Modifier.fillMaxWidth()) {
-                            OpcaoDeModo("Contar a partir de quando tomar", "A próxima dose é $horas h depois da hora em que você marcar \"Tomei\".", posologia.modo == MODO_INTERVALO) {
-                                posologia = posologia.copy(modo = MODO_INTERVALO)
+                        OpcaoDeModo("Contar a partir de quando eu tomar (recomendado)", "A cada $horas h depois da hora em que você marcar “Tomei”.", posologia.modo == MODO_INTERVALO) {
+                            posologia = posologia.copy(modo = MODO_INTERVALO)
+                        }
+                        OpcaoDeModo("Horários fixos todos os dias", "Sempre nos mesmos horários, mesmo se atrasar uma dose.", posologia.modo == MODO_FIXO) {
+                            posologia = posologia.copy(modo = MODO_FIXO)
+                        }
+                    }
+                    if (dinamico) {
+                        LinhaDeHorario(posologia.times.firstOrNull().orEmpty(), "Primeira dose do dia", { horarioEditado = 0; novoHorario = posologia.times.isEmpty() }, null)
+                        Text("As próximas doses vêm a cada ${posologia.intervaloEmHoras} h a partir da última que você marcar.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    } else {
+                        posologia.times.forEachIndexed { indice, horario ->
+                            LinhaDeHorario(horario, null, { horarioEditado = indice }) {
+                                posologia = posologia.copy(times = posologia.times.filterIndexed { i, _ -> i != indice })
                             }
-                            OpcaoDeModo("Horários fixos todos os dias", "Os horários acima, sempre iguais.", posologia.modo == MODO_FIXO) {
-                                posologia = posologia.copy(modo = MODO_FIXO)
+                        }
+                        if (posologia.times.isEmpty()) {
+                            Text("Nenhum horário ainda. Escolha em “Quando tomar” ou adicione.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (posologia.times.size < 12) {
+                            OutlinedButton(
+                                onClick = { novoHorario = true },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                                shape = MaterialTheme.shapes.large,
+                                border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)),
+                            ) {
+                                Icon(Icons.Rounded.Add, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Adicionar horário", style = MaterialTheme.typography.labelLarge)
                             }
+                        }
+                    }
+                    LinhaComChave(Icons.Rounded.NotificationsActive, "Lembrar nos horários", "Alarme no celular na hora da dose", posologia.lembretes) { posologia = posologia.copy(lembretes = it) }
+                }
+            }
+
+            // Mais detalhes (recolhido)
+            Surface(shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth().clickable(onClickLabel = if (detalhes) "Recolher" else "Abrir") { detalhes = !detalhes }.heightIn(min = 64.dp).padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.Event, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Mais detalhes", style = MaterialTheme.typography.titleMedium)
+                            Text(if (receitas.isNotEmpty()) "Datas, receita e observações" else "Datas e observações", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Icon(if (detalhes) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+                    }
+                    AnimatedVisibility(detalhes) {
+                        Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                CampoDeData("Começou em", posologia.inicio, { data = "inicio" }, { posologia = posologia.copy(inicio = null) }, Modifier.weight(1f))
+                                CampoDeData("Termina em", posologia.fim, { data = "fim" }, { posologia = posologia.copy(fim = null) }, Modifier.weight(1f))
+                            }
+                            Text("Sem data de término: uso contínuo.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (receitas.isNotEmpty()) {
+                                EscolhaDeReceita(receitas, posologia.receita) { posologia = posologia.copy(receita = it) }
+                            }
+                            Campo(posologia.notes, { posologia = posologia.copy(notes = it.take(255)) }, "Observações (ex.: em jejum)")
                         }
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CampoDeData("Início", posologia.inicio, { data = "inicio" }, { posologia = posologia.copy(inicio = null) }, Modifier.weight(1f))
-                CampoDeData("Fim", posologia.fim, { data = "fim" }, { posologia = posologia.copy(fim = null) }, Modifier.weight(1f))
-            }
-            if (receitas.isNotEmpty()) {
-                EscolhaDeReceita(receitas, posologia.receita) { posologia = posologia.copy(receita = it) }
-            }
-            Campo(posologia.notes, { posologia = posologia.copy(notes = it.take(255)) }, "Observações (ex.: em jejum)")
-            LinhaComChave("Lembrar nos horários", "Alarme no celular e aviso", posologia.lembretes) { posologia = posologia.copy(lembretes = it) }
+
             erro?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge) }
-            BotaoPrincipal("Salvar", { aoSalvar(posologia) }, carregando = salvando)
-            TextButton(onClick = aoFechar, enabled = !salvando, modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 48.dp)) { Text("Cancelar") }
+            Column {
+                BotaoPrincipal("Salvar", { aoSalvar(posologia) }, carregando = salvando)
+                TextButton(onClick = aoFechar, enabled = !salvando, modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 48.dp)) { Text("Cancelar") }
+            }
         }
     }
 
     if (novoHorario || horarioEditado != null) {
-        val atual = horarioEditado?.let { posologia.times.getOrNull(it) }?.takeIf { it.length == 5 } ?: "08:00"
+        // Horário novo: sugere 4 h depois do último (ou 08:00), para a pessoa só ajustar.
+        val ultimo = posologia.times.lastOrNull()?.take(2)?.toIntOrNull()
+        val atual = horarioEditado?.let { posologia.times.getOrNull(it) }?.takeIf { it.length == 5 }
+            ?: ultimo?.let { "%02d:00".format((it + 4) % 24) } ?: "08:00"
         val relogio = rememberTimePickerState(atual.take(2).toInt(), atual.takeLast(2).toInt(), is24Hour = true)
         AlertDialog(
             onDismissRequest = { novoHorario = false; horarioEditado = null },
-            title = { Text(if (novoHorario) "Novo horário" else "Mudar horário") },
+            title = { Text(if (horarioEditado == null || novoHorario) "Novo horário" else "Mudar horário") },
             text = { TimePicker(relogio) },
             confirmButton = {
                 TextButton(onClick = {
                     val texto = "%02d:%02d".format(relogio.hour, relogio.minute)
                     val lista = posologia.times.toMutableList()
-                    horarioEditado?.let { lista[it] = texto } ?: lista.add(texto)
-                    posologia = posologia.copy(times = lista)
+                    val indice = horarioEditado
+                    if (indice != null && indice < lista.size) lista[indice] = texto else lista.add(texto)
+                    // Em ordem do dia, para ficar fácil de conferir (no modo "a partir de quando tomar" só vale o primeiro).
+                    posologia = posologia.copy(times = if (posologia.modo == MODO_INTERVALO && posologia.intervaloEmHoras != null) lista else lista.distinct().sorted())
                     novoHorario = false
                     horarioEditado = null
                 }) { Text("OK") }
@@ -204,28 +323,122 @@ fun EditorDePosologia(
     }
 }
 
+/** Um passo numerado do formulário ("1 Quanto tomar"). */
 @Composable
-private fun LinhaComChave(titulo: String, apoio: String, ligado: Boolean, aoMudar: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().selectable(ligado, role = Role.Switch) { aoMudar(!ligado) }.heightIn(min = 56.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(titulo, style = MaterialTheme.typography.titleMedium)
-            Text(apoio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun Passo(numero: Int, titulo: String, conteudo: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) { heading() }) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(28.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("$numero", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(titulo, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
-        Switch(ligado, onCheckedChange = null)
+        conteudo()
+    }
+}
+
+@Composable
+private fun ChipDeEscolha(texto: String, escolhido: Boolean, aoEscolher: () -> Unit) {
+    Surface(
+        onClick = aoEscolher,
+        shape = CircleShape,
+        color = if (escolhido) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+        contentColor = if (escolhido) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        border = if (escolhido) null else BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        modifier = Modifier.heightIn(min = 48.dp).selectable(escolhido, role = Role.RadioButton, onClick = aoEscolher),
+    ) {
+        Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+            Text(texto, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/** Atalho grande de "quando tomar" (2 por linha). */
+@Composable
+private fun CartaoDeAtalho(texto: String, escolhido: Boolean, modifier: Modifier = Modifier, aoEscolher: () -> Unit) {
+    Surface(
+        onClick = aoEscolher,
+        shape = MaterialTheme.shapes.large,
+        color = if (escolhido) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+        contentColor = if (escolhido) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(2.dp, if (escolhido) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.heightIn(min = 60.dp).selectable(escolhido, role = Role.RadioButton, onClick = aoEscolher),
+    ) {
+        Row(Modifier.padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            if (escolhido) {
+                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(texto, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+/** Um horário: ícone e nome do período, a hora grande (toque para mudar) e tirar. */
+@Composable
+private fun LinhaDeHorario(horario: String, titulo: String?, aoMudar: () -> Unit, aoTirar: (() -> Unit)?) {
+    val (periodo, icone) = periodoDoDia(horario)
+    Surface(
+        onClick = aoMudar,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(Modifier.heightIn(min = 64.dp).padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary, modifier = Modifier.size(40.dp)) {
+                Box(contentAlignment = Alignment.Center) { Icon(icone, contentDescription = null) }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(titulo ?: periodo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(if (titulo != null) periodo else "Toque para mudar", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Text(horario.ifBlank { "--:--" }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            if (aoTirar != null) {
+                IconButton(onClick = aoTirar, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Rounded.Close, contentDescription = "Tirar o horário $horario", tint = MaterialTheme.colorScheme.error)
+                }
+            } else {
+                Spacer(Modifier.width(12.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LinhaComChave(icone: ImageVector, titulo: String, apoio: String, ligado: Boolean, aoMudar: (Boolean) -> Unit) {
+    Surface(shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Row(
+            Modifier.fillMaxWidth().selectable(ligado, role = Role.Switch) { aoMudar(!ligado) }.heightIn(min = 64.dp).padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icone, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(titulo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(apoio, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(ligado, onCheckedChange = null)
+        }
     }
 }
 
 @Composable
 private fun OpcaoDeModo(titulo: String, apoio: String, escolhido: Boolean, aoEscolher: () -> Unit) {
-    Row(Modifier.fillMaxWidth().selectable(escolhido, role = Role.RadioButton, onClick = aoEscolher).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        RadioButton(escolhido, onClick = null)
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text(titulo, style = MaterialTheme.typography.bodyLarge)
-            Text(apoio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = if (escolhido) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surface,
+        border = BorderStroke(2.dp, if (escolhido) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(Modifier.fillMaxWidth().selectable(escolhido, role = Role.RadioButton, onClick = aoEscolher).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            RadioButton(escolhido, onClick = null)
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(titulo, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Text(apoio, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

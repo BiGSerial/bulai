@@ -50,13 +50,25 @@ trait EditaPosologia
         $this->posologia = app(HealthProfileService::class)->applyFrequency($this->posologia, $value);
     }
 
+    /** Atalho de "quando tomar" tocado ("2 vezes ao dia"): refaz os horários sugeridos do zero. */
+    public function escolherFrequencia(string $frequencia): void
+    {
+        $this->posologia = app(HealthProfileService::class)->choosePreset($this->posologia, mb_substr($frequencia, 0, 120));
+    }
+
+    public function escolherDose(string $dose): void
+    {
+        $this->posologia['dosage'] = mb_substr($dose, 0, 120);
+    }
+
     public function adicionarHorario(): void
     {
         if (count($this->posologia['times']) >= 12) {
             return;
         }
         $this->posologia['as_needed'] = false;
-        $this->posologia['times'][] = $this->posologia['times'] === [] ? '08:00' : '';
+        $ultimo = end($this->posologia['times']);
+        $this->posologia['times'][] = is_string($ultimo) && preg_match('/^(\d{2}):\d{2}$/', $ultimo, $hora) === 1 ? sprintf('%02d:00', ((int) $hora[1] + 4) % 24) : '08:00';
     }
 
     public function tirarHorario(int $posicao): void

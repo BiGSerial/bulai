@@ -22,7 +22,7 @@ final class UrgencyDetector
     ];
 
     /** Tipos que pedem a orientação do Disque-Intoxicação. */
-    private const OVERDOSE_KINDS = ['overdose', 'overdose_quantidade', 'ingestao_acidental', 'secao_superdose', 'interpretacao_superdose'];
+    public const OVERDOSE_KINDS = ['overdose', 'overdose_quantidade', 'ingestao_acidental', 'secao_superdose', 'interpretacao_superdose'];
 
     /** Títulos de seção da bula sobre superdose ("O que fazer se alguém usar uma quantidade maior do que a indicada"). */
     private const OVERDOSE_SECTION = '/quantidade maior do que a indicada|superdose|superdosagem|overdose/';
