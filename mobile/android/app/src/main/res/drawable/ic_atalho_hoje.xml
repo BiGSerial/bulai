@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gerado a partir de resources/views/components/consulta/icone.blade.php (relogio). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#E3ECF3" android:pathData="M24,0a24,24 0 1,0 0.01,0z" />
+    <group android:scaleX="1.1" android:scaleY="1.1" android:translateX="10.8" android:translateY="10.8">
+        <path android:pathData="M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z" android:strokeColor="#12344D" android:strokeWidth="1.6" android:strokeLineCap="round" android:strokeLineJoin="round" />
+    </group>
+</vector>

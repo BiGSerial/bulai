@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BULA-IA</string>
+
+    <string name="canal_doses">Hora do remédio</string>
+    <string name="canal_doses_descricao">Lembrete na hora de cada dose, com Tomei, Pular e Adiar.</string>
+    <string name="canal_despertador">Despertador do remédio</string>
+    <string name="canal_despertador_descricao">Alarme em tela cheia com som contínuo (modo despertador).</string>
+    <string name="canal_avisos">Avisos</string>
+    <string name="canal_avisos_descricao">Avisos do cuidador, fim de tratamento e remédios ligados ao catálogo.</string>
+
+    <string name="acao_tomei">Tomei</string>
+    <string name="acao_pular">Pular</string>
+    <string name="acao_adiar">Adiar %1$d min</string>
+    <string name="dose_titulo">Hora do remédio: %1$s</string>
+    <string name="dose_texto">Às %1$s</string>
+    <string name="dose_texto_com_dose">Às %1$s, %2$s</string>
+    <string name="alarme_hora_do_remedio">Hora do remédio</string>
+    <string name="alarme_teste_nome">Alarme de teste</string>
+    <string name="alarme_teste_dose">tudo certo com os alarmes</string>
+
+    <string name="widget_nome">Próximo remédio</string>
+    <string name="widget_titulo">Próximo remédio</string>
+    <string name="widget_vazio">Nenhum remédio programado</string>
+    <string name="widget_desconectado">Abra o BULA-IA e entre na sua conta</string>
+    <string name="widget_horario">às %1$s</string>
+    <string name="widget_amanha">amanhã às %1$s</string>
+
+    <string name="atalho_hoje">Remédios de hoje</string>
+    <string name="atalho_hoje_curto">Hoje</string>
+    <string name="atalho_perguntar">Perguntar sobre um remédio</string>
+    <string name="atalho_perguntar_curto">Perguntar</string>
+    <string name="atalho_receita">Fotografar receita</string>
+    <string name="atalho_receita_curto">Receita</string>
+    <string name="atalho_consulta">Ver interações</string>
+    <string name="atalho_consulta_curto">Interações</string>
+
+    <string name="baixando">Baixando o arquivo…</string>
+    <string name="sem_app_para_abrir">Nenhum aplicativo para abrir este link.</string>
+    <string name="escolher_arquivo">Escolher a imagem</string>
+    <string name="compartilhar">Compartilhar</string>
+</resources>

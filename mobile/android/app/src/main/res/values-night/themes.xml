@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Bulai" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">@color/marca</item>
+        <item name="android:colorAccent">@color/marca</item>
+        <item name="android:windowBackground">@color/marca_escura</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <style name="Theme.Bulai.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/marca_escura</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bulai</item>
+    </style>
+
+    <style name="Theme.Bulai.Alarme" parent="Theme.Bulai">
+        <item name="android:windowBackground">@color/marca</item>
+    </style>
+</resources>

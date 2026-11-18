@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mesmo cinza das bordas do vídeo de abertura: as faixas acima e abaixo dele (telas mais altas que 9:16) não aparecem. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <gradient
+        android:angle="270"
+        android:endColor="#B3AAA2"
+        android:startColor="#ABA398" />
+</shape>

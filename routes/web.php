@@ -12,6 +12,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Consulta\ResumoMedicoController;
+use App\Http\Controllers\MobileDeviceController;
 use App\Http\Controllers\PushSubscriptionController;
 use App\Http\Middleware\EnsureTemporaryPasswordIsChanged;
 use App\Http\Middleware\EnsureUserIsActive;
@@ -118,6 +119,8 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
     Route::post('/push/inscrever', [PushSubscriptionController::class, 'store'])->name('push.store');
     Route::delete('/push/inscrever', [PushSubscriptionController::class, 'destroy'])->name('push.destroy');
     Route::get('/push/ultimo', [PushSubscriptionController::class, 'latest'])->name('push.latest');
+    // Aplicativo Android: a página (dentro do WebView do app) liga o aparelho à conta e entrega o token à parte nativa.
+    Route::post('/aparelho', [MobileDeviceController::class, 'store'])->middleware('throttle:10,1')->name('mobile-device.store');
     Route::get('/inicio', ConsultaInicio::class)->name('consulta.inicio');
     Route::view('/sobre', 'consulta.sobre')->name('consulta.sobre');
     Route::get('/consulta', ConsultaPesquisa::class)->name('consulta.pesquisa');

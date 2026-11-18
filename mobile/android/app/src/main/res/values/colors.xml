@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="marca">#12344D</color>
+    <color name="marca_escura">#091D2C</color>
+    <color name="fundo">#F7F4EE</color>
+    <color name="texto">#0F172A</color>
+    <color name="texto_suave">#334155</color>
+    <color name="branco">#FFFFFF</color>
+</resources>

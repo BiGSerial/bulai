@@ -116,6 +116,12 @@ class AppServiceProvider extends ServiceProvider
 
         // Bloqueio progressivo do login por e-mail + IP: 5 tentativas por minuto e 20 por 15 minutos. Ao exceder,
         // volta ao formulário com a mensagem (e o tempo restante) no campo de e-mail, em vez da página 429.
+        // Aplicativo Android: por aparelho (hash do token) e por IP.
+        RateLimiter::for('mobile-api', fn (Request $request): array => [
+            Limit::perMinute(30)->by('mobile:'.hash('sha256', (string) $request->bearerToken())),
+            Limit::perMinute(120)->by('mobile-ip:'.$request->ip()),
+        ]);
+
         RateLimiter::for('login', function (Request $request): array {
             $email = $request->input('email');
             $key = (is_string($email) ? Str::lower(trim($email)) : '').'|'.$request->ip();
