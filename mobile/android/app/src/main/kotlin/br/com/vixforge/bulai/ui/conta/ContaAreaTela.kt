@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.History
@@ -94,6 +97,8 @@ data class EstadoDaConta(
     val trocandoSenha: Boolean = false,
     val errosDaSenha: Map<String, String> = emptyMap(),
     val senhaTrocada: Int = 0,
+    val apagando: Boolean = false,
+    val erroAoApagar: String? = null,
 )
 
 /** Nome de chamada e troca de senha; a sessão é atualizada com o que o servidor devolve. */
@@ -122,6 +127,22 @@ class ContaViewModel(private val conta: ContaRepositorio) : ViewModel() {
                 .onFailure { falha -> _estado.update { it.copy(salvandoNome = false, erroDoNome = (falha as? FalhaDaApi.Validacao)?.campos?.get("preferred_name") ?: falha.message) } }
         }
     }
+
+    fun apagarConta(senha: String, aoApagar: (String) -> Unit) {
+        if (_estado.value.apagando) {
+            return
+        }
+        _estado.update { it.copy(apagando = true, erroAoApagar = null) }
+        viewModelScope.launch {
+            conta.apagarConta(senha)
+                .onSuccess { aoApagar(it.message) }
+                .onFailure { falha ->
+                    _estado.update { it.copy(apagando = false, erroAoApagar = (falha as? FalhaDaApi.Validacao)?.campos?.get("password") ?: falha.message) }
+                }
+        }
+    }
+
+    fun limparErroAoApagar() = _estado.update { it.copy(erroAoApagar = null) }
 
     fun trocarSenha(atual: String, nova: String, confirmacao: String) {
         if (_estado.value.trocandoSenha) {
@@ -162,6 +183,7 @@ fun ContaAreaTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbri
     val usuario = (sessao as? EstadoDaSessao.Conectado)?.usuario
     val pedirPermissao = rememberPedirPermissao(avisos::lerAlarmes)
     var confirmarSaida by rememberSaveable { mutableStateOf(false) }
+    var apagarConta by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { vm.recados.collect(recado) }
     LaunchedEffect(Unit) { avisos.recados.collect(recado) }
     LifecycleResumeEffect(Unit) {
@@ -200,12 +222,24 @@ fun ContaAreaTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbri
         item(key = "atalhos") {
             Cartao(largura) {
                 LinhaDeAtalho(Icons.Rounded.History, "Minhas perguntas", "O que você perguntou ao BULA-IA", aoAbrirPerguntas)
-                LinhaDeAtalho(Icons.AutoMirrored.Rounded.Logout, "Sair da conta", "Os alarmes deixam de tocar neste celular", { confirmarSaida = true }, perigo = true)
+                LinhaDeAtalho(Icons.AutoMirrored.Rounded.Logout, "Sair da conta", "Os alarmes deixam de tocar neste celular", { confirmarSaida = true })
+                LinhaDeAtalho(Icons.Rounded.DeleteForever, "Apagar minha conta", "Remove seus dados pessoais e de saúde", { apagarConta = true }, perigo = true)
             }
         }
         item(key = "versao") {
             Text("BULA-IA ${BuildConfig.VERSION_NAME} · não substitui seu médico ou farmacêutico.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = largura)
         }
+    }
+
+    if (apagarConta) {
+        ApagarConta(
+            apagando = estado.apagando,
+            erro = estado.erroAoApagar,
+            aoConfirmar = { senha ->
+                vm.apagarConta(senha) { mensagem -> android.widget.Toast.makeText(context, mensagem, android.widget.Toast.LENGTH_LONG).show() }
+            },
+            aoFechar = { apagarConta = false; vm.limparErroAoApagar() },
+        )
     }
 
     if (confirmarSaida) {
@@ -339,4 +373,44 @@ private fun LinhaDeAtalho(icone: ImageVector, titulo: String, apoio: String, aoC
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** Aviso claro do que será apagado, senha atual e o botão vermelho. Nada some sem a senha. */
+@Composable
+private fun ApagarConta(apagando: Boolean, erro: String?, aoConfirmar: (String) -> Unit, aoFechar: () -> Unit) {
+    var senha by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { if (!apagando) aoFechar() },
+        icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
+        title = { Text("Apagar minha conta?") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Isto não pode ser desfeito. Serão apagados:", style = MaterialTheme.typography.bodyLarge)
+                listOf(
+                    "seus remédios, horários e doses marcadas",
+                    "receitas, alergias e o perfil de saúde",
+                    "suas perguntas e consultas de interação",
+                    "avisos, cuidadores e aparelhos conectados",
+                    "seu nome e e-mail (a conta fica anônima e desativada)",
+                ).forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
+                Text("Os alarmes deixam de tocar neste celular. Para usar o BULA-IA de novo, faça um novo cadastro.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Campo(senha, { senha = it }, "Sua senha", erro = erro, senha = true, acao = ImeAction.Done, aoConcluir = { if (senha.isNotEmpty()) aoConfirmar(senha) }, autoPreenchimento = listOf(ContentType.Password))
+            }
+        },
+        confirmButton = {
+            androidx.compose.material3.Button(
+                onClick = { aoConfirmar(senha) },
+                enabled = senha.isNotEmpty() && !apagando,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error, contentColor = MaterialTheme.colorScheme.onError),
+                modifier = Modifier.heightIn(min = 48.dp),
+            ) {
+                if (apagando) {
+                    androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onError)
+                } else {
+                    Text("Apagar minha conta")
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = aoFechar, enabled = !apagando) { Text("Cancelar") } },
+    )
 }

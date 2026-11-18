@@ -57,6 +57,9 @@ data class Mensagem(val message: String)
 data class PedidoDeNomeDeChamada(@SerialName("preferred_name") val nome: String?)
 
 @Serializable
+data class PedidoDeExclusao(val password: String)
+
+@Serializable
 data class PedidoDeTrocaDeSenha(
     @SerialName("current_password") val atual: String,
     val password: String,

@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 /**
- * Minha conta no aplicativo nativo: nome de chamada e troca de senha (as mesmas regras de "Minha conta" do site: pede a
+ * Minha conta no aplicativo nativo: nome de chamada, troca de senha e apagar a conta (as mesmas regras de "Minha conta" do site: pede a
  * senha atual, a nova precisa ser diferente; este aparelho continua conectado e as outras sessões e aparelhos caem).
  */
 final class AccountController extends Controller
@@ -60,5 +60,26 @@ final class AccountController extends Controller
         $service->changePassword($user, $validated['password'], null, $device->id);
 
         return response()->json(['message' => 'Senha alterada. As outras sessões abertas com a sua conta foram encerradas; este celular continua conectado.']);
+    }
+
+    /** Apagar a conta: pede a senha atual; administrador não se apaga pelo aplicativo. */
+    public function destroy(Request $request, UserAccountService $service): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+        if ($user->isAdmin()) {
+            return response()->json(['message' => 'Contas de administrador não podem ser apagadas pelo aplicativo. Fale com outro administrador.', 'code' => 'admin_account'], 403);
+        }
+        $request->validate([
+            'password' => ['required', 'string', function (string $attribute, mixed $value, Closure $fail) use ($user): void {
+                if (! is_string($value) || ! Hash::check($value, $user->password)) {
+                    $fail('A senha não confere.');
+                }
+            }],
+        ], [], ['password' => 'senha']);
+
+        $service->deleteOwnAccount($user);
+
+        return response()->json(['message' => 'Sua conta foi apagada. Seus dados pessoais e de saúde foram removidos.']);
     }
 }

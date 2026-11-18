@@ -344,6 +344,56 @@ final class UserAccountService
         $this->record($user, UserAuditEvent::EVENT_PREFERRED_NAME_CHANGED, $user, ['from' => $before, 'to' => $preferredName]);
     }
 
+    /**
+     * "Apagar minha conta" (LGPD): apaga tudo o que é pessoal e de saúde (remédios, doses, receitas, alergias, perfil,
+     * perguntas, consultas, avisos, cuidadores, aparelhos, sessões, inscrições de push), anonimiza o cadastro (nome, e-mail,
+     * senha, IP) e o desativa. A linha fica só para a trilha de auditoria, que passa a dizer "conta apagada", sem dados.
+     * O e-mail fica livre para um novo cadastro. Contas de administrador não se apagam por aqui.
+     *
+     * @return array<string, int> quantos registros foram apagados, por tipo
+     */
+    public function deleteOwnAccount(User $user): array
+    {
+        return DB::transaction(function () use ($user): array {
+            $user = $this->lock($user);
+            $id = $user->id;
+            $byUser = fn (string $table): int => DB::table($table)->where('user_id', $id)->delete();
+            $counts = [
+                'dose_events' => $byUser('medication_dose_events'),
+                'unmatched_reports' => $byUser('unmatched_medicine_reports'),
+                'medications' => $byUser('patient_medications'),
+                'prescriptions' => $byUser('patient_prescriptions'),
+                'allergies' => $byUser('patient_allergies'),
+                'questions' => $byUser('medication_questions'),
+                'consultations' => $byUser('interaction_consultations'),
+                'profile' => $byUser('patient_profiles'),
+                'push_subscriptions' => $byUser('push_subscriptions'),
+                'caregiver_links' => DB::table('caregiver_links')->where('patient_id', $id)->orWhere('caregiver_id', $id)->delete(),
+                'notifications' => DB::table('notifications')->where('notifiable_type', $user->getMorphClass())->where('notifiable_id', $id)->delete(),
+            ];
+            DB::table('caregiver_audit_events')->where('patient_id', $id)->delete();
+            DB::table('caregiver_audit_events')->where('actor_id', $id)->update(['actor_id' => null]);
+            DB::table('ai_usage_logs')->where('user_id', $id)->update(['user_id' => null]);
+            // Os eventos antigos da trilha não guardam mais o nome de chamada.
+            DB::table('user_audit_events')->where('user_id', $id)->where('event', UserAuditEvent::EVENT_PREFERRED_NAME_CHANGED)->update(['details' => null]);
+
+            $this->revokeAccess($user);
+            $user->forceFill([
+                'name' => 'Conta apagada',
+                'preferred_name' => null,
+                'email' => 'apagada-'.$id.'-'.Str::lower(Str::random(12)).'@contas-apagadas.invalid',
+                'password' => Str::random(64),
+                'email_verified_at' => null,
+                'last_login_ip' => null,
+                'active' => false,
+                'must_change_password' => false,
+            ])->save();
+            $this->record($user, UserAuditEvent::EVENT_ACCOUNT_DELETED, $user, $counts);
+
+            return $counts;
+        });
+    }
+
     public function recordPasswordResetRequested(User $user): void
     {
         $this->record($user, UserAuditEvent::EVENT_PASSWORD_RESET_REQUESTED, null);

@@ -109,4 +109,7 @@ interface BulaiApi {
 
     @PUT("conta/senha")
     suspend fun trocarSenha(@Body pedido: PedidoDeTrocaDeSenha): Mensagem
+
+    @HTTP(method = "DELETE", path = "conta", hasBody = true)
+    suspend fun apagarConta(@Body pedido: PedidoDeExclusao): Mensagem
 }

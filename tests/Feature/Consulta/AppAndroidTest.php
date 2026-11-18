@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Consulta;
 
+use App\Models\Consultation\MedicationQuestion;
 use App\Models\MedicationDoseEvent;
 use App\Models\MobileDevice;
+use App\Models\PatientAllergy;
 use App\Models\PatientMedication;
 use App\Models\PatientProfile;
 use App\Models\User;
@@ -12,6 +14,7 @@ use App\Notifications\MedicationReminderNotification;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\UnmatchedMedicineResolvedNotification;
 use App\Services\Users\UserAccountService;
+use App\UserRole;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -357,5 +360,45 @@ final class AppAndroidTest extends TestCase
         $this->assertTrue(Hash::check('Nova-senha-2026', $user->refresh()->password));
         $this->getJson(route('api.mobile.account'), $headers)->assertOk();
         $this->getJson(route('api.mobile.account'), $other)->assertUnauthorized();
+    }
+
+    public function test_deleting_the_account_asks_the_password_erases_personal_and_health_data_and_anonymizes_the_user(): void
+    {
+        $user = $this->patient();
+        $user->forceFill(['email' => 'maria@exemplo.com', 'preferred_name' => 'Mari', 'last_login_ip' => '10.0.0.1'])->save();
+        $headers = $this->bearer($user);
+        $losartana = $this->medication($user, 'Losartana 50 mg');
+        PatientAllergy::query()->create(['user_id' => $user->id, 'substance' => 'Dipirona', 'normalized_substance' => 'dipirona']);
+        MedicationQuestion::query()->create(['uuid' => (string) Str::uuid(), 'user_id' => $user->id, 'medicine_name' => '—', 'question' => 'posso?', 'status' => 'answered', 'expires_at' => now()->addDay()]);
+        $user->notify(new UnmatchedMedicineResolvedNotification($losartana));
+        $other = $this->patient();
+        $this->medication($other, 'Omeprazol');
+
+        $this->deleteJson(route('api.mobile.account.destroy'), ['password' => 'errada'], $headers)->assertUnprocessable()->assertJsonPath('errors.password.0', 'A senha não confere.');
+        $this->assertSame(1, PatientMedication::query()->where('user_id', $user->id)->count());
+
+        $this->deleteJson(route('api.mobile.account.destroy'), ['password' => 'password'], $headers)->assertOk();
+
+        $user->refresh();
+        $this->assertSame(['Conta apagada', null, null, false], [$user->name, $user->preferred_name, $user->last_login_ip, $user->active]);
+        $this->assertStringEndsWith('@contas-apagadas.invalid', $user->email);
+        foreach ([PatientMedication::class, PatientAllergy::class, MedicationQuestion::class, PatientProfile::class, MobileDevice::class] as $model) {
+            $this->assertSame(0, $model::query()->where('user_id', $user->id)->count(), $model);
+        }
+        $this->assertSame(0, $user->notifications()->count());
+        $this->assertSame(1, PatientMedication::query()->where('user_id', $other->id)->count(), 'os dados de outra pessoa ficam');
+        $this->assertSame(1, UserAuditEvent::query()->where('user_id', $user->id)->where('event', UserAuditEvent::EVENT_ACCOUNT_DELETED)->count());
+        $this->getJson(route('api.mobile.account'), $headers)->assertUnauthorized();
+
+        // O e-mail fica livre para um novo cadastro.
+        $this->postJson(route('api.mobile.register'), ['name' => 'Maria Nova', 'email' => 'maria@exemplo.com', 'password' => 'Senha-forte-2026', 'password_confirmation' => 'Senha-forte-2026', 'terms' => true])->assertCreated();
+    }
+
+    public function test_an_administrator_account_cannot_be_deleted_from_the_app(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->deleteJson(route('api.mobile.account.destroy'), ['password' => 'password'], $this->bearer($admin))->assertForbidden()->assertJsonPath('code', 'admin_account');
+        $this->assertTrue($admin->refresh()->active);
     }
 }

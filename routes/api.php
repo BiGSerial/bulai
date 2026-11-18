@@ -105,6 +105,7 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::get('/conta', [MobileAccountController::class, 'show'])->name('account');
         Route::put('/conta/nome', [MobileAccountController::class, 'updateName'])->name('account.name');
         Route::put('/conta/senha', [MobileAccountController::class, 'updatePassword'])->middleware('throttle:mobile-password-change')->name('account.password');
+        Route::delete('/conta', [MobileAccountController::class, 'destroy'])->middleware('throttle:mobile-password-change')->name('account.destroy');
 
         // Bula humanizada: GET responde na hora (pronta ou "carregando"); POST …/gerar prepara o resumo (limite por hora do site).
         Route::get('/bulas/{medicine}', [MobileLeafletController::class, 'show'])->whereNumber('medicine')->name('leaflets.show');

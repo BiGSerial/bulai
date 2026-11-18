@@ -11,6 +11,7 @@ import br.com.vixforge.bulai.dados.api.Inicio
 import br.com.vixforge.bulai.dados.api.Mensagem
 import br.com.vixforge.bulai.dados.api.PedidoDeCadastro
 import br.com.vixforge.bulai.dados.api.PedidoDeEmail
+import br.com.vixforge.bulai.dados.api.PedidoDeExclusao
 import br.com.vixforge.bulai.dados.api.PedidoDeMarcacao
 import br.com.vixforge.bulai.dados.api.PedidoDeNomeDeChamada
 import br.com.vixforge.bulai.dados.api.PedidoDeTrocaDeSenha
@@ -31,6 +32,10 @@ class ContaRepositorio(private val api: BulaiApi, private val sessao: Sessao) {
     /** Vazio volta a usar o primeiro nome. A saudação do Início muda junto. */
     suspend fun mudarNomeDeChamada(nome: String): Result<Usuario> =
         chamar { api.mudarNomeDeChamada(PedidoDeNomeDeChamada(nome.trim().ifEmpty { null })).user }.onSuccess { sessao.atualizar(it) }
+
+    /** Apaga a conta no servidor; depois, limpa o aparelho (alarmes, dados guardados) e volta para Entrar. */
+    suspend fun apagarConta(senha: String): Result<Mensagem> =
+        chamar { api.apagarConta(PedidoDeExclusao(senha)) }.onSuccess { sessao.perdeuAcesso() }
 
     suspend fun trocarSenha(atual: String, nova: String, confirmacao: String): Result<Mensagem> =
         chamar { api.trocarSenha(PedidoDeTrocaDeSenha(atual, nova, confirmacao)) }
