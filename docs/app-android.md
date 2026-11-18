@@ -11,9 +11,11 @@ Não há WebView: as regras de negócio continuam no Laravel (os mesmos services
 | Etapa | Conteúdo | Situação |
 | --- | --- | --- |
 | 1. Fundação | API de conta; Entrar, Cadastro, Esqueci a senha, Primeiro acesso; menu inferior; Início; Remédios do dia (ontem/hoje/amanhã); Avisos (central, lembretes, alarmes do celular); WebView removido | **feita** |
-| 2. Tratamento | Perfil (consentimento, alergias, receitas por texto, remédios, posologia), busca de remédios, Bulas | a fazer |
-| 3. Consultas | Interações (pesquisa, resultado, histórico) e Perguntar (com ditado) | a fazer |
-| 4. Restante | Receita por foto (câmera, envio, revisão), cuidadores, Minha conta, resumo PDF | a fazer |
+| 2. Tratamento | Perfil (consentimento, alergias, receitas por texto, remédios, posologia), Bulas | a fazer (a busca no catálogo já existe: `GET /remedios`) |
+| 3. Consultas | Perguntar (conversa, ditado, "Ouvir", correção do remédio, histórico) | **feita** (antecipada) |
+| 3. Consultas | Interações (pesquisa, resultado, histórico) | a fazer |
+| 4. Restante | Receita por foto (câmera ou galeria, leitura, revisão, confirmação) | **feita** (antecipada) |
+| 4. Restante | cuidadores, Minha conta, resumo PDF | a fazer |
 | 5. Publicação | assinatura, R8, versionamento, testes instrumentados, política de privacidade e "Segurança dos dados" da Play Store | a fazer |
 
 Enquanto uma tela não existe no app, avisos e atalhos que apontam para ela abrem o Início.
@@ -26,6 +28,8 @@ Enquanto uma tela não existe no app, avisos e atalhos que apontam para ela abre
 │   telas (ui/*) ─ ViewModel (StateFlow) ─ Repositórios ─ Retrofit/OkHttp ──────┼─HTTPS─►│  entrar, cadastro, esqueci-senha │
 │                         │                   │                                │ Bearer │  eu, primeiro-acesso, aparelho   │
 │                         ▼                   ▼                                │        │  inicio, dia, dia/doses          │
+│                                                                               │        │  perguntar, perguntas, remedios  │
+│                                                                               │        │  receitas (+ horarios, confirmar)│
 │                CacheEmDisco (última resposta)   Sessao (token no Keystore)   │        │  avisos (+ novos, lidos, …)      │
 │                                                                               │        │  agenda, doses (alarmes)         │
 │ Sincronizacao ─ SincronizarWorker / MarcarDoseWorker (ApiClient) ─────────────┼───────►│                                  │
@@ -62,11 +66,26 @@ Respostas em JSON com `Cache-Control: no-store`; erros no formato do Laravel (`m
 | `POST /avisos/lidos`, `DELETE /avisos`, `DELETE /avisos/{id}` | marcar todos como lidos, apagar todos, apagar um | devolvem a central |
 | `PUT /avisos/preferencias` | `{reminders?, email?, timezone?}` | só com consentimento; fuso só da lista do Brasil |
 | `GET /avisos/novos?desde=ISO` | avisos não lidos novos (até 24 h, 20 itens) para notificações do sistema | usado pelo `SincronizarWorker` |
+| `GET /remedios?q=` | busca no catálogo (`MedicationSearchService`, até 10) | correção do remédio no Perguntar e na receita |
+| `GET /perguntar?medicamento=` | exemplos, remédios em uso, limites de tamanho, retenção e, vindo de um remédio, o painel "No seu tratamento" | |
+| `POST /perguntar` | `{question, fixed?, removed?, turns?}` → `{answer}` | `turns` são só os `uuid` das trocas anteriores; o contexto é relido do histórico da própria pessoa (uuid de outra pessoa é ignorado). Mesmo limite por hora do site (429 em JSON). Resposta com `paragraphs` em trechos `{text, bold}`, `alert`, `source`, `suggestions`, `guesses`, `corrections`, `medicines`, `sources`, `treatments`, `crisis`, `releases_fixed` |
+| `GET /perguntas`, `GET /perguntas/{uuid}`, `DELETE /perguntas/{uuid}` | histórico paginado (20), uma pergunta no formato do balão, apagar (auditado) | de outra pessoa → 404 |
+| `POST /receitas` | multipart `photo` (JPG/PNG/WebP, até `bulai.prescription.max_image_kilobytes`) → 201 `{prescription}` | sem consentimento → 409 `health_consent_required`; limite por hora do site → 429 |
+| `GET /receitas/{id}` | `status`, `reading`, `error_message`, `legibility`, `ignored_text`, `header` e `items` (com horários sugeridos) | o app consulta a cada 2 s enquanto `reading`; leitura parada vira `PRESCRIPTION_TIMEOUT` |
+| `POST /receitas/horarios` | `{frequency}` → horários sugeridos (`DoseScheduleParser`) | ao corrigir "quando tomar" |
+| `POST /receitas/{id}/confirmar` | `{header: {prescriber, registration?, date?}, items: [...]}` → `{confirmed, unmatched, message}` | mesmas validações e mensagens do site; fora de revisão → 409 |
+| `DELETE /receitas/{id}` | descarta a receita não confirmada | |
 | `GET /agenda`, `POST /doses` | agenda dos alarmes e marcação pela notificação/despertador/widget (`recorded_at` = hora real do toque, janela de 48 h) | `DeviceAgendaService` |
 
 Autenticação: `App\Http\Middleware\AuthenticateMobileDevice` (Bearer; conta desativada ou não aprovada → 401; senha provisória → 403 fora das rotas `:primeiro-acesso`). Limite geral `mobile-api`: 120/min por aparelho e 300/min por IP. Auditoria: `mobile_device_connected` / `mobile_device_disconnected`. `UserAccountService::revokeAccess()` apaga os aparelhos (encerrar sessões, desativação, redefinição de senha); na troca de senha feita pelo app, o aparelho que trocou continua (`$currentMobileDeviceId`).
 
 Mudanças de apoio no backend: `TreatmentScheduleService::annotateAdjustments()` (antes `Hoje::anotarAjustes`, que agora delega) e `PatientProfile::TIMEZONES` (antes só em `Avisos`).
+
+Regras extraídas dos componentes Livewire para serviços usados pelo site e pela API (o site não mudou):
+
+- `App\Services\Patient\QuestionConversation`: limite por hora, contexto das trocas, troca enxuta, remédios em uso, painel prévio e a apresentação do balão (`speech`, `alert`, `source`, `paragraphs`/`paragraphSegments`, `sources`, `shortSpeech`, `rephrasings`, `listNames`). `Livewire\Consulta\Perguntar` só guarda o estado da tela.
+- `App\Services\Patient\PrescriptionReviewService`: envio (área transitória + leitura), expiração da leitura parada, mensagem de falha, cabeçalho e itens para revisão, horários sugeridos e confirmação (validação e gravação no tratamento). `Receita\Nova` e `Receita\Revisar` delegam.
+- `AnswerHighlighter::segments()`: o mesmo destaque do HTML em pedaços de texto puro (o HTML agora é montado a partir deles).
 
 ## Aplicativo (mobile/android)
 
@@ -80,6 +99,10 @@ Mudanças de apoio no backend: `TreatmentScheduleService::annotateAdjustments()`
 | `ui/tema/` | cores da marca (as do site), modo escuro, tipografia grande (corpo 18 sp, respeita a escala de fonte do sistema) |
 | `ui/componentes/` | botões de 56–60 dp, campos com erro por campo e mostrar senha, cartões, faixa de erro com "Tentar de novo", estado vazio, esqueletos com brilho |
 | `ui/conta/`, `ui/inicio/`, `ui/dia/`, `ui/avisos/` | telas e ViewModels |
+| `ui/perguntar/` | conversa (`PerguntarTela`, `PerguntarViewModel`), balões e painel "No seu tratamento" (`Balao.kt`), busca para corrigir o remédio, Minhas perguntas e pergunta anterior (`HistoricoTela.kt`) |
+| `ui/receita/` | foto (câmera pelo app do aparelho via `FileProvider`, ou seletor de fotos do Android), acompanhamento da leitura e revisão editável (quem receitou, data, remédio do catálogo, dose, "quando tomar", horários com seletor de hora, modo por intervalo) |
+| `ui/sistema/Voz.kt` | ditado pelo reconhecedor de voz do sistema (sem pedir permissão de microfone) e "Ouvir" com a voz do Android (pt-BR) |
+| `dados/ConsultasRepositorio.kt` | `PerguntasRepositorio`, `ReceitasRepositorio` e `Fotos` (reduz a foto a 2400 px e endireita pelo EXIF antes de subir) |
 | `ui/navegacao/` | `AppBulai` (sessão → navegação), menu inferior com contador de avisos, snackbar com "Desfazer", rotas e tradução de `destination`/caminho para tela |
 | `ui/sistema/Permissoes.kt`, `alarmes/AjustesDoCelular.kt` | permissões dos alarmes (notificações, hora exata, tela cheia, bateria) e preferências do despertador |
 | `alarmes/`, `sync/`, `widget/` | alarmes exatos, notificações com ações, despertador em tela cheia, sincronização em segundo plano e widget (sem mudança de regra) |
@@ -93,10 +116,13 @@ Detalhes de experiência:
 - **Acessibilidade**: títulos marcados como cabeçalho, estado das doses lido pelo TalkBack, erros de campo anunciados, "Apagar aviso" como ação de acessibilidade (além do arrastar), alvos de toque ≥ 48 dp, letra grande.
 - **Telas largas**: conteúdo limitado a 520–640 dp e centralizado.
 - **Autopreenchimento**: e-mail e senhas marcados para o gerenciador de senhas.
+- **Perguntar** (aba própria, como no site): a pergunta aparece na hora e o "digitando" fica até a resposta; a caixa de texto acompanha o teclado, que fecha ao enviar; Enter de teclado físico envia. Remédios, componentes e frases de alerta em negrito; alergia → balão vermelho e aviso em destaque; interação → amarelo com a gravidade (cor + texto); risco → botões para ligar 188/192. Sugestões em pílulas de 48 dp, "Não é esse remédio?" abre a busca, "Fontes utilizadas" recolhido. Só a resposta mais recente tem ações; as anteriores ficam como texto.
+- **Receita por foto**: etapas Foto → Conferir → Pronto; prévia antes de enviar; leitura acompanhada com esqueleto; revisão com barra fixa "Confirmar e salvar"; ao confirmar, os alarmes do aparelho sincronizam e o app abre Hoje com o resumo no snackbar.
+- **Navegação**: Início, Perguntar, Hoje e Avisos no menu inferior; histórico e receita são telas empilhadas (botão voltar, sem o menu). Atalhos do ícone: Hoje, Perguntar e Fotografar receita; `bulai://abrir/receitas/{id}/revisar` abre uma receita em revisão.
 
 Versões: AGP 9.5.1, Kotlin 2.4.21 (plugins Compose e serialization), Gradle 9.9.1, `compileSdk 37`, `targetSdk 36`, `minSdk 26`. Dependências: AndroidX core-ktx, activity-compose, work-runtime-ktx, core-splashscreen, browser, navigation-compose 2.10.2, lifecycle 2.11.0; Compose BOM 2026.09.00 (Material 3 e ícones); kotlinx-coroutines 1.11.0; kotlinx-serialization 1.13.0; Retrofit 3.0.0 + conversor kotlinx; OkHttp 5.5.1. Testes: JUnit 4, org.json, coroutines-test, MockWebServer.
 
-Permissões: internet; notificações; `SCHEDULE_EXACT_ALARM`; `USE_FULL_SCREEN_INTENT`; vibração; iniciar com o aparelho; pedido para ignorar a economia de bateria. Câmera, microfone e downloads voltam nas etapas que os usam.
+Permissões: internet; notificações; `SCHEDULE_EXACT_ALARM`; `USE_FULL_SCREEN_INTENT`; vibração; iniciar com o aparelho; pedido para ignorar a economia de bateria. **Sem** permissão de câmera ou microfone: a foto usa o app de câmera do aparelho (`ACTION_IMAGE_CAPTURE` gravando em `cache/fotos` pelo `FileProvider` `${applicationId}.arquivos`) ou o seletor de fotos; o ditado usa a tela de voz do sistema. `<queries>` declara o reconhecedor de voz e o serviço de leitura em voz alta.
 
 ### Vídeo de abertura
 
@@ -133,20 +159,26 @@ O APK vai para `mobile/android/dist/bulai-{versão}-{tipo}.apk` (fora do Git). A
 - Túnel do adb: `adb.exe reverse tcp:8000 tcp:8000`, servidor com `PHP_CLI_SERVER_WORKERS=6 php artisan serve --host=0.0.0.0 --port=8000` e APK com `gerar-apk.sh debug http://localhost:8000` (pelo `10.0.2.2` pedidos em paralelo falham ao acaso).
 - Não deixe o adb do WSL rodando junto com o do Windows: os dois disputam a porta 5037 e o Orca deixa de ver o emulador.
 - Para testar sem mexer no banco de desenvolvimento, use um banco à parte: `CREATE DATABASE bulai_app_demo`, `DB_DATABASE=bulai_app_demo php artisan migrate` e suba o servidor com o mesmo `DB_DATABASE`.
+- Para o Perguntar e a receita responderem de verdade nesse banco, copie só o catálogo e as bulas (leitura do banco de dev, escrita no de demonstração): `pg_dump -U postgres -d bulai --data-only --disable-triggers -t knowledge_sources -t active_ingredients -t active_ingredient_aliases -t anvisa_medicines -t anvisa_medicine_ingredients -t drug_interactions -t knowledge_documents -t knowledge_chunks -t knowledge_document_ingredients -t knowledge_leaflet_facts -t medicine_leaflet_summaries | psql -U postgres -d bulai_app_demo`. As perguntas e a leitura da receita usam o provedor de IA do `.env`.
+- Foto de receita no emulador: `adb push receita.png /sdcard/Pictures/` e `am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Pictures/receita.png`; depois "Escolher da galeria".
 
 ## Deploy do servidor
 
-Migração `mobile_devices` e as rotas novas de `routes/api.php`; sem variáveis novas e sem build de front.
+Migração `mobile_devices` e as rotas novas de `routes/api.php`; sem variáveis novas e sem build de front. Perguntar e receita usam os mesmos provedores de IA e limites (`bulai.consultation.rate_limit_per_hour`, `bulai.prescription.*`) do site.
 
 ## Testes
 
 - `tests/Feature/Consulta/AppAndroidTest.php`: entrar (só o hash no banco, entrar de novo troca o token, auditoria, e-mail sem diferença de maiúsculas), senha errada e conta bloqueada, limite de tentativas em JSON, cadastro aguardando aprovação, "esqueci a senha" com a mesma resposta, senha provisória (403 fora do primeiro acesso, troca mantém o aparelho e derruba os outros), Início, dia com ontem/amanhã e marcar/desfazer, central de avisos (abrir, lidos, apagar, preferências, aviso de outra pessoa → 404), agenda dos alarmes, marcação pela notificação, avisos novos, tokens inválidos e revogação.
-- `mobile/android/app/src/test/`: `AgendadorDeAlarmesTest` (regras dos alarmes), `VideoDeAberturaTest` (quando o vídeo toca), `RedeTest` (cabeçalhos, leitura do JSON, 422 por campo, 401 encerra a sessão, 403 de senha provisória, 429, sem rede; com MockWebServer), `NavegacaoEDiaTest` (aviso/caminho → tela; marcação otimista recalcula o resumo).
-- Rodados também: `./gradlew lintDebug` e o fluxo no emulador: entrar, Início, Tomei, Remédios do dia, Avisos (lista, lembretes, alarmes do celular), alarme de teste com Tomei/Adiar/Pular, abrir por `bulai://abrir/avisos`, sair, senha provisória.
+- `tests/Feature/Consulta/AppAndroidConsultasTest.php`: pergunta com contexto relido só do histórico da própria pessoa (uuid de outra pessoa ignorado) e destaques em texto puro; pergunta curta (422), remédio não reconhecido, limite por hora (429); histórico listado/aberto/apagado só pelo dono; receita lida, revisada (horários sugeridos), validação do prescritor e confirmação no tratamento (e 409 se confirmar de novo); consentimento (409), arquivo que não é imagem e receita de outra pessoa (404); busca no catálogo.
+- Os testes do site de Perguntar e Receita (`PerguntaLivreTest`, `ConversaHumanizadaTest`, `PerguntarConfiavelTest`, `ReceitaPorFotoTest`, `ExternalLabelsTest`…) continuam passando sobre os serviços extraídos.
+- `mobile/android/app/src/test/`: `AgendadorDeAlarmesTest` (regras dos alarmes), `VideoDeAberturaTest` (quando o vídeo toca), `RedeTest` (cabeçalhos, leitura do JSON, 422 por campo, 401 encerra a sessão, 403 de senha provisória, 409 vira `Conflito`, 429, sem rede, campos no valor padrão enviados na confirmação da receita, resposta do Perguntar em trechos; com MockWebServer), `NavegacaoEDiaTest` (aviso/caminho → tela, inclusive receita e pergunta; marcação otimista recalcula o resumo).
+- Rodados também: `./gradlew lintDebug` e o fluxo no emulador: entrar, Início, Tomei, Remédios do dia, Avisos (lista, lembretes, alarmes do celular), alarme de teste com Tomei/Adiar/Pular, abrir por `bulai://abrir/avisos`, sair, senha provisória. Etapa Perguntar/Receita, com IA real: pergunta respondida com fontes, continuação "e com café?" usando a conversa, alergia registrada → aviso e balão vermelho, Minhas perguntas e pergunta anterior; receita escolhida da galeria, lida em ~3 s, troca de remédio pela busca, "quando tomar" corrigido virando "só quando precisar", horário novo pelo seletor, confirmação e abertura de Hoje com os remédios novos.
 
 ## Limitações
 
-- Etapas 2 a 5 por fazer (perfil, bulas, interações, perguntar, receita por foto, cuidadores, minha conta, publicação). Atalhos de Perguntar, Receita e Interações voltam com as telas.
+- Por fazer: perfil (inclui aceitar o consentimento: sem ele, a receita mostra o aviso e abre o perfil no site), bulas, interações, cuidadores, Minha conta, publicação. O atalho de Interações volta com a tela.
+- A conversa do Perguntar vive na memória do app (como no site, vive na tela): fechar o app começa outra conversa; o que foi perguntado continua em Minhas perguntas.
+- Corrigir o remédio (Não é esse? / Não era esse) refaz a pergunta e conta no limite por hora (no site, a correção não conta).
 - O trabalho em segundo plano (`SincronizarWorker`, `MarcarDoseWorker`) ainda usa o `ApiClient` (HttpURLConnection) da primeira versão; as telas usam Retrofit/OkHttp.
 - **Sem push do servidor (FCM)**: avisos que não são de dose chegam na sincronização (30 min ou ao abrir o app).
 - Fabricantes com economia de bateria agressiva podem segurar alarmes; a tela Avisos pede para liberar. Na Play Store, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` e `USE_FULL_SCREEN_INTENT` passam por análise de política.

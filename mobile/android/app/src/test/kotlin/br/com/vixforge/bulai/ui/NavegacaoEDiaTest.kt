@@ -22,6 +22,19 @@ class NavegacaoEDiaTest {
     }
 
     @Test
+    fun perguntarEReceitaTemRotaPropria() {
+        val params = { json: String -> kotlinx.serialization.json.Json.parseToJsonElement(json) }
+        assertEquals("receita/42", Rotas.doDestino(Destino("consulta.receita.revisar", params("""{"prescription":42}"""))))
+        assertEquals(Rotas.RECEITA, Rotas.doDestino(Destino("consulta.receita.revisar", params("{}"))))
+        assertEquals("pergunta/abc", Rotas.doDestino(Destino("consulta.pergunta", params("""{"question":"abc"}"""))))
+        assertEquals(Rotas.PERGUNTAR, Rotas.doCaminho("/perguntar?q=dipirona"))
+        assertEquals(Rotas.RECEITA, Rotas.doCaminho("receitas/nova"))
+        assertEquals("receita/7", Rotas.doCaminho("/receitas/7/revisar"))
+        assertEquals("Conferir a receita", Rotas.titulo(Rotas.REVISAR_RECEITA))
+        assertNull(Rotas.titulo(Rotas.PERGUNTAR))
+    }
+
+    @Test
     fun marcarNaTelaAtualizaODiaAntesDoServidor() {
         val dose = { chave: String, situacao: String -> Dose(chave, 1, "Losartana", time = "08:00", agendadaPara = "x", status = situacao) }
         val dia = Dia(0, "2026-11-05", "Quinta", true, true, summary = ResumoDoDia(3, 1, 1, 1), doses = listOf(dose("a", Dose.TOMADA), dose("b", Dose.ATRASADA), dose("c", Dose.PENDENTE)))

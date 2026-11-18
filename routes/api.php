@@ -3,7 +3,10 @@
 use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
 use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
+use App\Http\Controllers\Api\Mobile\MedicineController as MobileMedicineController;
 use App\Http\Controllers\Api\Mobile\NoticeController as MobileNoticeController;
+use App\Http\Controllers\Api\Mobile\PrescriptionController as MobilePrescriptionController;
+use App\Http\Controllers\Api\Mobile\QuestionController as MobileQuestionController;
 use App\Http\Controllers\Api\Mobile\TreatmentController as MobileTreatmentController;
 use App\Http\Controllers\Api\V1\AuditController;
 use App\Http\Controllers\Api\V1\EvaluationController;
@@ -93,5 +96,21 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::delete('/avisos', [MobileNoticeController::class, 'destroyAll'])->name('notices.destroy-all');
         Route::post('/avisos/{notice}/abrir', [MobileNoticeController::class, 'open'])->whereUuid('notice')->name('notices.open');
         Route::delete('/avisos/{notice}', [MobileNoticeController::class, 'destroy'])->whereUuid('notice')->name('notices.destroy');
+
+        Route::get('/remedios', [MobileMedicineController::class, 'search'])->name('medicines.search');
+
+        // Perguntar: a conversa vive no aparelho (só os uuid das trocas); o limite por hora é o mesmo do site.
+        Route::get('/perguntar', [MobileQuestionController::class, 'start'])->name('questions.start');
+        Route::post('/perguntar', [MobileQuestionController::class, 'ask'])->name('questions.ask');
+        Route::get('/perguntas', [MobileQuestionController::class, 'history'])->name('questions.history');
+        Route::get('/perguntas/{question}', [MobileQuestionController::class, 'show'])->whereUuid('question')->name('questions.show');
+        Route::delete('/perguntas/{question}', [MobileQuestionController::class, 'destroy'])->whereUuid('question')->name('questions.destroy');
+
+        // Receita por foto: envio, leitura (consulta periódica), horários sugeridos, confirmação e descarte.
+        Route::post('/receitas', [MobilePrescriptionController::class, 'store'])->name('prescriptions.store');
+        Route::post('/receitas/horarios', [MobilePrescriptionController::class, 'schedule'])->name('prescriptions.schedule');
+        Route::get('/receitas/{prescription}', [MobilePrescriptionController::class, 'show'])->whereNumber('prescription')->name('prescriptions.show');
+        Route::post('/receitas/{prescription}/confirmar', [MobilePrescriptionController::class, 'confirm'])->whereNumber('prescription')->name('prescriptions.confirm');
+        Route::delete('/receitas/{prescription}', [MobilePrescriptionController::class, 'destroy'])->whereNumber('prescription')->name('prescriptions.destroy');
     });
 });

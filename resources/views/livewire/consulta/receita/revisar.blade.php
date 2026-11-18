@@ -23,12 +23,7 @@
     @elseif ($status === P::STATUS_FAILED)
         <x-consulta.cartao tone="danger" role="alert" class="border-2">
             <p class="text-xl font-semibold leading-snug">Não conseguimos ler esta receita.</p>
-            <p>{{ match ($prescription->error_code) {
-                'PRESCRIPTION_IMAGE_INVALID' => 'A imagem não pôde ser lida (formato ou tamanho). Tente outra foto em JPG ou PNG.',
-                'PRESCRIPTION_OUTPUT_INVALID' => 'A transcrição veio incompleta e foi descartada por segurança.',
-                'PRESCRIPTION_TIMEOUT' => 'A leitura demorou mais que o esperado e foi interrompida.',
-                'AI_NOT_CONFIGURED', 'AI_UNAVAILABLE', 'AI_BUDGET_EXCEEDED', 'AI_RATE_LIMITED', 'AI_TIMEOUT' => 'O serviço de leitura está indisponível no momento.',
-                default => 'Ocorreu um erro técnico.' } }} Nada foi salvo.</p>
+            <p>{{ \App\Services\Patient\PrescriptionReviewService::failureMessage($prescription->error_code) }} Nada foi salvo.</p>
             @if ($prescription->error_code)<p class="text-base text-rose-800/80">Código técnico: {{ $prescription->error_code }}.</p>@endif
             <x-consulta.botao :href="route('consulta.receita.nova')">Tentar outra foto</x-consulta.botao>
             <x-consulta.botao variant="secondary" size="md" :href="route('consulta.perfil', ['aba' => 'receitas'])">Cadastrar manualmente</x-consulta.botao>

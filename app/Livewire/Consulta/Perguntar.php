@@ -3,17 +3,9 @@
 namespace App\Livewire\Consulta;
 
 use App\Models\Knowledge\AnvisaMedicine;
-use App\Models\Knowledge\KnowledgeDocument;
-use App\Models\PatientMedication;
 use App\Services\Interactions\MedicationSearchService;
-use App\Services\Knowledge\External\ExternalEvidenceService;
-use App\Services\Patient\AnswerHighlighter;
-use App\Services\Patient\MedicationQuestionService;
-use App\Services\Patient\TreatmentContextService;
+use App\Services\Patient\QuestionConversation;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\HtmlString;
-use Illuminate\Support\Str;
 use Livewire\Component;
 
 /**
@@ -25,15 +17,6 @@ use Livewire\Component;
  */
 class Perguntar extends Component
 {
-    public const EXEMPLOS = [
-        'Posso tomar ibuprofeno com losartana?',
-        'Omeprazol deve ser tomado em jejum?',
-        'Quais os efeitos colaterais mais comuns da sinvastatina?',
-    ];
-
-    /** Trocas anteriores guardadas na tela (as mais antigas saem). */
-    public const MAX_TROCAS = 6;
-
     public string $pergunta = '';
 
     public ?string $aviso = null;
@@ -44,7 +27,7 @@ class Perguntar extends Component
     /**
      * Trocas anteriores desta conversa, da mais antiga para a mais nova (versão enxuta para a tela e para o contexto).
      *
-     * @var list<array{pergunta: string, status: string, resposta: string|null, assuntos?: list<string>, medicamentos: list<array{id: int, name: string}>, uuid: string|null}>
+     * @var list<array{question: string, status: string, answer: string|null, topics: list<string>, medicines: list<array{id: int, name: string}>, uuid: string|null}>
      */
     public array $conversa = [];
 
@@ -62,7 +45,7 @@ class Perguntar extends Component
      * Entradas: `?medicamento={id}` (links da bula/perfil) pré-seleciona o medicamento e já mostra o painel do tratamento;
      * `?q={texto}` (caixa da tela Início) pré-preenche a pergunta e, se ela já estiver completa, responde na hora.
      */
-    public function mount(MedicationQuestionService $service): void
+    public function mount(QuestionConversation $service): void
     {
         $id = request()->integer('medicamento');
         if ($id > 0 && ($medicine = AnvisaMedicine::query()->find($id)) !== null) {
@@ -85,7 +68,7 @@ class Perguntar extends Component
         $this->aviso = null;
     }
 
-    public function perguntar(MedicationQuestionService $service): void
+    public function perguntar(QuestionConversation $service): void
     {
         $this->aviso = null;
         $this->corrigindo = false;
@@ -96,13 +79,11 @@ class Perguntar extends Component
             return;
         }
 
-        $key = 'pergunta:'.auth()->id();
-        if (RateLimiter::tooManyAttempts($key, (int) config('bulai.consultation.rate_limit_per_hour'))) {
+        if (! QuestionConversation::attempt(auth()->user())) {
             $this->aviso = 'Você atingiu o limite de perguntas por hora. Tente novamente mais tarde.';
 
             return;
         }
-        RateLimiter::hit($key, 3600);
 
         $this->arquivarRespostaAtual();
         $this->removidos = [];
@@ -111,7 +92,7 @@ class Perguntar extends Component
     }
 
     /** "Não é esse?": troca a detecção pelo medicamento escolhido e repete a mesma pergunta. */
-    public function corrigir(int $id, MedicationQuestionService $service): void
+    public function corrigir(int $id, QuestionConversation $service): void
     {
         if (! AnvisaMedicine::query()->whereKey($id)->exists()) {
             return;
@@ -124,7 +105,7 @@ class Perguntar extends Component
     }
 
     /** "Não era esse remédio": tira o medicamento detectado (por engano) e repete a mesma pergunta sem ele. */
-    public function remover(int $id, MedicationQuestionService $service): void
+    public function remover(int $id, QuestionConversation $service): void
     {
         if ($this->resposta === null) {
             return;
@@ -140,7 +121,7 @@ class Perguntar extends Component
     }
 
     /** Repete a pergunta atual (correção ou remoção) sem contá-la como nova troca. */
-    private function repetir(MedicationQuestionService $service): void
+    private function repetir(QuestionConversation $service): void
     {
         $question = trim((string) ($this->resposta['pergunta'] ?? $this->pergunta));
         if ($question === '') {
@@ -150,19 +131,10 @@ class Perguntar extends Component
         $this->responder($service, $question);
     }
 
-    private function responder(MedicationQuestionService $service, string $question): void
+    private function responder(QuestionConversation $service, string $question): void
     {
-        $contexto = array_map(fn (array $troca): array => [
-            'question' => $troca['pergunta'],
-            'answer' => $troca['resposta'],
-            'medicine_ids' => array_column($troca['medicamentos'], 'id'),
-            'topics' => $troca['assuntos'] ?? [],
-        ], array_slice($this->conversa, -MedicationQuestionService::CONVERSATION_TURNS));
-
-        $this->resposta = $service->askFreeform(auth()->user(), $question, $this->fixos, $contexto, $this->removidos) + ['pergunta' => $question];
-        $this->resposta['medicamento'] = implode(' + ', array_column($this->resposta['medicines'], 'name'));
-        // Depois de responder, os remédios "fixos" (link ou correção) deixam de valer: a conversa passa a guiar as próximas.
-        if (! in_array($this->resposta['status'], [MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::BLOCKED, MedicationQuestionService::GUIDANCE], true)) {
+        $this->resposta = $service->answer(auth()->user(), $question, $this->fixos, $this->conversa, $this->removidos);
+        if (QuestionConversation::releasesFixed($this->resposta)) {
             $this->fixos = [];
         }
     }
@@ -173,347 +145,30 @@ class Perguntar extends Component
         if ($this->resposta === null) {
             return;
         }
-        $this->conversa[] = [
-            'pergunta' => (string) ($this->resposta['pergunta'] ?? ''),
-            'status' => (string) $this->resposta['status'],
-            'resposta' => in_array($this->resposta['status'], [MedicationQuestionService::ANSWERED, MedicationQuestionService::NEEDS_INFO], true) ? $this->resposta['answer'] : null,
-            'assuntos' => array_values(array_filter((array) ($this->resposta['intent'] ?? []), 'is_string')),
-            'medicamentos' => array_map(fn (array $m): array => ['id' => (int) $m['id'], 'name' => (string) $m['name']], $this->resposta['medicines'] ?? []),
-            'uuid' => $this->resposta['uuid'] ?? null,
-        ];
-        $this->conversa = array_slice($this->conversa, -self::MAX_TROCAS);
+        $this->conversa = array_slice([...$this->conversa, QuestionConversation::turn($this->resposta)], -QuestionConversation::MAX_TURNS);
         $this->resposta = null;
     }
 
-    /** Modelos de reformulação sugeridos quando a bula não respondeu (determinísticos, sem IA). */
-    public const REFORMULACOES = [
-        '{nome} dá sono?',
-        'Como devo tomar {nome}?',
-        '{nome} pode ser tomado com comida?',
-        'Quais os efeitos mais comuns de {nome}?',
-    ];
-
-    private const TRECHO_MAXIMO = 300;
-
-    /**
-     * O que o BULA-IA diz no balão, por situação, em linguagem de conversa (nada de "limitações", "evidências", "catálogo").
-     *
-     * @param  array<string, mixed>  $resposta
-     * @param  list<string>  $emUso
-     * @return array{intro: string|null, urgencia: string|null, texto: string, fonte: string|null, trechos: list<array{titulo: string, texto: string}>, sugestoes: list<string>, remedios: list<string>, tone: string}
-     */
-    public static function fala(array $resposta, array $emUso = []): array
-    {
-        $nomes = array_values(array_unique(array_column($resposta['medicines'] ?? [], 'name')));
-        $semBula = array_values(array_unique([...($resposta['missing']['without_leaflet'] ?? []), ...($resposta['missing']['unidentified'] ?? [])]));
-        $comBula = array_values(array_diff($nomes, $semBula));
-        $de = fn (array $lista): string => self::listar($lista === [] ? $nomes : $lista);
-        $pergunta = (string) ($resposta['pergunta'] ?? $resposta['question'] ?? '');
-        $sugestoes = self::reformulacoes($comBula !== [] ? $comBula : $nomes, $pergunta);
-        $assunto = (string) (($resposta['intent'] ?? [])[0] ?? '');
-        $assuntoLabel = $assunto !== '' ? mb_strtolower((string) (config('bulai.questions.intents.'.$assunto.'.label') ?? config('bulai.leaflet.sections.'.$assunto.'.label') ?? $assunto)) : '';
-        $efeitos = $assunto === 'efeitos_colaterais';
-        $revisao = ' Registrei sua pergunta para a equipe buscar mais fontes.';
-        $fala = ['intro' => null, 'urgencia' => null, 'texto' => '', 'fonte' => null, 'trechos' => [], 'sugestoes' => [], 'remedios' => [], 'tone' => 'neutral'];
-
-        $fala['urgencia'] = is_array($resposta['urgency'] ?? null) ? (string) ($resposta['urgency']['message'] ?? '') : null;
-
-        switch ($resposta['status']) {
-            case MedicationQuestionService::ANSWERED:
-            case MedicationQuestionService::NEEDS_INFO:
-                // A resposta já é uma conversa (fatos, o que não dá para confirmar e perguntas); a tela só acrescenta de onde veio.
-                $fala['texto'] = (string) $resposta['answer'];
-                $fala['fonte'] = self::fonte($resposta, $comBula !== [] ? $comBula : $nomes, $semBula, $comBula);
-                break;
-            case MedicationQuestionService::UNAVAILABLE:
-                $fala['texto'] = 'Não consegui preparar a resposta agora. Tente de novo em instantes; se for urgente, fale com um farmacêutico ou médico.';
-                $fala['tone'] = 'warning';
-                break;
-            case MedicationQuestionService::NO_EVIDENCE:
-                // A bula humanizada não narra a busca ("procurei", "encontrei"): diz o que falta, sem suposições.
-                $texto = 'Não tenho uma orientação clara sobre '.($assuntoLabel !== '' ? $assuntoLabel : 'isso').' para '.$de($comBula).', e não quero responder com suposições.'
-                    .' Não ter essa orientação não quer dizer que seja seguro.';
-                // Quando o modelo explicou especificamente o que não deu para confirmar, vale a explicação dele (nunca trechos soltos).
-                $fala['texto'] = filled($resposta['answer'] ?? null) ? (string) $resposta['answer'] : $texto;
-                $fala['fonte'] = ($semBula !== [] ? 'Ainda não tenho a bula de '.self::listar($semBula).' comigo. ' : '')
-                    .($efeitos ? 'Se você estiver sentindo algum sintoma ou teve uma reação depois de usar o remédio, vale falar com um farmacêutico ou médico.' : 'Na dúvida, fale com um farmacêutico ou médico.').$revisao;
-                $fala['sugestoes'] = $sugestoes;
-                break;
-            case MedicationQuestionService::NO_LEAFLET:
-                $fala['texto'] = 'Ainda não tenho a bula de '.$de($semBula).' comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa.'.$revisao;
-                $fala['remedios'] = array_slice(array_values(array_diff($emUso, $nomes)), 0, 3);
-                $fala['tone'] = 'warning';
-                break;
-            case MedicationQuestionService::NOT_IDENTIFIED:
-                $fala['texto'] = 'Conheço o '.$de($semBula).', mas ainda não tenho a bula dele comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa. Se não era esse, toque em “Não é esse remédio?”.'.$revisao;
-                $fala['remedios'] = array_slice(array_values(array_diff($emUso, $nomes)), 0, 3);
-                $fala['tone'] = 'warning';
-                break;
-            case MedicationQuestionService::NO_MEDICINE:
-                $fala['texto'] = ($resposta['guesses'] ?? []) !== []
-                    ? 'Não reconheci o nome do remédio. Você quis dizer um destes? Toque nele, ou escreva o nome como está na caixa.'
-                    : 'Sobre qual remédio você quer saber? Escreva o nome como está na caixa, por exemplo “Losartana”.';
-                $fala['tone'] = 'warning';
-                break;
-            case MedicationQuestionService::BLOCKED:
-                $fala['texto'] = (string) ($resposta['message'] ?? 'Não posso ajudar com essa pergunta.');
-                $fala['tone'] = in_array($resposta['guard']['category'] ?? null, ['harm_risk', 'harm_others'], true) ? 'danger' : 'neutral';
-                break;
-            case MedicationQuestionService::GUIDANCE:
-                $fala['texto'] = (string) ($resposta['answer'] ?? '');
-                break;
-        }
-
-        return $fala;
-    }
-
-    /**
-     * Linha curta de procedência abaixo da resposta ("Baseado na bula do paciente de LOSARTANA."); os trechos, seções e páginas
-     * ficam recolhidos em "Fontes utilizadas". Depois, o que mais foi levado em conta (perfil, conversa, bulas que faltam).
-     *
-     * @param  array<string, mixed>  $resposta
-     * @param  list<string>  $nomes
-     * @param  list<string>  $semBula
-     * @param  list<string>  $comBula
-     */
-    public static function fonte(array $resposta, array $nomes, array $semBula, array $comBula): string
-    {
-        $evidencias = collect($resposta['evidences'] ?? []);
-        $bulas = $evidencias->filter(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true) && ! empty($e['supports_claims']));
-        $tipos = $bulas->pluck('document_type')->unique()->map(fn ($tipo): string => match ($tipo) {
-            'bula_paciente' => 'do paciente', 'bula_profissional' => 'do profissional de saúde', default => ''
-        })->filter()->values();
-        $fonte = $tipos->isEmpty() ? 'Baseado na bula de '.self::listar($nomes).'.' : 'Baseado na bula '.$tipos->join(' e na bula ').' de '.self::listar($nomes).'.';
-        // Bula dos EUA (FDA) como complemento: sempre com o crédito e o aviso de que a bula brasileira não traz a informação.
-        $estrangeira = $bulas->contains(fn ($e): bool => ($e['document_type'] ?? null) === ExternalEvidenceService::DOCUMENT_TYPE);
-        // Sem bula brasileira de nenhum dos remédios, a da FDA respondeu sozinha: o aviso diz isso, e não "respondi só sobre".
-        $soEstrangeira = $estrangeira && $comBula === [] && $semBula !== [];
-        if ($estrangeira) {
-            $credito = 'traduzida automaticamente. Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine).'
-                .($soEstrangeira ? ' Ainda não tenho a bula brasileira de '.self::listar($semBula).'.' : ' A bula brasileira cadastrada não traz essa informação.');
-            $fonte = $tipos->isEmpty() ? 'Baseado na bula dos EUA (FDA) de '.self::listar($nomes).', '.$credito : $fonte.' Parte vem da bula dos EUA (FDA), '.$credito;
-        }
-        if ($semBula !== [] && ! $soEstrangeira) {
-            $fonte .= ' Ainda não tenho a bula de '.self::listar($semBula).', então respondi só sobre '.self::listar($comBula).'.';
-        }
-        if ($evidencias->contains(fn ($e) => ($e['document_type'] ?? null) === 'treatment_context' && ! empty($e['supports_claims']))) {
-            $fonte .= ' Considera também os remédios e as alergias do seu perfil.';
-        }
-        if (! empty($resposta['generation']['conversation_context'])) {
-            $fonte .= ' Leva em conta o que você perguntou antes nesta conversa.';
-        }
-
-        return $fonte;
-    }
-
-    /** Palavras que marcam a frase da resposta que fala da interação (quando os dois remédios foram citados na pergunta). */
-    private const TERMOS_DE_INTERACAO = ['interação', 'interações', 'interagir', 'interage', 'interagem'];
-
-    /**
-     * Alerta da resposta, a partir do motor estruturado (nunca do modelo): alergia registrada que atinge o remédio (vermelho,
-     * com aviso em destaque) ou interação, seja com um remédio em uso, seja entre os remédios citados na pergunta (amarelo).
-     * `itens` são as linhas determinísticas mostradas no balão; `termos` marcam as frases da resposta que falam do alerta.
-     *
-     * @param  array<string, mixed>  $resposta
-     * @return array{tipo: 'alergia'|'interacao', itens: list<array{texto: string, severidade: string|null}>, termos: list<string>, popup: string|null}|null
-     */
-    public static function alerta(array $resposta): ?array
-    {
-        if (in_array($resposta['status'] ?? null, [MedicationQuestionService::BLOCKED, MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::GUIDANCE], true)) {
-            return null;
-        }
-        $alergias = [];
-        $interacoes = [];
-        $termos = [];
-        $popup = null;
-        foreach ($resposta['treatments'] ?? [] as $tratamento) {
-            $nome = (string) ($tratamento['medicine'] ?? 'este remédio');
-            foreach ($tratamento['context']['allergy_alerts'] ?? [] as $alergia) {
-                $relacao = ($alergia['via'] ?? null) === 'classe' ? 'é da mesma classe de' : 'contém';
-                $alergias[] = ['texto' => "{$nome} {$relacao} {$alergia['ingredient']}. Você registrou alergia a {$alergia['allergy']}.", 'severidade' => null];
-                $termos[] = (string) $alergia['allergy'];
-                $popup ??= '<strong>'.e($nome).'</strong> '.e($relacao).' <strong>'.e((string) $alergia['ingredient']).'</strong>, e você registrou alergia a <strong>'.e((string) $alergia['allergy']).'</strong>. Não use sem falar antes com seu médico ou farmacêutico.';
-            }
-            foreach ($tratamento['context']['interactions'] ?? [] as $interacao) {
-                $interacoes[] = $interacao['severity'] === 'duplicate'
-                    ? ['texto' => "{$nome} tem a mesma substância de {$interacao['medicine']}, que você usa.", 'severidade' => 'duplicate']
-                    : ['texto' => "{$nome} + {$interacao['medicine']}, que você usa", 'severidade' => (string) $interacao['severity']];
-                $termos[] = (string) $interacao['medicine'];
-            }
-        }
-        foreach ($resposta['pair_interactions'] ?? [] as $par) {
-            if ($par['severity'] === null || $par['severity'] === 'unverified') {
-                continue;
-            }
-            $interacoes[] = $par['severity'] === 'duplicate'
-                ? ['texto' => "{$par['a']} e {$par['b']} têm a mesma substância.", 'severidade' => 'duplicate']
-                : ['texto' => "{$par['a']} + {$par['b']}", 'severidade' => (string) $par['severity']];
-            array_push($termos, ...self::TERMOS_DE_INTERACAO);
-        }
-        if ($alergias === [] && $interacoes === []) {
-            return null;
-        }
-
-        return [
-            'tipo' => $alergias !== [] ? 'alergia' : 'interacao',
-            'itens' => [...$alergias, ...$interacoes],
-            'termos' => array_values(array_unique([...$termos, ...($alergias !== [] ? ['alergia', 'alérgica', 'alérgico'] : [])])),
-            'popup' => $popup,
-        ];
-    }
-
-    /**
-     * A fala do BULA-IA em parágrafos, com remédios e componentes em negrito e, havendo alerta, as frases que falam dele.
-     *
-     * @param  array<string, mixed>  $resposta
-     * @param  array{termos: list<string>}|null  $alerta
-     * @return list<HtmlString>
-     */
-    public static function paragrafos(string $texto, array $resposta, ?array $alerta = null): array
-    {
-        $nomes = [];
-        foreach ($resposta['medicines'] ?? [] as $item) {
-            array_push($nomes, (string) $item['name'], (string) ($item['ingredients'] ?? ''));
-        }
-        foreach ($resposta['treatments'] ?? [] as $tratamento) {
-            foreach ($tratamento['context']['interactions'] ?? [] as $interacao) {
-                $nomes[] = (string) $interacao['medicine'];
-            }
-            foreach ($tratamento['context']['allergy_alerts'] ?? [] as $alergia) {
-                array_push($nomes, (string) $alergia['ingredient'], (string) $alergia['allergy']);
-            }
-        }
-        $destaque = app(AnswerHighlighter::class);
-
-        return array_map(
-            fn (string $paragrafo): HtmlString => $destaque->html($paragrafo, array_values(array_filter($nomes)), $alerta['termos'] ?? []),
-            array_values(array_filter(preg_split('/\n{2,}/u', trim($texto)) ?: [], fn (string $p): bool => trim($p) !== '')),
-        );
-    }
-
-    /** "Losartana", "Losartana e Omeprazol", "A, B e C". @param list<string> $nomes */
-    public static function listar(array $nomes): string
-    {
-        $nomes = array_values(array_filter($nomes, fn ($n): bool => is_string($n) && $n !== ''));
-        if ($nomes === []) {
-            return 'esse remédio';
-        }
-        if (count($nomes) === 1) {
-            return $nomes[0];
-        }
-        $ultimo = array_pop($nomes);
-
-        return implode(', ', $nomes).' e '.$ultimo;
-    }
-
-    /** @param list<string> $nomes @return list<string> até 3 reformulações diferentes da pergunta atual */
-    public static function reformulacoes(array $nomes, string $perguntaAtual): array
-    {
-        $nome = $nomes[0] ?? null;
-        if ($nome === null) {
-            return [];
-        }
-        $normal = fn (string $t): string => mb_strtolower(trim(preg_replace('/[^\p{L}\p{N} ]+/u', ' ', $t) ?? ''));
-        $atual = $normal($perguntaAtual);
-        $sugestoes = [];
-        foreach (self::REFORMULACOES as $modelo) {
-            $texto = str_replace('{nome}', $nome, $modelo);
-            if ($normal($texto) !== $atual && count($sugestoes) < 3) {
-                $sugestoes[] = $texto;
-            }
-        }
-
-        return $sugestoes;
-    }
-
-    /** @param list<array<string, mixed>> $evidencias @return list<array{titulo: string, texto: string}> até 2 trechos curtos */
-    private static function trechos(array $evidencias): array
-    {
-        $trechos = [];
-        foreach ($evidencias as $evidencia) {
-            if (in_array($evidencia['document_type'] ?? null, ['treatment_context', 'conversation_context'], true) || empty($evidencia['excerpt'])) {
-                continue;
-            }
-            $texto = trim(preg_replace('/\s+/u', ' ', (string) $evidencia['excerpt']) ?? '');
-            $trechos[] = [
-                'titulo' => (string) ($evidencia['document_title'] ?? 'Bula'),
-                'texto' => mb_strlen($texto) > self::TRECHO_MAXIMO ? rtrim(mb_substr($texto, 0, self::TRECHO_MAXIMO)).'…' : $texto,
-            ];
-            if (count($trechos) === 2) {
-                break;
-            }
-        }
-
-        return $trechos;
-    }
-
-    /** Frase curta para as trocas antigas da conversa (sem a resposta completa guardada). */
-    public static function falaCurta(string $status, array $medicamentos): string
-    {
-        $nome = self::listar(array_column($medicamentos, 'name'));
-
-        return match ($status) {
-            MedicationQuestionService::NO_LEAFLET => 'Ainda não tenho a bula de '.$nome.' comigo.',
-            MedicationQuestionService::NOT_IDENTIFIED => 'Ainda não tenho a bula de '.$nome.' comigo.',
-            MedicationQuestionService::NO_EVIDENCE => 'Não tive uma orientação clara sobre isso para '.$nome.'.',
-            MedicationQuestionService::EXCERPTS_ONLY => 'Mostrei as partes da bula de '.$nome.' que falam disso.',
-            MedicationQuestionService::NEEDS_INFO => 'Preciso de mais informações para explicar sobre '.$nome.'.',
-            MedicationQuestionService::UNAVAILABLE => 'Não consegui consultar o assistente nessa hora.',
-            MedicationQuestionService::NO_MEDICINE => 'Perguntei sobre qual remédio você queria saber.',
-            MedicationQuestionService::BLOCKED => 'Não pude ajudar com essa pergunta.',
-            MedicationQuestionService::GUIDANCE => 'Expliquei como o sistema funciona nesse ponto.',
-            default => 'Respondi com base na bula de '.$nome.'.',
-        };
-    }
-
-    /** @return list<array{document_title: string, section: string|null, page_start: int|null, excerpt: string, processed: string|null}> */
-    private function fontes(): array
-    {
-        $evidencias = collect($this->resposta['evidences'] ?? [])
-            ->filter(fn ($e) => ! in_array($e['document_type'] ?? null, ['treatment_context', 'conversation_context'], true) && ! empty($e['excerpt']) && ! empty($e['supports_claims']));
-        $processados = KnowledgeDocument::query()->whereIn('id', $evidencias->pluck('document_id')->filter()->unique()->all())->pluck('processed_at', 'id');
-
-        return $evidencias
-            ->unique(fn ($e) => ($e['document_id'] ?? '').'|'.trim((string) ($e['section'] ?? '')).'|'.($e['page_start'] ?? ''))
-            ->map(fn ($e): array => [
-                'document_title' => (string) ($e['document_title'] ?? 'Bula'),
-                'section' => filled($e['section'] ?? null) ? trim((string) $e['section']) : null,
-                'page_start' => $e['page_start'] ?? null,
-                'excerpt' => Str::limit(trim(preg_replace('/\s+/u', ' ', (string) $e['excerpt']) ?? ''), 420, '…'),
-                'processed' => ($processados[$e['document_id'] ?? 0] ?? null)?->timezone(config('app.timezone'))->format('d/m/Y'),
-            ])->values()->all();
-    }
-
-    public function render(MedicationSearchService $search, TreatmentContextService $treatment): View
+    public function render(MedicationSearchService $search, QuestionConversation $conversation): View
     {
         $user = auth()->user();
-        $previo = null;
-        if ($this->resposta === null && $this->conversa === [] && $this->fixos !== [] && ($fixo = AnvisaMedicine::query()->find($this->fixos[0])) !== null) {
-            $previo = ['medicine' => $fixo->product_name, 'context' => $treatment->for($user, $fixo)];
-        }
-        $emUso = $user->hasHealthConsent()
-            ? PatientMedication::query()->with('medicine:id,product_name')->where('user_id', $user->id)->orderBy('id')->get()
-                ->filter(fn (PatientMedication $item): bool => $item->isActive() && $item->medicine !== null)
-                ->map(fn (PatientMedication $item): string => $item->medicine->product_name)->unique()->values()->take(6)->all()
-            : [];
-
-        $fala = $this->resposta !== null ? self::fala($this->resposta, $emUso) : null;
-        $alerta = $this->resposta !== null ? self::alerta($this->resposta) : null;
+        $previo = $this->resposta === null && $this->conversa === [] && $this->fixos !== [] ? $conversation->preview($user, $this->fixos[0]) : null;
+        $emUso = $conversation->inUse($user);
+        $fala = $this->resposta !== null ? QuestionConversation::speech($this->resposta, $emUso) : null;
+        $alerta = $this->resposta !== null ? QuestionConversation::alert($this->resposta) : null;
 
         return view('livewire.consulta.perguntar', [
             'previo' => $previo,
             'emUso' => $emUso,
-            'exemplos' => self::EXEMPLOS,
+            'exemplos' => QuestionConversation::EXAMPLES,
             'maximo' => (int) config('bulai.guard.max_length'),
             'resultados' => $this->corrigindo ? $search->search($this->busca, 6) : [],
             'buscou' => strlen(trim($this->busca)) >= 3,
             'corrigidos' => array_values(array_filter($this->resposta['medicines'] ?? [], fn (array $m): bool => ! empty($m['fuzzy']))),
             'fala' => $fala,
             'alerta' => $alerta,
-            'paragrafos' => $fala !== null ? self::paragrafos($fala['texto'], $this->resposta, $alerta) : [],
-            // "Fontes utilizadas": uma entrada por documento, seção e página (sem repetir), só dos trechos que sustentam alguma
-            // afirmação. Mostra o trecho que fundamentou, a seção, a página e a data de processamento da bula.
-            'fontes' => $this->fontes(),
+            'paragrafos' => $fala !== null ? QuestionConversation::paragraphs($fala['texto'], $this->resposta, $alerta) : [],
+            'fontes' => $this->resposta !== null ? QuestionConversation::sources($this->resposta) : [],
             'retentionDays' => (int) config('bulai.questions.retention_days'),
         ]);
     }

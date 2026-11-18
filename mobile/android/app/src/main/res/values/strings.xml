@@ -28,5 +28,9 @@
 
     <string name="atalho_hoje">Remédios de hoje</string>
     <string name="atalho_hoje_curto">Hoje</string>
+    <string name="atalho_perguntar">Perguntar sobre um remédio</string>
+    <string name="atalho_perguntar_curto">Perguntar</string>
+    <string name="atalho_receita">Fotografar receita</string>
+    <string name="atalho_receita_curto">Receita</string>
 
 </resources>

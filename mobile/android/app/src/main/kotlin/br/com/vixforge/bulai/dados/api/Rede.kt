@@ -24,6 +24,9 @@ sealed class FalhaDaApi(mensagem: String) : Exception(mensagem) {
 
     class Limite(mensagem: String) : FalhaDaApi(mensagem)
 
+    /** 409: a ação não vale no estado atual (ex.: falta o consentimento de dados de saúde). */
+    class Conflito(mensagem: String, val codigo: String?) : FalhaDaApi(mensagem)
+
     class SemConexao : FalhaDaApi("Sem conexão com a internet. Confira o Wi-Fi ou os dados móveis.")
 
     class Servidor(mensagem: String) : FalhaDaApi(mensagem)
@@ -32,6 +35,8 @@ sealed class FalhaDaApi(mensagem: String) : Exception(mensagem) {
 object Rede {
     val json = Json {
         ignoreUnknownKeys = true
+        // Campos no valor padrão também vão para o servidor (ex.: `schedule_mode: "fixed"` de um item da receita).
+        encodeDefaults = true
         explicitNulls = false
         coerceInputValues = true
     }
@@ -47,7 +52,9 @@ object Rede {
                 .header("User-Agent", "BulaiAndroid/${BuildConfig.VERSION_NAME}")
                 .apply { token()?.let { header("Authorization", "Bearer $it") } }
                 .build()
-            val resposta = cadeia.proceed(pedido)
+            // Pergunta e leitura de receita passam pela IA: esperam mais que as outras telas.
+            val lenta = pedido.method == "POST" && pedido.url.encodedPath.let { it.endsWith("/perguntar") || it.endsWith("/receitas") }
+            val resposta = if (lenta) cadeia.withReadTimeout(90, TimeUnit.SECONDS).withWriteTimeout(60, TimeUnit.SECONDS).proceed(pedido) else cadeia.proceed(pedido)
             if (resposta.code == 401 && pedido.header("Authorization") != null) {
                 aoPerderAcesso()
             }
@@ -82,6 +89,7 @@ object Rede {
                     corpo?.errors?.values?.firstOrNull()?.firstOrNull() ?: corpo?.message ?: "Confira os dados.",
                     corpo?.errors?.mapValues { it.value.firstOrNull().orEmpty() }.orEmpty(),
                 )
+                409 -> FalhaDaApi.Conflito(corpo?.message ?: "Isso não pode ser feito agora.", corpo?.code)
                 404 -> FalhaDaApi.Servidor("Não encontramos isso. Pode ter sido apagado.")
                 429 -> FalhaDaApi.Limite(corpo?.message ?: "Muitas tentativas. Espere um pouco e tente de novo.")
                 else -> FalhaDaApi.Servidor("O BULA-IA não respondeu agora. Tente de novo em instantes.")

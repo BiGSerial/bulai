@@ -26,7 +26,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AlarmOn
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Medication
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -68,6 +70,8 @@ fun InicioTela(
     recado: (String) -> Unit,
     aoAbrirDia: () -> Unit,
     aoAbrirAvisos: () -> Unit,
+    aoAbrirPerguntar: () -> Unit,
+    aoFotografarReceita: () -> Unit,
     preenchimento: PaddingValues,
     aoContarAvisos: (Int) -> Unit = {},
 ) {
@@ -100,6 +104,8 @@ fun InicioTela(
                 item(key = "atalhos") {
                     Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Atalho(Icons.Rounded.EventAvailable, "Remédios de hoje", "Marque o que já tomou", aoAbrirDia)
+                        Atalho(Icons.AutoMirrored.Rounded.Chat, "Perguntar sobre um remédio", "Escreva ou fale sua dúvida", aoAbrirPerguntar)
+                        Atalho(Icons.Rounded.PhotoCamera, "Fotografar receita", "Os remédios entram no seu tratamento", aoFotografarReceita)
                         Atalho(Icons.Rounded.NotificationsActive, "Avisos e alarmes", when (dados.avisosNaoLidos) { 0 -> "Lembretes e alarmes do celular"; 1 -> "1 aviso novo"; else -> "${dados.avisosNaoLidos} avisos novos" }, aoAbrirAvisos, dados.avisosNaoLidos)
                     }
                 }

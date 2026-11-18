@@ -1,6 +1,10 @@
 package br.com.vixforge.bulai.dados
 
+import br.com.vixforge.bulai.dados.api.CabecalhoDaReceita
 import br.com.vixforge.bulai.dados.api.FalhaDaApi
+import br.com.vixforge.bulai.dados.api.ItemDaReceita
+import br.com.vixforge.bulai.dados.api.PedidoDeConfirmacao
+import br.com.vixforge.bulai.dados.api.PedidoDePergunta
 import br.com.vixforge.bulai.dados.api.PedidoDeEntrada
 import br.com.vixforge.bulai.dados.api.Rede
 import br.com.vixforge.bulai.dados.api.chamar
@@ -71,5 +75,32 @@ class RedeTest {
 
         servidor.close()
         assertTrue(chamar { api().inicio() }.exceptionOrNull() is FalhaDaApi.SemConexao)
+    }
+
+    @Test
+    fun aConfirmacaoDaReceitaMandaOsCamposNoValorPadrao() = runTest {
+        servidor.enqueue(MockResponse.Builder().body("""{"confirmed":1,"unmatched":0,"message":"1 remédio da receita entrou no seu tratamento."}""").build())
+
+        val resultado = api().confirmarReceita(7, PedidoDeConfirmacao(CabecalhoDaReceita("Dra. Ana"), listOf(ItemDaReceita("Dipirona 500 mg", seNecessario = true))))
+
+        val corpo = servidor.takeRequest().body?.utf8().orEmpty()
+        assertTrue(corpo, corpo.contains("\"schedule_mode\":\"fixed\""))
+        assertTrue(corpo, corpo.contains("\"skip\":false"))
+        assertTrue("nulos não vão", !corpo.contains("medicine_id"))
+        assertEquals("1 remédio da receita entrou no seu tratamento.", resultado.message)
+    }
+
+    @Test
+    fun aRespostaDoPerguntarChegaEmTrechosEO409ViraConflito() = runTest {
+        servidor.enqueue(MockResponse.Builder().body("""{"answer":{"uuid":"u1","question":"omeprazol em jejum?","status":"answered","paragraphs":[[{"text":"O ","bold":false},{"text":"omeprazol","bold":true},{"text":" vai em jejum.","bold":false}]],"medicines":[{"id":3,"name":"OMEPRAZOL","has_leaflet":true}],"can_listen":true}}""").build())
+        servidor.enqueue(MockResponse.Builder().code(409).body("""{"message":"Aceite o consentimento.","code":"health_consent_required"}""").build())
+
+        val resposta = api().perguntar(PedidoDePergunta("omeprazol em jejum?", turns = listOf("u0"))).answer
+        assertEquals("O omeprazol vai em jejum.", resposta.textoCorrido)
+        assertTrue(resposta.paragraphs[0][1].bold)
+        assertTrue(servidor.takeRequest().body?.utf8().orEmpty().contains("\"turns\":[\"u0\"]"))
+
+        val falha = chamar { api().receita(1) }.exceptionOrNull()
+        assertTrue(falha is FalhaDaApi.Conflito && falha.codigo == "health_consent_required")
     }
 }

@@ -5,7 +5,6 @@ namespace Tests\Feature\Knowledge;
 use App\Data\Ai\TextGenerationRequest;
 use App\Data\Ai\TextGenerationResponse;
 use App\Jobs\ImportExternalLabel;
-use App\Livewire\Consulta\Perguntar;
 use App\Models\Knowledge\ActiveIngredient;
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\Knowledge\ExternalLabel;
@@ -20,6 +19,7 @@ use App\Services\Interactions\PairVerdict;
 use App\Services\Knowledge\External\ExternalEvidenceService;
 use App\Services\Knowledge\External\ExternalLabelImporter;
 use App\Services\Patient\MedicationQuestionService;
+use App\Services\Patient\QuestionConversation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -184,7 +184,7 @@ final class ExternalLabelsTest extends TestCase
         $this->assertSame(['ZOLOFT (SERTRALINE HYDROCHLORIDE) — bula dos EUA (FDA), tradução automática', ExternalLabel::CREDIT, 'REAÇÕES ADVERSAS (bula dos EUA)'], [$foreign['document_title'], $foreign['source'], $foreign['section']]);
         $this->assertStringContainsString('vêm da bula dos Estados Unidos (FDA), traduzida', collect($this->requests)->where('purpose', 'medication_question')->last()['prompt']);
         $this->assertSame(['consulted' => true, 'references' => 1], $result['retrieval']['external']);
-        $this->assertStringContainsString('Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine)', Perguntar::fonte($result + ['evidences' => array_map(fn (array $e): array => $e + ['supports_claims' => true], $result['evidences'])], ['SERTRALINA'], [], ['SERTRALINA']));
+        $this->assertStringContainsString('Origem: FDA, via openFDA e DailyMed (U.S. National Library of Medicine)', QuestionConversation::source($result + ['evidences' => array_map(fn (array $e): array => $e + ['supports_claims' => true], $result['evidences'])], ['SERTRALINA'], [], ['SERTRALINA']));
 
         $this->requests = [];
         $this->answer = '{"coverage":"full","segments":[{"kind":"fact","text":"A sertralina é indicada para o tratamento da depressão.","evidence_ids":["ALL"]}]}';
@@ -208,7 +208,7 @@ final class ExternalLabelsTest extends TestCase
         $this->assertSame(MedicationQuestionService::ANSWERED, $adverse['status']);
         $this->assertSame([ExternalEvidenceService::DOCUMENT_TYPE], array_values(array_unique(array_column($adverse['evidences'], 'document_type'))));
         $this->assertContains('Ainda não há bula cadastrada para: OMEPRAZOL.', $adverse['limitations']);
-        $fonte = Perguntar::fonte($adverse + ['evidences' => array_map(fn (array $e): array => $e + ['supports_claims' => true], $adverse['evidences'])], ['OMEPRAZOL'], ['OMEPRAZOL'], []);
+        $fonte = QuestionConversation::source($adverse + ['evidences' => array_map(fn (array $e): array => $e + ['supports_claims' => true], $adverse['evidences'])], ['OMEPRAZOL'], ['OMEPRAZOL'], []);
         $this->assertStringContainsString('Baseado na bula dos EUA (FDA) de OMEPRAZOL', $fonte);
         $this->assertStringContainsString('Ainda não tenho a bula brasileira de OMEPRAZOL.', $fonte);
         $this->assertStringNotContainsString('respondi só sobre', $fonte);

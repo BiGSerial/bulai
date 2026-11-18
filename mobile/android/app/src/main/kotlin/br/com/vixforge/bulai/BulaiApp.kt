@@ -6,7 +6,9 @@ import br.com.vixforge.bulai.alarmes.Notificacoes
 import br.com.vixforge.bulai.dados.AvisosRepositorio
 import br.com.vixforge.bulai.dados.CacheEmDisco
 import br.com.vixforge.bulai.dados.ContaRepositorio
+import br.com.vixforge.bulai.dados.PerguntasRepositorio
 import br.com.vixforge.bulai.dados.Preferencias
+import br.com.vixforge.bulai.dados.ReceitasRepositorio
 import br.com.vixforge.bulai.dados.Sessao
 import br.com.vixforge.bulai.dados.TratamentoRepositorio
 import br.com.vixforge.bulai.dados.api.BulaiApi
@@ -35,6 +37,8 @@ class Container(context: Context) {
     val conta = ContaRepositorio(api)
     val tratamento = TratamentoRepositorio(context, api, cache)
     val avisos = AvisosRepositorio(context, api, cache)
+    val perguntas = PerguntasRepositorio(api, cache)
+    val receitas = ReceitasRepositorio(context, api)
 }
 
 val Context.container: Container get() = (applicationContext as BulaiApp).container
