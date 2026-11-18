@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
+use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
+use App\Http\Controllers\Api\Mobile\NoticeController as MobileNoticeController;
 use App\Http\Controllers\Api\V1\AuditController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\QuestionController;
@@ -9,6 +12,7 @@ use App\Http\Controllers\Internal\KnowledgeFileController;
 use App\Http\Controllers\Internal\KnowledgeImportController;
 use App\Http\Controllers\Internal\KnowledgePendingItemAssociationController;
 use App\Http\Middleware\AuthenticateIngestionToken;
+use App\Http\Middleware\AuthenticateMobileDevice;
 use App\Models\Knowledge\IngestionToken;
 use Illuminate\Support\Facades\Route;
 
@@ -55,4 +59,12 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     Route::middleware([AuthenticateIngestionToken::class.':'.IngestionToken::SCOPE_API_EVALUATE, 'throttle:api-evaluate'])->group(function (): void {
         Route::post('/evaluation/ask', [EvaluationController::class, 'ask'])->name('evaluation.ask');
     });
+});
+
+// Aplicativo Android (docs/app-android.md): token do aparelho emitido em POST /aparelho (sessão do WebView).
+Route::prefix('mobile/v1')->name('api.mobile.')->middleware([AuthenticateMobileDevice::class, 'throttle:mobile-api'])->group(function (): void {
+    Route::get('/agenda', [MobileAgendaController::class, 'index'])->name('agenda');
+    Route::post('/doses', [MobileAgendaController::class, 'mark'])->name('doses.mark');
+    Route::get('/avisos', [MobileNoticeController::class, 'index'])->name('notices');
+    Route::delete('/aparelho', [MobileDeviceController::class, 'destroy'])->name('device.destroy');
 });

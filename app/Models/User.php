@@ -137,6 +137,12 @@ class User extends Authenticatable
         return $this->hasMany(PushSubscription::class);
     }
 
+    /** Aparelhos do aplicativo Android ligados à conta (alarmes das doses). */
+    public function mobileDevices(): HasMany
+    {
+        return $this->hasMany(MobileDevice::class);
+    }
+
     public function patientProfile(): HasOne
     {
         return $this->hasOne(PatientProfile::class);

@@ -24,6 +24,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    {{-- Conta logada para o aplicativo Android (resources/js/nativo.js); vazio = visitante. --}}
+    <meta name="bulai-sessao" content="{{ auth()->id() ?? '' }}">
     <meta name="theme-color" content="#12344d">
     <title>{{ $titulo }}</title>
     <meta name="description" content="{{ $descricao }}">

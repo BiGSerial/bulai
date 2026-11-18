@@ -483,6 +483,8 @@ final class UserAccountService
     {
         $user->setRememberToken(Str::random(60));
         $user->save();
+        // O aplicativo Android usa token próprio (não sessão): perder o acesso também desconecta os aparelhos.
+        $user->mobileDevices()->delete();
 
         if (config('session.driver') !== 'database') {
             return;

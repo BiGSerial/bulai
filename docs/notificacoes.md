@@ -75,3 +75,7 @@ Capturas de um Android com tela de ~370 px (fonte grande) mostraram o nome do re
 ## Modo cuidador: aviso de dose atrasada (09/11/2026)
 
 `treatment:send-reminders` também roda `App\Services\Caregiving\CaregiverAlertService`: quem cuida com a permissão "receber avisos" recebe `CaregiverLateDoseNotification` (sino + Web Push, chave `cuidador:{vínculo}:{remédio}:{horário UTC}`) quando uma dose do paciente fica atrasada (`late_after_minutes`), dentro da janela `BULAI_CAREGIVER_ALERT_WINDOW_MINUTES` (padrão 120). O paciente recebe `CaregiverRequestNotification` quando alguém usa o código do convite. Avisos com `route_params` abrem a tela do paciente certo em `Avisos::abrir()` e em `GET /push/ultimo`. Detalhes, permissões e testes: `docs/cuidador.md`.
+
+## Aplicativo Android: alarmes nativos (17/11/2026)
+
+O APK (`mobile/android`) toca um alarme exato no próprio celular na hora de cada dose, sem depender de rede nem do agendador, com "Tomei", "Pular" e "Adiar" na notificação e modo despertador em tela cheia. A agenda vem de `GET /api/mobile/v1/agenda` (token do aparelho emitido por `POST /aparelho`), seguindo as mesmas regras do `ReminderService` (consentimento, preferência, lembrete do remédio, "se precisar"). Os avisos de dose do servidor continuam no sino e no e-mail; no celular, só os outros avisos viram notificação. Detalhes: `docs/app-android.md`.

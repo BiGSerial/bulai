@@ -10,7 +10,8 @@ const DISMISS_DAYS = 14;
 
 let deferredPrompt = null;
 
-const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+// Dentro do aplicativo Android (window.BulaiNative) já está "instalado": o cartão de instalação nunca aparece.
+const standalone = () => Boolean(window.BulaiNative) || window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
 const ios = () => /iphone|ipad|ipod/i.test(window.navigator.userAgent) && !window.MSStream;
 

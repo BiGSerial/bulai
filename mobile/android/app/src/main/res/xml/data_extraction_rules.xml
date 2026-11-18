@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nada vai para o backup na nuvem nem para outro aparelho: o token do aparelho e a agenda são dados de saúde. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+        <exclude domain="file" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" />
+        <exclude domain="sharedpref" />
+        <exclude domain="database" />
+        <exclude domain="file" />
+    </device-transfer>
+</data-extraction-rules>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Área do aplicativo: recebe o recuo das barras do sistema e do teclado (MainActivity). -->
+    <FrameLayout
+        android:id="@+id/raiz"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <WebView
+            android:id="@+id/web"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ProgressBar
+            android:id="@+id/progresso"
+            style="@android:style/Widget.Material.ProgressBar.Horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_gravity="top"
+            android:indeterminate="false"
+            android:max="100"
+            android:progressTint="@color/marca"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- Vídeo de abertura (res/raw/abertura.mp4), só ao entrar no app pelo ícone; a página carrega por baixo. -->
+    <FrameLayout
+        android:id="@+id/abertura"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/fundo_abertura"
+        android:importantForAccessibility="noHideDescendants"
+        android:visibility="gone">
+
+        <VideoView
+            android:id="@+id/abertura_video"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center" />
+    </FrameLayout>
+</merge>

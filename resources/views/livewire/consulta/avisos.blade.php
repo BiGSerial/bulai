@@ -104,5 +104,10 @@
             <p x-cloak x-show="erro !== ''" role="alert" class="rounded-lg bg-amber-50 px-3 py-2 text-base font-medium text-amber-900" x-text="erro"></p>
             <p x-cloak x-show="suporte && permissao === 'denied'" class="text-base text-slate-700">Os avisos deste aparelho estão bloqueados nas configurações do navegador.</p>
         </div>
+
+        {{-- Aplicativo Android: alarmes nativos no lugar do aviso do navegador (o WebView não tem Notification nem Web Push). --}}
+        @if ($consentido)
+            <x-consulta.alarmes-do-celular />
+        @endif
     </x-consulta.cartao>
 </x-consulta.shell>
