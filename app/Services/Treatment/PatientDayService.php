@@ -37,7 +37,12 @@ final class PatientDayService
             'date_label' => self::dateLabel($today),
             'health_consent' => $consent,
             'has_medications' => $consent && PatientMedication::query()->where('user_id', $user->id)->exists(),
-            'next_dose' => $next === null ? null : $this->dose($nextRow ?? $next + ['ajustado' => null]) + ['is_today' => $next['scheduled_for']->isSameDay($today)],
+            'next_dose' => $next === null ? null : $this->dose($nextRow ?? $next + ['ajustado' => null]) + [
+                'is_today' => $next['scheduled_for']->isSameDay($today),
+                // Desde quando contar a espera (barra que enche até o horário): a dose anterior do dia, ou o começo do dia.
+                'since' => ($agenda->filter(fn (array $dose): bool => $dose['scheduled_for']->lt($next['scheduled_for']))->max(fn (array $dose) => $dose['scheduled_for'])
+                    ?? $today->startOfDay())->toIso8601String(),
+            ],
             'progress' => [
                 'total' => $agenda->count(),
                 'taken' => $agenda->where('status', TreatmentScheduleService::DOSE_TAKEN)->count(),

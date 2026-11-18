@@ -1,5 +1,23 @@
 package br.com.vixforge.bulai.ui.inicio
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import br.com.vixforge.bulai.abertura.VideoDeAbertura
+import java.time.OffsetDateTime
+import kotlin.math.PI
+import kotlin.math.sin
+import kotlinx.coroutines.delay
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -172,15 +190,71 @@ private fun CartaoDoDia(dados: Inicio, marcando: Boolean, aoTomar: (Dose) -> Uni
     }
 }
 
+/**
+ * Próxima dose. O fundo do cartão enche da esquerda para a direita conforme o horário chega (da dose anterior do dia, ou do
+ * começo do dia, até o horário dela), com a ponta ondulando como a superfície de um líquido visto de lado. Na hora, cheio.
+ */
 @Composable
 private fun ProximaDose(dose: Dose, marcando: Boolean, aoTomar: (Dose) -> Unit) {
     val extras = TemaBulai.extras
     val atrasada = dose.status == Dose.ATRASADA
     val podeMarcar = dose.status == Dose.AGORA || atrasada
+    val context = LocalContext.current
+    val semAnimacao = remember { VideoDeAbertura.animacoesDesligadas(context) }
+
+    // O relógio anda sozinho (a cada 20 s) para a barra crescer com a tela aberta.
+    var agora by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(dose.key) {
+        while (true) {
+            agora = System.currentTimeMillis()
+            delay(20_000)
+        }
+    }
+    val horario = remember(dose.agendadaPara) { runCatching { OffsetDateTime.parse(dose.agendadaPara).toInstant().toEpochMilli() }.getOrNull() }
+    val inicio = remember(dose.desde) { dose.desde?.let { runCatching { OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() } }
+    val alvo = when {
+        podeMarcar -> 1f
+        horario == null || inicio == null || horario <= inicio -> 0f
+        else -> ((agora - inicio).toFloat() / (horario - inicio)).coerceIn(0f, 1f)
+    }
+    val enchimento by animateFloatAsState(alvo, tween(if (semAnimacao) 0 else 1400, easing = FastOutSlowInEasing), label = "enchimento")
+    val faltam = horario?.let { ((it - agora) / 60_000).toInt() }
+
+    val onda = rememberInfiniteTransition(label = "onda")
+    val fase by onda.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "fase")
+    val fundo = if (atrasada) extras.alertaFundo else MaterialTheme.colorScheme.primaryContainer
+    val liquido = if (atrasada) extras.alerta.copy(alpha = 0.18f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+    val densidade = LocalDensity.current
+    val amplitude = with(densidade) { 5.dp.toPx() }
+    val comprimento = with(densidade) { 44.dp.toPx() }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Surface(
-            color = if (atrasada) extras.alertaFundo else MaterialTheme.colorScheme.primaryContainer,
-            shape = MaterialTheme.shapes.medium,
+        Box(
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).drawBehind {
+                drawRect(fundo)
+                if (enchimento <= 0f) {
+                    return@drawBehind
+                }
+                if (enchimento >= 1f) {
+                    drawRect(liquido)
+                    return@drawBehind
+                }
+                // Ponta ondulada: x varia com a altura (seno) e a onda "corre" pela fase.
+                val borda = size.width * enchimento
+                val faseAtual = if (semAnimacao) 0f else fase
+                val caminho = Path().apply {
+                    moveTo(0f, 0f)
+                    var y = 0f
+                    while (y <= size.height) {
+                        lineTo(borda + amplitude * sin(2 * PI.toFloat() * y / comprimento + faseAtual), y)
+                        y += 3f
+                    }
+                    lineTo(borda + amplitude * sin(2 * PI.toFloat() * size.height / comprimento + faseAtual), size.height)
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(caminho, liquido)
+            },
         ) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(if (atrasada) Icons.Rounded.WarningAmber else Icons.Rounded.AlarmOn, contentDescription = null, tint = if (atrasada) extras.alerta else MaterialTheme.colorScheme.primary, modifier = Modifier.size(32.dp))
@@ -198,6 +272,17 @@ private fun ProximaDose(dose: Dose, marcando: Boolean, aoTomar: (Dose) -> Unit) 
                     Text(dose.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                     dose.dosage?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     dose.ajustadaDe?.let { Text("Ajustado pela dose das $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    if (!podeMarcar && faltam != null && faltam > 0) {
+                        Text(
+                            "Faltam " + when {
+                                faltam < 60 -> "$faltam min"
+                                faltam % 60 == 0 -> "${faltam / 60} h"
+                                else -> "${faltam / 60} h ${faltam % 60} min"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
             }
         }

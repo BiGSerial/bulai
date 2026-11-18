@@ -81,6 +81,8 @@ data class Dose(
     @SerialName("adjusted_from") val ajustadaDe: String? = null,
     @SerialName("taken_at") val tomadaEm: String? = null,
     @SerialName("is_today") val ehHoje: Boolean = true,
+    /** Início da espera pela dose (a anterior do dia, ou o começo do dia): a barra do cartão "Próximo" enche daí até o horário. */
+    @SerialName("since") val desde: String? = null,
 ) {
     val feita: Boolean get() = status == TOMADA || status == PULADA
 

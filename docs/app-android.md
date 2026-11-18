@@ -58,7 +58,7 @@ Respostas em JSON com `Cache-Control: no-store`; erros no formato do Laravel (`m
 | `GET /eu` | `{user}` | também com senha provisória pendente |
 | `POST /primeiro-acesso` | `{password, password_confirmation}` → `{user}` | senha nova diferente da provisória |
 | `DELETE /aparelho` | desconecta este aparelho | auditado |
-| `GET /inicio` | saudação, data, consentimento, próxima dose, progresso do dia, avisos não lidos, pessoas cuidadas | `App\Services\Treatment\PatientDayService::home` |
+| `GET /inicio` | saudação, data, consentimento, próxima dose (com `since`: a dose anterior do dia ou o começo do dia, para a barra de espera), progresso do dia, avisos não lidos, pessoas cuidadas | `App\Services\Treatment\PatientDayService::home` |
 | `GET /dia?dia=-1\|0\|1` | resumo e doses do dia (com `period` manhã/tarde/noite, `adjusted_from` dos remédios dinâmicos) e remédios "quando precisar" | `PatientDayService::day` |
 | `POST /dia/doses` | `{medication_id, scheduled_for, status: taken\|skipped, dia}` → dia atualizado | remédio de outra pessoa → 404 |
 | `DELETE /dia/doses` | `{medication_id, scheduled_for, dia}` → dia atualizado | desfaz a marcação |
@@ -122,6 +122,7 @@ Regras extraídas dos componentes Livewire para serviços usados pelo site e pel
 Detalhes de experiência:
 
 - **Carregamento**: esqueletos com as proporções reais da tela na primeira abertura; depois, os dados guardados aparecem na hora e a atualização é silenciosa (indicador de puxar para atualizar).
+- **Próximo remédio (Início)**: o fundo do cartão enche da esquerda para a direita, de `since` até o horário (atualiza a cada 20 s, com transição suave), e a ponta ondula como a superfície de um líquido visto de lado; mostra "Faltam X h Y min". Na hora ou atrasado, cheio. Com as animações do sistema desligadas, sem ondulação.
 - **Remédios do dia**: abas Ontem/Hoje/Amanhã com deslize lateral (`HorizontalPager`), cada dia buscado quando aparece; linha do tempo por período; "Tomei" com vibração de confirmação e efeito próprio: o verde opaco nasce num círculo a partir do botão e cobre o cartão inteiro, textos inclusive (~520 ms); o joinha salta no centro com mola, dá um pulinho e balança; depois o véu verde clareia, os textos voltam por cima do fundo verde já com "Tomado", e o joinha some com fade-out (~1,5 s no total). "Desfazer" (ou o servidor recusar) recolhe o verde de volta ao botão. Com as animações do sistema desligadas, o cartão muda direto; o joinha não é lido pelo TalkBack (o estado "Tomado" é anunciado).
 - **Acessibilidade**: títulos marcados como cabeçalho, estado das doses lido pelo TalkBack, erros de campo anunciados, "Apagar aviso" como ação de acessibilidade (além do arrastar), alvos de toque ≥ 48 dp, letra grande.
 - **Telas largas**: conteúdo limitado a 520–640 dp e centralizado.

@@ -267,6 +267,7 @@ final class AppAndroidTest extends TestCase
         $this->getJson(route('api.mobile.home'), $this->bearer($user))->assertOk()
             ->assertJsonPath('health_consent', true)->assertJsonPath('has_medications', true)
             ->assertJsonPath('next_dose.name', 'Losartana')->assertJsonPath('next_dose.time', '08:00')->assertJsonPath('next_dose.status', 'pending')->assertJsonPath('next_dose.is_today', true)
+            ->assertJsonPath('next_dose.since', '2026-11-05T00:00:00-03:00')
             ->assertJsonPath('progress.total', 3)->assertJsonPath('progress.done', 0)->assertJsonPath('unread_notices', 1)
             ->assertJsonPath('date_label', 'Quinta-feira, 5 de novembro')
             ->assertJsonPath('caring_for', []);

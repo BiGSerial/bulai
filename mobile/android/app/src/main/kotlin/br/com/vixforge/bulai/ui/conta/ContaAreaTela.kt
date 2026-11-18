@@ -31,7 +31,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Logout
+import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Forum
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.Medication
+import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -382,19 +388,32 @@ private fun ApagarConta(apagando: Boolean, erro: String?, aoConfirmar: (String) 
     AlertDialog(
         onDismissRequest = { if (!apagando) aoFechar() },
         icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-        title = { Text("Apagar minha conta?") },
+        title = { Text("Apagar sua conta?", textAlign = androidx.compose.ui.text.style.TextAlign.Center) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Isto não pode ser desfeito. Serão apagados:", style = MaterialTheme.typography.bodyLarge)
-                listOf(
-                    "seus remédios, horários e doses marcadas",
-                    "receitas, alergias e o perfil de saúde",
-                    "suas perguntas e consultas de interação",
-                    "avisos, cuidadores e aparelhos conectados",
-                    "seu nome e e-mail (a conta fica anônima e desativada)",
-                ).forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium) }
-                Text("Os alarmes deixam de tocar neste celular. Para usar o BULA-IA de novo, faça um novo cadastro.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Campo(senha, { senha = it }, "Sua senha", erro = erro, senha = true, acao = ImeAction.Done, aoConcluir = { if (senha.isNotEmpty()) aoConfirmar(senha) }, autoPreenchimento = listOf(ContentType.Password))
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Sua conta e tudo o que você guardou no BULA-IA serão apagados deste aparelho e dos nossos servidores.", style = MaterialTheme.typography.bodyLarge)
+                Column(
+                    Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.45f)).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("O que será apagado", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    ItemApagado(Icons.Rounded.Medication, "Remédios, horários e doses anotadas")
+                    ItemApagado(Icons.Rounded.Description, "Receitas, alergias e perfil de saúde")
+                    ItemApagado(Icons.Rounded.Forum, "Perguntas e consultas de interação")
+                    ItemApagado(Icons.Rounded.Group, "Avisos, cuidadores e aparelhos conectados")
+                    ItemApagado(Icons.Rounded.Badge, "Nome, nome de chamada e e-mail")
+                }
+                Text(
+                    "Fica apenas o registro de que uma conta foi apagada, sem nome, e-mail ou dados de saúde. Os alarmes param de tocar neste celular e, para voltar, basta fazer um novo cadastro.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Não dá para desfazer.", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                }
+                Campo(senha, { senha = it }, "Confirme com sua senha", erro = erro, senha = true, acao = ImeAction.Done, aoConcluir = { if (senha.isNotEmpty()) aoConfirmar(senha) }, autoPreenchimento = listOf(ContentType.Password))
             }
         },
         confirmButton = {
@@ -413,4 +432,13 @@ private fun ApagarConta(apagando: Boolean, erro: String?, aoConfirmar: (String) 
         },
         dismissButton = { TextButton(onClick = aoFechar, enabled = !apagando) { Text("Cancelar") } },
     )
+}
+
+@Composable
+private fun ItemApagado(icone: ImageVector, texto: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icone, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(texto, style = MaterialTheme.typography.bodyMedium)
+    }
 }
