@@ -1,6 +1,40 @@
 package br.com.vixforge.bulai.ui.perguntar
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.util.lerp
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.abs
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -47,6 +81,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -97,17 +132,30 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, ao
             vibrar.performHapticFeedback(HapticFeedbackType.Confirm)
         }
     }
+    // Voo da pergunta: sai da caixa e pousa no balão dela (que fica escondido até o pouso).
+    val voo = remember { VooDaPergunta() }
+    var ultimaVista by remember { mutableLongStateOf(ultima?.id ?: -1L) }
+    LaunchedEffect(ultima?.id) {
+        val nova = ultima?.takeIf { it.esperando && it.id > ultimaVista } ?: return@LaunchedEffect
+        ultimaVista = nova.id
+        voo.preparar(nova.id, nova.pergunta)
+        // Leva a conversa ao balão novo de uma vez, para o voo já ter onde pousar.
+        lista.scrollToItem(lista.layoutInfo.totalItemsCount.coerceAtLeast(1) - 1)
+        voo.voar(nova.id, nova.pergunta)
+    }
     val respostaAtual = ultima?.resposta
     val aviso = respostaAtual?.alert?.warning?.takeIf { respostaAtual.uuid != alergiaAvisada }
 
     val acoes = AcoesDaResposta(
         sugerir = vm::sugerir,
+        responder = vm::responder,
         corrigir = vm::corrigir,
         remover = vm::remover,
         trocarRemedio = { corrigindo = true },
         abrirBula = aoAbrirBula,
     )
 
+    Box(Modifier.fillMaxSize().onGloballyPositioned { voo.raiz = it.positionInRoot() }) {
     Column(Modifier.fillMaxSize().padding(preenchimento).consumeWindowInsets(preenchimento).imePadding()) {
         LazyColumn(
             state = lista,
@@ -122,7 +170,7 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, ao
             }
             items(estado.trocas, key = { it.id }) { troca ->
                 Column(LarguraDaConversa.animateContentSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    BalaoDaPessoa(troca.pergunta)
+                    PerguntaEnviada(troca, voo)
                     when {
                         troca.esperando -> Digitando()
                         troca.erro != null -> BalaoDoBulai(fundo = TemaBulai.extras.alertaFundo) {
@@ -157,7 +205,10 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, ao
             aoEscrever = vm::escrever,
             aoEnviar = { teclado?.hide(); vm.enviar() },
             aoDitar = { falado -> vm.sugerir(falado) },
+            modifier = Modifier.onGloballyPositioned { voo.origem = it.boundsInRoot() },
         )
+    }
+    BalaoEmVoo(voo)
     }
 
     if (corrigindo) {
@@ -198,6 +249,92 @@ private fun BoasVindas(estado: EstadoDaConversa, aoSugerir: (String) -> Unit, mo
     }
 }
 
+/**
+ * Voo da pergunta enviada: um balão "fantasma" sai do lugar e do tamanho da caixa de texto ([origem]) e pousa no balão
+ * da pergunta na conversa ([alvos]), que fica escondido até o pouso. O alvo é lido a cada quadro porque a conversa rola
+ * enquanto isso. Igual ao PWA (resources/js/animacoes.js).
+ */
+@Stable
+class VooDaPergunta {
+    var raiz by mutableStateOf(Offset.Zero)
+    var origem by mutableStateOf<Rect?>(null)
+    val alvos = mutableStateMapOf<Long, Rect>()
+    var trocaId by mutableStateOf<Long?>(null)
+        private set
+    var texto by mutableStateOf("")
+        private set
+    val progresso = Animatable(0f)
+
+    /** Esconde o balão novo (e o "Enviada") desde já, antes de a conversa rolar até ele. */
+    fun preparar(id: Long, pergunta: String) {
+        if (origem != null) {
+            texto = pergunta
+            trocaId = id
+        }
+    }
+
+    suspend fun voar(id: Long, pergunta: String) {
+        if (origem == null) {
+            return
+        }
+        texto = pergunta
+        trocaId = id
+        progresso.snapTo(0f)
+        // O balão pode ainda não estar na tela (a conversa rola até ele); espera um pouco por ele.
+        withTimeoutOrNull(800) { snapshotFlow { alvos[id] }.first { it != null } }
+        if (alvos[id] != null) {
+            progresso.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
+        }
+        trocaId = null
+    }
+
+    fun escondido(id: Long) = trocaId == id
+}
+
+@Composable
+private fun BalaoEmVoo(voo: VooDaPergunta) {
+    val id = voo.trocaId ?: return
+    val de = voo.origem ?: return
+    val para = voo.alvos[id] ?: return
+    val p = voo.progresso.value
+    val densidade = LocalDensity.current
+    val largura = with(densidade) { lerp(de.width, para.width, p).toDp() }
+    Surface(
+        shape = FormaDaPessoa,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shadowElevation = 6.dp,
+        modifier = Modifier
+            .offset { IntOffset((lerp(de.left, para.left, p) - voo.raiz.x).roundToInt(), (lerp(de.top, para.top, p) - voo.raiz.y).roundToInt()) }
+            .width(largura)
+            .graphicsLayer { alpha = (0.35f + p * 1.6f).coerceAtMost(1f) }
+            .clearAndSetSemantics {},
+    ) {
+        Text(voo.texto, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp))
+    }
+}
+
+/** A pergunta na conversa; a recém-enviada fica escondida até o voo pousar e depois mostra "Enviada". */
+@Composable
+private fun PerguntaEnviada(troca: Troca, voo: VooDaPergunta) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
+        BalaoDaPessoa(
+            troca.pergunta,
+            modificadorDoBalao = Modifier
+                .onGloballyPositioned { voo.alvos[troca.id] = it.boundsInRoot() }
+                .graphicsLayer { alpha = if (voo.escondido(troca.id)) 0f else 1f },
+        )
+        AnimatedVisibility(troca.esperando && !voo.escondido(troca.id), enter = fadeIn(tween(250)), exit = fadeOut()) {
+            Row(Modifier.padding(top = 4.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Check, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.width(4.dp))
+                Text("Enviada", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** Caixa da pergunta: uma caixa só, com o texto, o microfone e o botão de enviar juntos. */
 @Composable
 private fun CaixaDaPergunta(
     texto: String,
@@ -207,8 +344,10 @@ private fun CaixaDaPergunta(
     aoEscrever: (String) -> Unit,
     aoEnviar: () -> Unit,
     aoDitar: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val ditar = rememberDitado(aoDitar)
+    var focada by remember { mutableStateOf(false) }
     Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp, shadowElevation = 6.dp) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             AnimatedVisibility(aviso != null) {
@@ -219,35 +358,42 @@ private fun CaixaDaPergunta(
                     modifier = Modifier.padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
-            Row(verticalAlignment = Alignment.Bottom) {
-                OutlinedTextField(
-                    value = texto,
-                    onValueChange = aoEscrever,
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Sua dúvida sobre um remédio") },
-                    textStyle = MaterialTheme.typography.bodyLarge,
-                    maxLines = 5,
-                    shape = MaterialTheme.shapes.large,
-                    supportingText = if (texto.length > maximo * 0.8) {
-                        { Text("${texto.length}/$maximo") }
-                    } else {
-                        null
-                    },
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { aoEnviar() }),
-                )
-                if (ditar != null) {
-                    IconButton(onClick = ditar, modifier = Modifier.padding(start = 4.dp).size(56.dp), enabled = !enviando) {
-                        Icon(Icons.Rounded.Mic, contentDescription = "Falar a pergunta", modifier = Modifier.size(30.dp), tint = MaterialTheme.colorScheme.primary)
+            if (texto.length > maximo * 0.8) {
+                Text("${texto.length}/$maximo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+            }
+            Surface(
+                shape = RoundedCornerShape(28.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(if (focada) 2.dp else 1.dp, if (focada) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                modifier = modifier.fillMaxWidth(),
+            ) {
+                Row(Modifier.padding(start = 18.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.Bottom) {
+                    BasicTextField(
+                        value = texto,
+                        onValueChange = aoEscrever,
+                        modifier = Modifier.weight(1f).padding(vertical = 10.dp).onFocusChanged { focada = it.isFocused }.semantics { contentDescription = "Sua dúvida sobre um remédio" },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        maxLines = 5,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { aoEnviar() }),
+                        decorationBox = { campo ->
+                            Box {
+                                if (texto.isEmpty()) {
+                                    Text("Sua dúvida sobre um remédio", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                                campo()
+                            }
+                        },
+                    )
+                    if (ditar != null) {
+                        IconButton(onClick = ditar, enabled = !enviando, modifier = Modifier.size(44.dp)) {
+                            Icon(Icons.Rounded.Mic, contentDescription = "Falar a pergunta", tint = MaterialTheme.colorScheme.primary)
+                        }
                     }
-                } else {
-                    Spacer(Modifier.width(6.dp))
-                }
-                FilledIconButton(onClick = aoEnviar, enabled = !enviando && texto.isNotBlank(), modifier = Modifier.size(56.dp)) {
-                    if (enviando) {
-                        CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp, color = MaterialTheme.colorScheme.onPrimary)
-                    } else {
-                        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = "Perguntar")
+                    Spacer(Modifier.width(4.dp))
+                    FilledIconButton(onClick = aoEnviar, enabled = !enviando && texto.isNotBlank(), modifier = Modifier.size(44.dp)) {
+                        Icon(Icons.AutoMirrored.Rounded.Send, contentDescription = "Perguntar", modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -324,6 +470,7 @@ fun rotuloDoStatus(status: String): String = when (status) {
     "no_leaflet", "not_identified" -> "Sem bula cadastrada"
     "no_evidence" -> "Sem orientação clara na bula"
     "guidance" -> "Orientação de uso do sistema"
+    "support" -> "Indiquei onde encontrar apoio"
     "unavailable" -> "Não consegui responder"
     else -> "Respondida"
 }

@@ -7,6 +7,7 @@ use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Knowledge\External\ExternalEvidenceService;
+use App\Services\Safety\GuardVerdict;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -78,7 +79,7 @@ final class QuestionConversation
     /** Depois de responder, os remédios escolhidos (link ou correção) deixam de valer: a conversa passa a guiar as próximas. */
     public static function releasesFixed(array $answer): bool
     {
-        return ! in_array($answer['status'], [MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::BLOCKED, MedicationQuestionService::GUIDANCE], true);
+        return ! in_array($answer['status'], [MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::BLOCKED, MedicationQuestionService::GUIDANCE, MedicationQuestionService::SUPPORT], true);
     }
 
     /**
@@ -128,11 +129,47 @@ final class QuestionConversation
     }
 
     /**
+     * Blocos de ajuda da resposta, cada um identificável pela situação: título, texto curto, tom (`acolhimento`, `urgencia`,
+     * `cuidado`) e os telefones como botões de ligar. Na crise são três blocos (momento difícil, já tomou remédio a mais,
+     * continuar se cuidando); sem remédio e com uma necessidade reconhecida, os blocos de SupportChannels; nos outros casos, um bloco sem título com os telefones do caso (superdose, sintoma grave,
+     * pedido recusado por risco). O aplicativo recebe a mesma lista em `help_groups`.
+     *
+     * @param  array<string, mixed>  $resposta
+     * @return list<array{title: string|null, text: string|null, tone: string, lines: list<array{tel: string, number: string, name: string, detail: string}>}>
+     */
+    public static function helpGroups(array $resposta): array
+    {
+        $category = $resposta['guard']['category'] ?? null;
+        $blocked = ($resposta['status'] ?? null) === MedicationQuestionService::BLOCKED;
+        $kinds = is_array($resposta['urgency'] ?? null) ? (array) ($resposta['urgency']['kinds'] ?? []) : null;
+        $lines = fn (string ...$keys): array => array_map(fn (string $key): array => SupportChannels::LINES[$key], $keys);
+        $need = ($resposta['status'] ?? null) === MedicationQuestionService::SUPPORT ? ($resposta['support'] ?? $resposta['retrieval']['support'] ?? null) : null;
+        $only = fn (string ...$keys): array => [['title' => null, 'text' => null, 'tone' => 'urgencia', 'lines' => $lines(...$keys)]];
+
+        return match (true) {
+            $blocked && $category === GuardVerdict::HARM_RISK => [
+                ['title' => 'Está passando por um momento difícil?', 'tone' => 'acolhimento', 'lines' => $lines('cvv'),
+                    'text' => 'Você não precisa enfrentar isso sem apoio. No CVV há pessoas prontas para ouvir você agora, de graça, em sigilo e a qualquer hora. Se preferir escrever, use o chat em cvv.org.br.'],
+                ['title' => 'Já tomou remédio a mais ou está em perigo?', 'tone' => 'urgencia', 'lines' => $lines('samu', 'intoxicacao'),
+                    'text' => 'Ligue agora ou vá ao pronto-socorro mais próximo. O Disque-Intoxicação também orienta o que fazer.'],
+                ['title' => 'Para continuar se cuidando', 'tone' => 'cuidado', 'lines' => [],
+                    'text' => 'Se puder, chame alguém de confiança para ficar com você. O CAPS e a Unidade Básica de Saúde acompanham você com calma.'],
+            ],
+            is_string($need) => SupportChannels::groups($need),
+            $blocked && $category === GuardVerdict::HARM_OTHERS => $only('samu', 'policia'),
+            $blocked && in_array($category, [GuardVerdict::MISUSE, GuardVerdict::SENSITIVE], true) => $only('samu'),
+            $kinds !== null && array_intersect($kinds, UrgencyDetector::OVERDOSE_KINDS) !== [] => $only('intoxicacao', 'samu'),
+            $kinds !== null => $only('samu'),
+            default => [],
+        };
+    }
+
+    /**
      * O que o BULA-IA diz no balão, por situação, em linguagem de conversa (nada de "limitações", "evidências", "catálogo").
      *
      * @param  array<string, mixed>  $resposta
      * @param  list<string>  $emUso
-     * @return array{intro: string|null, urgencia: string|null, texto: string, fonte: string|null, trechos: list<array{titulo: string, texto: string}>, sugestoes: list<string>, remedios: list<string>, tone: string}
+     * @return array{intro: string|null, urgencia: string|null, texto: string, fonte: string|null, trechos: list<array{titulo: string, texto: string}>, sugestoes: list<string>, remedios: list<string>, opcoes: list<string>, tone: string}
      */
     public static function speech(array $resposta, array $emUso = []): array
     {
@@ -146,7 +183,7 @@ final class QuestionConversation
         $assuntoLabel = $assunto !== '' ? mb_strtolower((string) (config('bulai.questions.intents.'.$assunto.'.label') ?? config('bulai.leaflet.sections.'.$assunto.'.label') ?? $assunto)) : '';
         $efeitos = $assunto === 'efeitos_colaterais';
         $revisao = ' Registrei sua pergunta para a equipe buscar mais fontes.';
-        $fala = ['intro' => null, 'urgencia' => null, 'texto' => '', 'fonte' => null, 'trechos' => [], 'sugestoes' => [], 'remedios' => [], 'tone' => 'neutral'];
+        $fala = ['intro' => null, 'urgencia' => null, 'texto' => '', 'fonte' => null, 'trechos' => [], 'sugestoes' => [], 'remedios' => [], 'opcoes' => [], 'tone' => 'neutral'];
 
         $fala['urgencia'] = is_array($resposta['urgency'] ?? null) ? (string) ($resposta['urgency']['message'] ?? '') : null;
 
@@ -188,11 +225,19 @@ final class QuestionConversation
                 $fala['tone'] = 'warning';
                 break;
             case MedicationQuestionService::BLOCKED:
-                $fala['texto'] = (string) ($resposta['message'] ?? 'Não posso ajudar com essa pergunta.');
-                $fala['tone'] = in_array($resposta['guard']['category'] ?? null, ['harm_risk', 'harm_others'], true) ? 'danger' : 'neutral';
+                $crise = ($resposta['guard']['category'] ?? null) === GuardVerdict::HARM_RISK;
+                // Na crise, o balão traz só a recusa; o acolhimento e os contatos vêm nos blocos de ajuda (helpGroups).
+                $fala['texto'] = $crise ? GuardVerdict::crisisOpening($pergunta) : (string) ($resposta['message'] ?? 'Não posso ajudar com essa pergunta.');
+                $fala['tone'] = ($resposta['guard']['category'] ?? null) === GuardVerdict::HARM_OTHERS ? 'danger' : 'neutral';
                 break;
             case MedicationQuestionService::GUIDANCE:
                 $fala['texto'] = (string) ($resposta['answer'] ?? '');
+                break;
+            case MedicationQuestionService::SUPPORT:
+                $necessidade = (string) ($resposta['support'] ?? $resposta['retrieval']['support'] ?? SupportChannels::OTHER);
+                $fala['texto'] = SupportChannels::speech($necessidade);
+                // Pedido vago: respostas rápidas que já seguem a conversa ("Não estou me sentindo bem"...).
+                $fala['opcoes'] = $necessidade === SupportChannels::VAGUE ? SupportChannels::VAGUE_OPTIONS : [];
                 break;
         }
 
@@ -248,7 +293,7 @@ final class QuestionConversation
      */
     public static function alert(array $resposta): ?array
     {
-        if (in_array($resposta['status'] ?? null, [MedicationQuestionService::BLOCKED, MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::GUIDANCE], true)) {
+        if (in_array($resposta['status'] ?? null, [MedicationQuestionService::BLOCKED, MedicationQuestionService::NO_MEDICINE, MedicationQuestionService::GUIDANCE, MedicationQuestionService::SUPPORT], true)) {
             return null;
         }
         $alergias = [];
@@ -401,6 +446,7 @@ final class QuestionConversation
             MedicationQuestionService::NO_MEDICINE => 'Perguntei sobre qual remédio você queria saber.',
             MedicationQuestionService::BLOCKED => 'Não pude ajudar com essa pergunta.',
             MedicationQuestionService::GUIDANCE => 'Expliquei como o sistema funciona nesse ponto.',
+            MedicationQuestionService::SUPPORT => 'Indiquei onde encontrar apoio.',
             default => 'Respondi com base na bula de '.$nome.'.',
         };
     }

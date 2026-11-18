@@ -62,6 +62,13 @@ class Perguntar extends Component
         }
     }
 
+    /** Resposta rápida (ex.: "Não estou me sentindo bem"): vira a próxima mensagem e já é enviada. */
+    public function responderRapido(string $texto, QuestionConversation $service): void
+    {
+        $this->pergunta = mb_substr(trim($texto), 0, (int) config('bulai.guard.max_length'));
+        $this->perguntar($service);
+    }
+
     public function sugerir(string $texto): void
     {
         $this->pergunta = mb_substr(trim($this->pergunta.' '.$texto), 0, (int) config('bulai.guard.max_length'));
@@ -162,11 +169,13 @@ class Perguntar extends Component
             'emUso' => $emUso,
             'exemplos' => QuestionConversation::EXAMPLES,
             'maximo' => (int) config('bulai.guard.max_length'),
+            'minimo' => (int) config('bulai.guard.min_length'),
             'resultados' => $this->corrigindo ? $search->search($this->busca, 6) : [],
             'buscou' => strlen(trim($this->busca)) >= 3,
             'corrigidos' => array_values(array_filter($this->resposta['medicines'] ?? [], fn (array $m): bool => ! empty($m['fuzzy']))),
             'fala' => $fala,
             'alerta' => $alerta,
+            'ajuda' => $this->resposta !== null ? QuestionConversation::helpGroups($this->resposta) : [],
             'paragrafos' => $fala !== null ? QuestionConversation::paragraphs($fala['texto'], $this->resposta, $alerta) : [],
             'fontes' => $this->resposta !== null ? QuestionConversation::sources($this->resposta) : [],
             'retentionDays' => (int) config('bulai.questions.retention_days'),

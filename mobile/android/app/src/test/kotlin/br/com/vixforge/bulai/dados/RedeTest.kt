@@ -103,4 +103,18 @@ class RedeTest {
         val falha = chamar { api().receita(1) }.exceptionOrNull()
         assertTrue(falha is FalhaDaApi.Conflito && falha.codigo == "health_consent_required")
     }
+
+    @Test
+    fun aRespostaDeApoioTrazOsBlocosDeAjudaEAsRespostasRapidas() = runTest {
+        servidor.enqueue(
+            MockResponse.Builder().body(
+                """{"answer":{"status":"support","paragraphs":[[{"text":"Não consigo avaliar sintomas.","bold":false}]],"quick_replies":["Não estou me sentindo bem"],"help_groups":[{"title":"Sinais de alerta: ligue já","text":"Falta de ar…","tone":"urgencia","lines":[{"tel":"192","number":"192","name":"SAMU","detail":"Emergência"}]}]}}""",
+            ).build(),
+        )
+
+        val resposta = api().perguntar(PedidoDePergunta("estou com dor")).answer
+        assertEquals(listOf("Não estou me sentindo bem"), resposta.respostasRapidas)
+        assertEquals("Sinais de alerta: ligue já", resposta.ajuda[0].title)
+        assertEquals("192", resposta.ajuda[0].telefones[0].tel)
+    }
 }

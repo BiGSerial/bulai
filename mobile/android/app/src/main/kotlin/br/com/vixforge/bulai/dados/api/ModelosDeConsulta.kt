@@ -71,7 +71,10 @@ data class Resposta(
     val source: String? = null,
     @SerialName("can_listen") val podeOuvir: Boolean = false,
     val crisis: Boolean = false,
+    @SerialName("help_groups") val ajuda: List<GrupoDeAjuda> = emptyList(),
     val suggestions: List<String> = emptyList(),
+    /** Respostas rápidas (pedido vago de ajuda): cada uma é enviada como a próxima mensagem. */
+    @SerialName("quick_replies") val respostasRapidas: List<String> = emptyList(),
     @SerialName("other_medicines") val outrosRemedios: List<String> = emptyList(),
     val guesses: List<RemedioSimples> = emptyList(),
     @SerialName("my_medicines") val meusRemedios: List<RemedioSimples> = emptyList(),
@@ -95,6 +98,22 @@ data class Resposta(
         const val BLOQUEADA = "blocked"
     }
 }
+
+/** Telefone de ajuda da resposta (crise, superdose, sintoma grave): vira botão de ligar. */
+@Serializable
+data class TelefoneDeAjuda(val tel: String, val number: String, val name: String, val detail: String = "")
+
+/**
+ * Bloco de ajuda identificável pela situação (o mesmo do site): título, texto curto, tom (`acolhimento`, `urgencia`,
+ * `cuidado`) e os telefones. Sem título: "Precisa de ajuda agora? Toque para ligar."
+ */
+@Serializable
+data class GrupoDeAjuda(
+    val title: String? = null,
+    val text: String? = null,
+    val tone: String = "urgencia",
+    @SerialName("lines") val telefones: List<TelefoneDeAjuda> = emptyList(),
+)
 
 @Serializable
 data class RespostaDaPergunta(val answer: Resposta)

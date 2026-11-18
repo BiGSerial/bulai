@@ -43,7 +43,7 @@ final class AppAndroidPerfilTest extends TestCase
         $headers = $this->bearer($user);
         $losartana = $this->medicine('LOSARTANA', 'LOSARTANA');
 
-        $this->getJson(route('api.mobile.profile'), $headers)->assertOk()->assertJsonPath('health_consent', false);
+        $this->getJson(route('api.mobile.profile'), $headers)->assertOk()->assertJsonPath('health_consent', false)->assertJsonPath('posology_presets.frequencies.1', '2 vezes ao dia');
         $this->postJson(route('api.mobile.profile.medications.store'), ['medicine_id' => $losartana->id], $headers)->assertStatus(409)->assertJsonPath('code', 'health_consent_required');
 
         $this->postJson(route('api.mobile.profile.consent'), [], $headers)->assertOk()->assertJsonPath('health_consent', true);
@@ -60,6 +60,11 @@ final class AppAndroidPerfilTest extends TestCase
         $sugestao = $this->postJson(route('api.mobile.posology.suggest'), ['frequency' => 'de 12 em 12 horas', 'posology' => ['times' => []]], $headers)->assertOk()->json('posology');
         $this->assertSame(12, $sugestao['interval_hours']);
         $this->assertSame(PatientMedication::MODE_INTERVAL, $sugestao['schedule_mode']);
+        // Um atalho tocado refaz os horários do zero (escrever só sugere quando ainda não há horários).
+        $atalho = ['frequency' => '3 vezes ao dia', 'posology' => ['times' => ['09:00'], 'schedule_mode' => 'interval', 'interval_hours' => 12]];
+        $this->postJson(route('api.mobile.posology.suggest'), $atalho, $headers)->assertOk()->assertJsonPath('posology.times', ['09:00']);
+        $this->postJson(route('api.mobile.posology.suggest'), $atalho + ['preset' => true], $headers)->assertOk()
+            ->assertJsonPath('posology.times', ['06:00', '14:00', '22:00'])->assertJsonPath('posology.frequency', '3 vezes ao dia')->assertJsonPath('posology.schedule_mode', 'fixed');
         $this->putJson(route('api.mobile.profile.medications.update', $id), ['posology' => ['dosage' => '1 comprimido', 'frequency' => '2x ao dia', 'times' => ['08:00', '20:00'], 'schedule_mode' => 'fixed', 'reminders_enabled' => true]], $headers)
             ->assertOk()->assertJsonPath('medications.0.dosage', '1 comprimido')->assertJsonPath('medications.0.when', '08:00 · 20:00')
             ->assertJsonPath('medications.0.schedule.chips', ['08:00', '20:00'])->assertJsonPath('message', 'Dose e horários de LOSARTANA salvos.');

@@ -11,8 +11,16 @@ data class Perfil(
     @SerialName("ended") val encerrados: List<RemedioDoPerfil> = emptyList(),
     @SerialName("allergies") val alergias: List<Alergia> = emptyList(),
     @SerialName("prescriptions") val receitas: List<ReceitaDoPerfil> = emptyList(),
+    @SerialName("posology_presets") val atalhos: AtalhosDePosologia = AtalhosDePosologia(),
     val message: String? = null,
     @SerialName("medication_id") val remedioNovo: Long? = null,
+)
+
+/** Atalhos do formulário "Dose e horários" (os mesmos do site): "quando tomar" e doses comuns. */
+@Serializable
+data class AtalhosDePosologia(
+    @SerialName("frequencies") val frequencias: List<String> = emptyList(),
+    @SerialName("doses") val doses: List<String> = emptyList(),
 )
 
 @Serializable
@@ -80,7 +88,8 @@ data class PedidoDeRemedio(@SerialName("medicine_id") val remedio: Long? = null,
 data class PedidoDeDoseEHorarios(val posology: DoseEHorarios)
 
 @Serializable
-data class PedidoDeSugestao(val frequency: String, val posology: DoseEHorarios)
+/** `preset`: atalho tocado; o servidor refaz os horários do zero. */
+data class PedidoDeSugestao(val frequency: String, val posology: DoseEHorarios, val preset: Boolean = false)
 
 @Serializable
 data class RespostaDaSugestao(val posology: DoseEHorarios)
@@ -97,6 +106,7 @@ data class RemediosDeQuemCuido(
     @SerialName("caring_for") val cuidandoDe: CuidandoDe,
     @SerialName("can_edit") val podeEditar: Boolean = false,
     val intro: String = "",
+    @SerialName("posology_presets") val atalhos: AtalhosDePosologia = AtalhosDePosologia(),
     @SerialName("medications") val remedios: List<RemedioDoPerfil> = emptyList(),
     val message: String? = null,
 )

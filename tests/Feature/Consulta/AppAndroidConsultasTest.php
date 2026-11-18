@@ -146,7 +146,20 @@ final class AppAndroidConsultasTest extends TestCase
 
         $this->postJson('/api/mobile/v1/perguntar', ['question' => 'posso tomar xyzwq com leite?'], $headers)->assertOk()
             ->assertJsonPath('answer.status', MedicationQuestionService::NO_MEDICINE)->assertJsonPath('answer.tone', 'warning')
-            ->assertJsonPath('answer.medicines', [])->assertJsonPath('answer.releases_fixed', false);
+            ->assertJsonPath('answer.medicines', [])->assertJsonPath('answer.releases_fixed', false)->assertJsonPath('answer.help_groups', []);
+
+        // Superdose: a resposta traz os telefones de ajuda (o app mostra como botões de ligar), como no site.
+        $this->postJson('/api/mobile/v1/perguntar', ['question' => 'tomei 10 comprimidos de xyzwq, e agora?'], $headers)->assertOk()
+            ->assertJsonPath('answer.help_groups.0.tone', 'urgencia')->assertJsonPath('answer.help_groups.0.lines.0.tel', '08007226001')
+            ->assertJsonPath('answer.help_groups.0.lines.0.name', 'Disque-Intoxicação')->assertJsonPath('answer.help_groups.0.lines.1.tel', '192');
+
+        // Sem remédio, mas com uma necessidade: pedido vago pergunta o que está acontecendo; mal-estar indica onde buscar atendimento.
+        $this->postJson('/api/mobile/v1/perguntar', ['question' => 'Preciso de ajuda'], $headers)->assertOk()
+            ->assertJsonPath('answer.status', MedicationQuestionService::SUPPORT)->assertJsonPath('answer.quick_replies.1', 'Não estou me sentindo bem')
+            ->assertJsonPath('answer.help_groups', []);
+        $this->postJson('/api/mobile/v1/perguntar', ['question' => 'Não estou me sentindo bem'], $headers)->assertOk()
+            ->assertJsonPath('answer.status', MedicationQuestionService::SUPPORT)->assertJsonPath('answer.quick_replies', [])
+            ->assertJsonPath('answer.help_groups.0.title', 'Sinais de alerta: ligue já')->assertJsonPath('answer.help_groups.1.lines.0.tel', '136');
 
         RateLimiter::increment('pergunta:'.$user->id, 3600, (int) config('bulai.consultation.rate_limit_per_hour'));
         $this->postJson('/api/mobile/v1/perguntar', ['question' => 'losartana dá sono?'], $headers)->assertStatus(429)

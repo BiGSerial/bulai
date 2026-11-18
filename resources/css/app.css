@@ -420,3 +420,14 @@ html.dark:has(.app-screen) {
 .bulai-celebrando button {
     visibility: hidden;
 }
+
+/* Perguntar: "Enviada" aparece quando a pergunta termina o voo da caixa até a conversa (resources/js/animacoes.js). */
+.bulai-entregue {
+    animation: bulai-aparece 0.3s ease-out 0.55s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bulai-entregue {
+        animation: none;
+    }
+}
