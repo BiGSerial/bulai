@@ -332,6 +332,68 @@ final class UserAccountService
     }
 
     /** Registra o pedido de link de redefinição ("Esqueci minha senha"); a existência do e-mail nunca é revelada ao solicitante. */
+    /** Nome de chamada ("como quer ser chamado"): vazio volta a usar o primeiro nome. Auditado com o valor anterior. */
+    public function updatePreferredName(User $user, ?string $preferredName): void
+    {
+        $preferredName = filled($preferredName) ? trim((string) $preferredName) : null;
+        if ($preferredName === $user->preferred_name) {
+            return;
+        }
+        $before = $user->preferred_name;
+        $user->forceFill(['preferred_name' => $preferredName])->save();
+        $this->record($user, UserAuditEvent::EVENT_PREFERRED_NAME_CHANGED, $user, ['from' => $before, 'to' => $preferredName]);
+    }
+
+    /**
+     * "Apagar minha conta" (LGPD): apaga tudo o que é pessoal e de saúde (remédios, doses, receitas, alergias, perfil,
+     * perguntas, consultas, avisos, cuidadores, aparelhos, sessões, inscrições de push), anonimiza o cadastro (nome, e-mail,
+     * senha, IP) e o desativa. A linha fica só para a trilha de auditoria, que passa a dizer "conta apagada", sem dados.
+     * O e-mail fica livre para um novo cadastro. Contas de administrador não se apagam por aqui.
+     *
+     * @return array<string, int> quantos registros foram apagados, por tipo
+     */
+    public function deleteOwnAccount(User $user): array
+    {
+        return DB::transaction(function () use ($user): array {
+            $user = $this->lock($user);
+            $id = $user->id;
+            $byUser = fn (string $table): int => DB::table($table)->where('user_id', $id)->delete();
+            $counts = [
+                'dose_events' => $byUser('medication_dose_events'),
+                'unmatched_reports' => $byUser('unmatched_medicine_reports'),
+                'medications' => $byUser('patient_medications'),
+                'prescriptions' => $byUser('patient_prescriptions'),
+                'allergies' => $byUser('patient_allergies'),
+                'questions' => $byUser('medication_questions'),
+                'consultations' => $byUser('interaction_consultations'),
+                'profile' => $byUser('patient_profiles'),
+                'push_subscriptions' => $byUser('push_subscriptions'),
+                'caregiver_links' => DB::table('caregiver_links')->where('patient_id', $id)->orWhere('caregiver_id', $id)->delete(),
+                'notifications' => DB::table('notifications')->where('notifiable_type', $user->getMorphClass())->where('notifiable_id', $id)->delete(),
+            ];
+            DB::table('caregiver_audit_events')->where('patient_id', $id)->delete();
+            DB::table('caregiver_audit_events')->where('actor_id', $id)->update(['actor_id' => null]);
+            DB::table('ai_usage_logs')->where('user_id', $id)->update(['user_id' => null]);
+            // Os eventos antigos da trilha não guardam mais o nome de chamada.
+            DB::table('user_audit_events')->where('user_id', $id)->where('event', UserAuditEvent::EVENT_PREFERRED_NAME_CHANGED)->update(['details' => null]);
+
+            $this->revokeAccess($user);
+            $user->forceFill([
+                'name' => 'Conta apagada',
+                'preferred_name' => null,
+                'email' => 'apagada-'.$id.'-'.Str::lower(Str::random(12)).'@contas-apagadas.invalid',
+                'password' => Str::random(64),
+                'email_verified_at' => null,
+                'last_login_ip' => null,
+                'active' => false,
+                'must_change_password' => false,
+            ])->save();
+            $this->record($user, UserAuditEvent::EVENT_ACCOUNT_DELETED, $user, $counts);
+
+            return $counts;
+        });
+    }
+
     public function recordPasswordResetRequested(User $user): void
     {
         $this->record($user, UserAuditEvent::EVENT_PASSWORD_RESET_REQUESTED, null);
@@ -377,27 +439,31 @@ final class UserAccountService
      * Troca de senha pela própria pessoa: limpa a troca obrigatória e derruba as outras sessões,
      * mantendo a sessão atual.
      */
-    public function changePassword(User $user, string $newPassword, ?string $currentSessionId): void
+    public function changePassword(User $user, string $newPassword, ?string $currentSessionId, ?int $currentMobileDeviceId = null): void
     {
-        $this->storeOwnPassword($user, $newPassword, $currentSessionId);
+        $this->storeOwnPassword($user, $newPassword, $currentSessionId, [], $currentMobileDeviceId);
     }
 
     /**
      * Troca da senha provisória na tela de primeiro acesso: mesmo efeito de changePassword, com a
      * origem registrada na auditoria (details.via = first_access).
      */
-    public function completeFirstAccess(User $user, string $newPassword, ?string $currentSessionId): void
+    public function completeFirstAccess(User $user, string $newPassword, ?string $currentSessionId, ?int $currentMobileDeviceId = null): void
     {
-        $this->storeOwnPassword($user, $newPassword, $currentSessionId, ['via' => UserAuditEvent::VIA_FIRST_ACCESS]);
+        $this->storeOwnPassword($user, $newPassword, $currentSessionId, ['via' => UserAuditEvent::VIA_FIRST_ACCESS], $currentMobileDeviceId);
     }
 
-    /** @param array<string, string> $details */
-    private function storeOwnPassword(User $user, string $newPassword, ?string $currentSessionId, array $details = []): void
+    /**
+     * Pelo aplicativo, a "sessão atual" é o aparelho que pediu a troca: ele continua conectado e os demais caem.
+     *
+     * @param  array<string, string>  $details
+     */
+    private function storeOwnPassword(User $user, string $newPassword, ?string $currentSessionId, array $details = [], ?int $currentMobileDeviceId = null): void
     {
-        DB::transaction(function () use ($user, $newPassword, $currentSessionId, $details): void {
+        DB::transaction(function () use ($user, $newPassword, $currentSessionId, $details, $currentMobileDeviceId): void {
             $user = $this->lock($user);
             $user->forceFill(['password' => $newPassword, 'must_change_password' => false])->save();
-            $this->revokeAccess($user, $currentSessionId);
+            $this->revokeAccess($user, $currentSessionId, $currentMobileDeviceId);
             $this->record($user, UserAuditEvent::EVENT_PASSWORD_CHANGED, $user, $details);
         });
     }
@@ -479,12 +545,12 @@ final class UserAccountService
      * gravadas no banco, exceto a indicada. Com outro driver de sessão, o middleware de usuário
      * ativo e o perfil relido a cada requisição continuam barrando o acesso.
      */
-    private function revokeAccess(User $user, ?string $exceptSessionId = null): void
+    private function revokeAccess(User $user, ?string $exceptSessionId = null, ?int $exceptMobileDeviceId = null): void
     {
         $user->setRememberToken(Str::random(60));
         $user->save();
         // O aplicativo Android usa token próprio (não sessão): perder o acesso também desconecta os aparelhos.
-        $user->mobileDevices()->delete();
+        $user->mobileDevices()->when($exceptMobileDeviceId !== null, fn ($query) => $query->whereKeyNot($exceptMobileDeviceId))->delete();
 
         if (config('session.driver') !== 'database') {
             return;

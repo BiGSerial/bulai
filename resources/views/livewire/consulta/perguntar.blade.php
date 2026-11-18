@@ -1,4 +1,4 @@
-@php use App\Services\Patient\MedicationQuestionService as Q; use App\Livewire\Consulta\Perguntar as P; use Illuminate\Support\Js; @endphp
+@php use App\Services\Patient\MedicationQuestionService as Q; use App\Services\Patient\QuestionConversation as P; use Illuminate\Support\Js; @endphp
 {{--
     Chat amigável: a pessoa escreve (ou dita) à direita, o BULA-IA responde à esquerda em linguagem de conversa.
     Quando a bula não responde, o balão explica com palavras simples e sugere o próximo passo (chips); os detalhes
@@ -34,9 +34,9 @@
         @if ($conversa !== [])
             <p class="sr-only">Perguntas anteriores ({{ count($conversa) }})</p>
             @foreach ($conversa as $troca)
-                <x-consulta.balao de="eu" wire:key="tp-{{ $loop->index }}">{{ $troca['pergunta'] }}</x-consulta.balao>
+                <x-consulta.balao de="eu" wire:key="tp-{{ $loop->index }}">{{ $troca['question'] }}</x-consulta.balao>
                 <x-consulta.balao wire:key="tr-{{ $loop->index }}">
-                    @foreach (P::paragrafos($troca['resposta'] ?? P::falaCurta($troca['status'], $troca['medicamentos']), ['medicines' => $troca['medicamentos']]) as $paragrafo)
+                    @foreach (P::paragraphs($troca['answer'] ?? P::shortSpeech($troca['status'], $troca['medicines']), ['medicines' => $troca['medicines']]) as $paragrafo)
                         <p class="break-words">{{ $paragrafo }}</p>
                     @endforeach
                     @if (! empty($troca['uuid']))<a class="justify-self-start text-base font-semibold text-brand-800 underline" href="{{ route('consulta.pergunta', $troca['uuid']) }}" wire:navigate>Ver detalhes</a>@endif

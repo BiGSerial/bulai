@@ -16,7 +16,7 @@ Depois de tomar, marque “Tomei” em Remédios de hoje. Assim o {{ $app }} aco
 Ver remédios de hoje
 </x-mail::button>
 
-Para parar de receber lembretes por e-mail, desative “Também por e-mail” em Avisos, no aplicativo.
+Para parar de receber lembretes por e-mail, desative “Também por e-mail” em Conta, no aplicativo.
 
 Equipe {{ $app }}
 </x-mail::message>

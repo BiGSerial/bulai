@@ -16,9 +16,9 @@ final class ConsultaDesignSystemTest extends TestCase
 {
     private const FORBIDDEN_TERMS = ['chunk', 'chunks', 'OCR', 'embedding', 'embeddings', 'LLM', 'token', 'tokens', 'tsvector', 'pgvector', 'prompt'];
 
-    /** Trechos permitidos fora da regra geral, por arquivo (barra inferior de 3 destinos). */
+    /** Trechos permitidos fora da regra geral, por arquivo (barra inferior de 4 destinos). */
     private const ALLOWED_SNIPPETS = [
-        'resources/views/components/consulta/shell.blade.php' => ['grid max-w-3xl grid-cols-3'],
+        'resources/views/components/consulta/shell.blade.php' => ['grid max-w-3xl grid-cols-4'],
     ];
 
     /** @return array<string, string> caminho relativo => conteúdo */

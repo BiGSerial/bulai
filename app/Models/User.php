@@ -201,4 +201,12 @@ class User extends Authenticatable
 
         return in_array($timezone, timezone_identifiers_list(), true) ? $timezone : (string) config('bulai.treatment.default_timezone');
     }
+
+    /** Como a pessoa quer ser chamada nas telas: o nome de chamada, ou o primeiro nome. */
+    public function callName(): string
+    {
+        $preferred = trim((string) $this->preferred_name);
+
+        return $preferred !== '' ? $preferred : trim(explode(' ', trim((string) $this->name))[0] ?? '');
+    }
 }

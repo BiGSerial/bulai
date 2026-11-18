@@ -427,7 +427,8 @@ final class PerfilEPerguntasTest extends TestCase
         }
         $admin = User::factory()->create(['role' => UserRole::Admin]);
 
-        $this->actingAs($admin)->get('/inicio')->assertOk()->assertSee('Área administrativa');
+        // O atalho para a administração fica na tela Conta (o menu do cabeçalho virou o 4º destino da barra).
+        $this->actingAs($admin)->get('/conta')->assertOk()->assertSee('Área administrativa');
         $this->actingAs($admin)->get('/admin/knowledge')->assertOk()->assertSee('App do paciente');
         $manifest = json_decode(file_get_contents(public_path('manifest.webmanifest')), true);
         $this->assertStringStartsWith('/inicio', $manifest['start_url']);

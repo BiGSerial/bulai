@@ -18,6 +18,7 @@ use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\TextGenerationProvider;
 use App\Services\Patient\MedicationMentionDetector;
 use App\Services\Patient\MedicationQuestionService;
+use App\Services\Patient\QuestionConversation;
 use App\Services\Safety\GuardVerdict;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -356,14 +357,14 @@ final class PerguntaLivreTest extends TestCase
     {
         $base = ['medicines' => [['id' => 1, 'name' => 'LOSARTANA']], 'missing' => ['unidentified' => [], 'without_leaflet' => []], 'evidences' => [], 'generation' => [], 'pergunta' => 'losartana dá sono?'];
 
-        $this->assertSame([null, null, 'A bula diz que sim.', 'Baseado na bula de LOSARTANA.'], array_values(array_slice(Perguntar::fala(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'A bula diz que sim.'] + $base), 0, 4)));
+        $this->assertSame([null, null, 'A bula diz que sim.', 'Baseado na bula de LOSARTANA.'], array_values(array_slice(QuestionConversation::speech(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'A bula diz que sim.'] + $base), 0, 4)));
         $comFonte = ['evidences' => [['document_type' => 'bula_paciente', 'section' => 'Reações adversas', 'page_start' => 12, 'excerpt' => 'x', 'chunk_id' => 5, 'supports_claims' => [0]]], 'intent' => ['efeitos_colaterais'], 'retrieval' => ['leaflet_fallback' => ['document_id' => 1]]] + $base;
-        $fala = Perguntar::fala(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'Pode dar tontura.'] + $comFonte);
+        $fala = QuestionConversation::speech(['status' => MedicationQuestionService::ANSWERED, 'answer' => 'Pode dar tontura.'] + $comFonte);
         $this->assertNull($fala['intro'], 'a resposta já é uma conversa; a tela não acrescenta abertura');
         $this->assertSame('Baseado na bula do paciente de LOSARTANA.', $fala['fonte']);
-        $this->assertSame('Conheço o LOSARTANA, mas ainda não tenho a bula dele comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa. Se não era esse, toque em “Não é esse remédio?”. Registrei sua pergunta para a equipe buscar mais fontes.', Perguntar::fala(['status' => MedicationQuestionService::NOT_IDENTIFIED, 'missing' => ['unidentified' => ['LOSARTANA'], 'without_leaflet' => []]] + $base)['texto']);
-        $this->assertSame(['Como devo tomar LOSARTANA?', 'LOSARTANA pode ser tomado com comida?', 'Quais os efeitos mais comuns de LOSARTANA?'], Perguntar::reformulacoes(['LOSARTANA'], 'Losartana dá sono'));
-        $this->assertSame('LOSARTANA, OMEPRAZOL e MAREVAN', Perguntar::listar(['LOSARTANA', 'OMEPRAZOL', 'MAREVAN']));
-        $this->assertSame('Ainda não tenho a bula de MAREVAN comigo.', Perguntar::falaCurta(MedicationQuestionService::NO_LEAFLET, [['id' => 2, 'name' => 'MAREVAN']]));
+        $this->assertSame('Conheço o LOSARTANA, mas ainda não tenho a bula dele comigo. Posso ajudar com outro remédio, ou você confere na bula que vem na caixa. Se não era esse, toque em “Não é esse remédio?”. Registrei sua pergunta para a equipe buscar mais fontes.', QuestionConversation::speech(['status' => MedicationQuestionService::NOT_IDENTIFIED, 'missing' => ['unidentified' => ['LOSARTANA'], 'without_leaflet' => []]] + $base)['texto']);
+        $this->assertSame(['Como devo tomar LOSARTANA?', 'LOSARTANA pode ser tomado com comida?', 'Quais os efeitos mais comuns de LOSARTANA?'], QuestionConversation::rephrasings(['LOSARTANA'], 'Losartana dá sono'));
+        $this->assertSame('LOSARTANA, OMEPRAZOL e MAREVAN', QuestionConversation::listNames(['LOSARTANA', 'OMEPRAZOL', 'MAREVAN']));
+        $this->assertSame('Ainda não tenho a bula de MAREVAN comigo.', QuestionConversation::shortSpeech(MedicationQuestionService::NO_LEAFLET, [['id' => 2, 'name' => 'MAREVAN']]));
     }
 }

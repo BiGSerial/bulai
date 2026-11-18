@@ -3,14 +3,11 @@
 namespace App\Livewire\Consulta\Receita;
 
 use App\Models\Knowledge\AnvisaMedicine;
-use App\Models\PatientMedication;
 use App\Models\PatientPrescription;
 use App\Services\Interactions\MedicationSearchService;
-use App\Services\Treatment\DoseScheduleParser;
-use App\Services\Treatment\TreatmentScheduleService;
+use App\Services\Patient\PrescriptionReviewService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -51,34 +48,10 @@ class Revisar extends Component
             return;
         }
         $this->carregado = true;
-        $this->cabecalho = [
-            'prescritor' => $this->prescription->prescriber_name === 'Receita em leitura' ? '' : (string) $this->prescription->prescriber_name,
-            'registro' => (string) $this->prescription->prescriber_registration,
-            'data' => $this->prescription->issued_at?->format('Y-m-d'),
-        ];
-        $parser = app(DoseScheduleParser::class);
-        $this->itens = array_map(function (array $item) use ($parser): array {
-            $first = $item['candidates'][0] ?? null;
-            $schedule = $parser->parse($item['frequency'] ?? null);
-
-            return [
-                'name_as_written' => (string) $item['name_as_written'],
-                'medicine_id' => $first['id'] ?? null,
-                'medicine_name' => $first['name'] ?? null,
-                'dosage' => (string) ($item['dosage'] ?? ''),
-                'frequency' => (string) ($item['frequency'] ?? ''),
-                'duration' => (string) ($item['duration'] ?? ''),
-                'notes' => (string) ($item['notes'] ?? ''),
-                'confidence' => (float) ($item['confidence'] ?? 0),
-                'candidates' => array_values($item['candidates'] ?? []),
-                'skip' => false,
-                'busca' => '',
-                'times' => $schedule['times'] ?? [],
-                'as_needed' => (bool) ($schedule['as_needed'] ?? false),
-                'interval_hours' => $schedule['interval_hours'] ?? null,
-                'schedule_mode' => ($schedule['interval_hours'] ?? null) !== null ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED,
-            ];
-        }, $this->prescription->extraction['items'] ?? []);
+        $service = app(PrescriptionReviewService::class);
+        $header = $service->header($this->prescription);
+        $this->cabecalho = ['prescritor' => $header['prescriber'], 'registro' => $header['registration'], 'data' => $header['date']];
+        $this->itens = array_map(fn (array $item): array => $item + ['busca' => ''], $service->items($this->prescription));
     }
 
     /** Ao corrigir "quando tomar", os horários sugeridos são refeitos a partir do novo texto. */
@@ -87,11 +60,7 @@ class Revisar extends Component
         if (preg_match('/^(\d+)\.frequency$/', $key, $m) !== 1 || ! isset($this->itens[(int) $m[1]])) {
             return;
         }
-        $schedule = app(DoseScheduleParser::class)->parse((string) $value);
-        $this->itens[(int) $m[1]]['times'] = $schedule['times'] ?? [];
-        $this->itens[(int) $m[1]]['as_needed'] = (bool) ($schedule['as_needed'] ?? false);
-        $this->itens[(int) $m[1]]['interval_hours'] = $schedule['interval_hours'] ?? null;
-        $this->itens[(int) $m[1]]['schedule_mode'] = ($schedule['interval_hours'] ?? null) !== null ? PatientMedication::MODE_INTERVAL : PatientMedication::MODE_FIXED;
+        $this->itens[(int) $m[1]] = app(PrescriptionReviewService::class)->suggestedSchedule((string) $value) + $this->itens[(int) $m[1]];
     }
 
     public function escolher(int $index, int $medicineId): void
@@ -150,78 +119,30 @@ class Revisar extends Component
         return redirect()->route('consulta.perfil', ['aba' => 'receitas'])->with('accountFeedback', 'Receita descartada. Nada foi salvo.');
     }
 
-    public function confirmar(TreatmentScheduleService $schedule): ?RedirectResponse
+    public function confirmar(PrescriptionReviewService $service): ?RedirectResponse
     {
         $this->aviso = null;
         if ($this->prescription->status !== PatientPrescription::STATUS_REVIEW) {
             return null;
         }
         try {
-            $this->validate([
-                'cabecalho.prescritor' => ['required', 'string', 'min:3', 'max:120'],
-                'cabecalho.registro' => ['nullable', 'string', 'max:40'],
-                'cabecalho.data' => ['nullable', 'date', 'before_or_equal:today'],
-                'itens.*.dosage' => ['nullable', 'string', 'max:120'],
-                'itens.*.frequency' => ['nullable', 'string', 'max:120'],
-                'itens.*.duration' => ['nullable', 'string', 'max:80'],
-                'itens.*.notes' => ['nullable', 'string', 'max:255'],
-                'itens.*.times' => ['array', 'max:12'],
-                'itens.*.times.*' => ['nullable', 'string', 'max:5'],
-                'itens.*.schedule_mode' => ['required', 'in:'.PatientMedication::MODE_FIXED.','.PatientMedication::MODE_INTERVAL],
-            ], ['cabecalho.prescritor.required' => 'Informe quem prescreveu a receita.', 'cabecalho.prescritor.min' => 'O nome de quem prescreveu precisa ter pelo menos 3 letras.']);
+            $result = $service->confirm(auth()->user(), $this->prescription, [
+                'prescriber' => $this->cabecalho['prescritor'], 'registration' => $this->cabecalho['registro'], 'date' => $this->cabecalho['data'],
+            ], $this->itens);
         } catch (ValidationException $exception) {
             $this->aviso = $exception->validator->errors()->first();
 
             return null;
         }
 
-        $ativos = array_values(array_filter($this->itens, fn (array $item): bool => ! $item['skip']));
-        $issued = filled($this->cabecalho['data']) ? Carbon::parse($this->cabecalho['data']) : null;
-        $this->prescription->update([
-            'prescriber_name' => trim($this->cabecalho['prescritor']),
-            'prescriber_registration' => filled($this->cabecalho['registro']) ? trim($this->cabecalho['registro']) : null,
-            'issued_at' => $issued,
-            'notes' => $this->prescription->notes,
-            'status' => PatientPrescription::STATUS_CONFIRMED,
-            'confirmed_at' => now(),
-            'extraction' => ($this->prescription->extraction ?? []) + ['confirmed_items' => count($ativos), 'skipped_items' => count($this->itens) - count($ativos), 'unmatched_items' => count(array_filter($ativos, fn (array $item): bool => $item['medicine_id'] === null))],
-        ]);
-
-        $start = $issued ?? now()->startOfDay();
-        $semCatalogo = 0;
-        foreach ($ativos as $item) {
-            $semCatalogo += $item['medicine_id'] === null ? 1 : 0;
-            $schedule->register(auth()->user(), [
-                'medicine_id' => $item['medicine_id'],
-                'name_as_written' => $item['name_as_written'],
-                'prescription_id' => $this->prescription->id,
-                'dosage' => $item['dosage'],
-                'frequency' => $item['frequency'],
-                'duration' => $item['duration'],
-                'dose_times' => $item['as_needed'] ? [] : TreatmentScheduleService::cleanTimes($item['times']),
-                'interval_minutes' => $item['interval_hours'] !== null && ! $item['as_needed'] ? (int) $item['interval_hours'] * 60 : null,
-                'schedule_mode' => $item['schedule_mode'],
-                'started_at' => $start,
-                'notes' => trim(implode(' · ', array_filter([filled($item['duration']) ? 'Duração: '.trim($item['duration']) : null, filled($item['notes']) ? trim($item['notes']) : null]))) ?: null,
-            ]);
-        }
-
-        $mensagem = count($ativos).' remédio(s) da receita entraram no seu tratamento.';
-        if ($semCatalogo > 0) {
-            $mensagem .= ' '.($semCatalogo === 1 ? '1 deles ainda não está no nosso catálogo: nossa equipe vai conferir.' : "{$semCatalogo} deles ainda não estão no nosso catálogo: nossa equipe vai conferir.");
-        }
-
-        return redirect()->route('consulta.hoje')->with('accountFeedback', $mensagem);
+        return redirect()->route('consulta.hoje')->with('accountFeedback', $result['message']);
     }
 
-    public function render(MedicationSearchService $search): View
+    public function render(MedicationSearchService $search, PrescriptionReviewService $service): View
     {
         $this->prescription->refresh();
         $this->carregar();
-        if (in_array($this->prescription->status, [PatientPrescription::STATUS_PENDING, PatientPrescription::STATUS_PROCESSING], true)
-            && $this->prescription->updated_at->lt(now()->subSeconds((int) config('bulai.consultation.stale_after_seconds')))) {
-            $this->prescription->update(['status' => PatientPrescription::STATUS_FAILED, 'error_code' => 'PRESCRIPTION_TIMEOUT']);
-        }
+        $service->expireIfStale($this->prescription);
 
         $buscas = [];
         foreach ($this->itens as $index => $item) {
@@ -233,7 +154,7 @@ class Revisar extends Component
             'legibilidade' => $this->prescription->extraction['legibility'] ?? null,
             'ignorado' => ($this->prescription->extraction['injection'] ?? []) !== [],
             'buscas' => $buscas,
-            'lendo' => in_array($this->prescription->status, [PatientPrescription::STATUS_PENDING, PatientPrescription::STATUS_PROCESSING], true),
+            'lendo' => PrescriptionReviewService::isReading($this->prescription),
         ]);
     }
 }

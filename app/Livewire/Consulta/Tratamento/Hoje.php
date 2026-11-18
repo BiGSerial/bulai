@@ -131,24 +131,13 @@ class Hoje extends Component
     }
 
     /**
-     * Em remédios dinâmicos, uma dose projetada depois de uma tomada fora do horário ganha `ajustado` = "HH:MM" (o
-     * horário real da dose anterior, de onde a cadeia foi recontada). As demais linhas ficam com `ajustado` nulo.
-     *
      * @param  Collection<int, array<string, mixed>>  $agenda
      * @return Collection<int, array<string, mixed>>
+     *
+     * @see TreatmentScheduleService::annotateAdjustments()
      */
     public static function anotarAjustes(Collection $agenda): Collection
     {
-        $base = [];
-
-        return $agenda->sortBy('time')->values()->map(function (array $dose) use (&$base): array {
-            $id = $dose['medication']->id;
-            $dose['ajustado'] = $dose['dynamic'] && $dose['event'] === null ? ($base[$id] ?? null) : null;
-            if ($dose['dynamic'] && $dose['taken_at'] !== null) {
-                $base[$id] = $dose['taken_at']->format('H:i') !== $dose['time'] ? $dose['taken_at']->format('H:i') : null;
-            }
-
-            return $dose;
-        });
+        return app(TreatmentScheduleService::class)->annotateAdjustments($agenda);
     }
 }

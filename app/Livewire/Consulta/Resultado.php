@@ -3,9 +3,8 @@
 namespace App\Livewire\Consulta;
 
 use App\Models\Consultation\InteractionConsultation;
-use App\Models\Knowledge\AnvisaMedicine;
 use App\Services\Interactions\InteractionConsultationService;
-use App\Services\Patient\AllergyChecker;
+use App\Services\Interactions\InteractionResultPresenter;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Component;
@@ -32,20 +31,13 @@ class Resultado extends Component
     {
         $consultation = $service->failStale($this->consultation->refresh());
 
-        $alertas = [];
-        $user = auth()->user();
-        if ($user->hasHealthConsent() && $user->allergies()->exists()) {
-            $allergies = $user->allergies()->get();
-            foreach (AnvisaMedicine::query()->whereIn('id', array_column($consultation->medicines, 'id'))->get() as $medicine) {
-                foreach (app(AllergyChecker::class)->check($allergies, $medicine) as $match) {
-                    $alertas[] = ['medicine' => $medicine->product_name] + $match;
-                }
-            }
-        }
+        $presenter = app(InteractionResultPresenter::class);
+        $alertas = $presenter->allergyAlerts(auth()->user(), array_column($consultation->medicines, 'id'));
 
         return view('livewire.consulta.resultado', [
             'alertas' => $alertas,
             'consultation' => $consultation,
+            'presenter' => $presenter,
             'pairs' => $consultation->results()->get(),
             'total' => max(0, count($consultation->medicines) * (count($consultation->medicines) - 1) / 2),
         ]);

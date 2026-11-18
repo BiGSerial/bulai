@@ -130,11 +130,11 @@ class CaregiverLink extends Model
         return hash_hmac('sha256', preg_replace('/\D+/', '', $code) ?? '', (string) config('app.key'));
     }
 
-    /** Primeiro nome para as frases da tela ("cuidando de Maria"). */
+    /** Nome de chamada (ou o primeiro nome) para as frases da tela ("cuidando de Maria"). */
     public static function firstName(?User $user): string
     {
-        $name = trim((string) $user?->name);
+        $name = $user?->callName() ?? '';
 
-        return $name === '' ? 'esta pessoa' : explode(' ', $name)[0];
+        return $name === '' ? 'esta pessoa' : $name;
     }
 }

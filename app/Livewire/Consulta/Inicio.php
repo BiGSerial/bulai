@@ -46,13 +46,16 @@ class Inicio extends Component
         $hoje = CarbonImmutable::now($user->treatmentTimezone());
 
         return view('livewire.consulta.inicio', [
-            'nome' => trim(explode(' ', trim($user->name))[0] ?? ''),
+            'nome' => $user->callName(),
             'dataHoje' => mb_convert_case($hoje->translatedFormat('l, j \d\e F'), MB_CASE_TITLE, 'UTF-8'),
             'receitaPorFoto' => Route::has('consulta.receita.nova'),
             'consentido' => $consentido,
             'temRemedios' => $consentido && PatientMedication::query()->where('user_id', $user->id)->exists(),
             'proxima' => $proxima,
             'proximaDose' => $proximaTexto,
+            // Barra do cartão "Próximo" (enche até o horário, como no aplicativo): de quando contar e o horário, em ISO.
+            'proximaDesde' => $proxima === null ? null : TreatmentScheduleService::waitingSince($agenda, $proxima['scheduled_for'], $hoje)->toIso8601String(),
+            'proximaHorario' => $proxima === null ? null : $proxima['scheduled_for']->toIso8601String(),
             'doseAtrasada' => $proxima !== null && $proxima['status'] === TreatmentScheduleService::DOSE_LATE,
             'podeMarcar' => $proxima !== null && in_array($proxima['status'], [TreatmentScheduleService::DOSE_DUE, TreatmentScheduleService::DOSE_LATE], true),
             'total' => $agenda->count(),

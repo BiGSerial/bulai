@@ -136,4 +136,78 @@ final class TreatmentContextService
 
         return $parts === [] ? '' : ' ('.implode(', ', $parts).')';
     }
+
+    /**
+     * UMA frase de risco em linguagem comum, a partir do contexto determinístico (alergia > interação > duplicidade).
+     * `tone` é `danger` (alergia ou interação maior) ou `warning`.
+     *
+     * @param  list<array{medicine?: string, context?: array<string, mixed>}>  $treatments
+     * @return array{text: string, tone: string}|null
+     */
+    public static function riskSentence(array $treatments): ?array
+    {
+        $text = null;
+        $tone = 'warning';
+        foreach ($treatments as $item) {
+            $context = $item['context'] ?? [];
+            $name = $item['medicine'] ?? 'este remédio';
+            if (! empty($context['allergy_alerts'])) {
+                return ['text' => 'Atenção: você registrou alergia a '.$context['allergy_alerts'][0]['allergy'].', e '.$name.' tem relação com ela. Fale com seu médico antes de usar.', 'tone' => 'danger'];
+            }
+            foreach ($context['interactions'] ?? [] as $interaction) {
+                if ($interaction['severity'] === 'duplicate') {
+                    $text ??= 'Atenção: '.$name.' tem a mesma substância de '.$interaction['medicine'].', que você já usa. Fale com seu médico.';
+
+                    continue;
+                }
+                $sentence = 'Atenção: '.$name.' pode interagir com '.$interaction['medicine'].', que você usa. Fale com seu médico.';
+                if (in_array($interaction['severity'], ['major', 'moderate'], true)) {
+                    return ['text' => $sentence, 'tone' => $interaction['severity'] === 'major' ? 'danger' : 'warning'];
+                }
+                $text ??= $sentence;
+            }
+        }
+
+        return $text === null ? null : ['text' => $text, 'tone' => $tone];
+    }
+
+    /**
+     * Painel "No seu tratamento" (o mesmo cruzamento do site): remédio em uso, alergias, interações e o que não deu para verificar.
+     *
+     * @param  array{medicine: string, context: array<string, mixed>}  $item
+     * @return array<string, mixed>
+     */
+    public static function panel(array $item): array
+    {
+        $context = $item['context'];
+
+        return [
+            'medicine' => (string) $item['medicine'],
+            'consented' => (bool) ($context['consented'] ?? false),
+            'in_use' => (bool) ($context['in_use'] ?? false),
+            'posology' => $context['posology'] ?? null,
+            'medications_count' => (int) ($context['medications_count'] ?? 0),
+            'highest_severity' => $context['highest_severity'] ?? null,
+            'allergy_alerts' => array_map(fn (array $a): array => ['allergy' => (string) $a['allergy'], 'ingredient' => (string) $a['ingredient'], 'via' => (string) ($a['via'] ?? '')], $context['allergy_alerts'] ?? []),
+            'interactions' => array_map(fn (array $i): array => [
+                'medicine' => (string) $i['medicine'],
+                'severity' => (string) $i['severity'],
+                'severity_label' => $i['severity'] === 'duplicate' ? 'Mesma substância (possível duplicidade)' : self::severityLabel((string) $i['severity']),
+                'divergent' => (bool) ($i['divergent'] ?? false),
+            ], $context['interactions'] ?? []),
+            'unresolved' => array_values($context['unresolved'] ?? []),
+        ];
+    }
+
+    /** Como no site: "Gravidade: Maior"; sem classificação, o texto da fonte. */
+    public static function severityLabel(?string $severity): ?string
+    {
+        $value = InteractionSeverity::tryFrom((string) $severity);
+
+        return match ($value) {
+            null => null,
+            InteractionSeverity::Unknown => $value->label(),
+            default => 'Gravidade: '.$value->label(),
+        };
+    }
 }

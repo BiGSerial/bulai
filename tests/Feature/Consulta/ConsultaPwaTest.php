@@ -51,7 +51,7 @@ final class ConsultaPwaTest extends TestCase
         }
     }
 
-    public function test_home_is_a_senior_first_start_screen_with_three_destinations_and_four_big_actions(): void
+    public function test_home_is_a_senior_first_start_screen_with_four_destinations_and_four_big_actions(): void
     {
         $user = User::factory()->create(['name' => 'Maria Souza']);
         $this->actingAs($user)->get('/')->assertRedirectToRoute('consulta.inicio');
@@ -61,8 +61,10 @@ final class ConsultaPwaTest extends TestCase
             ->assertSee('O BULA-IA não substitui seu médico ou farmacêutico.')->assertSee(route('consulta.sobre'))
             ->assertDontSee('Recentes')->assertDontSee('remédios em uso');
         $barra = explode('aria-label="Principal (celular)"', $page->getContent())[1];
-        $this->assertSame(3, preg_match_all('/<li[^>]*><a href="[^"]+" wire:navigate/', $barra));
-        $this->assertStringNotContainsString('>Conta<', $barra);
+        // Quatro destinos, como no aplicativo Android: Início, Perguntar, Remédios e Conta (os avisos ficam no sininho).
+        $this->assertSame(4, preg_match_all('/<li[^>]*><a href="[^"]+" wire:navigate/', $barra));
+        $this->assertStringContainsString('>Conta<', $barra);
+        $this->assertStringContainsString(route('consulta.conta'), $barra);
         $this->assertStringNotContainsString('>Histórico<', $barra);
         $this->assertStringContainsString('text-lg leading-relaxed', $page->getContent());
 

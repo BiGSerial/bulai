@@ -2,12 +2,9 @@
 
 namespace App\Livewire\Consulta\Receita;
 
-use App\Jobs\ExtractPrescription;
-use App\Models\PatientPrescription;
-use App\Services\Patient\PrescriptionExtractionService;
+use App\Services\Patient\PrescriptionReviewService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -36,7 +33,7 @@ class Nova extends Component
         }
     }
 
-    public function enviar(PrescriptionExtractionService $service): ?RedirectResponse
+    public function enviar(PrescriptionReviewService $service): ?RedirectResponse
     {
         $this->aviso = null;
         if (! auth()->user()->hasHealthConsent()) {
@@ -51,30 +48,15 @@ class Nova extends Component
 
             return null;
         }
-
-        $key = 'receita:'.auth()->id();
-        if (RateLimiter::tooManyAttempts($key, (int) config('bulai.prescription.rate_limit_per_hour'))) {
+        if (! PrescriptionReviewService::attempt(auth()->user())) {
             $this->aviso = 'Você atingiu o limite de receitas lidas por hora. Tente novamente mais tarde.';
 
             return null;
         }
-        RateLimiter::hit($key, 3600);
 
-        $stored = $service->stash($this->foto->getRealPath(), $this->foto->getClientOriginalExtension() ?: 'jpg');
+        $prescription = $service->start(auth()->user(), $this->foto->getRealPath(), $this->foto->getClientOriginalExtension());
         $this->foto->delete();
         $this->foto = null;
-
-        $prescription = PatientPrescription::query()->create([
-            'user_id' => auth()->id(),
-            'source' => PatientPrescription::SOURCE_PHOTO,
-            'status' => PatientPrescription::STATUS_PENDING,
-            'prescriber_name' => 'Receita em leitura',
-        ]);
-        match (config('bulai.consultation.execution')) {
-            'sync' => ExtractPrescription::dispatchSync($prescription->id, $stored),
-            'queue' => ExtractPrescription::dispatch($prescription->id, $stored)->onQueue((string) config('bulai.consultation.queue')),
-            default => ExtractPrescription::dispatchAfterResponse($prescription->id, $stored),
-        };
 
         return redirect()->route('consulta.receita.revisar', $prescription);
     }
@@ -82,7 +64,7 @@ class Nova extends Component
     /** @return array<string, list<string>> */
     private function regras(): array
     {
-        return ['foto' => ['required', 'mimes:jpg,jpeg,png,webp', 'image', 'max:'.(int) config('bulai.prescription.max_image_kilobytes')]];
+        return ['foto' => PrescriptionReviewService::photoRules()];
     }
 
     public function render(): View
