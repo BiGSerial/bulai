@@ -3,6 +3,7 @@ package br.com.vixforge.bulai.ui.dia
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -11,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -282,23 +284,54 @@ private fun LinhaDaDose(
     val cobertura = remember(dose.key) { Animatable(if (tomada) 1f else 0f) }
     val joinhaEscala = remember(dose.key) { Animatable(0f) }
     val joinhaAlfa = remember(dose.key) { Animatable(0f) }
+    val joinhaGiro = remember(dose.key) { Animatable(0f) }
+    val joinhaPulo = remember(dose.key) { Animatable(0f) }
+    // Véu: o verde por cima dos textos enquanto o efeito acontece; ao clarear, os textos voltam sobre o fundo verde.
+    val veu = remember(dose.key) { Animatable(0f) }
 
     LaunchedEffect(tomada) {
         when {
             tomada && cobertura.value < 1f && tocou && !semAnimacao -> {
-                launch { cobertura.animateTo(1f, tween(620, easing = FastOutSlowInEasing)) }
-                // Joinha: salta (mola) logo que o verde começa, fica um instante e some devagar.
-                delay(160)
+                veu.snapTo(1f)
+                launch { cobertura.animateTo(1f, tween(520, easing = FastOutSlowInEasing)) }
+                // Joinha: salta com mola quando o verde começa a cobrir…
+                delay(140)
+                joinhaGiro.snapTo(0f)
+                joinhaPulo.snapTo(0f)
                 joinhaAlfa.snapTo(1f)
                 joinhaEscala.snapTo(0.2f)
-                joinhaEscala.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
-                delay(450)
-                joinhaAlfa.animateTo(0f, tween(450))
+                launch { joinhaEscala.animateTo(1f, spring(dampingRatio = 0.38f, stiffness = Spring.StiffnessMediumLow)) }
+                delay(220)
+                // …dá um pulinho e balança (como um "joinha!" de verdade)…
+                val pulo = launch {
+                    joinhaPulo.animateTo(0f, keyframes {
+                        durationMillis = 620
+                        -34f at 140 using FastOutSlowInEasing
+                        0f at 300
+                        -14f at 420
+                        0f at 520
+                    })
+                }
+                joinhaGiro.animateTo(0f, keyframes {
+                    durationMillis = 720
+                    -20f at 110
+                    16f at 240
+                    -11f at 370
+                    7f at 490
+                    -3f at 600
+                })
+                pulo.join()
+                // …e o véu clareia junto com o joinha: os textos voltam por cima do verde.
+                launch { veu.animateTo(0f, tween(420)) }
+                joinhaAlfa.animateTo(0f, tween(420))
                 joinhaEscala.snapTo(0f)
                 tocou = false
             }
             tomada -> cobertura.snapTo(1f)
-            !semAnimacao && cobertura.value > 0f -> cobertura.animateTo(0f, tween(420, easing = FastOutSlowInEasing))
+            !semAnimacao && cobertura.value > 0f -> {
+                veu.snapTo(0f)
+                cobertura.animateTo(0f, tween(420, easing = FastOutSlowInEasing))
+            }
             else -> cobertura.snapTo(0f)
         }
     }
@@ -325,6 +358,17 @@ private fun LinhaDaDose(
                 }
             },
     ) {
+        Box(
+            Modifier.drawWithContent {
+                drawContent()
+                if (veu.value > 0f && cobertura.value > 0f) {
+                    val centro = origem ?: Offset(size.width * 0.3f, size.height * 0.8f)
+                    val raio = listOf(Offset.Zero, Offset(size.width, 0f), Offset(0f, size.height), Offset(size.width, size.height))
+                        .maxOf { (it - centro).getDistance() }
+                    drawCircle(verde.copy(alpha = veu.value), radius = raio * cobertura.value, center = centro)
+                }
+            },
+        ) {
         Cartao(Modifier.animateContentSize(), cor = Color.Transparent) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 SeloDoHorario(dose)
@@ -391,6 +435,7 @@ private fun LinhaDaDose(
                 }
             }
         }
+        }
         // Joinha no centro do cartão: só durante o efeito, sem receber toques nem ser lido pelo TalkBack.
         if (joinhaAlfa.value > 0f) {
             Box(
@@ -402,7 +447,8 @@ private fun LinhaDaDose(
                         scaleX = joinhaEscala.value
                         scaleY = joinhaEscala.value
                         alpha = joinhaAlfa.value
-                        rotationZ = (1f - joinhaEscala.value.coerceAtMost(1f)) * -25f
+                        rotationZ = joinhaGiro.value + (1f - joinhaEscala.value.coerceAtMost(1f)) * -25f
+                        translationY = joinhaPulo.value * density
                     }.clip(CircleShape).background(extras.sucesso),
                     contentAlignment = Alignment.Center,
                 ) {
