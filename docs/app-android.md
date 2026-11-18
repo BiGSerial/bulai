@@ -78,6 +78,9 @@ Respostas em JSON com `Cache-Control: no-store`; erros no formato do Laravel (`m
 | `DELETE /receitas/{id}` | descarta a receita não confirmada | |
 | `GET /bulas/{medicine}` | bula humanizada na hora: `state` (`pronto`, `carregando`, `sem_bula`, `nao_identificado`, `limite`), `cover` ("Para que serve"), `sections` (`key`, `label`, `tone`, até 3 `claims`, `sources`), `missing`, `prepared`, `risk` (frase de alergia/interação) e `treatment` | não gera nada; com `carregando` o app mostra o esqueleto e chama o POST |
 | `POST /bulas/{medicine}/gerar` | prepara (ou reaproveita) o resumo e devolve o mesmo formato | mesmo limite por hora do site para gerar um resumo novo |
+| `GET /conta` | dados da conta (com `preferred_name`) | |
+| `PUT /conta/nome` | `{preferred_name}` (até 40, só letras, espaço, apóstrofo, ponto, hífen; vazio volta ao primeiro nome) → `{user}` | auditado (`preferred_name_changed`, de/para); o `first_name` de `/eu`, `/inicio` e a saudação do site passam a usar o nome de chamada (`User::callName()`) |
+| `PUT /conta/senha` | `{current_password, password, password_confirmation}` → `{message}` | mesmas regras de Minha conta do site (nova diferente da atual); este aparelho continua conectado, as outras sessões e aparelhos caem; limite `mobile-password-change` (5 em 15 min por conta) |
 | `GET /agenda`, `POST /doses` | agenda dos alarmes e marcação pela notificação/despertador/widget (`recorded_at` = hora real do toque, janela de 48 h) | `DeviceAgendaService` |
 
 Autenticação: `App\Http\Middleware\AuthenticateMobileDevice` (Bearer; conta desativada ou não aprovada → 401; senha provisória → 403 fora das rotas `:primeiro-acesso`). Limite geral `mobile-api`: 120/min por aparelho e 300/min por IP. Auditoria: `mobile_device_connected` / `mobile_device_disconnected`. `UserAccountService::revokeAccess()` apaga os aparelhos (encerrar sessões, desativação, redefinição de senha); na troca de senha feita pelo app, o aparelho que trocou continua (`$currentMobileDeviceId`).
@@ -127,7 +130,9 @@ Detalhes de experiência:
 - **Perguntar** (aba própria, como no site): a pergunta aparece na hora e o "digitando" fica até a resposta; a caixa de texto acompanha o teclado, que fecha ao enviar; Enter de teclado físico envia. Remédios, componentes e frases de alerta em negrito; alergia → balão vermelho e aviso em destaque; interação → amarelo com a gravidade (cor + texto); risco → botões para ligar 188/192. Sugestões em pílulas de 48 dp, "Não é esse remédio?" abre a busca. "Fontes utilizadas" (recolhido) segue o PWA: cada fonte num cartão separado com o título (bula), seção · página e a data da bula; o trecho daquela página usado na resposta fica recolhido e abre ao tocar no cartão (com rolagem própria). A linha "Baseado na bula…" não aparece no balão nem nas fontes; o painel "No seu tratamento" (posologia) também não fica ali. Só a resposta mais recente tem ações; as anteriores ficam como texto.
 - **Receita por foto**: etapas Foto → Conferir → Pronto; prévia antes de enviar; leitura acompanhada com esqueleto; revisão com barra fixa "Confirmar e salvar"; ao confirmar, os alarmes do aparelho sincronizam e o app abre Hoje com o resumo no snackbar.
 - **Bula humanizada**: no Perguntar e na pergunta anterior, cada remédio de "Falando de:" (com o ícone do livro quando há bula) abre a bula simples; dela, "Perguntar sobre este remédio" abre o Perguntar com o remédio escolhido ("Sobre X:" e o quadro do tratamento), como o `?medicamento=` do site. Primeira abertura: esqueleto enquanto o servidor prepara; depois abre na hora.
-- **Navegação**: Início, Perguntar, Hoje e Avisos no menu inferior; histórico e receita são telas empilhadas (botão voltar, sem o menu). Atalhos do ícone: Hoje, Perguntar e Fotografar receita; `bulai://abrir/receitas/{id}/revisar` abre uma receita em revisão.
+- **Conta** (aba do menu inferior): saudação com o nome de chamada; "Como quer ser chamado(a)?"; Aparência (igual ao celular, sempre claro, sempre escuro; guardada no aparelho, muda na hora, inclusive as barras do sistema e o logo); Lembretes (lembrar nos horários, e-mail, fuso); Alarmes neste celular (permissões, despertador, adiar, testar); Senha (recolhida); Minhas perguntas; Sair da conta.
+- **Avisos**: só a lista de avisos, aberta pelo sininho da barra superior (com o número de não lidos); um link leva aos ajustes de lembretes na Conta.
+- **Navegação**: Início, Perguntar, Hoje e Conta no menu inferior; sininho dos avisos na barra superior; histórico e receita são telas empilhadas (botão voltar, sem o menu). Atalhos do ícone: Hoje, Perguntar e Fotografar receita; `bulai://abrir/receitas/{id}/revisar` abre uma receita em revisão.
 
 Versões: AGP 9.5.1, Kotlin 2.4.21 (plugins Compose e serialization), Gradle 9.9.1, `compileSdk 37`, `targetSdk 36`, `minSdk 26`. Dependências: AndroidX core-ktx, activity-compose, work-runtime-ktx, core-splashscreen, browser, navigation-compose 2.10.2, lifecycle 2.11.0; Compose BOM 2026.09.00 (Material 3 e ícones); kotlinx-coroutines 1.11.0; kotlinx-serialization 1.13.0; Retrofit 3.0.0 + conversor kotlinx; OkHttp 5.5.1. Testes: JUnit 4, org.json, coroutines-test, MockWebServer.
 
@@ -173,7 +178,7 @@ O APK vai para `mobile/android/dist/bulai-{versão}-{tipo}.apk` (fora do Git). A
 
 ## Deploy do servidor
 
-Migração `mobile_devices` e as rotas novas de `routes/api.php`; sem variáveis novas e sem build de front. Perguntar e receita usam os mesmos provedores de IA e limites (`bulai.consultation.rate_limit_per_hour`, `bulai.prescription.*`) do site.
+Migrações `mobile_devices` e `preferred_name` em `users` (nome de chamada) e as rotas novas de `routes/api.php`; sem variáveis novas e sem build de front. Perguntar e receita usam os mesmos provedores de IA e limites (`bulai.consultation.rate_limit_per_hour`, `bulai.prescription.*`) do site.
 
 ## Testes
 

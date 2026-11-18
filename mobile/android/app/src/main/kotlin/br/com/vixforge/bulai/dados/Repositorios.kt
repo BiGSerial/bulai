@@ -12,15 +12,28 @@ import br.com.vixforge.bulai.dados.api.Mensagem
 import br.com.vixforge.bulai.dados.api.PedidoDeCadastro
 import br.com.vixforge.bulai.dados.api.PedidoDeEmail
 import br.com.vixforge.bulai.dados.api.PedidoDeMarcacao
+import br.com.vixforge.bulai.dados.api.PedidoDeNomeDeChamada
+import br.com.vixforge.bulai.dados.api.PedidoDeTrocaDeSenha
+import br.com.vixforge.bulai.dados.api.Usuario
 import br.com.vixforge.bulai.dados.api.chamar
 import br.com.vixforge.bulai.sync.Sincronizacao
 
-/** Cadastro e "esqueci minha senha" (sem conta conectada). */
-class ContaRepositorio(private val api: BulaiApi) {
+/** Cadastro e "esqueci minha senha" (sem conta conectada); com a conta conectada, nome de chamada e troca de senha. */
+class ContaRepositorio(private val api: BulaiApi, private val sessao: Sessao) {
     suspend fun cadastrar(nome: String, email: String, senha: String, confirmacao: String, aceitou: Boolean): Result<Mensagem> =
         chamar { api.cadastrar(PedidoDeCadastro(nome.trim(), email.trim(), senha, confirmacao, aceitou)) }
 
     suspend fun esqueciSenha(email: String): Result<Mensagem> = chamar { api.esqueciSenha(PedidoDeEmail(email.trim())) }
+
+    /** Relê a conta (nome, e-mail, consentimento) e atualiza a sessão. */
+    suspend fun atualizar(): Result<Usuario> = chamar { api.conta().user }.onSuccess { sessao.atualizar(it) }
+
+    /** Vazio volta a usar o primeiro nome. A saudação do Início muda junto. */
+    suspend fun mudarNomeDeChamada(nome: String): Result<Usuario> =
+        chamar { api.mudarNomeDeChamada(PedidoDeNomeDeChamada(nome.trim().ifEmpty { null })).user }.onSuccess { sessao.atualizar(it) }
+
+    suspend fun trocarSenha(atual: String, nova: String, confirmacao: String): Result<Mensagem> =
+        chamar { api.trocarSenha(PedidoDeTrocaDeSenha(atual, nova, confirmacao)) }
 }
 
 /**

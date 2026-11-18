@@ -100,4 +100,13 @@ interface BulaiApi {
 
     @POST("bulas/{id}/gerar")
     suspend fun gerarBula(@Path("id") remedio: Long): RespostaDaBula
+
+    @GET("conta")
+    suspend fun conta(): RespostaDoUsuario
+
+    @PUT("conta/nome")
+    suspend fun mudarNomeDeChamada(@Body pedido: PedidoDeNomeDeChamada): RespostaDoUsuario
+
+    @PUT("conta/senha")
+    suspend fun trocarSenha(@Body pedido: PedidoDeTrocaDeSenha): Mensagem
 }

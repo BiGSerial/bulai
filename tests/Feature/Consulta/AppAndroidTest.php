@@ -15,6 +15,7 @@ use App\Services\Users\UserAccountService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -323,5 +324,38 @@ final class AppAndroidTest extends TestCase
         $other = $this->patient();
         $other->notify(new UnmatchedMedicineResolvedNotification($this->medication($other, 'Privado ZZ')));
         $this->postJson(route('api.mobile.notices.open', $other->notifications()->first()->id), [], $headers)->assertNotFound();
+    }
+
+    public function test_the_person_sets_how_to_be_called_and_the_greeting_and_the_site_follow(): void
+    {
+        $user = $this->patient();
+        $user->forceFill(['name' => 'Maria Aparecida da Silva'])->save();
+        $headers = $this->bearer($user);
+
+        $this->putJson(route('api.mobile.account.name'), ['preferred_name' => '  Cida  '], $headers)->assertOk()
+            ->assertJsonPath('user.preferred_name', 'Cida')->assertJsonPath('user.first_name', 'Cida');
+        $this->getJson(route('api.mobile.home'), $headers)->assertJsonPath('first_name', 'Cida');
+        $this->actingAs($user->refresh())->get(route('consulta.inicio'))->assertSee('Olá, Cida');
+        $this->assertEquals(['from' => null, 'to' => 'Cida'], UserAuditEvent::query()->where('event', UserAuditEvent::EVENT_PREFERRED_NAME_CHANGED)->sole()->details);
+
+        $this->putJson(route('api.mobile.account.name'), ['preferred_name' => '<script>'], $headers)->assertUnprocessable()->assertJsonValidationErrors('preferred_name');
+        $this->putJson(route('api.mobile.account.name'), ['preferred_name' => ''], $headers)->assertOk()->assertJsonPath('user.first_name', 'Maria');
+    }
+
+    public function test_changing_the_password_asks_the_current_one_and_keeps_only_this_device(): void
+    {
+        $user = $this->patient();
+        $headers = $this->bearer($user);
+        $other = $this->bearer($user);
+
+        $this->putJson(route('api.mobile.account.password'), ['current_password' => 'errada', 'password' => 'Nova-senha-2026', 'password_confirmation' => 'Nova-senha-2026'], $headers)
+            ->assertUnprocessable()->assertJsonPath('errors.current_password.0', 'A senha atual não confere.');
+        $this->putJson(route('api.mobile.account.password'), ['current_password' => 'password', 'password' => 'password', 'password_confirmation' => 'password'], $headers)
+            ->assertUnprocessable()->assertJsonValidationErrors('password');
+
+        $this->putJson(route('api.mobile.account.password'), ['current_password' => 'password', 'password' => 'Nova-senha-2026', 'password_confirmation' => 'Nova-senha-2026'], $headers)->assertOk();
+        $this->assertTrue(Hash::check('Nova-senha-2026', $user->refresh()->password));
+        $this->getJson(route('api.mobile.account'), $headers)->assertOk();
+        $this->getJson(route('api.mobile.account'), $other)->assertUnauthorized();
     }
 }

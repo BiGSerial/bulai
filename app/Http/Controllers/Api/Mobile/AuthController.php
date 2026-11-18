@@ -110,14 +110,15 @@ final class AuthController extends Controller
     }
 
     /**
-     * @return array{id: int, name: string, first_name: string, email: string, must_change_password: bool, health_consent: bool, timezone: string, is_admin: bool}
+     * @return array{id: int, name: string, first_name: string, preferred_name: string|null, email: string, must_change_password: bool, health_consent: bool, timezone: string, is_admin: bool}
      */
     public static function user(User $user): array
     {
         return [
             'id' => $user->id,
             'name' => $user->name,
-            'first_name' => trim(explode(' ', trim($user->name))[0] ?? ''),
+            'first_name' => $user->callName(),
+            'preferred_name' => $user->preferred_name,
             'email' => $user->email,
             'must_change_password' => (bool) $user->must_change_password,
             'health_consent' => $user->hasHealthConsent(),

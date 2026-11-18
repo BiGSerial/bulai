@@ -137,12 +137,19 @@ fun TemaBulai(escuro: Boolean = isSystemInDarkTheme(), conteudo: @Composable () 
     } else {
         CoresExtras(Marca.Verde, Marca.VerdeClaro, Marca.Vermelho, Marca.VermelhoClaro, Marca.Creme200, Marca.Creme50)
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalCoresExtras provides extras) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalCoresExtras provides extras, LocalEscuro provides escuro) {
         MaterialTheme(colorScheme = if (escuro) Escuro else Claro, typography = Tipos, shapes = Formas, content = conteudo)
     }
 }
 
+/** O tema do app pode diferir do modo do celular (Conta › Aparência): imagens com versão escura escolhem por aqui. */
+val LocalEscuro = staticCompositionLocalOf { false }
+
 object TemaBulai {
     val extras: CoresExtras
         @Composable get() = LocalCoresExtras.current
+
+    /** Logo da marca na versão certa para o tema do app (texto escuro no claro, texto claro no escuro). */
+    val logo: Int
+        @Composable get() = if (LocalEscuro.current) br.com.vixforge.bulai.R.drawable.marca_logo_escuro else br.com.vixforge.bulai.R.drawable.marca_logo
 }

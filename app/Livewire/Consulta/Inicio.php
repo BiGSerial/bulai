@@ -46,7 +46,7 @@ class Inicio extends Component
         $hoje = CarbonImmutable::now($user->treatmentTimezone());
 
         return view('livewire.consulta.inicio', [
-            'nome' => trim(explode(' ', trim($user->name))[0] ?? ''),
+            'nome' => $user->callName(),
             'dataHoje' => mb_convert_case($hoje->translatedFormat('l, j \d\e F'), MB_CASE_TITLE, 'UTF-8'),
             'receitaPorFoto' => Route::has('consulta.receita.nova'),
             'consentido' => $consentido,

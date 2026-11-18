@@ -19,7 +19,10 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Notifications
@@ -74,12 +77,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import br.com.vixforge.bulai.R
+import br.com.vixforge.bulai.ui.tema.TemaBulai
 import br.com.vixforge.bulai.container
 import br.com.vixforge.bulai.dados.EstadoDaSessao
 import br.com.vixforge.bulai.dados.Preferencias
 import br.com.vixforge.bulai.ui.avisos.AvisosTela
 import br.com.vixforge.bulai.ui.bula.BulaTela
 import br.com.vixforge.bulai.ui.conta.CadastroTela
+import br.com.vixforge.bulai.ui.conta.ContaAreaTela
 import br.com.vixforge.bulai.ui.conta.EntrarTela
 import br.com.vixforge.bulai.ui.conta.EsqueciSenhaTela
 import br.com.vixforge.bulai.ui.conta.PrimeiroAcessoTela
@@ -100,7 +105,7 @@ private val ABAS = listOf(
     Aba(Rotas.INICIO, "Início", Icons.Outlined.Home, Icons.Rounded.Home),
     Aba(Rotas.PERGUNTAR, "Perguntar", Icons.AutoMirrored.Outlined.Chat, Icons.AutoMirrored.Rounded.Chat),
     Aba(Rotas.DIA, "Hoje", Icons.Outlined.EventAvailable, Icons.Rounded.EventAvailable),
-    Aba(Rotas.AVISOS, "Avisos", Icons.Outlined.Notifications, Icons.Rounded.Notifications),
+    Aba(Rotas.CONTA, "Conta", Icons.Outlined.AccountCircle, Icons.Rounded.AccountCircle),
 )
 
 /** Raiz do app: a sessão decide entre as telas de conta, a troca da senha provisória e as telas do paciente. */
@@ -151,8 +156,6 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
     val snackbar = remember { SnackbarHostState() }
     val escopo = rememberCoroutineScope()
     val rolagem = TopAppBarDefaults.pinnedScrollBehavior()
-    var menu by remember { mutableStateOf(false) }
-    var confirmarSaida by rememberSaveable { mutableStateOf(false) }
     val pedirNotificacoes = rememberPedidoInicialDeNotificacoes()
     val pedida by rotaPedida.collectAsStateWithLifecycle()
 
@@ -192,7 +195,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     if (titulo != null) {
                         Text(titulo, style = MaterialTheme.typography.titleLarge)
                     } else {
-                        Image(painterResource(R.drawable.marca_logo), contentDescription = "BULA-IA", modifier = Modifier.height(30.dp))
+                        Image(painterResource(TemaBulai.logo), contentDescription = "BULA-IA", modifier = Modifier.height(30.dp))
                     }
                 },
                 navigationIcon = {
@@ -204,20 +207,12 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     if (rota == Rotas.PERGUNTAR) {
                         IconButton(onClick = { nav.navigate(Rotas.PERGUNTAS) }) { Icon(Icons.Rounded.History, contentDescription = "Minhas perguntas") }
                     }
-                    if (titulo == null) {
-                        Box {
-                            IconButton(onClick = { menu = true }) { Icon(Icons.Rounded.MoreVert, contentDescription = "Mais opções") }
-                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                                DropdownMenuItem(
-                                    text = { Text("Minhas perguntas") },
-                                    leadingIcon = { Icon(Icons.Rounded.History, contentDescription = null) },
-                                    onClick = { menu = false; nav.navigate(Rotas.PERGUNTAS) },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Sair da conta") },
-                                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.Logout, contentDescription = null) },
-                                    onClick = { menu = false; confirmarSaida = true },
-                                )
+                    // Sininho: os avisos (com o número de não lidos). Fica em todas as telas, menos na própria lista de avisos.
+                    if (rota != Rotas.AVISOS) {
+                        IconButton(onClick = { nav.navigate(Rotas.AVISOS) { launchSingleTop = true } }) {
+                            val naoLidos = avisosNaoLidos.intValue
+                            BadgedBox(badge = { if (naoLidos > 0) Badge { Text(if (naoLidos > 99) "99+" else "$naoLidos") } }) {
+                                Icon(if (naoLidos > 0) Icons.Rounded.NotificationsActive else Icons.Outlined.Notifications, contentDescription = if (naoLidos == 0) "Avisos" else if (naoLidos == 1) "Avisos, 1 não lido" else "Avisos, $naoLidos não lidos")
                             }
                         }
                     }
@@ -236,9 +231,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                         selected = selecionada,
                         onClick = { irPara(nav, aba.rota) },
                         icon = {
-                            BadgedBox(badge = { if (aba.rota == Rotas.AVISOS && avisosNaoLidos.intValue > 0) Badge { Text("${avisosNaoLidos.intValue}") } }) {
-                                Icon(if (selecionada) aba.iconeSelecionado else aba.icone, contentDescription = null)
-                            }
+                            Icon(if (selecionada) aba.iconeSelecionado else aba.icone, contentDescription = null)
                         },
                         label = { Text(aba.titulo, style = MaterialTheme.typography.labelMedium) },
                     )
@@ -267,8 +260,17 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
             }
             composable(Rotas.PERGUNTAR) { PerguntarTela(preenchimento, aoAbrirBula = { nav.navigate(Rotas.bula(it)) }) }
             composable(Rotas.DIA) { DiaTela(recado = { mostrar(it.texto, it.desfazer) }, preenchimento = preenchimento) }
-            composable(Rotas.AVISOS) {
-                AvisosTela(recado = { mostrar(it) }, aoAbrirDestino = { irPara(nav, Rotas.doDestino(it)) }, preenchimento = preenchimento, aoContarAvisos = { avisosNaoLidos.intValue = it })
+            composable(Rotas.AVISOS, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
+                AvisosTela(
+                    recado = { mostrar(it) },
+                    aoAbrirDestino = { irPara(nav, Rotas.doDestino(it)) },
+                    preenchimento = preenchimento,
+                    aoContarAvisos = { avisosNaoLidos.intValue = it },
+                    aoAbrirAjustes = { irPara(nav, Rotas.CONTA) },
+                )
+            }
+            composable(Rotas.CONTA) {
+                ContaAreaTela(preenchimento, recado = { mostrar(it) }, aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) })
             }
             composable(Rotas.PERGUNTAS, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
                 HistoricoTela(preenchimento, aoAbrir = { nav.navigate(Rotas.pergunta(it)) }, recado = { mostrar(it) })
@@ -299,16 +301,6 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                 )
             }
         }
-    }
-
-    if (confirmarSaida) {
-        AlertDialog(
-            onDismissRequest = { confirmarSaida = false },
-            title = { Text("Sair da conta?") },
-            text = { Text("Os alarmes dos remédios deixam de tocar neste celular até você entrar de novo.") },
-            confirmButton = { TextButton(onClick = { confirmarSaida = false; context.container.sessao.sair() }) { Text("Sair", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmarSaida = false }) { Text("Cancelar") } },
-        )
     }
 }
 

@@ -87,13 +87,11 @@ import br.com.vixforge.bulai.ui.sistema.rememberPedirPermissao
 import br.com.vixforge.bulai.ui.tema.TemaBulai
 
 @Composable
-fun AvisosTela(recado: (String) -> Unit, aoAbrirDestino: (Destino) -> Unit, preenchimento: PaddingValues, aoContarAvisos: (Int) -> Unit = {}) {
+fun AvisosTela(recado: (String) -> Unit, aoAbrirDestino: (Destino) -> Unit, preenchimento: PaddingValues, aoContarAvisos: (Int) -> Unit = {}, aoAbrirAjustes: () -> Unit = {}) {
     val app = LocalContext.current.applicationContext as Application
     val vm = telaViewModel { AvisosViewModel(app, it.avisos) }
     val estado by vm.estado.collectAsStateWithLifecycle()
-    val alarmes by vm.alarmes.collectAsStateWithLifecycle()
     var confirmarApagarTodos by rememberSaveable { mutableStateOf(false) }
-    val pedirPermissao = rememberPedirPermissao(vm::lerAlarmes)
     LaunchedEffect(Unit) { vm.recados.collect(recado) }
     LaunchedEffect(Unit) { vm.destinos.collect(aoAbrirDestino) }
     LaunchedEffect(estado.dados?.unread) { estado.dados?.let { aoContarAvisos(it.unread) } }
@@ -131,13 +129,11 @@ fun AvisosTela(recado: (String) -> Unit, aoAbrirDestino: (Destino) -> Unit, pree
                         LinhaDoAviso(aviso, { vm.abrir(aviso) }, { vm.apagar(aviso) }, largura.animateItem())
                     }
                 }
-                if (central.consentimento) {
-                    item(key = "lembretes") { Lembretes(central, vm::lembretes, vm::email, vm::fuso, largura) }
-                }
-            }
-            alarmes?.let { situacao ->
-                item(key = "alarmes") {
-                    AlarmesDoCelular(situacao, pedirPermissao, vm::modoDespertador, vm::adiamento, vm::testarAlarme, largura)
+                // Lembretes e alarmes do celular ficam em Conta; aqui, só os avisos.
+                item(key = "ajustes") {
+                    TextButton(onClick = aoAbrirAjustes, modifier = largura.heightIn(min = 48.dp)) {
+                        Text("Lembretes e alarmes: ajuste em Conta", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
             }
         }
@@ -159,7 +155,7 @@ fun AvisosTela(recado: (String) -> Unit, aoAbrirDestino: (Destino) -> Unit, pree
 @Composable
 private fun CabecalhoDosAvisos(central: CentralDeAvisos, aoMarcarLidos: () -> Unit, aoApagarTodos: () -> Unit, modifier: Modifier) {
     Column(modifier.fillMaxWidth()) {
-        Text("Avisos", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { heading() })
+        // O título "Avisos" já está na barra superior; aqui, só quantos são novos e as ações.
         Text(
             when (central.unread) {
                 0 -> "Nenhum aviso novo."
@@ -226,7 +222,7 @@ private fun LinhaDoAviso(aviso: Aviso, aoAbrir: () -> Unit, aoApagar: () -> Unit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Lembretes(central: CentralDeAvisos, aoLembretes: (Boolean) -> Unit, aoEmail: (Boolean) -> Unit, aoFuso: (String) -> Unit, modifier: Modifier) {
+internal fun Lembretes(central: CentralDeAvisos, aoLembretes: (Boolean) -> Unit, aoEmail: (Boolean) -> Unit, aoFuso: (String) -> Unit, modifier: Modifier) {
     val preferencias = central.preferences
     var aberto by remember { mutableStateOf(false) }
     Cartao(modifier) {
@@ -256,7 +252,7 @@ private fun Lembretes(central: CentralDeAvisos, aoLembretes: (Boolean) -> Unit, 
 }
 
 @Composable
-private fun LinhaComChave(titulo: String, apoio: String?, ligada: Boolean, aoMudar: (Boolean) -> Unit, habilitada: Boolean = true) {
+internal fun LinhaComChave(titulo: String, apoio: String?, ligada: Boolean, aoMudar: (Boolean) -> Unit, habilitada: Boolean = true) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -274,7 +270,7 @@ private fun LinhaComChave(titulo: String, apoio: String?, ligada: Boolean, aoMud
 }
 
 @Composable
-private fun AlarmesDoCelular(
+internal fun AlarmesDoCelular(
     situacao: SituacaoDosAlarmes,
     pedir: (Permissao) -> Unit,
     aoDespertador: (Boolean) -> Unit,
@@ -320,7 +316,7 @@ private fun AlarmesDoCelular(
 }
 
 @Composable
-private fun ItemDePermissao(icone: ImageVector, titulo: String, liberada: Boolean, aoLiberar: () -> Unit) {
+internal fun ItemDePermissao(icone: ImageVector, titulo: String, liberada: Boolean, aoLiberar: () -> Unit) {
     val extras = TemaBulai.extras
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(if (liberada) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber, contentDescription = null, tint = if (liberada) extras.sucesso else extras.alerta)

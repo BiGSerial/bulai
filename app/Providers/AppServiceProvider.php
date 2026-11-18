@@ -133,6 +133,8 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by('mobile-login|'.$emailKey($request))->response($mobileThrottled),
             Limit::perMinutes(15, 20)->by('mobile-login-15|'.$emailKey($request))->response($mobileThrottled),
         ]);
+        // Troca de senha em Minha conta: tentativas de senha atual por conta (o token já identifica a pessoa).
+        RateLimiter::for('mobile-password-change', fn (Request $request): Limit => Limit::perMinutes(15, 5)->by('mobile-password-change|'.($request->user()?->id ?? $request->ip()))->response($mobileThrottled));
         RateLimiter::for('mobile-password-reset', fn (Request $request): Limit => Limit::perMinute(3)->by('mobile-reset|'.$emailKey($request))->response($mobileThrottled));
         RateLimiter::for('mobile-register', fn (Request $request): array => [
             Limit::perMinute(3)->by('mobile-register|'.$request->ip())->response($mobileThrottled),

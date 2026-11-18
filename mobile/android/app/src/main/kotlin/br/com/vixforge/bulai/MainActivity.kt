@@ -7,6 +7,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import br.com.vixforge.bulai.dados.Preferencias
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +47,21 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            TemaBulai {
+            // Tema escolhido em Conta; "sistema" segue o celular. As barras do sistema acompanham (ícones claros no escuro).
+            val tema by container.tema.collectAsStateWithLifecycle()
+            val doSistema = isSystemInDarkTheme()
+            val escuro = when (tema) {
+                Preferencias.TEMA_CLARO -> false
+                Preferencias.TEMA_ESCURO -> true
+                else -> doSistema
+            }
+            LaunchedEffect(escuro) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { escuro },
+                    navigationBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT) { escuro },
+                )
+            }
+            TemaBulai(escuro = escuro) {
                 var mostrarVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(tocarVideo) }
                 Box {
                     AppBulai(rotaPedida = rotaPedida, aoUsarRota = { rotaPedida.value = null })

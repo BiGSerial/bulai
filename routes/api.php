@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Mobile\AccountController as MobileAccountController;
 use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
 use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
@@ -99,6 +100,11 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::delete('/avisos/{notice}', [MobileNoticeController::class, 'destroy'])->whereUuid('notice')->name('notices.destroy');
 
         Route::get('/remedios', [MobileMedicineController::class, 'search'])->name('medicines.search');
+
+        // Minha conta: nome de chamada e troca de senha (este aparelho continua conectado).
+        Route::get('/conta', [MobileAccountController::class, 'show'])->name('account');
+        Route::put('/conta/nome', [MobileAccountController::class, 'updateName'])->name('account.name');
+        Route::put('/conta/senha', [MobileAccountController::class, 'updatePassword'])->middleware('throttle:mobile-password-change')->name('account.password');
 
         // Bula humanizada: GET responde na hora (pronta ou "carregando"); POST …/gerar prepara o resumo (limite por hora do site).
         Route::get('/bulas/{medicine}', [MobileLeafletController::class, 'show'])->whereNumber('medicine')->name('leaflets.show');

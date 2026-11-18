@@ -33,7 +33,7 @@ final class PatientDayService
         $today = CarbonImmutable::now($user->treatmentTimezone());
 
         return [
-            'first_name' => trim(explode(' ', trim($user->name))[0] ?? ''),
+            'first_name' => $user->callName(),
             'date_label' => self::dateLabel($today),
             'health_consent' => $consent,
             'has_medications' => $consent && PatientMedication::query()->where('user_id', $user->id)->exists(),

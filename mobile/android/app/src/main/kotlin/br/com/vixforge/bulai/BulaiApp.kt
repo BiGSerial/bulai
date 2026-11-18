@@ -14,6 +14,7 @@ import br.com.vixforge.bulai.dados.TratamentoRepositorio
 import br.com.vixforge.bulai.dados.api.BulaiApi
 import br.com.vixforge.bulai.dados.api.Rede
 import br.com.vixforge.bulai.sync.Sincronizacao
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class BulaiApp : Application() {
     lateinit var container: Container
@@ -34,7 +35,16 @@ class Container(context: Context) {
     val cache = CacheEmDisco(context)
     val sessao = Sessao(context, cache)
     val api: BulaiApi = Rede.criar(token = { sessao.token }, aoPerderAcesso = { sessao.perdeuAcesso() })
-    val conta = ContaRepositorio(api)
+    val conta = ContaRepositorio(api, sessao)
+    val preferencias = Preferencias(context)
+
+    /** Tema escolhido em Conta (sistema, claro ou escuro): a tela muda na hora. */
+    val tema = MutableStateFlow(preferencias.tema)
+
+    fun escolherTema(tema: String) {
+        preferencias.tema = tema
+        this.tema.value = tema
+    }
     val tratamento = TratamentoRepositorio(context, api, cache)
     val avisos = AvisosRepositorio(context, api, cache)
     val perguntas = PerguntasRepositorio(api, cache)

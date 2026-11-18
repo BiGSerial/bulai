@@ -78,6 +78,11 @@ class Preferencias(context: Context) {
         get() = prefs.getStringSet(AVISOS_MOSTRADOS, emptySet()) ?: emptySet()
         set(valor) = prefs.edit { putStringSet(AVISOS_MOSTRADOS, valor) }
 
+    /** Tema do aplicativo: [TEMA_SISTEMA], [TEMA_CLARO] ou [TEMA_ESCURO]. Fica no aparelho (não é da conta). */
+    var tema: String
+        get() = prefs.getString(TEMA, TEMA_SISTEMA) ?: TEMA_SISTEMA
+        set(valor) = prefs.edit { putString(TEMA, valor) }
+
     var pediuNotificacoes: Boolean
         get() = prefs.getBoolean(PEDIU_NOTIFICACOES, false)
         set(valor) = prefs.edit { putBoolean(PEDIU_NOTIFICACOES, valor) }
@@ -98,8 +103,12 @@ class Preferencias(context: Context) {
         }
     }
 
-    private companion object {
+    companion object {
         const val ARQUIVO = "bulai"
+        const val TEMA = "tema"
+        const val TEMA_SISTEMA = "sistema"
+        const val TEMA_CLARO = "claro"
+        const val TEMA_ESCURO = "escuro"
         const val INSTALACAO = "instalacao"
         const val TOKEN = "token"
         const val USUARIO = "usuario"

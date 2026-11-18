@@ -14,6 +14,7 @@ object Rotas {
     const val PERGUNTAR = "perguntar"
     const val DIA = "dia"
     const val AVISOS = "avisos"
+    const val CONTA = "conta"
 
     const val PERGUNTAS = "perguntas"
     const val PERGUNTA = "pergunta/{uuid}"
@@ -35,6 +36,7 @@ object Rotas {
 
     /** Título das telas empilhadas (as abas mostram a marca). */
     fun titulo(rota: String?): String? = when (rota) {
+        AVISOS -> "Avisos"
         PERGUNTAS -> "Minhas perguntas"
         PERGUNTA -> "Pergunta anterior"
         RECEITA -> "Fotografar receita"
@@ -68,6 +70,8 @@ object Rotas {
         "perguntar" -> PERGUNTAR
         "historico" -> PERGUNTAS
         "receitas/nova", "receita" -> RECEITA
+        "conta", "account" -> CONTA
+        "inicio" -> INICIO
         else -> RECEITA_PARA_REVISAR.matchEntire(limpo)?.let { revisarReceita(it.groupValues[1].toLong()) }
             ?: BULA_DO_REMEDIO.matchEntire(limpo)?.let { bula(it.groupValues[1].toLong()) }
             ?: INICIO

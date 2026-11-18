@@ -106,7 +106,7 @@ fun InicioTela(
                         Atalho(Icons.Rounded.EventAvailable, "Remédios de hoje", "Marque o que já tomou", aoAbrirDia)
                         Atalho(Icons.AutoMirrored.Rounded.Chat, "Perguntar sobre um remédio", "Escreva ou fale sua dúvida", aoAbrirPerguntar)
                         Atalho(Icons.Rounded.PhotoCamera, "Fotografar receita", "Os remédios entram no seu tratamento", aoFotografarReceita)
-                        Atalho(Icons.Rounded.NotificationsActive, "Avisos e alarmes", when (dados.avisosNaoLidos) { 0 -> "Lembretes e alarmes do celular"; 1 -> "1 aviso novo"; else -> "${dados.avisosNaoLidos} avisos novos" }, aoAbrirAvisos, dados.avisosNaoLidos)
+                        Atalho(Icons.Rounded.NotificationsActive, "Avisos", when (dados.avisosNaoLidos) { 0 -> "Nenhum aviso novo"; 1 -> "1 aviso novo"; else -> "${dados.avisosNaoLidos} avisos novos" }, aoAbrirAvisos, dados.avisosNaoLidos)
                     }
                 }
             }

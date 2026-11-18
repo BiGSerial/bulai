@@ -332,6 +332,18 @@ final class UserAccountService
     }
 
     /** Registra o pedido de link de redefinição ("Esqueci minha senha"); a existência do e-mail nunca é revelada ao solicitante. */
+    /** Nome de chamada ("como quer ser chamado"): vazio volta a usar o primeiro nome. Auditado com o valor anterior. */
+    public function updatePreferredName(User $user, ?string $preferredName): void
+    {
+        $preferredName = filled($preferredName) ? trim((string) $preferredName) : null;
+        if ($preferredName === $user->preferred_name) {
+            return;
+        }
+        $before = $user->preferred_name;
+        $user->forceFill(['preferred_name' => $preferredName])->save();
+        $this->record($user, UserAuditEvent::EVENT_PREFERRED_NAME_CHANGED, $user, ['from' => $before, 'to' => $preferredName]);
+    }
+
     public function recordPasswordResetRequested(User $user): void
     {
         $this->record($user, UserAuditEvent::EVENT_PASSWORD_RESET_REQUESTED, null);

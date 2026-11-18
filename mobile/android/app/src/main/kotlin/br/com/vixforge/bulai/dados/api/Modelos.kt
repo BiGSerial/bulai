@@ -12,6 +12,7 @@ data class Usuario(
     val id: Long,
     val name: String,
     @SerialName("first_name") val primeiroNome: String,
+    @SerialName("preferred_name") val nomeDeChamada: String? = null,
     val email: String,
     @SerialName("must_change_password") val precisaTrocarSenha: Boolean,
     @SerialName("health_consent") val consentimento: Boolean,
@@ -51,6 +52,16 @@ data class PedidoDeNovaSenha(val password: String, @SerialName("password_confirm
 
 @Serializable
 data class Mensagem(val message: String)
+
+@Serializable
+data class PedidoDeNomeDeChamada(@SerialName("preferred_name") val nome: String?)
+
+@Serializable
+data class PedidoDeTrocaDeSenha(
+    @SerialName("current_password") val atual: String,
+    val password: String,
+    @SerialName("password_confirmation") val confirmacao: String,
+)
 
 @Serializable
 data class Dose(

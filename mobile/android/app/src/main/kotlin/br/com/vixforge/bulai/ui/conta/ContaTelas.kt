@@ -44,6 +44,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import br.com.vixforge.bulai.R
+import br.com.vixforge.bulai.ui.tema.TemaBulai
 import br.com.vixforge.bulai.ui.base.telaViewModel
 import br.com.vixforge.bulai.ui.componentes.BotaoPrincipal
 import br.com.vixforge.bulai.ui.componentes.BotaoSecundario
@@ -83,7 +84,7 @@ private fun MolduraDeConta(
                             IconButton(onClick = aoVoltar) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Voltar") }
                         }
                     }
-                    Image(painterResource(R.drawable.marca_logo), contentDescription = "BULA-IA — Bulas Inteligentes", modifier = Modifier.height(56.dp))
+                    Image(painterResource(TemaBulai.logo), contentDescription = "BULA-IA — Bulas Inteligentes", modifier = Modifier.height(56.dp))
                     Spacer(Modifier.height(16.dp))
                     Text(titulo, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary, textAlign = TextAlign.Center, modifier = Modifier.semantics { heading() })
                     apoio?.let {
