@@ -1,19 +1,11 @@
 @php
-    use App\Services\Interactions\InteractionSeverity;
-    use App\Services\Interactions\PairVerdict;
     $running = ! $consultation->isFinished();
-    // Faixa colorida + UMA frase em linguagem comum por par (a gravidade vem do motor estruturado).
-    $faixa = function ($result): array {
-        $sev = $result->severity instanceof InteractionSeverity ? $result->severity : InteractionSeverity::tryFrom((string) $result->severity);
-        $found = in_array($result->verdict, [PairVerdict::InteractionFound, PairVerdict::ContradictoryEvidence], true);
-        return match (true) {
-            $found && $sev === InteractionSeverity::Major => ['bg-rose-600', 'border-rose-300', 'danger', 'Pode ter interação forte. Fale com seu médico antes de usar os dois.'],
-            $found && $sev === InteractionSeverity::Moderate => ['bg-amber-500', 'border-amber-300', 'warning', 'Pode ter interação moderada. Fale com seu médico ou farmacêutico.'],
-            $found && $sev === InteractionSeverity::Minor => ['bg-yellow-300', 'border-yellow-300', 'warning', 'Pode ter interação leve. Vale comentar com seu médico ou farmacêutico.'],
-            $found => ['bg-slate-400', 'border-slate-300', 'neutral', 'Há interação registrada, mas a gravidade não foi classificada. Fale com seu médico.'],
-            $result->verdict === PairVerdict::NotFoundInSources => ['bg-slate-300', 'border-slate-200', 'neutral', 'Nenhuma interação registrada. Isto não significa que a combinação seja segura.'],
-            default => ['bg-slate-300', 'border-slate-200', 'neutral', 'Não foi possível concluir se há interação. Na dúvida, fale com seu médico.'],
-        };
+    // Faixa colorida + UMA frase em linguagem comum por par (frase e nível: InteractionResultPresenter::band, a mesma do app).
+    $cores = ['major' => ['bg-rose-600', 'border-rose-300'], 'moderate' => ['bg-amber-500', 'border-amber-300'], 'minor' => ['bg-yellow-300', 'border-yellow-300'], 'unclassified' => ['bg-slate-400', 'border-slate-300']];
+    $faixa = function ($result) use ($presenter, $cores): array {
+        $band = $presenter->band($result);
+
+        return [...($cores[$band['level']] ?? ['bg-slate-300', 'border-slate-200']), $band['tone'], $band['phrase']];
     };
 @endphp
 <x-consulta.shell title="Interações" :back="route('consulta.pesquisa')">

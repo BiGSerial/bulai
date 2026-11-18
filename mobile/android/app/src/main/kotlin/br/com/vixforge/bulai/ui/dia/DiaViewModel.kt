@@ -105,7 +105,10 @@ class DiaViewModel(private val tratamento: FonteDoDia) : ViewModel() {
     }
 }
 
-/** Aplica a situação a uma dose e recalcula o resumo, para a tela mudar antes da resposta do servidor. */
+/**
+ * Retorno imediato do toque (só experiência): a dose e o resumo mudam na hora; a resposta do servidor, que é quem decide,
+ * substitui este cálculo logo em seguida (ou o desfaz, se recusar).
+ */
 internal fun Dia.comSituacao(chave: String, situacao: String): Dia {
     val novas = doses.map { if (it.key == chave) it.copy(status = situacao) else it }
     return copy(

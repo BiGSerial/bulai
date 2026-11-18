@@ -25,6 +25,19 @@ object Rotas {
     const val CUIDADORES = "cuidadores"
     const val CUIDAR = "cuidar"
     const val CUIDANDO = "cuidando/{vinculo}?nome={nome}"
+    const val CUIDANDO_REMEDIOS = "cuidando/{vinculo}/remedios"
+    const val PERFIL = "perfil?aba={aba}"
+    const val BULAS = "bulas"
+    const val INTERACOES = "interacoes?com={com}"
+    const val RESULTADO = "interacoes/{uuid}"
+
+    fun perfil(aba: Int = 0) = "perfil?aba=$aba"
+
+    fun interacoes(com: Long? = null) = "interacoes" + (com?.let { "?com=$it" } ?: "")
+
+    fun resultado(uuid: String) = "interacoes/$uuid"
+
+    fun remediosDeQuemCuido(vinculo: Long) = "cuidando/$vinculo/remedios"
 
     fun cuidando(vinculo: Long, nome: String? = null) = "cuidando/$vinculo" + (nome?.let { "?nome=" + java.net.URLEncoder.encode(it, "UTF-8").replace("+", "%20") } ?: "")
 
@@ -35,6 +48,8 @@ object Rotas {
     private val RECEITA_PARA_REVISAR = Regex("""receitas/(\d+)/revisar""")
     private val BULA_DO_REMEDIO = Regex("""bula/(\d+)""")
     private val CUIDANDO_DE = Regex("""cuidando/(\d+)(/hoje)?""")
+    private val REMEDIOS_DE_QUEM_CUIDO = Regex("""cuidando/(\d+)/remedios""")
+    private val RESULTADO_DA_CONSULTA = Regex("""consulta/([0-9a-fA-F-]{36})""")
 
     fun pergunta(uuid: String) = "pergunta/$uuid"
 
@@ -52,6 +67,10 @@ object Rotas {
         CUIDADORES -> "Quem cuida de mim"
         CUIDAR -> "Cuidar de alguém"
         CUIDANDO -> "Remédios de quem você cuida"
+        CUIDANDO_REMEDIOS -> "Remédios e horários"
+        PERFIL -> "Meus remédios"
+        BULAS -> "Bula simples"
+        INTERACOES, RESULTADO -> "Interações"
         else -> null
     }
 
@@ -69,7 +88,12 @@ object Rotas {
             "consulta.receita.revisar" -> parametro("prescription")?.toLongOrNull()?.let(::revisarReceita) ?: RECEITA
             "consulta.cuidadores" -> CUIDADORES
             "consulta.cuidar" -> CUIDAR
-            "consulta.cuidando.hoje", "consulta.cuidando.remedios" -> parametro("vinculo")?.toLongOrNull()?.let { cuidando(it) } ?: CUIDAR
+            "consulta.cuidando.hoje" -> parametro("vinculo")?.toLongOrNull()?.let { cuidando(it) } ?: CUIDAR
+            "consulta.cuidando.remedios" -> parametro("vinculo")?.toLongOrNull()?.let(::remediosDeQuemCuido) ?: CUIDAR
+            "consulta.perfil" -> perfil()
+            "consulta.bulas" -> BULAS
+            "consulta.pesquisa" -> interacoes()
+            "consulta.resultado" -> parametro("consultation")?.let(::resultado) ?: interacoes()
             "consulta.conta" -> CONTA
             else -> INICIO
         }
@@ -87,9 +111,14 @@ object Rotas {
         "inicio" -> INICIO
         "cuidadores" -> CUIDADORES
         "cuidar" -> CUIDAR
+        "perfil" -> perfil()
+        "bulas" -> BULAS
+        "consulta", "interacoes" -> interacoes()
         else -> RECEITA_PARA_REVISAR.matchEntire(limpo)?.let { revisarReceita(it.groupValues[1].toLong()) }
             ?: BULA_DO_REMEDIO.matchEntire(limpo)?.let { bula(it.groupValues[1].toLong()) }
+            ?: REMEDIOS_DE_QUEM_CUIDO.matchEntire(limpo)?.let { remediosDeQuemCuido(it.groupValues[1].toLong()) }
             ?: CUIDANDO_DE.matchEntire(limpo)?.let { cuidando(it.groupValues[1].toLong()) }
+            ?: RESULTADO_DA_CONSULTA.matchEntire(limpo)?.let { resultado(it.groupValues[1]) }
             ?: INICIO
     }
 }

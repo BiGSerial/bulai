@@ -53,11 +53,13 @@ data class PessoaAcompanhada(
     @SerialName("can_mark") val podeMarcar: Boolean = false,
     @SerialName("health_consent") val consentimento: Boolean = true,
     @SerialName("phrases") val frases: List<String> = emptyList(),
+    /** Frase do que a pessoa pode fazer (decidida pelo servidor a partir das permissões). */
+    @SerialName("access_label") val acesso: String = "",
 )
 
 /** Dia de quem a pessoa cuida (vem junto do [Dia]). */
 @Serializable
-data class CuidandoDe(@SerialName("link_id") val vinculo: Long, @SerialName("first_name") val primeiroNome: String)
+data class CuidandoDe(@SerialName("link_id") val vinculo: Long, @SerialName("first_name") val primeiroNome: String, val banner: String = "")
 
 @Serializable
 data class PedidoDeCodigo(val code: String)

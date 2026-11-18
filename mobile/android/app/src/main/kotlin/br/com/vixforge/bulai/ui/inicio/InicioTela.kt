@@ -67,6 +67,9 @@ import androidx.compose.material.icons.automirrored.rounded.Chat
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Medication
+import androidx.compose.material.icons.rounded.CompareArrows
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.rounded.Medication
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.Badge
@@ -116,6 +119,9 @@ fun InicioTela(
     aoContarAvisos: (Int) -> Unit = {},
     aoAbrirPessoa: (PessoaAcompanhada) -> Unit = {},
     aoAbrirCuidar: () -> Unit = {},
+    aoAbrirPerfil: () -> Unit = {},
+    aoAbrirInteracoes: () -> Unit = {},
+    aoAbrirBulas: () -> Unit = {},
 ) {
     val vm = telaViewModel { InicioViewModel(it.tratamento) }
     val estado by vm.estado.collectAsStateWithLifecycle()
@@ -142,7 +148,7 @@ fun InicioTela(
                 }
             } else {
                 item(key = "saudacao") { Saudacao(dados, aoAbrirAvisos) }
-                item(key = "cartao") { CartaoDoDia(dados, marcando, vm::tomei, Modifier.widthIn(max = 640.dp)) }
+                item(key = "cartao") { CartaoDoDia(dados, marcando, vm::tomei, aoAbrirPerfil, Modifier.widthIn(max = 640.dp)) }
                 // Quem cuida de alguém escolhe aqui de quem ver os remédios (some para quem não acompanha ninguém).
                 item(key = "cuidando") { PessoasQueVoceCuida(aoAbrirPessoa, aoAbrirCuidar, Modifier.widthIn(max = 640.dp)) }
                 // Ações grandes, uma por linha (como no site): Perguntar em destaque laranja.
@@ -157,7 +163,10 @@ fun InicioTela(
                     Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Acao(Icons.AutoMirrored.Rounded.HelpOutline, "Perguntar sobre um remédio", "Escreva ou fale sua dúvida", aoAbrirPerguntar, destaque = true)
                         Acao(Icons.Rounded.Schedule, "Remédios de hoje", textoDoDia, aoAbrirDia, alerta = proxima?.status == Dose.ATRASADA)
+                        Acao(Icons.Rounded.Medication, "Meus remédios", "Dose, horários, receitas e alergias", aoAbrirPerfil, tom = MaterialTheme.colorScheme.primary)
                         Acao(Icons.Rounded.PhotoCamera, "Fotografar minha receita", "O app lê os remédios para você conferir", aoFotografarReceita, tom = TemaBulai.extras.sucesso)
+                        Acao(Icons.Rounded.CompareArrows, "Verificar interações", "Veja se seus remédios podem interagir", aoAbrirInteracoes, tom = TemaBulai.extras.alerta)
+                        Acao(Icons.AutoMirrored.Rounded.MenuBook, "Bula simples", "A bula explicada em linguagem simples", aoAbrirBulas, tom = MaterialTheme.colorScheme.secondary)
                         Acao(Icons.Rounded.History, "Ver o que já perguntei", "Suas perguntas anteriores", aoAbrirPerguntas, tom = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -206,14 +215,15 @@ private fun coresDoCartao(): CoresDoCartao {
 
 /** Cartão do dia: anel com as doses tomadas, "Hoje · X de Y" e o próximo remédio (com "Tomei" quando está na hora). */
 @Composable
-private fun CartaoDoDia(dados: Inicio, marcando: Boolean, aoTomar: (Dose) -> Unit, modifier: Modifier = Modifier) {
+private fun CartaoDoDia(dados: Inicio, marcando: Boolean, aoTomar: (Dose) -> Unit, aoAbrirPerfil: () -> Unit, modifier: Modifier = Modifier) {
     val cores = coresDoCartao()
     Surface(modifier.fillMaxWidth().animateContentSize(), shape = MaterialTheme.shapes.extraLarge, color = cores.fundo, contentColor = cores.texto, shadowElevation = 4.dp) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             when {
                 !dados.consentimento -> {
                     Text("Seus remédios", style = MaterialTheme.typography.titleLarge)
-                    Text("Para guardar seus remédios e receber lembretes, autorize o uso dos seus dados de saúde no seu perfil.", style = MaterialTheme.typography.bodyLarge, color = cores.apoio)
+                    Text("Para guardar seus remédios e receber lembretes, autorize o uso dos seus dados de saúde.", style = MaterialTheme.typography.bodyLarge, color = cores.apoio)
+                    androidx.compose.material3.Button(onClick = aoAbrirPerfil, modifier = Modifier.heightIn(min = 52.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = cores.texto, contentColor = cores.fundo)) { Text("Autorizar agora", style = MaterialTheme.typography.labelLarge) }
                 }
                 !dados.temRemedios -> {
                     Text("Nenhum remédio cadastrado", style = MaterialTheme.typography.titleLarge)

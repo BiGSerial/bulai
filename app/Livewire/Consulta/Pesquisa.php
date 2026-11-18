@@ -4,11 +4,10 @@ namespace App\Livewire\Consulta;
 
 use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\PatientMedication;
-use App\Services\Interactions\InteractionConsultationService;
+use App\Services\Interactions\InteractionRequestException;
+use App\Services\Interactions\InteractionResultPresenter;
 use App\Services\Interactions\MedicationSearchService;
-use App\Services\Patient\AllergyChecker;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
@@ -29,7 +28,7 @@ class Pesquisa extends Component
      * Os remédios em uso (tratamento não encerrado) entram sozinhos; `com` acrescenta o remédio que a pessoa quer tomar junto
      * (vindo da bula simples); `usar=1` ("Verificar interações entre eles") já verifica e abre o resultado.
      */
-    public function mount(InteractionConsultationService $service): void
+    public function mount(InteractionResultPresenter $presenter): void
     {
         foreach ($this->emUso() as $id) {
             $this->adicionar($id);
@@ -40,7 +39,7 @@ class Pesquisa extends Component
         }
         $this->mensagem = null;
         if (request()->boolean('usar') && count($this->selecionados) >= 2) {
-            $this->verificar($service);
+            $this->verificar($presenter);
         }
     }
 
@@ -60,13 +59,9 @@ class Pesquisa extends Component
     public function adicionar(int $id): void
     {
         $this->mensagem = null;
-        if (collect($this->selecionados)->contains('id', $id)) {
-            $this->mensagem = 'Este medicamento já está na lista.';
-
-            return;
-        }
-        if (count($this->selecionados) >= (int) config('bulai.consultation.max_medicines')) {
-            $this->mensagem = 'Limite de '.config('bulai.consultation.max_medicines').' medicamentos por consulta.';
+        $recusa = app(InteractionResultPresenter::class)->additionRefusal(array_column($this->selecionados, 'id'), $id);
+        if ($recusa !== null) {
+            $this->mensagem = $recusa;
 
             return;
         }
@@ -91,15 +86,7 @@ class Pesquisa extends Component
     /** @return list<string> */
     private function alertasDeAlergia(AnvisaMedicine $medicine): array
     {
-        $user = auth()->user();
-        if (! $user->hasHealthConsent()) {
-            return [];
-        }
-
-        return array_map(
-            fn (array $match): string => 'Você registrou alergia a '.$match['allergy'].($match['via'] === 'classe' ? ' (mesma classe de '.$match['ingredient'].')' : ' (contém '.$match['ingredient'].')'),
-            app(AllergyChecker::class)->check($user->allergies()->get(), $medicine),
-        );
+        return array_column(app(InteractionResultPresenter::class)->allergyAlerts(auth()->user(), [$medicine->id]), 'message');
     }
 
     public function remover(int $id): void
@@ -108,35 +95,16 @@ class Pesquisa extends Component
         $this->mensagem = null;
     }
 
-    public function verificar(InteractionConsultationService $service): void
+    public function verificar(InteractionResultPresenter $presenter): void
     {
         $this->mensagem = null;
-        if (count($this->selecionados) < 2) {
-            $this->mensagem = 'Selecione pelo menos dois medicamentos.';
-
-            return;
-        }
-
-        $userId = (int) auth()->id();
-        $key = 'consulta:'.$userId;
-        if (RateLimiter::tooManyAttempts($key, (int) config('bulai.consultation.rate_limit_per_hour'))) {
-            $this->mensagem = 'Você atingiu o limite de consultas por hora. Tente novamente mais tarde.';
-
-            return;
-        }
-
-        $lock = Cache::lock('consulta-iniciar:'.$userId, 10);
-        if (! $lock->get()) {
-            return;
-        }
-
         try {
-            RateLimiter::hit($key, 3600);
-            $consultation = $service->start(auth()->user(), array_column($this->selecionados, 'id'));
-        } finally {
-            $lock->release();
-        }
+            $consultation = $presenter->start(auth()->user(), array_column($this->selecionados, 'id'));
+        } catch (InteractionRequestException $exception) {
+            $this->mensagem = $exception->getMessage();
 
+            return;
+        }
         $this->redirectRoute('consulta.resultado', $consultation);
     }
 

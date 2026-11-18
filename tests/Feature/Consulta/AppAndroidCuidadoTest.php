@@ -71,7 +71,7 @@ final class AppAndroidCuidadoTest extends TestCase
         // Aprovado só para ver: vê o dia, não marca.
         $this->postJson(route('api.mobile.caregivers.approve', $link), ['permissions' => [CaregiverLink::PERMISSION_VIEW => true, CaregiverLink::PERMISSION_MANAGE => false, CaregiverLink::PERMISSION_ALERTS => false]], $patientHeaders)
             ->assertOk()->assertJsonPath('active.0.permissions.can_manage_medications', false);
-        $this->getJson(route('api.mobile.caring'), $caregiverHeaders)->assertJsonPath('active.0.can_view', true)->assertJsonPath('active.0.can_mark', false);
+        $this->getJson(route('api.mobile.caring'), $caregiverHeaders)->assertJsonPath('active.0.can_view', true)->assertJsonPath('active.0.can_mark', false)->assertJsonPath('active.0.access_label', 'Ver os remédios e horários');
         $this->getJson(route('api.mobile.caring.day', $link), $caregiverHeaders)->assertOk()
             ->assertJsonPath('doses.0.name', 'Losartana')->assertJsonPath('can_mark', false)->assertJsonPath('caring_for.first_name', 'Maria');
         $dose = ['medication_id' => $losartana->id, 'scheduled_for' => '2026-11-05T08:00:00-03:00', 'status' => 'taken'];

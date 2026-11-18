@@ -266,6 +266,7 @@ fun BuscaDeRemedio(
     aoFechar: () -> Unit,
     titulo: String = "Qual remédio você quis dizer?",
     extra: (@Composable () -> Unit)? = null,
+    aoUsarNome: ((String) -> Unit)? = null,
 ) {
     var termo by rememberSaveable { mutableStateOf("") }
     val foco = remember { FocusRequester() }
@@ -301,6 +302,12 @@ fun BuscaDeRemedio(
                             )
                         }
                     }
+                }
+            }
+            // Fora do catálogo: o remédio entra pelo nome digitado (a equipe confere depois).
+            if (aoUsarNome != null && termo.trim().length >= 3 && !buscando && resultados != null) {
+                androidx.compose.material3.OutlinedButton(onClick = { aoUsarNome(termo.trim()) }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    Text("Não achei: usar “${termo.trim()}” pelo nome", style = MaterialTheme.typography.labelLarge)
                 }
             }
             Box(Modifier.heightIn(min = 8.dp))

@@ -15,7 +15,7 @@ class NavegacaoEDiaTest {
     fun avisosENotificacoesAbremATelaCerta() {
         assertEquals(Rotas.DIA, Rotas.doDestino(Destino("consulta.hoje")))
         assertEquals(Rotas.AVISOS, Rotas.doDestino(Destino("consulta.avisos")))
-        assertEquals(Rotas.INICIO, Rotas.doDestino(Destino("consulta.perfil")))
+        assertEquals(Rotas.INICIO, Rotas.doDestino(Destino("consulta.desconhecida")))
         assertEquals(Rotas.DIA, Rotas.doCaminho("/hoje"))
         assertEquals(Rotas.AVISOS, Rotas.doCaminho("/avisos/"))
         assertNull(Rotas.doCaminho(null))
@@ -47,6 +47,20 @@ class NavegacaoEDiaTest {
         assertEquals("cuidando/7", Rotas.doCaminho("/cuidando/7/hoje"))
         assertEquals(Rotas.CUIDAR, Rotas.doCaminho("/cuidar?codigo=12345678"))
         assertEquals("cuidando/7?nome=Maria%20Jos%C3%A9", Rotas.cuidando(7, "Maria José"))
+    }
+
+    @Test
+    fun perfilBulasEInteracoesTemRotaPropria() {
+        val params = { json: String -> kotlinx.serialization.json.Json.parseToJsonElement(json) }
+        assertEquals("perfil?aba=0", Rotas.doDestino(Destino("consulta.perfil")))
+        assertEquals(Rotas.BULAS, Rotas.doCaminho("/bulas"))
+        assertEquals("interacoes", Rotas.doDestino(Destino("consulta.pesquisa")))
+        val uuid = "0b7f8c2e-4a1d-4c3e-9f00-123456789abc"
+        assertEquals("interacoes/$uuid", Rotas.doDestino(Destino("consulta.resultado", params("""{"consultation":"$uuid"}"""))))
+        assertEquals("interacoes/$uuid", Rotas.doCaminho("/consulta/$uuid"))
+        assertEquals("cuidando/3/remedios", Rotas.doCaminho("cuidando/3/remedios"))
+        assertEquals("cuidando/3/remedios", Rotas.doDestino(Destino("consulta.cuidando.remedios", params("""{"vinculo":3}"""))))
+        assertEquals("interacoes?com=9", Rotas.interacoes(9))
     }
 
     @Test

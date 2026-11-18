@@ -116,7 +116,7 @@ class BulaViewModel(private val repositorio: PerguntasRepositorio, private val r
 /** Bula humanizada (bula simples): capa com "Para que serve", alerta pessoal, seções por cor, fontes e o tratamento. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BulaTela(remedio: Long, preenchimento: PaddingValues, aoPerguntar: (Long) -> Unit) {
+fun BulaTela(remedio: Long, preenchimento: PaddingValues, aoPerguntar: (Long) -> Unit, aoVerificarInteracoes: ((Long) -> Unit)? = null) {
     val vm = telaViewModel { BulaViewModel(it.perguntas, remedio) }
     val estado by vm.estado.collectAsStateWithLifecycle()
     val bula = estado.dados
@@ -181,8 +181,11 @@ fun BulaTela(remedio: Long, preenchimento: PaddingValues, aoPerguntar: (Long) ->
             }
         }
         Surface(tonalElevation = 3.dp, shadowElevation = 8.dp) {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+            androidx.compose.foundation.layout.Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 BotaoPrincipal("Perguntar sobre este remédio", { aoPerguntar(remedio) }, modifier = largura, destaque = true, icone = Icons.AutoMirrored.Rounded.Chat)
+                aoVerificarInteracoes?.let { verificar ->
+                    androidx.compose.material3.TextButton(onClick = { verificar(remedio) }, modifier = Modifier.heightIn(min = 48.dp)) { Text("Ver interações com os meus remédios") }
+                }
             }
         }
     }

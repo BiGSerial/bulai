@@ -46,7 +46,8 @@ class PerguntasRepositorio(private val api: BulaiApi, private val cache: CacheEm
 
     suspend fun apagar(uuid: String): Result<Unit> = chamar { api.apagarPergunta(uuid) }.map { }
 
-    suspend fun buscarRemedios(termo: String): Result<BuscaDeRemedios> = chamar { api.buscarRemedios(termo.trim()) }
+    suspend fun buscarRemedios(termo: String, excluir: List<Long> = emptyList()): Result<BuscaDeRemedios> =
+        chamar { api.buscarRemedios(termo.trim(), excluir = excluir.takeIf { it.isNotEmpty() }?.joinToString(",")) }
 
     /** Bula humanizada pronta fica guardada no aparelho: reabrir mostra na hora e atualiza por cima. */
     suspend fun bulaGuardada(remedio: Long): Bula? = cache.ler("bula$remedio", Bula.serializer())

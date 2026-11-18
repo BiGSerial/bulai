@@ -88,7 +88,12 @@ import br.com.vixforge.bulai.ui.conta.ContaAreaTela
 import br.com.vixforge.bulai.ui.conta.EntrarTela
 import br.com.vixforge.bulai.ui.conta.EsqueciSenhaTela
 import br.com.vixforge.bulai.ui.conta.PrimeiroAcessoTela
+import br.com.vixforge.bulai.ui.bula.BulasTela
 import br.com.vixforge.bulai.ui.cuidado.CuidarDeAlguemTela
+import br.com.vixforge.bulai.ui.cuidado.RemediosDeQuemCuidoTela
+import br.com.vixforge.bulai.ui.interacoes.InteracoesTela
+import br.com.vixforge.bulai.ui.interacoes.ResultadoTela
+import br.com.vixforge.bulai.ui.perfil.PerfilTela
 import br.com.vixforge.bulai.ui.cuidado.QuemCuidaDeMimTela
 import br.com.vixforge.bulai.ui.dia.DiaTela
 import br.com.vixforge.bulai.ui.inicio.InicioTela
@@ -259,12 +264,15 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) },
                     aoAbrirPessoa = { nav.navigate(Rotas.cuidando(it.id, it.primeiroNome)) },
                     aoAbrirCuidar = { nav.navigate(Rotas.CUIDAR) },
+                    aoAbrirPerfil = { nav.navigate(Rotas.perfil()) },
+                    aoAbrirInteracoes = { nav.navigate(Rotas.interacoes()) },
+                    aoAbrirBulas = { nav.navigate(Rotas.BULAS) },
                     preenchimento = preenchimento,
                     aoContarAvisos = { avisosNaoLidos.intValue = it },
                 )
             }
             composable(Rotas.PERGUNTAR) { PerguntarTela(preenchimento, aoAbrirBula = { nav.navigate(Rotas.bula(it)) }) }
-            composable(Rotas.DIA) { DiaTela(recado = { mostrar(it.texto, it.desfazer) }, preenchimento = preenchimento) }
+            composable(Rotas.DIA) { DiaTela(recado = { mostrar(it.texto, it.desfazer) }, preenchimento = preenchimento, aoAbrirPerfil = { nav.navigate(Rotas.perfil()) }) }
             composable(Rotas.AVISOS, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
                 AvisosTela(
                     recado = { mostrar(it) },
@@ -281,6 +289,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) },
                     aoAbrirCuidadores = { nav.navigate(Rotas.CUIDADORES) },
                     aoAbrirCuidar = { nav.navigate(Rotas.CUIDAR) },
+                    aoAbrirPerfil = { nav.navigate(Rotas.perfil()) },
                 )
             }
             composable(Rotas.CUIDADORES, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
@@ -300,6 +309,36 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     preenchimento = preenchimento,
                     vinculo = entrada.arguments?.getLong("vinculo"),
                     nome = entrada.arguments?.getString("nome"),
+                    aoVerRemediosDeQuemCuido = { entrada.arguments?.getLong("vinculo")?.let { nav.navigate(Rotas.remediosDeQuemCuido(it)) } },
+                )
+            }
+            composable(Rotas.CUIDANDO_REMEDIOS, arguments = listOf(navArgument("vinculo") { type = NavType.LongType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
+                RemediosDeQuemCuidoTela(entrada.arguments?.getLong("vinculo") ?: 0L, preenchimento, recado = { mostrar(it) })
+            }
+            composable(
+                Rotas.PERFIL,
+                arguments = listOf(navArgument("aba") { type = NavType.IntType; defaultValue = 0 }),
+                enterTransition = { entrarEmpilhada() },
+                popExitTransition = { sairEmpilhada() },
+            ) { entrada ->
+                PerfilTela(preenchimento, recado = { mostrar(it) }, aoAbrirBula = { nav.navigate(Rotas.bula(it)) }, abaInicial = entrada.arguments?.getInt("aba") ?: 0)
+            }
+            composable(Rotas.BULAS, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
+                BulasTela(preenchimento, aoAbrirBula = { nav.navigate(Rotas.bula(it)) })
+            }
+            composable(
+                Rotas.INTERACOES,
+                arguments = listOf(navArgument("com") { type = NavType.LongType; defaultValue = 0L }),
+                enterTransition = { entrarEmpilhada() },
+                popExitTransition = { sairEmpilhada() },
+            ) { entrada ->
+                InteracoesTela(preenchimento, aoAbrirResultado = { nav.navigate(Rotas.resultado(it)) }, comRemedio = entrada.arguments?.getLong("com")?.takeIf { it > 0 })
+            }
+            composable(Rotas.RESULTADO, arguments = listOf(navArgument("uuid") { type = NavType.StringType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
+                ResultadoTela(
+                    entrada.arguments?.getString("uuid").orEmpty(),
+                    preenchimento,
+                    aoAbrirOutro = { nav.navigate(Rotas.resultado(it)) { popUpTo(Rotas.RESULTADO) { inclusive = true } } },
                 )
             }
             composable(Rotas.PERGUNTAS, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
@@ -309,7 +348,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                 PerguntaRegistradaTela(entrada.arguments?.getString("uuid").orEmpty(), preenchimento, aoAbrirBula = { nav.navigate(Rotas.bula(it)) })
             }
             composable(Rotas.BULA, arguments = listOf(navArgument("id") { type = NavType.LongType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
-                BulaTela(entrada.arguments?.getLong("id") ?: 0L, preenchimento, aoPerguntar = { nav.navigate(Rotas.perguntarSobre(it)) })
+                BulaTela(entrada.arguments?.getLong("id") ?: 0L, preenchimento, aoPerguntar = { nav.navigate(Rotas.perguntarSobre(it)) }, aoVerificarInteracoes = { nav.navigate(Rotas.interacoes(it)) })
             }
             composable(Rotas.PERGUNTAR_SOBRE, arguments = listOf(navArgument("remedio") { type = NavType.LongType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
                 PerguntarTela(preenchimento, remedioInicial = entrada.arguments?.getLong("remedio"), aoAbrirBula = { nav.navigate(Rotas.bula(it)) })
@@ -318,7 +357,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                 NovaReceitaTela(
                     preenchimento,
                     aoEnviar = { id -> nav.navigate(Rotas.revisarReceita(id)) { popUpTo(Rotas.RECEITA) { inclusive = true } } },
-                    aoAbrirPerfil = { abrirNoSite(context, "/perfil") },
+                    aoAbrirPerfil = { nav.navigate(Rotas.perfil()) },
                 )
             }
             composable(Rotas.REVISAR_RECEITA, arguments = listOf(navArgument("id") { type = NavType.LongType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
@@ -351,8 +390,3 @@ private fun AnimatedContentTransitionScope<NavBackStackEntry>.entrarEmpilhada():
 
 private fun AnimatedContentTransitionScope<NavBackStackEntry>.sairEmpilhada(): ExitTransition =
     slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.End, tween(240)) { it / 3 } + fadeOut(tween(240))
-
-/** O que ainda só existe no site abre no navegador (Custom Tab), já na página certa. */
-private fun abrirNoSite(context: android.content.Context, caminho: String) {
-    androidx.browser.customtabs.CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(context, (BuildConfig.BASE_URL + caminho).toUri())
-}

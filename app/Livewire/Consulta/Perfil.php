@@ -3,16 +3,11 @@
 namespace App\Livewire\Consulta;
 
 use App\Livewire\Consulta\Concerns\EditaPosologia;
-use App\Models\Consultation\MedicationQuestion;
-use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\PatientAllergy;
 use App\Models\PatientMedication;
 use App\Models\PatientPrescription;
-use App\Models\PatientProfile;
-use App\Models\UserAuditEvent;
 use App\Services\Interactions\MedicationSearchService;
-use App\Services\Knowledge\IngredientNameNormalizer;
-use App\Services\Treatment\TreatmentScheduleService;
+use App\Services\Patient\HealthProfileService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
@@ -53,42 +48,30 @@ class Perfil extends Component
         $this->aba = in_array($aba, ['remedios', 'receitas', 'alergias'], true) ? $aba : 'remedios';
     }
 
-    public function aceitarConsentimento(): void
+    public function aceitarConsentimento(HealthProfileService $perfil): void
     {
-        PatientProfile::query()->updateOrCreate(['user_id' => auth()->id()], ['health_consent_at' => now()]);
-        $this->auditar('health_consent_given');
+        $perfil->acceptConsent(auth()->user(), request()->ip());
     }
 
-    public function apagarDadosDeSaude(): void
+    public function apagarDadosDeSaude(HealthProfileService $perfil): void
     {
-        $userId = auth()->id();
-        $count = PatientAllergy::query()->where('user_id', $userId)->delete()
-            + PatientMedication::query()->where('user_id', $userId)->delete()
-            + PatientPrescription::query()->where('user_id', $userId)->delete()
-            + MedicationQuestion::query()->where('user_id', $userId)->delete();
-        PatientProfile::query()->where('user_id', $userId)->delete();
-        $this->auditar('health_data_deleted', ['records' => $count]);
+        $perfil->deleteHealthData(auth()->user(), request()->ip());
         $this->mensagem = 'Seus dados de saúde (alergias, receitas, remédios e perguntas) foram apagados e o consentimento foi revogado.';
     }
 
-    public function adicionarAlergia(IngredientNameNormalizer $normalizer): void
+    public function adicionarAlergia(HealthProfileService $perfil): void
     {
         if (! $this->temConsentimento()) {
             return;
         }
         $this->mensagem = null;
-        $substance = trim($this->substancia);
-        $normalized = $normalizer->normalize($substance);
-        if (mb_strlen($substance) < 3 || mb_strlen($substance) > 120 || $normalized === '') {
-            $this->mensagem = 'Informe o nome da substância ou classe (de 3 a 120 caracteres).';
+        try {
+            $perfil->addAllergy(auth()->user(), $this->substancia, $this->reacao);
+        } catch (ValidationException $exception) {
+            $this->mensagem = $exception->validator->errors()->first();
 
             return;
         }
-
-        PatientAllergy::query()->updateOrCreate(
-            ['user_id' => auth()->id(), 'normalized_substance' => $normalized],
-            ['substance' => $substance, 'reaction' => trim($this->reacao) !== '' ? mb_substr(trim($this->reacao), 0, 255) : null],
-        );
         $this->reset('substancia', 'reacao');
     }
 
@@ -97,32 +80,24 @@ class Perfil extends Component
         PatientAllergy::query()->where('user_id', auth()->id())->whereKey($id)->delete();
     }
 
-    public function adicionarReceita(): void
+    public function adicionarReceita(HealthProfileService $perfil): void
     {
         if (! $this->temConsentimento()) {
             return;
         }
         $this->mensagem = null;
         try {
-            $data = $this->validate([
-                'prescritor' => ['required', 'string', 'min:3', 'max:120'],
-                'registroPrescritor' => ['nullable', 'string', 'max:40'],
-                'dataReceita' => ['nullable', 'date', 'before_or_equal:today'],
-                'observacoesReceita' => ['nullable', 'string', 'max:500'],
+            $perfil->addPrescription(auth()->user(), [
+                'prescriber' => $this->prescritor,
+                'registration' => $this->registroPrescritor,
+                'issued_at' => $this->dataReceita,
+                'notes' => $this->observacoesReceita,
             ]);
         } catch (ValidationException $exception) {
             $this->mensagem = $exception->validator->errors()->first();
 
             return;
         }
-
-        PatientPrescription::query()->create([
-            'user_id' => auth()->id(),
-            'prescriber_name' => trim($data['prescritor']),
-            'prescriber_registration' => filled($data['registroPrescritor']) ? trim($data['registroPrescritor']) : null,
-            'issued_at' => $data['dataReceita'] ?: null,
-            'notes' => filled($data['observacoesReceita']) ? trim($data['observacoesReceita']) : null,
-        ]);
         $this->reset('prescritor', 'registroPrescritor', 'dataReceita', 'observacoesReceita');
         $this->mostrarFormularioReceita = false;
     }
@@ -132,30 +107,34 @@ class Perfil extends Component
         PatientPrescription::query()->where('user_id', auth()->id())->whereKey($id)->delete();
     }
 
-    public function adicionarMedicamento(int $id): void
+    public function adicionarMedicamento(HealthProfileService $perfil, int $id): void
     {
-        if (! $this->temConsentimento() || ! AnvisaMedicine::query()->whereKey($id)->exists()) {
+        if (! $this->temConsentimento()) {
             return;
         }
-        $medication = PatientMedication::query()->firstOrCreate(['user_id' => auth()->id(), 'medicine_id' => $id], ['catalog_status' => PatientMedication::CATALOG_MATCHED]);
+        $medication = $perfil->addCatalogMedication(auth()->user(), $id);
+        if ($medication === null) {
+            return;
+        }
         $this->busca = '';
         $this->editarPosologia($medication->id);
     }
 
     /** O catálogo não tem o remédio: cadastra pelo nome digitado e avisa a administração (pendência). */
-    public function cadastrarPeloNome(TreatmentScheduleService $schedule): void
+    public function cadastrarPeloNome(HealthProfileService $perfil): void
     {
         if (! $this->temConsentimento()) {
             return;
         }
         $this->mensagem = null;
         $nome = trim($this->busca);
-        if (mb_strlen($nome) < 3 || mb_strlen($nome) > 120) {
-            $this->mensagem = 'Digite o nome do remédio (de 3 a 120 letras) para cadastrar.';
+        try {
+            $medication = $perfil->addMedicationByName(auth()->user(), $nome);
+        } catch (ValidationException $exception) {
+            $this->mensagem = $exception->validator->errors()->first();
 
             return;
         }
-        $medication = $schedule->register(auth()->user(), ['name_as_written' => $nome]);
         $this->busca = '';
         $this->mensagem = "“{$nome}” entrou na sua lista. Ainda não está no nosso catálogo: nossa equipe vai conferir.";
         $this->editarPosologia($medication->id);
@@ -177,13 +156,7 @@ class Perfil extends Component
 
     private function temConsentimento(): bool
     {
-        return PatientProfile::query()->where('user_id', auth()->id())->whereNotNull('health_consent_at')->exists();
-    }
-
-    /** @param array<string, mixed> $details */
-    private function auditar(string $event, array $details = []): void
-    {
-        UserAuditEvent::query()->create(['user_id' => auth()->id(), 'actor_id' => auth()->id(), 'event' => $event, 'details' => $details, 'ip' => request()->ip()]);
+        return app(HealthProfileService::class)->hasConsent(auth()->user());
     }
 
     public function render(MedicationSearchService $search): View

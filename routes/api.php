@@ -5,10 +5,12 @@ use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
 use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\CaregiverController as MobileCaregiverController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
+use App\Http\Controllers\Api\Mobile\InteractionController as MobileInteractionController;
 use App\Http\Controllers\Api\Mobile\LeafletController as MobileLeafletController;
 use App\Http\Controllers\Api\Mobile\MedicineController as MobileMedicineController;
 use App\Http\Controllers\Api\Mobile\NoticeController as MobileNoticeController;
 use App\Http\Controllers\Api\Mobile\PrescriptionController as MobilePrescriptionController;
+use App\Http\Controllers\Api\Mobile\ProfileController as MobileProfileController;
 use App\Http\Controllers\Api\Mobile\QuestionController as MobileQuestionController;
 use App\Http\Controllers\Api\Mobile\TreatmentController as MobileTreatmentController;
 use App\Http\Controllers\Api\V1\AuditController;
@@ -118,6 +120,31 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::get('/cuidando/{link}/dia', [MobileCaregiverController::class, 'day'])->whereNumber('link')->name('caring.day');
         Route::post('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'mark'])->whereNumber('link')->name('caring.mark');
         Route::delete('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'unmark'])->whereNumber('link')->name('caring.unmark');
+
+        Route::get('/cuidando/{link}/remedios', [MobileCaregiverController::class, 'medications'])->whereNumber('link')->name('caring.medications');
+        Route::put('/cuidando/{link}/remedios/{medication}', [MobileCaregiverController::class, 'updateMedication'])->whereNumber(['link', 'medication'])->name('caring.medications.update');
+
+        // Meus remédios (perfil de saúde): consentimento, remédios com dose e horários, receitas e alergias.
+        Route::get('/perfil', [MobileProfileController::class, 'show'])->name('profile');
+        Route::post('/perfil/consentimento', [MobileProfileController::class, 'consent'])->name('profile.consent');
+        Route::delete('/perfil/dados-de-saude', [MobileProfileController::class, 'deleteHealthData'])->name('profile.health-data.destroy');
+        Route::post('/perfil/remedios', [MobileProfileController::class, 'addMedication'])->name('profile.medications.store');
+        Route::put('/perfil/remedios/{medication}', [MobileProfileController::class, 'updateMedication'])->whereNumber('medication')->name('profile.medications.update');
+        Route::delete('/perfil/remedios/{medication}', [MobileProfileController::class, 'removeMedication'])->whereNumber('medication')->name('profile.medications.destroy');
+        Route::post('/perfil/receitas', [MobileProfileController::class, 'addPrescription'])->name('profile.prescriptions.store');
+        Route::delete('/perfil/receitas/{prescription}', [MobileProfileController::class, 'removePrescription'])->whereNumber('prescription')->name('profile.prescriptions.destroy');
+        Route::post('/perfil/alergias', [MobileProfileController::class, 'addAllergy'])->name('profile.allergies.store');
+        Route::delete('/perfil/alergias/{allergy}', [MobileProfileController::class, 'removeAllergy'])->whereNumber('allergy')->name('profile.allergies.destroy');
+        Route::post('/posologia/sugestao', [MobileProfileController::class, 'suggestSchedule'])->name('posology.suggest');
+
+        // Interações e lista de bulas simples.
+        Route::get('/interacoes', [MobileInteractionController::class, 'index'])->name('interactions');
+        Route::get('/interacoes/remedios/{medicine}', [MobileInteractionController::class, 'medicine'])->whereNumber('medicine')->name('interactions.medicine');
+        Route::post('/interacoes', [MobileInteractionController::class, 'store'])->name('interactions.store');
+        Route::get('/interacoes/{uuid}', [MobileInteractionController::class, 'show'])->whereUuid('uuid')->name('interactions.show');
+        Route::post('/interacoes/{uuid}/repetir', [MobileInteractionController::class, 'repeat'])->whereUuid('uuid')->name('interactions.repeat');
+        Route::delete('/interacoes/{uuid}', [MobileInteractionController::class, 'destroy'])->whereUuid('uuid')->name('interactions.destroy');
+        Route::get('/bulas', [MobileInteractionController::class, 'leaflets'])->name('leaflets');
 
         Route::get('/resumo.pdf', [MobileCaregiverController::class, 'summary'])->name('summary');
 

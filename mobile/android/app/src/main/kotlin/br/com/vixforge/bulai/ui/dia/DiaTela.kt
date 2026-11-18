@@ -120,7 +120,14 @@ private val TITULOS = mapOf(-1 to "Ontem", 0 to "Hoje", 1 to "Amanhã")
  * são os remédios, e "Tomei"/"Pular" só aparecem com a permissão "marcar e editar".
  */
 @Composable
-fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues, vinculo: Long? = null, nome: String? = null) {
+fun DiaTela(
+    recado: (DiaViewModel.Recado) -> Unit,
+    preenchimento: PaddingValues,
+    vinculo: Long? = null,
+    nome: String? = null,
+    aoAbrirPerfil: () -> Unit = {},
+    aoVerRemediosDeQuemCuido: () -> Unit = {},
+) {
     val vm = telaViewModel { if (vinculo != null) DiaViewModel(it.cuidado.fonte(vinculo, nome)) else DiaViewModel(it.tratamento) }
     val dias by vm.dias.collectAsStateWithLifecycle()
     val enviando by vm.enviando.collectAsStateWithLifecycle()
@@ -150,6 +157,8 @@ fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues,
             PaginaDoDia(
                 carga = dias.getValue(deslocamento),
                 cuidando = vinculo != null,
+                aoAbrirPerfil = aoAbrirPerfil,
+                aoVerRemediosDeQuemCuido = aoVerRemediosDeQuemCuido,
                 enviando = enviando,
                 preenchimentoInferior = preenchimento.calculateBottomPadding(),
                 aoAtualizar = { vm.atualizar(deslocamento) },
@@ -165,6 +174,8 @@ fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues,
 private fun PaginaDoDia(
     carga: Carga<Dia>,
     cuidando: Boolean,
+    aoAbrirPerfil: () -> Unit,
+    aoVerRemediosDeQuemCuido: () -> Unit,
     enviando: Set<String>,
     preenchimentoInferior: androidx.compose.ui.unit.Dp,
     aoAtualizar: () -> Unit,
@@ -182,7 +193,7 @@ private fun PaginaDoDia(
             item(key = "erro") { FaixaDeErro(carga.erro, Modifier.widthIn(max = 640.dp), aoAtualizar) }
             val dia = carga.dados
             dia?.cuidandoDe?.let { quem ->
-                item(key = "cuidando") { FaixaDoCuidador(quem.primeiroNome, dia.podeMarcar, Modifier.widthIn(max = 640.dp)) }
+                item(key = "cuidando") { FaixaDoCuidador(quem.primeiroNome, quem.banner, dia.podeMarcar, aoVerRemediosDeQuemCuido, Modifier.widthIn(max = 640.dp)) }
             }
             when {
                 dia == null -> if (carga.esqueleto) {
@@ -198,7 +209,9 @@ private fun PaginaDoDia(
                     if (cuidando) {
                         EstadoVazio(Icons.Rounded.EventBusy, "Remédios indisponíveis", "${dia.cuidandoDe?.primeiroNome ?: "A pessoa"} ainda não autorizou guardar os dados de saúde no BULA-IA.", Modifier.widthIn(max = 640.dp))
                     } else {
-                        EstadoVazio(Icons.Rounded.EventBusy, "Autorize no seu perfil", "Para ver os horários dos seus remédios, autorize o uso dos seus dados de saúde no perfil.", Modifier.widthIn(max = 640.dp))
+                        EstadoVazio(Icons.Rounded.EventBusy, "Autorize seus dados de saúde", "Para ver os horários dos seus remédios, autorize o uso dos seus dados de saúde.", Modifier.widthIn(max = 640.dp)) {
+                            br.com.vixforge.bulai.ui.componentes.BotaoPrincipal("Abrir Meus remédios", aoAbrirPerfil)
+                        }
                     }
                 }
                 dia.doses.isEmpty() && dia.seNecessario.isEmpty() -> item(key = "vazio") {
@@ -245,7 +258,7 @@ private fun PaginaDoDia(
 
 /** Faixa no topo do dia de quem a pessoa cuida. */
 @Composable
-private fun FaixaDoCuidador(nome: String, podeMarcar: Boolean, modifier: Modifier = Modifier) {
+private fun FaixaDoCuidador(nome: String, faixa: String, podeMarcar: Boolean, aoVerRemedios: () -> Unit, modifier: Modifier = Modifier) {
     androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -253,10 +266,13 @@ private fun FaixaDoCuidador(nome: String, podeMarcar: Boolean, modifier: Modifie
             Column {
                 Text("Remédios de $nome", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
                 Text(
-                    if (podeMarcar) "Você pode anotar as doses por $nome." else "Você só acompanha: as doses são anotadas por $nome.",
+                    faixa,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
+                TextButton(onClick = aoVerRemedios, modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(0.dp)) {
+                    Text(if (podeMarcar) "Remédios, dose e horários" else "Ver remédios e horários", color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     }

@@ -184,6 +184,7 @@ fun ContaAreaTela(
     aoAbrirPerguntas: () -> Unit,
     aoAbrirCuidadores: () -> Unit = {},
     aoAbrirCuidar: () -> Unit = {},
+    aoAbrirPerfil: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val container = context.container
@@ -237,6 +238,7 @@ fun ContaAreaTela(
         item(key = "senha") { TrocaDeSenha(estado, vm::trocarSenha, largura) }
         item(key = "atalhos") {
             Cartao(largura) {
+                LinhaDeAtalho(Icons.Rounded.Medication, "Meus remédios", "Dose, horários, receitas, alergias e autorização dos dados de saúde", aoAbrirPerfil)
                 LinhaDeAtalho(Icons.Rounded.History, "Minhas perguntas", "O que você perguntou ao BULA-IA", aoAbrirPerguntas)
                 LinhaDeAtalho(
                     Icons.Rounded.PictureAsPdf,

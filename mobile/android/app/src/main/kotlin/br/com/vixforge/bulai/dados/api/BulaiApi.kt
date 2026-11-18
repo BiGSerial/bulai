@@ -64,7 +64,7 @@ interface BulaiApi {
     suspend fun preferencias(@Body alteracao: AlteracaoDePreferencias): CentralDeAvisos
 
     @GET("remedios")
-    suspend fun buscarRemedios(@Query("q") termo: String, @Query("limit") limite: Int = 6): BuscaDeRemedios
+    suspend fun buscarRemedios(@Query("q") termo: String, @Query("limit") limite: Int = 6, @Query("exclude") excluir: String? = null): BuscaDeRemedios
 
     @GET("perguntar")
     suspend fun inicioDaConversa(@Query("medicamento") remedio: Long? = null): InicioDaConversa
@@ -160,4 +160,66 @@ interface BulaiApi {
     @Streaming
     @GET("resumo.pdf")
     suspend fun resumoParaOMedico(): ResponseBody
+
+    // Meus remédios
+    @GET("perfil")
+    suspend fun perfil(): Perfil
+
+    @POST("perfil/consentimento")
+    suspend fun consentir(): Perfil
+
+    @HTTP(method = "DELETE", path = "perfil/dados-de-saude")
+    suspend fun apagarDadosDeSaude(): Perfil
+
+    @POST("perfil/remedios")
+    suspend fun adicionarRemedio(@Body pedido: PedidoDeRemedio): Perfil
+
+    @PUT("perfil/remedios/{id}")
+    suspend fun salvarPosologia(@Path("id") remedio: Long, @Body pedido: PedidoDeDoseEHorarios): Perfil
+
+    @HTTP(method = "DELETE", path = "perfil/remedios/{id}")
+    suspend fun tirarRemedio(@Path("id") remedio: Long): Perfil
+
+    @POST("perfil/receitas")
+    suspend fun adicionarReceitaDoPerfil(@Body pedido: PedidoDeReceitaDoPerfil): Perfil
+
+    @HTTP(method = "DELETE", path = "perfil/receitas/{id}")
+    suspend fun tirarReceita(@Path("id") receita: Long): Perfil
+
+    @POST("perfil/alergias")
+    suspend fun adicionarAlergia(@Body pedido: PedidoDeAlergia): Perfil
+
+    @HTTP(method = "DELETE", path = "perfil/alergias/{id}")
+    suspend fun tirarAlergia(@Path("id") alergia: Long): Perfil
+
+    @POST("posologia/sugestao")
+    suspend fun sugerirHorarios(@Body pedido: PedidoDeSugestao): RespostaDaSugestao
+
+    @GET("cuidando/{id}/remedios")
+    suspend fun remediosDeQuemCuido(@Path("id") vinculo: Long): RemediosDeQuemCuido
+
+    @PUT("cuidando/{id}/remedios/{remedio}")
+    suspend fun salvarPosologiaDeQuemCuido(@Path("id") vinculo: Long, @Path("remedio") remedio: Long, @Body pedido: PedidoDeDoseEHorarios): RemediosDeQuemCuido
+
+    // Interações e bulas
+    @GET("interacoes")
+    suspend fun interacoes(): InicioDasInteracoes
+
+    @GET("interacoes/remedios/{id}")
+    suspend fun remedioDaConsulta(@Path("id") remedio: Long, @Query("selected") escolhidos: String): RemedioDaConsulta
+
+    @POST("interacoes")
+    suspend fun verificarInteracoes(@Body pedido: PedidoDeConsulta): ConsultaDeInteracoes
+
+    @GET("interacoes/{uuid}")
+    suspend fun consulta(@Path("uuid") uuid: String): ConsultaDeInteracoes
+
+    @POST("interacoes/{uuid}/repetir")
+    suspend fun repetirConsulta(@Path("uuid") uuid: String): ConsultaDeInteracoes
+
+    @HTTP(method = "DELETE", path = "interacoes/{uuid}")
+    suspend fun apagarConsulta(@Path("uuid") uuid: String): Mensagem
+
+    @GET("bulas")
+    suspend fun bulas(@Query("q") termo: String? = null): ListaDeBulas
 }

@@ -9,6 +9,7 @@ use App\Models\PatientMedication;
 use App\Models\User;
 use App\Services\Caregiving\CaregiverInviteException;
 use App\Services\Caregiving\CaregiverLinkService;
+use App\Services\Patient\HealthProfileService;
 use App\Services\Patient\MedicalSummaryService;
 use App\Services\Treatment\PatientDayService;
 use Carbon\CarbonImmutable;
@@ -147,6 +148,42 @@ final class CaregiverController extends Controller
         return response()->json($this->patientDay($link, $screens, (int) ($data['dia'] ?? 0)));
     }
 
+    /** Remédios de quem a pessoa cuida, com "Dose e horários" (permissão "ver"; `can_edit` com "marcar e editar"). */
+    public function medications(Request $request, CaregiverLink $link, HealthProfileService $profile): JsonResponse
+    {
+        Gate::forUser($request->user())->authorize('viewPatient', $link);
+
+        return response()->json($this->patientMedications($link, $profile))->header('Cache-Control', 'no-store');
+    }
+
+    /** Quem cuida muda dose e horários (as mesmas regras do site); a mudança vai para a auditoria do vínculo. */
+    public function updateMedication(Request $request, CaregiverLink $link, int $medication, HealthProfileService $profile, CaregiverLinkService $service): JsonResponse
+    {
+        Gate::forUser($request->user())->authorize('managePatient', $link);
+        $item = PatientMedication::query()->with('medicine:id,product_name')->where('user_id', $link->patient_id)->findOrFail($medication);
+        $changes = $profile->updatePosology($item, (array) $request->input('posology', []));
+        if ($changes !== []) {
+            $service->medicationUpdated($link, $request->user(), $item, $changes);
+        }
+
+        return response()->json(['message' => 'Dose e horários de '.$item->displayName().' salvos.'] + $this->patientMedications($link, $profile));
+    }
+
+    /** @return array<string, mixed> */
+    private function patientMedications(CaregiverLink $link, HealthProfileService $profile): array
+    {
+        $medications = PatientMedication::query()->with(['medicine', 'prescription'])->where('user_id', $link->patient_id)->orderBy('id')->get();
+
+        return [
+            'caring_for' => ['link_id' => $link->id, 'first_name' => CaregiverLink::firstName($link->patient)],
+            'can_edit' => $link->allows(CaregiverLink::PERMISSION_MANAGE),
+            'intro' => $link->allows(CaregiverLink::PERMISSION_MANAGE)
+                ? 'Você pode mudar a dose e os horários de '.CaregiverLink::firstName($link->patient).'. Cada mudança fica registrada para '.CaregiverLink::firstName($link->patient).' ver.'
+                : 'Você vê os remédios de '.CaregiverLink::firstName($link->patient).'. Para mudar dose e horários, '.CaregiverLink::firstName($link->patient).' precisa liberar a permissão.',
+            'medications' => $medications->filter(fn (PatientMedication $item): bool => $item->isActive())->map(fn (PatientMedication $item): array => ProfileController::medication($item, $profile))->values()->all(),
+        ];
+    }
+
     // ---- Resumo para o médico ----
 
     /** O mesmo PDF do site; sem consentimento de saúde não há o que resumir. */
@@ -217,6 +254,15 @@ final class CaregiverController extends Controller
                 'can_view' => $link->allows(CaregiverLink::PERMISSION_VIEW),
                 'can_mark' => $link->allows(CaregiverLink::PERMISSION_MANAGE),
                 'health_consent' => $link->patient->hasHealthConsent(),
+                'access_label' => match (true) {
+                    ! $link->patient->hasHealthConsent() => 'Ainda não autorizou guardar os dados de saúde',
+                    ! $link->allows(CaregiverLink::PERMISSION_VIEW) => 'Você recebe só os avisos de atraso',
+                    $link->allows(CaregiverLink::PERMISSION_MANAGE) => 'Ver e anotar as doses',
+                    default => 'Ver os remédios e horários',
+                },
+                'banner' => $link->allows(CaregiverLink::PERMISSION_MANAGE)
+                    ? 'Você pode anotar as doses por '.CaregiverLink::firstName($link->patient).'.'
+                    : 'Você só acompanha: as doses são anotadas por '.CaregiverLink::firstName($link->patient).'.',
                 'phrases' => collect($phrases)->map(fn (array $pair, string $key): string => (bool) $link->getAttribute($key) ? $pair[0] : $pair[1])->values()->all(),
             ])->values()->all(),
         ];
@@ -226,7 +272,13 @@ final class CaregiverController extends Controller
     private function patientDay(CaregiverLink $link, PatientDayService $screens, int $offset): array
     {
         return $screens->day($link->patient, $offset) + [
-            'caring_for' => ['link_id' => $link->id, 'first_name' => CaregiverLink::firstName($link->patient)],
+            'caring_for' => [
+                'link_id' => $link->id,
+                'first_name' => CaregiverLink::firstName($link->patient),
+                'banner' => $link->allows(CaregiverLink::PERMISSION_MANAGE)
+                    ? 'Você pode anotar as doses por '.CaregiverLink::firstName($link->patient).'.'
+                    : 'Você só acompanha: as doses são anotadas por '.CaregiverLink::firstName($link->patient).'.',
+            ],
             'can_mark' => $link->allows(CaregiverLink::PERMISSION_MANAGE),
         ];
     }

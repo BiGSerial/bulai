@@ -435,12 +435,7 @@ internal fun LinhaDaPessoa(pessoa: PessoaAcompanhada, aoAbrir: () -> Unit, aoSai
             Column(Modifier.weight(1f)) {
                 Text(pessoa.name, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    when {
-                        !pessoa.consentimento -> "Ainda não autorizou guardar os dados de saúde"
-                        !podeAbrir -> "Você recebe só os avisos de atraso"
-                        pessoa.podeMarcar -> "Ver e anotar as doses"
-                        else -> "Ver os remédios e horários"
-                    },
+                    pessoa.acesso,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
