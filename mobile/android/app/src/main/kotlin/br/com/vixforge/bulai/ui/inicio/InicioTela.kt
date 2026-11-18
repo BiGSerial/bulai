@@ -1,12 +1,10 @@
 package br.com.vixforge.bulai.ui.inicio
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.drawBehind
@@ -16,6 +14,7 @@ import androidx.compose.ui.platform.LocalDensity
 import br.com.vixforge.bulai.abertura.VideoDeAbertura
 import java.time.OffsetDateTime
 import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.sin
 import kotlinx.coroutines.delay
 import androidx.compose.animation.AnimatedContent
@@ -220,13 +219,21 @@ private fun ProximaDose(dose: Dose, marcando: Boolean, aoTomar: (Dose) -> Unit) 
     val enchimento by animateFloatAsState(alvo, tween(if (semAnimacao) 0 else 1400, easing = FastOutSlowInEasing), label = "enchimento")
     val faltam = horario?.let { ((it - agora) / 60_000).toInt() }
 
-    val onda = rememberInfiniteTransition(label = "onda")
-    val fase by onda.animateFloat(0f, (2 * PI).toFloat(), infiniteRepeatable(tween(2600, easing = LinearEasing)), label = "fase")
+    // Tempo contínuo (segundos) para a ondulação: sem ciclo fixo, a borda nunca repete o mesmo desenho.
+    var tempo by remember { mutableFloatStateOf(0f) }
+    if (!semAnimacao && enchimento > 0f && enchimento < 1f) {
+        LaunchedEffect(Unit) {
+            val inicioDoRelogio = withFrameNanos { it }
+            while (true) {
+                withFrameNanos { agoraNs -> tempo = (agoraNs - inicioDoRelogio) / 1_000_000_000f }
+            }
+        }
+    }
     val fundo = if (atrasada) extras.alertaFundo else MaterialTheme.colorScheme.primaryContainer
     val liquido = if (atrasada) extras.alerta.copy(alpha = 0.18f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
     val densidade = LocalDensity.current
-    val amplitude = with(densidade) { 5.dp.toPx() }
-    val comprimento = with(densidade) { 44.dp.toPx() }
+    val amplitude = with(densidade) { 9.dp.toPx() }
+    val comprimento = with(densidade) { 70.dp.toPx() }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(
@@ -239,17 +246,27 @@ private fun ProximaDose(dose: Dose, marcando: Boolean, aoTomar: (Dose) -> Unit) 
                     drawRect(liquido)
                     return@drawBehind
                 }
-                // Ponta ondulada: x varia com a altura (seno) e a onda "corre" pela fase.
+                // Ponta de líquido balançando no lugar: três ondas estacionárias (comprimentos e ritmos diferentes, sem relação
+                // entre si) somadas. Cada uma sobe e desce sem andar; juntas, a borda fica irregular e nunca se repete.
                 val borda = size.width * enchimento
-                val faseAtual = if (semAnimacao) 0f else fase
+                val t = tempo
+                fun deslocamento(y: Float): Float {
+                    val k = 2 * PI.toFloat() * y / comprimento
+                    return amplitude * (
+                        0.55f * sin(k * 0.9f + 0.6f) * sin(t * 1.7f) +
+                            0.35f * sin(k * 1.7f + 2.1f) * sin(t * 2.9f + 1.3f) +
+                            0.25f * sin(k * 2.6f + 4.0f) * cos(t * 4.3f + 0.4f) +
+                            0.15f * sin(k * 0.45f) * sin(t * 0.8f + 2.2f)
+                        )
+                }
                 val caminho = Path().apply {
                     moveTo(0f, 0f)
                     var y = 0f
                     while (y <= size.height) {
-                        lineTo(borda + amplitude * sin(2 * PI.toFloat() * y / comprimento + faseAtual), y)
-                        y += 3f
+                        lineTo(borda + deslocamento(y), y)
+                        y += 2f
                     }
-                    lineTo(borda + amplitude * sin(2 * PI.toFloat() * size.height / comprimento + faseAtual), size.height)
+                    lineTo(borda + deslocamento(size.height), size.height)
                     lineTo(0f, size.height)
                     close()
                 }
