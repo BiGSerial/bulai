@@ -1,6 +1,6 @@
 <x-knowledge-admin.shell title="Analytics" subtitle="O que foi perguntado, o que a IA respondeu e em que evidências se apoiou. Usuários aparecem só pelo número.">
 @php
-    $statusLabels = ['answered' => 'Respondida', 'guidance' => 'Orientação geral', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado'];
+    $statusLabels = ['answered' => 'Respondida', 'guidance' => 'Orientação geral', 'excerpts_only' => 'Só trechos', 'no_evidence' => 'Sem trecho relevante', 'no_leaflet' => 'Sem bula cadastrada', 'not_identified' => 'Princípio ativo não identificado', 'blocked' => 'Recusada pela triagem', 'no_medicine' => 'Sem medicamento identificado', 'support' => 'Apoio (fora de remédios)'];
     $tone = fn (string $status): string => match ($status) { 'answered' => 'success', 'excerpts_only' => 'info', 'blocked' => 'danger', default => 'warning' };
     $abas = [['key' => 'visao', 'label' => 'Visão geral', 'href' => route('admin.analytics.index')], ['key' => 'consultas', 'label' => 'Consultas', 'href' => route('admin.analytics.consultations.index')], ['key' => 'perguntas', 'label' => 'Perguntas', 'href' => route('admin.analytics.questions.index')], ['key' => 'bulas', 'label' => 'Bulas humanizadas', 'href' => route('admin.analytics.leaflets.index')], ['key' => 'consumo', 'label' => 'Consumo de IA', 'href' => route('admin.analytics.ai-usage.index')]];
 @endphp

@@ -148,6 +148,7 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, ao
 
     val acoes = AcoesDaResposta(
         sugerir = vm::sugerir,
+        responder = vm::responder,
         corrigir = vm::corrigir,
         remover = vm::remover,
         trocarRemedio = { corrigindo = true },
@@ -469,6 +470,7 @@ fun rotuloDoStatus(status: String): String = when (status) {
     "no_leaflet", "not_identified" -> "Sem bula cadastrada"
     "no_evidence" -> "Sem orientação clara na bula"
     "guidance" -> "Orientação de uso do sistema"
+    "support" -> "Indiquei onde encontrar apoio"
     "unavailable" -> "Não consegui responder"
     else -> "Respondida"
 }

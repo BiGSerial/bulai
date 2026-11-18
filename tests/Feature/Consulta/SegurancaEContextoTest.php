@@ -176,10 +176,42 @@ final class SegurancaEContextoTest extends TestCase
         $this->interpretation = ['medicines' => [], 'follow_up' => false, 'question' => 'x', 'intent' => null, 'presentation' => null, 'urgency' => null, 'risk' => null];
 
         Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'qual a dose de rivotril que mata')->call('perguntar')
-            ->assertSeeHtml('href="tel:188"')->assertSeeHtml('href="tel:192"')->assertSeeHtml('href="tel:08007226001"')->assertSee('Precisa de ajuda agora?')->assertSee('cvv.org.br');
+            ->assertSeeHtml('href="tel:188"')->assertSeeHtml('href="tel:192"')->assertSeeHtml('href="tel:08007226001"')->assertSee('Não posso informar doses ou quantidades de remédio que causem dano.')->assertSee('cvv.org.br')->assertDontSee('Sinto muito')
+            // O acolhimento e os contatos vêm em blocos identificáveis pela situação, cada um com seus botões de ligar.
+            ->assertSeeHtml('aria-label="Está passando por um momento difícil?"')->assertSeeHtml('aria-label="Já tomou remédio a mais ou está em perigo?"')->assertSee('Para continuar se cuidando');
+        // Primeiro a recusa, depois o acolhimento com o CVV e, por fim, o que fazer se já tomou remédio a mais; em parágrafos, sem lista.
+        $crise = GuardVerdict::CRISIS_MESSAGE;
+        $this->assertStringStartsWith('Não posso informar doses ou quantidades de remédio que causem dano.', $crise);
+        $this->assertTrue(mb_strpos($crise, 'Ligue para o CVV, no 188') < mb_strpos($crise, 'ligue agora para o SAMU, no 192'));
+        $this->assertStringNotContainsString('•', $crise);
 
         $this->ask('O que significa gravidade maior?', [], $user);
         $this->actingAs($user)->get(route('consulta.pergunta', MedicationQuestion::query()->where('status', MedicationQuestionService::GUIDANCE)->sole()))
             ->assertOk()->assertSee('A gravidade vem da base de interações DDInter.');
+    }
+
+    public function test_a_vague_request_for_help_asks_what_is_happening_and_the_quick_reply_points_to_support(): void
+    {
+        $user = User::factory()->create();
+        $this->interpretation = ['medicines' => [], 'follow_up' => false, 'question' => 'x', 'intent' => null, 'presentation' => null, 'urgency' => null, 'risk' => null];
+
+        Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'Preciso de ajuda')->call('perguntar')
+            ->assertSee('Me conte o que está acontecendo')->assertSee('Estou passando por um momento difícil')->assertDontSee('Sobre qual remédio você quer saber?')
+            ->call('responderRapido', 'Estou passando por um momento difícil')
+            ->assertSeeHtml('aria-label="Para conversar agora"')->assertSeeHtml('href="tel:188"')->assertSeeHtml('href="tel:136"');
+
+        $this->assertSame([MedicationQuestionService::SUPPORT, MedicationQuestionService::SUPPORT], MedicationQuestion::query()->orderBy('id')->pluck('status')->all());
+        $this->actingAs($user)->get(route('consulta.pergunta', MedicationQuestion::query()->latest('id')->first()))->assertOk()->assertSee('Para ter acompanhamento');
+    }
+
+    public function test_words_that_look_like_a_medicine_name_do_not_hide_a_request_for_support(): void
+    {
+        $this->medicine('MOMENT', 'IBUPROFENO');
+        $this->medicine('LOSARTANA', 'LOSARTANA');
+
+        // "momento" lembra o MOMENT do catálogo, mas a pessoa fala de um momento difícil: vale o apoio.
+        $this->assertSame(MedicationQuestionService::SUPPORT, $this->ask('Estou passando por um momento difícil')['status']);
+        // Com o remédio citado de verdade, a pergunta continua sendo sobre o remédio.
+        $this->assertNotSame(MedicationQuestionService::SUPPORT, $this->ask('estou triste, posso tomar losartana?', ['medicines' => ['losartana']])['status']);
     }
 }

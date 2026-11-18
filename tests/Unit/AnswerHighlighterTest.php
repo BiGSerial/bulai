@@ -21,6 +21,13 @@ class AnswerHighlighterTest extends TestCase
         $this->assertSame('<strong>Não use</strong> se tiver &lt;b&gt;febre&lt;/b&gt;; <strong>procure atendimento médico</strong>.', $html);
     }
 
+    public function test_a_critical_word_inside_a_hyphenated_name_is_not_bold_alone(): void
+    {
+        $html = (string) (new AnswerHighlighter)->html('O Disque-Intoxicação orienta. Em caso de intoxicação, ligue.', []);
+
+        $this->assertSame('O Disque-Intoxicação orienta. Em caso de <strong>intoxicação</strong>, ligue.', $html);
+    }
+
     public function test_the_sentence_about_the_alert_is_bold_as_a_whole(): void
     {
         $html = (string) (new AnswerHighlighter)->html('A dipirona alivia a dor. Ela pode interagir com a varfarina, que você usa.', ['DIPIRONA'], ['VARFARINA']);

@@ -59,6 +59,9 @@ final class MedicationQuestionService
     /** Pergunta dentro do contexto sem remédio, respondida com texto fixo da equipe (`QuestionGuidance`), sem IA. */
     public const GUIDANCE = 'guidance';
 
+    /** A mensagem não fala de remédio, mas de uma necessidade (momento difícil, mal-estar, violência...): indica canais de apoio. */
+    public const SUPPORT = 'support';
+
     /** Sem fatos para afirmar, mas há o que perguntar à pessoa (qual é o outro remédio, alergias…) ou o que não se pode confirmar. */
     public const NEEDS_INFO = 'needs_info';
 
@@ -172,6 +175,17 @@ final class MedicationQuestionService
             $literal = $this->normalizerText($verdict->sanitized);
             $medicines = array_map(fn (array $m): array => in_array($m['id'], $previousIds, true) && ! str_contains($literal, $this->normalizerText((string) $m['matched_text'])) ? ['matched_text' => 'conversa'] + $m : $m, $medicines);
         }
+        // Sem remédio citado com certeza (só nomes parecidos, como "momento" → MOMENT) e com uma necessidade reconhecida
+        // ("estou passando por um momento difícil", "preciso de ajuda"): vale o apoio, não a bula. Sintoma é diferente: a
+        // pergunta costuma ser sobre o remédio ("lozartana dá tontura?", "e se eu sentir tontura?"), então o nome parecido
+        // e a conversa continuam valendo; o apoio ao sintoma só entra quando não sobra remédio nenhum (mais abaixo).
+        $need = $named === [] && $forcedMedicineIds === [] ? SupportChannels::detect($verdict->sanitized) : null;
+        $onlyLookalikes = array_filter($medicines, fn (array $m): bool => empty($m['fuzzy'])) === [];
+        if ($need !== null && $need !== SupportChannels::SYMPTOM && $onlyLookalikes) {
+            $base['retrieval']['support'] = $need;
+
+            return $this->finish($user, ['status' => self::SUPPORT, 'answer' => SupportChannels::speech($need), 'support' => $need] + $base, $started);
+        }
         // Volta ao remédio da conversa só quando a pergunta não citou outro: se a IA apontou um remédio que o catálogo não tem,
         // a resposta não pode falar do remédio anterior no lugar dele.
         if ($medicines === [] && $previousIds !== [] && $named === []) {
@@ -194,6 +208,15 @@ final class MedicationQuestionService
                 $base['retrieval']['guidance'] = $guidance['key'];
 
                 return $this->finish($user, ['status' => self::GUIDANCE, 'answer' => $guidance['answer'], 'suggestions' => $suggestions] + $base, $started);
+            }
+
+            // Sem remédio, mas com uma necessidade reconhecida ("preciso de ajuda", "estou triste", "estou com dor"): em vez de
+            // pedir o nome do remédio, indica os canais de apoio adequados (SupportChannels), sem diagnosticar.
+            // Sintoma depois de tirar um remédio entendido por engano, ou com nomes parecidos para sugerir: ainda é sobre remédio.
+            if ($need !== null && ! ($need === SupportChannels::SYMPTOM && ($guesses !== [] || $excludedMedicineIds !== []))) {
+                $base['retrieval']['support'] = $need;
+
+                return $this->finish($user, ['status' => self::SUPPORT, 'answer' => SupportChannels::speech($need), 'support' => $need, 'suggestions' => $suggestions] + $base, $started);
             }
 
             return $this->finish($user, ['status' => self::NO_MEDICINE, 'suggestions' => $suggestions, 'guesses' => $guesses] + $base, $started);
