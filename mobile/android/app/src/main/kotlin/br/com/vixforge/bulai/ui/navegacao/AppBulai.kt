@@ -254,6 +254,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     aoAbrirAvisos = { irPara(nav, Rotas.AVISOS) },
                     aoAbrirPerguntar = { irPara(nav, Rotas.PERGUNTAR) },
                     aoFotografarReceita = { nav.navigate(Rotas.RECEITA) },
+                    aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) },
                     preenchimento = preenchimento,
                     aoContarAvisos = { avisosNaoLidos.intValue = it },
                 )
