@@ -118,7 +118,7 @@ Regras extraídas dos componentes Livewire para serviços usados pelo site e pel
 Detalhes de experiência:
 
 - **Carregamento**: esqueletos com as proporções reais da tela na primeira abertura; depois, os dados guardados aparecem na hora e a atualização é silenciosa (indicador de puxar para atualizar).
-- **Remédios do dia**: abas Ontem/Hoje/Amanhã com deslize lateral (`HorizontalPager`), cada dia buscado quando aparece; linha do tempo por período; "Tomei" com vibração de confirmação.
+- **Remédios do dia**: abas Ontem/Hoje/Amanhã com deslize lateral (`HorizontalPager`), cada dia buscado quando aparece; linha do tempo por período; "Tomei" com vibração de confirmação e efeito próprio: o verde nasce num círculo a partir do botão e cobre o cartão (~620 ms), um joinha salta no centro (mola) e some com fade-out, e "Tomado" entra com fade-in. "Desfazer" (ou o servidor recusar) recolhe o verde de volta ao botão. Com as animações do sistema desligadas, o cartão muda direto; o joinha não é lido pelo TalkBack (o estado "Tomado" é anunciado).
 - **Acessibilidade**: títulos marcados como cabeçalho, estado das doses lido pelo TalkBack, erros de campo anunciados, "Apagar aviso" como ação de acessibilidade (além do arrastar), alvos de toque ≥ 48 dp, letra grande.
 - **Telas largas**: conteúdo limitado a 520–640 dp e centralizado.
 - **Tema escuro**: as telas usam só cores do tema (claro e escuro). Atenção (interação, "não encontrado no catálogo", leitura incerta, sem bula) usa o par âmbar `secondaryContainer`/`onSecondaryContainer`; alergia e erro usam `errorContainer`; o símbolo do BULA-IA fica num círculo branco nos dois temas (a marca precisa de fundo claro).

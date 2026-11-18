@@ -1,6 +1,27 @@
 package br.com.vixforge.bulai.ui.dia
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.liveRegion
+import br.com.vixforge.bulai.abertura.VideoDeAbertura
+import kotlinx.coroutines.delay
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
@@ -232,6 +253,11 @@ private fun CabecalhoDoPeriodo(titulo: String, icone: ImageVector, modifier: Mod
     }
 }
 
+/**
+ * Cartão de uma dose. "Tomei" tem efeito próprio: o verde nasce num círculo no botão e cobre o cartão, um joinha salta no
+ * centro e some, e "Tomado" aparece em seguida. Desfazer (ou o servidor recusar) recolhe o verde de volta para o botão.
+ * Com as animações do sistema desligadas, o cartão muda direto.
+ */
 @Composable
 private fun LinhaDaDose(
     dose: Dose,
@@ -243,14 +269,40 @@ private fun LinhaDaDose(
 ) {
     val extras = TemaBulai.extras
     val haptico = LocalHapticFeedback.current
-    val fundo by animateColorAsState(
-        when (dose.status) {
-            Dose.TOMADA -> extras.sucessoFundo
-            Dose.ATRASADA -> extras.alertaFundo
-            else -> MaterialTheme.colorScheme.surface
-        },
-        label = "fundo",
-    )
+    val context = LocalContext.current
+    val semAnimacao = remember { VideoDeAbertura.animacoesDesligadas(context) }
+    val tomada = dose.status == Dose.TOMADA
+    val base by animateColorAsState(if (dose.status == Dose.ATRASADA) extras.alertaFundo else MaterialTheme.colorScheme.surface, label = "fundo")
+    val verde = extras.sucessoFundo
+
+    // Onde o círculo nasce (centro do botão Tomei, em px do cartão) e o quanto já cobriu (0 a 1).
+    var caixa by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var origem by remember(dose.key) { mutableStateOf<Offset?>(null) }
+    var tocou by remember(dose.key) { mutableStateOf(false) }
+    val cobertura = remember(dose.key) { Animatable(if (tomada) 1f else 0f) }
+    val joinhaEscala = remember(dose.key) { Animatable(0f) }
+    val joinhaAlfa = remember(dose.key) { Animatable(0f) }
+
+    LaunchedEffect(tomada) {
+        when {
+            tomada && cobertura.value < 1f && tocou && !semAnimacao -> {
+                launch { cobertura.animateTo(1f, tween(620, easing = FastOutSlowInEasing)) }
+                // Joinha: salta (mola) logo que o verde começa, fica um instante e some devagar.
+                delay(160)
+                joinhaAlfa.snapTo(1f)
+                joinhaEscala.snapTo(0.2f)
+                joinhaEscala.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+                delay(450)
+                joinhaAlfa.animateTo(0f, tween(450))
+                joinhaEscala.snapTo(0f)
+                tocou = false
+            }
+            tomada -> cobertura.snapTo(1f)
+            !semAnimacao && cobertura.value > 0f -> cobertura.animateTo(0f, tween(420, easing = FastOutSlowInEasing))
+            else -> cobertura.snapTo(0f)
+        }
+    }
+
     val descricao = when (dose.status) {
         Dose.TOMADA -> "Tomado"
         Dose.PULADA -> "Pulado"
@@ -258,49 +310,103 @@ private fun LinhaDaDose(
         Dose.AGORA -> "Na hora"
         else -> "Pendente"
     }
-    Cartao(modifier.animateContentSize(), cor = fundo) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SeloDoHorario(dose)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(dose.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                dose.dosage?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                dose.ajustadaDe?.let { Text("Ajustado pela dose das $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                Text(descricao, style = MaterialTheme.typography.labelMedium, color = if (dose.status == Dose.ATRASADA) extras.alerta else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { stateDescription = descricao })
+    Box(
+        modifier
+            .clip(MaterialTheme.shapes.large)
+            .onGloballyPositioned { caixa = it }
+            .drawBehind {
+                drawRect(base)
+                if (cobertura.value > 0f) {
+                    val centro = origem ?: Offset(size.width * 0.3f, size.height * 0.8f)
+                    // Raio até o canto mais distante: com 100% o verde cobre o cartão inteiro.
+                    val raio = listOf(Offset.Zero, Offset(size.width, 0f), Offset(0f, size.height), Offset(size.width, size.height))
+                        .maxOf { (it - centro).getDistance() }
+                    drawCircle(verde, radius = raio * cobertura.value, center = centro)
+                }
+            },
+    ) {
+        Cartao(Modifier.animateContentSize(), cor = Color.Transparent) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SeloDoHorario(dose)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(dose.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                    dose.dosage?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    dose.ajustadaDe?.let { Text("Ajustado pela dose das $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    // "Tomado" entra com fade-in depois que o verde já cobriu boa parte do cartão.
+                    AnimatedContent(
+                        descricao,
+                        transitionSpec = { fadeIn(tween(420, delayMillis = if (targetState == "Tomado") 380 else 0)) togetherWith fadeOut(tween(160)) },
+                        label = "situacao",
+                    ) { texto ->
+                        Text(
+                            texto,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = when (dose.status) {
+                                Dose.ATRASADA -> extras.alerta
+                                Dose.TOMADA -> extras.sucesso
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                            modifier = Modifier.semantics { stateDescription = texto; liveRegion = LiveRegionMode.Polite },
+                        )
+                    }
+                }
+                if (ocupada) {
+                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
+                }
             }
-            if (ocupada) {
-                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 3.dp)
+            AnimatedContent(dose.feita, transitionSpec = { fadeIn(tween(300, delayMillis = 250)) togetherWith fadeOut(tween(150)) }, label = "acoes") { feita ->
+                if (feita) {
+                    TextButton(onClick = { aoDesfazer(dose) }, enabled = !ocupada, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Desfazer", style = MaterialTheme.typography.labelLarge)
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        androidx.compose.material3.Button(
+                            onClick = {
+                                haptico.performHapticFeedback(HapticFeedbackType.Confirm)
+                                tocou = true
+                                aoTomar(dose)
+                            },
+                            enabled = !ocupada,
+                            modifier = Modifier.weight(1f).heightIn(min = 56.dp).onGloballyPositioned { botao ->
+                                caixa?.takeIf { it.isAttached && botao.isAttached }?.let { origem = it.localPositionOf(botao, Offset(botao.size.width / 2f, botao.size.height / 2f)) }
+                            },
+                            shape = MaterialTheme.shapes.medium,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary),
+                        ) {
+                            Icon(Icons.Rounded.Check, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Tomei", style = MaterialTheme.typography.labelLarge)
+                        }
+                        androidx.compose.material3.OutlinedButton(
+                            onClick = { aoPular(dose) },
+                            enabled = !ocupada,
+                            modifier = Modifier.heightIn(min = 56.dp),
+                            shape = MaterialTheme.shapes.medium,
+                        ) { Text("Pular", style = MaterialTheme.typography.labelLarge) }
+                    }
+                }
             }
         }
-        AnimatedContent(dose.feita, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "acoes") { feita ->
-            if (feita) {
-                TextButton(onClick = { aoDesfazer(dose) }, enabled = !ocupada, modifier = Modifier.heightIn(min = 48.dp)) {
-                    Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Desfazer", style = MaterialTheme.typography.labelLarge)
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    androidx.compose.material3.Button(
-                        onClick = {
-                            haptico.performHapticFeedback(HapticFeedbackType.Confirm)
-                            aoTomar(dose)
-                        },
-                        enabled = !ocupada,
-                        modifier = Modifier.weight(1f).heightIn(min = 56.dp),
-                        shape = MaterialTheme.shapes.medium,
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary, contentColor = MaterialTheme.colorScheme.onSecondary),
-                    ) {
-                        Icon(Icons.Rounded.Check, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Tomei", style = MaterialTheme.typography.labelLarge)
-                    }
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = { aoPular(dose) },
-                        enabled = !ocupada,
-                        modifier = Modifier.heightIn(min = 56.dp),
-                        shape = MaterialTheme.shapes.medium,
-                    ) { Text("Pular", style = MaterialTheme.typography.labelLarge) }
+        // Joinha no centro do cartão: só durante o efeito, sem receber toques nem ser lido pelo TalkBack.
+        if (joinhaAlfa.value > 0f) {
+            Box(
+                Modifier.matchParentSize().clearAndSetSemantics { },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier.size(84.dp).graphicsLayer {
+                        scaleX = joinhaEscala.value
+                        scaleY = joinhaEscala.value
+                        alpha = joinhaAlfa.value
+                        rotationZ = (1f - joinhaEscala.value.coerceAtMost(1f)) * -25f
+                    }.clip(CircleShape).background(extras.sucesso),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.ThumbUp, contentDescription = null, tint = MaterialTheme.colorScheme.surface, modifier = Modifier.size(46.dp))
                 }
             }
         }
