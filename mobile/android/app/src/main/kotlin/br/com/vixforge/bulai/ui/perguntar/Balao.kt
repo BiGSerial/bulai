@@ -196,7 +196,6 @@ class AcoesDaResposta(
     val corrigir: (Long) -> Unit,
     val remover: (Long) -> Unit,
     val trocarRemedio: () -> Unit,
-    val abrirHistorico: (String) -> Unit,
 )
 
 /**
@@ -255,7 +254,8 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
             }
         }
 
-        resposta.source?.let { fonte ->
+        // "Baseado na bula…" fica dentro de "Fontes utilizadas"; no balão só a orientação de quando não houve resposta.
+        resposta.source?.takeUnless { resposta.respondida }?.let { fonte ->
             Row(verticalAlignment = Alignment.Top) {
                 Icon(Icons.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
@@ -276,8 +276,8 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
             AcoesDoBalao(resposta, acoes)
         }
 
-        if (resposta.sources.isNotEmpty() || resposta.treatments.isNotEmpty() || (acoes != null && resposta.uuid != null)) {
-            Detalhes(resposta, acoes)
+        if (resposta.sources.isNotEmpty() || (resposta.respondida && resposta.source != null)) {
+            Fontes(resposta)
         }
     }
 }
@@ -336,33 +336,31 @@ private fun ColumnScope.AcoesDoBalao(resposta: Resposta, acoes: AcoesDaResposta)
     }
 }
 
+/**
+ * "Fontes utilizadas", recolhido: só de onde veio a resposta (a bula, a seção, a página e quando foi processada). Posologia,
+ * modo de usar e o resto ficam na bula humanizada ou numa pergunta própria, não aqui.
+ */
 @Composable
-private fun Detalhes(resposta: Resposta, acoes: AcoesDaResposta?) {
+private fun Fontes(resposta: Resposta) {
     var aberto by rememberSaveable(resposta.uuid) { mutableStateOf(false) }
-    val respondida = resposta.status == Resposta.RESPONDIDA || resposta.status == Resposta.PRECISA_DE_INFORMACAO
     Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
         TextButton(onClick = { aberto = !aberto }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text(if (respondida) "Fontes utilizadas" else "Detalhes", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
+            Text("Fontes utilizadas", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
             Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = if (aberto) "Recolher" else "Abrir")
         }
         AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                resposta.sources.forEach { fonte ->
-                    Row {
-                        Box(Modifier.width(4.dp).heightIn(min = 40.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)))
-                        Spacer(Modifier.width(10.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            val local = listOfNotNull(fonte.titulo, fonte.section, fonte.pagina?.let { "página $it" }).joinToString(" · ")
-                            Text(local, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(fonte.excerpt, style = MaterialTheme.typography.bodyMedium)
+            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (resposta.respondida) {
+                    resposta.source?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                }
+                resposta.sources.distinctBy { listOf(it.titulo, it.section, it.pagina) }.forEach { fonte ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(listOfNotNull(fonte.titulo, fonte.section, fonte.pagina?.let { "página $it" }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                             fonte.processed?.let { Text("Bula processada em $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         }
-                    }
-                }
-                resposta.treatments.forEach { PainelDoTratamento(it, somenteRelevante = true) }
-                if (acoes != null && resposta.uuid != null) {
-                    TextButton(onClick = { acoes.abrirHistorico(resposta.uuid) }, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Text("Guardei esta conversa no seu histórico", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

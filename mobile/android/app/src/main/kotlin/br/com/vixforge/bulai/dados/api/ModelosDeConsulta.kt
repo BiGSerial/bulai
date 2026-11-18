@@ -82,6 +82,9 @@ data class Resposta(
     @SerialName("releases_fixed") val liberaFixos: Boolean = true,
     @SerialName("asked_at") val perguntadaEm: String? = null,
 ) {
+    /** Respondida com base nas bulas (a procedência fica em "Fontes utilizadas"). */
+    val respondida: Boolean get() = status == RESPONDIDA || status == PRECISA_DE_INFORMACAO
+
     /** Texto corrido (para "Ouvir"). */
     val textoCorrido: String get() = paragraphs.joinToString("\n\n") { p -> p.joinToString("") { it.text } }
 

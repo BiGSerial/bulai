@@ -77,7 +77,7 @@ import br.com.vixforge.bulai.ui.tema.TemaBulai
  * o "digitando" fica enquanto a resposta não chega, e a caixa de texto acompanha o teclado.
  */
 @Composable
-fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, aoAbrirPergunta: (String) -> Unit) {
+fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null) {
     val vm = telaViewModel { PerguntarViewModel(it.perguntas, remedioInicial) }
     val estado by vm.estado.collectAsStateWithLifecycle()
     val leitor = rememberLeitor()
@@ -105,7 +105,6 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, ao
         corrigir = vm::corrigir,
         remover = vm::remover,
         trocarRemedio = { corrigindo = true },
-        abrirHistorico = aoAbrirPergunta,
     )
 
     Column(Modifier.fillMaxSize().padding(preenchimento).consumeWindowInsets(preenchimento).imePadding()) {

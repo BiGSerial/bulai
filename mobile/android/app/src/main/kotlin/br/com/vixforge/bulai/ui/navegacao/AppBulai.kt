@@ -264,7 +264,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     aoContarAvisos = { avisosNaoLidos.intValue = it },
                 )
             }
-            composable(Rotas.PERGUNTAR) { PerguntarTela(preenchimento, aoAbrirPergunta = { nav.navigate(Rotas.pergunta(it)) }) }
+            composable(Rotas.PERGUNTAR) { PerguntarTela(preenchimento) }
             composable(Rotas.DIA) { DiaTela(recado = { mostrar(it.texto, it.desfazer) }, preenchimento = preenchimento) }
             composable(Rotas.AVISOS) {
                 AvisosTela(recado = { mostrar(it) }, aoAbrirDestino = { irPara(nav, Rotas.doDestino(it)) }, preenchimento = preenchimento, aoContarAvisos = { avisosNaoLidos.intValue = it })
