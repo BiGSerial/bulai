@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -56,6 +58,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -276,7 +280,7 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
             AcoesDoBalao(resposta, acoes)
         }
 
-        if (resposta.sources.isNotEmpty() || (resposta.respondida && resposta.source != null)) {
+        if (resposta.sources.isNotEmpty()) {
             Fontes(resposta)
         }
     }
@@ -350,16 +354,20 @@ private fun Fontes(resposta: Resposta) {
         }
         AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (resposta.respondida) {
-                    resposta.source?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                }
-                resposta.sources.distinctBy { listOf(it.titulo, it.section, it.pagina) }.forEach { fonte ->
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(8.dp))
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(listOfNotNull(fonte.titulo, fonte.section, fonte.pagina?.let { "página $it" }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            fonte.processed?.let { Text("Bula processada em $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                // Como no PWA: uma linha curta de onde veio e o trecho daquela página usado na resposta.
+                resposta.sources.forEach { fonte ->
+                    val barra = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    Row(Modifier.drawBehind { drawRect(barra, size = Size(4.dp.toPx(), size.height)) }.padding(start = 14.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            val origem = listOfNotNull(fonte.titulo, fonte.section, fonte.pagina?.let { "página $it" }, fonte.processed?.let { "bula de $it" }).joinToString(" · ")
+                            Text(origem, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (fonte.excerpt.isNotBlank()) {
+                                Text(
+                                    fonte.excerpt,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.heightIn(max = 190.dp).verticalScroll(rememberScrollState()),
+                                )
+                            }
                         }
                     }
                 }
