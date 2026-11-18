@@ -344,13 +344,16 @@ final class ModoCuidadorTest extends TestCase
         $this->actingAs($caregiver)->get(route('consulta.cuidando.hoje', $link))->assertOk()
             ->assertSee('Você está vendo os remédios de Maria Silva')
             ->assertSee('Losartana')->assertDontSee('Sinvastatina')
-            ->assertSee('Cuidando de Maria Silva')->assertSee('Voltar para os meus');
+            ->assertSee('Voltar para os meus');
+        // A troca de perfil ("Ver os remédios de") saiu do menu do cabeçalho e fica na tela Conta.
+        $this->actingAs($caregiver)->get(route('consulta.conta'))->assertOk()
+            ->assertSee('Ver os remédios de')->assertSee('Cuidando de Maria Silva')->assertSee(route('consulta.cuidando.hoje', $link));
         $this->actingAs($caregiver)->get(route('consulta.cuidando.remedios', $link))->assertOk()
             ->assertSee('Você está vendo os remédios de Maria Silva')->assertSee('Losartana')->assertDontSee('Sinvastatina');
         $this->actingAs($caregiver)->get(route('consulta.hoje'))->assertOk()
             ->assertSee('Sinvastatina')->assertDontSee('Losartana')->assertDontSee('Você está vendo os remédios de');
         $this->actingAs($caregiver)->get(route('consulta.inicio'))->assertOk()
-            ->assertSee('Cuidando de Maria Silva')->assertSee('Remédios de Maria Silva')->assertSee(route('consulta.cuidando.hoje', $link));
+            ->assertSee('Remédios de Maria Silva')->assertSee(route('consulta.cuidando.hoje', $link));
     }
 
     public function test_late_dose_alert_reaches_only_caregivers_with_the_alert_permission_once(): void

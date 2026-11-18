@@ -3,6 +3,7 @@
 namespace Tests\Feature\Consulta;
 
 use App\Livewire\Consulta\Avisos;
+use App\Livewire\Consulta\Conta;
 use App\Livewire\Consulta\SinoDeAvisos;
 use App\Models\MedicationDoseEvent;
 use App\Models\PatientMedication;
@@ -189,7 +190,9 @@ final class AvisosTest extends TestCase
     {
         $user = $this->patient();
 
-        Livewire::actingAs($user)->test(Avisos::class)->assertSet('lembretes', true)->assertSet('fuso', 'America/Sao_Paulo')
+        // As preferências saíram da tela de Avisos (que só lista os avisos) e ficam na Conta, como no aplicativo.
+        $this->actingAs($user)->get(route('consulta.avisos'))->assertOk()->assertDontSee('Receber lembretes de horário')->assertSee(route('consulta.conta'));
+        Livewire::actingAs($user)->test(Conta::class)->assertSet('lembretes', true)->assertSet('fuso', 'America/Sao_Paulo')
             ->set('lembretes', false)->assertSee('Lembretes desligados')
             ->set('email', true)->assertSee('por e-mail')
             ->set('fuso', 'America/Manaus')->assertSee('Manaus')
@@ -198,7 +201,7 @@ final class AvisosTest extends TestCase
         $this->assertSame([false, true, 'America/Manaus'], [$profile->reminders_enabled, $profile->reminders_email, $profile->timezone]);
 
         $semConsentimento = User::factory()->create();
-        Livewire::actingAs($semConsentimento)->test(Avisos::class)->assertSee('aceite guardar seus dados de saúde')->assertDontSee('Receber lembretes de horário')
+        Livewire::actingAs($semConsentimento)->test(Conta::class)->assertSee('aceite guardar seus dados de saúde')->assertDontSee('Receber lembretes de horário')
             ->set('lembretes', false);
         $this->assertSame(0, PatientProfile::query()->where('user_id', $semConsentimento->id)->count());
     }

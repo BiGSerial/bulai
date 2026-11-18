@@ -49,6 +49,7 @@ use App\Livewire\Admin\Users\Show as UserShow;
 use App\Livewire\Consulta\Avisos as ConsultaAvisos;
 use App\Livewire\Consulta\Bula as ConsultaBula;
 use App\Livewire\Consulta\Bulas as ConsultaBulas;
+use App\Livewire\Consulta\Conta as ConsultaConta;
 use App\Livewire\Consulta\Cuidado\CuidarDeAlguem as ConsultaCuidarDeAlguem;
 use App\Livewire\Consulta\Cuidado\QuemCuidaDeMim as ConsultaQuemCuidaDeMim;
 use App\Livewire\Consulta\Cuidado\Remedios as ConsultaCuidadoRemedios;
@@ -134,6 +135,8 @@ Route::middleware(['auth', EnsureUserIsActive::class, EnsureTemporaryPasswordIsC
     // Programação do tratamento e avisos (quinta onda).
     Route::get('/hoje', ConsultaTratamentoHoje::class)->name('consulta.hoje');
     Route::get('/avisos', ConsultaAvisos::class)->name('consulta.avisos');
+    // Conta (4º destino da barra): nome de chamada, aparência, lembretes, senha, atalhos e apagar a conta.
+    Route::get('/conta', ConsultaConta::class)->name('consulta.conta');
     // Modo cuidador (handshake por convite): o paciente convida e aprova; quem cuida usa o código e vê o que foi permitido.
     Route::get('/cuidadores', ConsultaQuemCuidaDeMim::class)->name('consulta.cuidadores');
     Route::get('/cuidar', ConsultaCuidarDeAlguem::class)->name('consulta.cuidar');
