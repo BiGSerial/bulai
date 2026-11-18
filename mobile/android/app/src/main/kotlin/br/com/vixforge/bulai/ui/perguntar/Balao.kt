@@ -15,6 +15,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -77,6 +78,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import br.com.vixforge.bulai.R
+import br.com.vixforge.bulai.dados.api.Fonte
 import br.com.vixforge.bulai.dados.api.NoTratamento
 import br.com.vixforge.bulai.dados.api.Resposta
 import br.com.vixforge.bulai.dados.api.Trecho
@@ -353,24 +355,50 @@ private fun Fontes(resposta: Resposta) {
             Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = if (aberto) "Recolher" else "Abrir")
         }
         AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                // Como no PWA: uma linha curta de onde veio e o trecho daquela página usado na resposta.
-                resposta.sources.forEach { fonte ->
-                    val barra = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                    Row(Modifier.drawBehind { drawRect(barra, size = Size(4.dp.toPx(), size.height)) }.padding(start = 14.dp)) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            val origem = listOfNotNull(fonte.titulo, fonte.section, fonte.pagina?.let { "página $it" }, fonte.processed?.let { "bula de $it" }).joinToString(" · ")
-                            Text(origem, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (fonte.excerpt.isNotBlank()) {
-                                Text(
-                                    fonte.excerpt,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.heightIn(max = 190.dp).verticalScroll(rememberScrollState()),
-                                )
-                            }
-                        }
+            Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Como no PWA: cada fonte com a origem em destaque; o trecho da página usado fica recolhido sob ela.
+                resposta.sources.forEachIndexed { indice, fonte -> ItemDaFonte(fonte, resposta.uuid, indice) }
+            }
+        }
+    }
+}
+
+/** Uma fonte: título (bula, seção, página, data) separado, e o trecho que fundamentou a resposta ao tocar. */
+@Composable
+private fun ItemDaFonte(fonte: Fonte, chave: String?, indice: Int) {
+    var aberto by rememberSaveable(chave, indice) { mutableStateOf(false) }
+    val local = listOfNotNull(fonte.section, fonte.pagina?.let { "página $it" }).joinToString(" · ")
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), modifier = Modifier.fillMaxWidth()) {
+        Column {
+            Row(
+                Modifier.fillMaxWidth().clickable(enabled = fonte.excerpt.isNotBlank(), onClickLabel = if (aberto) "Esconder o trecho" else "Ver o trecho") { aberto = !aberto }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(fonte.titulo, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                    if (local.isNotEmpty()) {
+                        Text(local, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    fonte.processed?.let { Text("Bula de $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
+                if (fonte.excerpt.isNotBlank()) {
+                    Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                val barra = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                Text(
+                    fonte.excerpt,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                        .drawBehind { drawRect(barra, size = Size(3.dp.toPx(), size.height)) }
+                        .padding(start = 12.dp)
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState()),
+                )
             }
         }
     }
