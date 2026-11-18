@@ -37,7 +37,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.rounded.StopCircle
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.HorizontalDivider
@@ -208,9 +208,9 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
     val alerta = resposta.alert
     val (fundo, borda) = when {
         alerta?.alergia == true -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.error
-        alerta != null -> extras.alertaFundo to extras.alerta
+        alerta != null -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.secondary
         resposta.tone == "danger" -> MaterialTheme.colorScheme.errorContainer to null
-        resposta.tone == "warning" -> extras.alertaFundo to null
+        resposta.tone == "warning" -> MaterialTheme.colorScheme.secondaryContainer to null
         else -> MaterialTheme.colorScheme.surface to null
     }
     val context = LocalContext.current
@@ -257,7 +257,7 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
         // "Baseado na bula…" fica dentro de "Fontes utilizadas"; no balão só a orientação de quando não houve resposta.
         resposta.source?.takeUnless { resposta.respondida }?.let { fonte ->
             Row(verticalAlignment = Alignment.Top) {
-                Icon(Icons.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.width(6.dp))
                 Text(fonte, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -355,7 +355,7 @@ private fun Fontes(resposta: Resposta) {
                 }
                 resposta.sources.distinctBy { listOf(it.titulo, it.section, it.pagina) }.forEach { fonte ->
                     Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(8.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(listOfNotNull(fonte.titulo, fonte.section, fonte.pagina?.let { "página $it" }).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -378,7 +378,7 @@ fun PainelDoTratamento(tratamento: NoTratamento, modifier: Modifier = Modifier, 
     val extras = TemaBulai.extras
     val (fundo, borda) = when {
         tratamento.alergias.isNotEmpty() || tratamento.maiorGravidade == "major" -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.error
-        tratamento.maiorGravidade == "moderate" || tratamento.interactions.any { it.severity == "duplicate" } -> extras.alertaFundo to extras.alerta
+        tratamento.maiorGravidade == "moderate" || tratamento.interactions.any { it.severity == "duplicate" } -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.surface to MaterialTheme.colorScheme.outlineVariant
     }
     Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = fundo, border = BorderStroke(1.dp, borda)) {

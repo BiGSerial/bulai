@@ -41,7 +41,7 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EditCalendar
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.WarningAmber
@@ -182,7 +182,7 @@ fun NovaReceitaTela(preenchimento: PaddingValues, aoEnviar: (Long) -> Unit, aoAb
         Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Etapas(1)
             if (estado.semConsentimento) {
-                Cartao(cor = TemaBulai.extras.alertaFundo) {
+                Cartao(cor = MaterialTheme.colorScheme.secondaryContainer) {
                     Text("Antes, autorize guardar seus dados de saúde", style = MaterialTheme.typography.titleLarge)
                     Text("A receita vira remédios em uso no seu perfil, e isso é dado de saúde. Aceite o consentimento no seu perfil e volte aqui.", style = MaterialTheme.typography.bodyLarge)
                     BotaoSecundario("Abrir no site", aoAbrirPerfil)
@@ -219,7 +219,7 @@ fun NovaReceitaTela(preenchimento: PaddingValues, aoEnviar: (Long) -> Unit, aoAb
                 Text("A foto é lida e apagada em seguida. Você confere cada remédio antes de salvar.", style = MaterialTheme.typography.bodyMedium)
             }
             Row(verticalAlignment = Alignment.Top) {
-                Icon(Icons.Rounded.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                Icon(Icons.AutoMirrored.Rounded.HelpOutline, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("O BULA-IA não muda a receita do seu médico.", style = MaterialTheme.typography.bodyMedium)
             }
@@ -363,12 +363,12 @@ fun RevisarReceitaTela(id: Long, preenchimento: PaddingValues, aoConcluir: (Stri
 private fun Orientacao(receita: Receita, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (receita.textoIgnorado) {
-            Cartao(cor = TemaBulai.extras.alertaFundo) {
+            Cartao(cor = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("Parte do que estava escrito na receita foi ignorada porque não parecia ser receita. Confira os remédios e complete o que faltar.", style = MaterialTheme.typography.bodyLarge)
             }
         }
         if (receita.legibility == "poor") {
-            Cartao(cor = TemaBulai.extras.alertaFundo) {
+            Cartao(cor = MaterialTheme.colorScheme.secondaryContainer) {
                 Text("A foto ficou pouco legível.", style = MaterialTheme.typography.titleMedium)
                 Text("Confira cada item com atenção ou tente outra foto.", style = MaterialTheme.typography.bodyLarge)
             }
@@ -436,7 +436,7 @@ private fun CartaoDoItem(indice: Int, item: ItemDaReceita, vm: RevisarReceitaVie
             }
         }
         if (item.incerto && !item.skip) {
-            Surface(shape = CircleShape, color = extras.alertaFundo, contentColor = extras.alerta) {
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.WarningAmber, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
@@ -453,10 +453,10 @@ private fun CartaoDoItem(indice: Int, item: ItemDaReceita, vm: RevisarReceitaVie
 
         val noCatalogo = item.remedioId != null
         Row(
-            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(if (noCatalogo) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else extras.alertaFundo).padding(14.dp),
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(if (noCatalogo) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.secondaryContainer).padding(14.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            Icon(if (noCatalogo) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber, contentDescription = null, tint = if (noCatalogo) MaterialTheme.colorScheme.primary else extras.alerta)
+            Icon(if (noCatalogo) Icons.Rounded.CheckCircle else Icons.Rounded.WarningAmber, contentDescription = null, tint = if (noCatalogo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSecondaryContainer)
             Spacer(Modifier.width(10.dp))
             Column {
                 if (noCatalogo) {
