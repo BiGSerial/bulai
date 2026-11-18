@@ -94,4 +94,10 @@ interface BulaiApi {
 
     @HTTP(method = "DELETE", path = "receitas/{id}")
     suspend fun descartarReceita(@Path("id") id: Long): Mensagem
+
+    @GET("bulas/{id}")
+    suspend fun bula(@Path("id") remedio: Long): RespostaDaBula
+
+    @POST("bulas/{id}/gerar")
+    suspend fun gerarBula(@Path("id") remedio: Long): RespostaDaBula
 }

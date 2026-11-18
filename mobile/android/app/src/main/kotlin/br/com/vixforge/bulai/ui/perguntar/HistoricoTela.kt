@@ -165,7 +165,7 @@ class PerguntaViewModel(private val repositorio: PerguntasRepositorio, private v
 
 /** Uma pergunta anterior, com a resposta, as fontes e o tratamento como estavam na época. */
 @Composable
-fun PerguntaRegistradaTela(uuid: String, preenchimento: PaddingValues) {
+fun PerguntaRegistradaTela(uuid: String, preenchimento: PaddingValues, aoAbrirBula: (Long) -> Unit = {}) {
     val vm = telaViewModel { PerguntaViewModel(it.perguntas, uuid) }
     val estado by vm.estado.collectAsStateWithLifecycle()
     val leitor = rememberLeitor()
@@ -179,7 +179,7 @@ fun PerguntaRegistradaTela(uuid: String, preenchimento: PaddingValues) {
                     resposta.perguntadaEm?.let { Text("Perguntado em ${quando(it)}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 item { BalaoDaPessoa(resposta.question) }
-                item { BalaoDaResposta(resposta, leitor, acoes = null) }
+                item { BalaoDaResposta(resposta, leitor, acoes = null, aoAbrirBula = aoAbrirBula) }
             }
         }
     }

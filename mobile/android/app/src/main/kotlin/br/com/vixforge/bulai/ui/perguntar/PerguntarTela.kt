@@ -77,7 +77,7 @@ import br.com.vixforge.bulai.ui.tema.TemaBulai
  * o "digitando" fica enquanto a resposta não chega, e a caixa de texto acompanha o teclado.
  */
 @Composable
-fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null) {
+fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, aoAbrirBula: (Long) -> Unit = {}) {
     val vm = telaViewModel { PerguntarViewModel(it.perguntas, remedioInicial) }
     val estado by vm.estado.collectAsStateWithLifecycle()
     val leitor = rememberLeitor()
@@ -105,6 +105,7 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null) {
         corrigir = vm::corrigir,
         remover = vm::remover,
         trocarRemedio = { corrigindo = true },
+        abrirBula = aoAbrirBula,
     )
 
     Column(Modifier.fillMaxSize().padding(preenchimento).consumeWindowInsets(preenchimento).imePadding()) {
@@ -171,11 +172,11 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null) {
 
     if (aviso != null) {
         AlertDialog(
-            onDismissRequest = { alergiaAvisada = respostaAtual?.uuid },
+            onDismissRequest = { alergiaAvisada = respostaAtual.uuid },
             icon = { Icon(Icons.Rounded.WarningAmber, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
             title = { Text("Atenção à sua alergia") },
             text = { Text(aviso, style = MaterialTheme.typography.bodyLarge) },
-            confirmButton = { TextButton(onClick = { alergiaAvisada = respostaAtual?.uuid }) { Text("Entendi") } },
+            confirmButton = { TextButton(onClick = { alergiaAvisada = respostaAtual.uuid }) { Text("Entendi") } },
         )
     }
 }

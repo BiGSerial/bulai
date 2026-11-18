@@ -78,6 +78,7 @@ import br.com.vixforge.bulai.container
 import br.com.vixforge.bulai.dados.EstadoDaSessao
 import br.com.vixforge.bulai.dados.Preferencias
 import br.com.vixforge.bulai.ui.avisos.AvisosTela
+import br.com.vixforge.bulai.ui.bula.BulaTela
 import br.com.vixforge.bulai.ui.conta.CadastroTela
 import br.com.vixforge.bulai.ui.conta.EntrarTela
 import br.com.vixforge.bulai.ui.conta.EsqueciSenhaTela
@@ -264,7 +265,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     aoContarAvisos = { avisosNaoLidos.intValue = it },
                 )
             }
-            composable(Rotas.PERGUNTAR) { PerguntarTela(preenchimento) }
+            composable(Rotas.PERGUNTAR) { PerguntarTela(preenchimento, aoAbrirBula = { nav.navigate(Rotas.bula(it)) }) }
             composable(Rotas.DIA) { DiaTela(recado = { mostrar(it.texto, it.desfazer) }, preenchimento = preenchimento) }
             composable(Rotas.AVISOS) {
                 AvisosTela(recado = { mostrar(it) }, aoAbrirDestino = { irPara(nav, Rotas.doDestino(it)) }, preenchimento = preenchimento, aoContarAvisos = { avisosNaoLidos.intValue = it })
@@ -273,7 +274,13 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                 HistoricoTela(preenchimento, aoAbrir = { nav.navigate(Rotas.pergunta(it)) }, recado = { mostrar(it) })
             }
             composable(Rotas.PERGUNTA, arguments = listOf(navArgument("uuid") { type = NavType.StringType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
-                PerguntaRegistradaTela(entrada.arguments?.getString("uuid").orEmpty(), preenchimento)
+                PerguntaRegistradaTela(entrada.arguments?.getString("uuid").orEmpty(), preenchimento, aoAbrirBula = { nav.navigate(Rotas.bula(it)) })
+            }
+            composable(Rotas.BULA, arguments = listOf(navArgument("id") { type = NavType.LongType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
+                BulaTela(entrada.arguments?.getLong("id") ?: 0L, preenchimento, aoPerguntar = { nav.navigate(Rotas.perguntarSobre(it)) })
+            }
+            composable(Rotas.PERGUNTAR_SOBRE, arguments = listOf(navArgument("remedio") { type = NavType.LongType }), enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) { entrada ->
+                PerguntarTela(preenchimento, remedioInicial = entrada.arguments?.getLong("remedio"), aoAbrirBula = { nav.navigate(Rotas.bula(it)) })
             }
             composable(Rotas.RECEITA, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
                 NovaReceitaTela(

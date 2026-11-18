@@ -6,9 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Consultation\MedicationQuestion;
 use App\Models\User;
 use App\Models\UserAuditEvent;
-use App\Services\Interactions\InteractionSeverity;
 use App\Services\Patient\MedicationQuestionService;
 use App\Services\Patient\QuestionConversation;
+use App\Services\Patient\TreatmentContextService;
 use App\Services\Safety\GuardVerdict;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,7 +35,7 @@ final class QuestionController extends Controller
             'min_length' => (int) config('bulai.guard.min_length'),
             'max_length' => (int) config('bulai.guard.max_length'),
             'retention_days' => (int) config('bulai.questions.retention_days'),
-            'preview' => $preview === null ? null : ['medicine_id' => $medicineId] + self::treatment($preview),
+            'preview' => $preview === null ? null : ['medicine_id' => $medicineId] + TreatmentContextService::panel($preview),
         ]);
     }
 
@@ -181,7 +181,7 @@ final class QuestionController extends Controller
             'paragraphs' => QuestionConversation::paragraphSegments($speech['texto'], $answer, $alert),
             'alert' => $alert === null ? null : [
                 'type' => $alert['tipo'],
-                'items' => array_map(fn (array $item): array => ['text' => $item['texto'], 'severity' => $item['severidade'], 'severity_label' => self::severityLabel($item['severidade'])], $alert['itens']),
+                'items' => array_map(fn (array $item): array => ['text' => $item['texto'], 'severity' => $item['severidade'], 'severity_label' => TreatmentContextService::severityLabel($item['severidade'])], $alert['itens']),
                 'warning' => $alert['popup'] === null ? null : html_entity_decode(strip_tags($alert['popup']), ENT_QUOTES | ENT_HTML5),
             ],
             'source' => $speech['fonte'],
@@ -200,48 +200,8 @@ final class QuestionController extends Controller
                 $answer['medicines'] ?? [],
             ),
             'sources' => QuestionConversation::sources($answer),
-            'treatments' => array_map(fn (array $item): array => self::treatment($item), $answer['treatments'] ?? []),
+            'treatments' => array_map(fn (array $item): array => TreatmentContextService::panel($item), $answer['treatments'] ?? []),
             'releases_fixed' => QuestionConversation::releasesFixed($answer),
         ];
-    }
-
-    /**
-     * Painel "No seu tratamento" (o mesmo cruzamento do site): remédio em uso, alergias, interações e o que não deu para verificar.
-     *
-     * @param  array{medicine: string, context: array<string, mixed>}  $item
-     * @return array<string, mixed>
-     */
-    private static function treatment(array $item): array
-    {
-        $context = $item['context'];
-
-        return [
-            'medicine' => (string) $item['medicine'],
-            'consented' => (bool) ($context['consented'] ?? false),
-            'in_use' => (bool) ($context['in_use'] ?? false),
-            'posology' => $context['posology'] ?? null,
-            'medications_count' => (int) ($context['medications_count'] ?? 0),
-            'highest_severity' => $context['highest_severity'] ?? null,
-            'allergy_alerts' => array_map(fn (array $a): array => ['allergy' => (string) $a['allergy'], 'ingredient' => (string) $a['ingredient'], 'via' => (string) ($a['via'] ?? '')], $context['allergy_alerts'] ?? []),
-            'interactions' => array_map(fn (array $i): array => [
-                'medicine' => (string) $i['medicine'],
-                'severity' => (string) $i['severity'],
-                'severity_label' => $i['severity'] === 'duplicate' ? 'Mesma substância (possível duplicidade)' : self::severityLabel((string) $i['severity']),
-                'divergent' => (bool) ($i['divergent'] ?? false),
-            ], $context['interactions'] ?? []),
-            'unresolved' => array_values($context['unresolved'] ?? []),
-        ];
-    }
-
-    /** Como no site: "Gravidade: Maior"; sem classificação, o texto da fonte. */
-    private static function severityLabel(?string $severity): ?string
-    {
-        $value = InteractionSeverity::tryFrom((string) $severity);
-
-        return match ($value) {
-            null => null,
-            InteractionSeverity::Unknown => $value->label(),
-            default => 'Gravidade: '.$value->label(),
-        };
     }
 }

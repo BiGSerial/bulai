@@ -202,6 +202,7 @@ class AcoesDaResposta(
     val corrigir: (Long) -> Unit,
     val remover: (Long) -> Unit,
     val trocarRemedio: () -> Unit,
+    val abrirBula: (Long) -> Unit,
 )
 
 /**
@@ -209,7 +210,7 @@ class AcoesDaResposta(
  * sugestões do próximo passo, correção do remédio entendido e, recolhidos, as fontes e o cruzamento com o tratamento.
  */
 @Composable
-fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?, modifier: Modifier = Modifier) {
+fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?, modifier: Modifier = Modifier, aoAbrirBula: ((Long) -> Unit)? = null) {
     val extras = TemaBulai.extras
     val alerta = resposta.alert
     val (fundo, borda) = when {
@@ -280,6 +281,8 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
 
         if (acoes != null) {
             AcoesDoBalao(resposta, acoes)
+        } else if (resposta.status != Resposta.BLOQUEADA && resposta.status != Resposta.SEM_REMEDIO) {
+            RemediosDaResposta(resposta, aoAbrirBula, null)
         }
 
         if (resposta.sources.isNotEmpty()) {
@@ -323,21 +326,45 @@ private fun ColumnScope.AcoesDoBalao(resposta: Resposta, acoes: AcoesDaResposta)
             }
         }
     }
-    if (resposta.medicines.isNotEmpty()) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-        Text("Falando de:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            resposta.medicines.forEach { remedio ->
-                Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))) {
-                    Row(Modifier.heightIn(min = 44.dp).padding(start = 14.dp, end = if (resposta.medicines.size > 1) 0.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(remedio.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-                        if (resposta.medicines.size > 1) {
-                            IconButton(onClick = { acoes.remover(remedio.id) }) { Icon(Icons.Rounded.Close, contentDescription = "Tirar ${remedio.name} da pergunta") }
+    RemediosDaResposta(resposta, acoes.abrirBula, acoes)
+}
+
+/**
+ * "Falando de:": cada remédio leva à bula humanizada (com o ícone do livro quando há bula). Na resposta mais recente, também
+ * dá para tirar um remédio entendido por engano e corrigir ("Não é esse remédio?").
+ */
+@Composable
+private fun RemediosDaResposta(resposta: Resposta, aoAbrirBula: ((Long) -> Unit)?, acoes: AcoesDaResposta?) {
+    if (resposta.medicines.isEmpty()) {
+        return
+    }
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+    Text("Falando de:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        resposta.medicines.forEach { remedio ->
+            val podeTirar = acoes != null && resposta.medicines.size > 1
+            Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.clip(CircleShape)
+                            .clickable(enabled = aoAbrirBula != null, onClickLabel = if (remedio.temBula) "Ver a bula simples" else "Ver o remédio") { aoAbrirBula?.invoke(remedio.id) }
+                            .heightIn(min = 48.dp).padding(start = 14.dp, end = if (podeTirar) 4.dp else 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (remedio.temBula) {
+                            Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.width(8.dp))
                         }
+                        Text(remedio.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    }
+                    if (podeTirar) {
+                        IconButton(onClick = { acoes.remover(remedio.id) }) { Icon(Icons.Rounded.Close, contentDescription = "Tirar ${remedio.name} da pergunta") }
                     }
                 }
             }
         }
+    }
+    if (acoes != null) {
         TextButton(onClick = acoes.trocarRemedio, modifier = Modifier.heightIn(min = 48.dp)) { Text("Não é esse remédio?", style = MaterialTheme.typography.labelLarge) }
     }
 }

@@ -30,6 +30,8 @@ class NavegacaoEDiaTest {
         assertEquals(Rotas.PERGUNTAR, Rotas.doCaminho("/perguntar?q=dipirona"))
         assertEquals(Rotas.RECEITA, Rotas.doCaminho("receitas/nova"))
         assertEquals("receita/7", Rotas.doCaminho("/receitas/7/revisar"))
+        assertEquals("bula/12", Rotas.doCaminho("/bula/12"))
+        assertEquals("bula/12", Rotas.doDestino(Destino("consulta.bula", params("""{"medicine":12}"""))))
         assertEquals("Conferir a receita", Rotas.titulo(Rotas.REVISAR_RECEITA))
         assertNull(Rotas.titulo(Rotas.PERGUNTAR))
     }

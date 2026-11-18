@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.media.ExifInterface
 import androidx.core.graphics.scale
 import android.net.Uri
+import br.com.vixforge.bulai.dados.api.Bula
 import br.com.vixforge.bulai.dados.api.BulaiApi
 import br.com.vixforge.bulai.dados.api.BuscaDeRemedios
 import br.com.vixforge.bulai.dados.api.HistoricoDePerguntas
@@ -43,9 +44,22 @@ class PerguntasRepositorio(private val api: BulaiApi, private val cache: CacheEm
 
     suspend fun pergunta(uuid: String): Result<Resposta> = chamar { api.pergunta(uuid).answer }
 
-    suspend fun apagar(uuid: String): Result<Unit> = chamar { api.apagarPergunta(uuid); Unit }
+    suspend fun apagar(uuid: String): Result<Unit> = chamar { api.apagarPergunta(uuid) }.map { }
 
     suspend fun buscarRemedios(termo: String): Result<BuscaDeRemedios> = chamar { api.buscarRemedios(termo.trim()) }
+
+    /** Bula humanizada pronta fica guardada no aparelho: reabrir mostra na hora e atualiza por cima. */
+    suspend fun bulaGuardada(remedio: Long): Bula? = cache.ler("bula$remedio", Bula.serializer())
+
+    suspend fun bula(remedio: Long): Result<Bula> = chamar { api.bula(remedio).leaflet }.onSuccess { guardarBula(it) }
+
+    suspend fun gerarBula(remedio: Long): Result<Bula> = chamar { api.gerarBula(remedio).leaflet }.onSuccess { guardarBula(it) }
+
+    private suspend fun guardarBula(bula: Bula) {
+        if (bula.state == Bula.PRONTA) {
+            cache.gravar("bula${bula.medicine.id}", Bula.serializer(), bula)
+        }
+    }
 
     private companion object {
         const val INICIO = "perguntar"
@@ -72,7 +86,7 @@ class ReceitasRepositorio(context: Context, private val api: BulaiApi) {
     suspend fun confirmar(id: Long, pedido: PedidoDeConfirmacao): Result<ResultadoDaConfirmacao> =
         chamar { api.confirmarReceita(id, pedido) }.onSuccess { Sincronizacao.agora(app) }
 
-    suspend fun descartar(id: Long): Result<Unit> = chamar { api.descartarReceita(id); Unit }
+    suspend fun descartar(id: Long): Result<Unit> = chamar { api.descartarReceita(id) }.map { }
 
     /** JPEG de até [LADO_MAXIMO] px no lado maior, já na orientação da foto, qualidade 85. */
     private fun prepararFoto(uri: Uri): ByteArray = ByteArrayOutputStream().use { saida ->

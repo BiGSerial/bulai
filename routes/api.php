@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
 use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
+use App\Http\Controllers\Api\Mobile\LeafletController as MobileLeafletController;
 use App\Http\Controllers\Api\Mobile\MedicineController as MobileMedicineController;
 use App\Http\Controllers\Api\Mobile\NoticeController as MobileNoticeController;
 use App\Http\Controllers\Api\Mobile\PrescriptionController as MobilePrescriptionController;
@@ -98,6 +99,10 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::delete('/avisos/{notice}', [MobileNoticeController::class, 'destroy'])->whereUuid('notice')->name('notices.destroy');
 
         Route::get('/remedios', [MobileMedicineController::class, 'search'])->name('medicines.search');
+
+        // Bula humanizada: GET responde na hora (pronta ou "carregando"); POST …/gerar prepara o resumo (limite por hora do site).
+        Route::get('/bulas/{medicine}', [MobileLeafletController::class, 'show'])->whereNumber('medicine')->name('leaflets.show');
+        Route::post('/bulas/{medicine}/gerar', [MobileLeafletController::class, 'generate'])->whereNumber('medicine')->name('leaflets.generate');
 
         // Perguntar: a conversa vive no aparelho (só os uuid das trocas); o limite por hora é o mesmo do site.
         Route::get('/perguntar', [MobileQuestionController::class, 'start'])->name('questions.start');

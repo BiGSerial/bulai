@@ -216,3 +216,44 @@ data class PedidoDeConfirmacao(val header: CabecalhoDaReceita, val items: List<I
 
 @Serializable
 data class ResultadoDaConfirmacao(val confirmed: Int = 0, val unmatched: Int = 0, val message: String)
+
+// Bula humanizada
+
+@Serializable
+data class RemedioDaBula(val id: Long, val name: String, val ingredient: String? = null, val holder: String? = null)
+
+@Serializable
+data class SecaoDaBula(val key: String, val label: String, val tone: String = "brand", val claims: List<String> = emptyList(), val sources: List<String> = emptyList())
+
+@Serializable
+data class Risco(val text: String, val tone: String = "warning")
+
+@Serializable
+data class Bula(
+    val medicine: RemedioDaBula,
+    val state: String,
+    val failure: String? = null,
+    val cover: SecaoDaBula? = null,
+    val sections: List<SecaoDaBula> = emptyList(),
+    val missing: List<String> = emptyList(),
+    val prepared: String? = null,
+    val risk: Risco? = null,
+    val treatment: NoTratamento? = null,
+) {
+    val preparando: Boolean get() = state == CARREGANDO
+
+    /** Texto para "Ouvir": cada seção com as primeiras afirmações. */
+    val textoCorrido: String
+        get() = listOfNotNull(cover, *sections.toTypedArray()).joinToString(" ") { secao -> secao.label + ". " + secao.claims.take(3).joinToString(" ") }
+
+    companion object {
+        const val CARREGANDO = "carregando"
+        const val PRONTA = "pronto"
+        const val SEM_BULA = "sem_bula"
+        const val NAO_IDENTIFICADO = "nao_identificado"
+        const val LIMITE = "limite"
+    }
+}
+
+@Serializable
+data class RespostaDaBula(val leaflet: Bula)

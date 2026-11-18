@@ -52,8 +52,8 @@ object Rede {
                 .header("User-Agent", "BulaiAndroid/${BuildConfig.VERSION_NAME}")
                 .apply { token()?.let { header("Authorization", "Bearer $it") } }
                 .build()
-            // Pergunta e leitura de receita passam pela IA: esperam mais que as outras telas.
-            val lenta = pedido.method == "POST" && pedido.url.encodedPath.let { it.endsWith("/perguntar") || it.endsWith("/receitas") }
+            // Pergunta, leitura de receita e bula humanizada passam pela IA: esperam mais que as outras telas.
+            val lenta = pedido.method == "POST" && pedido.url.encodedPath.let { it.endsWith("/perguntar") || it.endsWith("/receitas") || it.endsWith("/gerar") }
             val resposta = if (lenta) cadeia.withReadTimeout(90, TimeUnit.SECONDS).withWriteTimeout(60, TimeUnit.SECONDS).proceed(pedido) else cadeia.proceed(pedido)
             if (resposta.code == 401 && pedido.header("Authorization") != null) {
                 aoPerderAcesso()

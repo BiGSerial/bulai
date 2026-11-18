@@ -19,8 +19,15 @@ object Rotas {
     const val PERGUNTA = "pergunta/{uuid}"
     const val RECEITA = "receita"
     const val REVISAR_RECEITA = "receita/{id}"
+    const val BULA = "bula/{id}"
+    const val PERGUNTAR_SOBRE = "perguntar/{remedio}"
+
+    fun bula(remedio: Long) = "bula/$remedio"
+
+    fun perguntarSobre(remedio: Long) = "perguntar/$remedio"
 
     private val RECEITA_PARA_REVISAR = Regex("""receitas/(\d+)/revisar""")
+    private val BULA_DO_REMEDIO = Regex("""bula/(\d+)""")
 
     fun pergunta(uuid: String) = "pergunta/$uuid"
 
@@ -32,6 +39,8 @@ object Rotas {
         PERGUNTA -> "Pergunta anterior"
         RECEITA -> "Fotografar receita"
         REVISAR_RECEITA -> "Conferir a receita"
+        BULA -> "Bula simples"
+        PERGUNTAR_SOBRE -> "Perguntar"
         else -> null
     }
 
@@ -44,6 +53,7 @@ object Rotas {
             "consulta.perguntar" -> PERGUNTAR
             "consulta.historico" -> PERGUNTAS
             "consulta.pergunta" -> parametro("question")?.let(::pergunta) ?: PERGUNTAS
+            "consulta.bula" -> parametro("medicine")?.toLongOrNull()?.let(::bula) ?: INICIO
             "consulta.receita.nova" -> RECEITA
             "consulta.receita.revisar" -> parametro("prescription")?.toLongOrNull()?.let(::revisarReceita) ?: RECEITA
             else -> INICIO
@@ -58,6 +68,8 @@ object Rotas {
         "perguntar" -> PERGUNTAR
         "historico" -> PERGUNTAS
         "receitas/nova", "receita" -> RECEITA
-        else -> RECEITA_PARA_REVISAR.matchEntire(limpo)?.let { revisarReceita(it.groupValues[1].toLong()) } ?: INICIO
+        else -> RECEITA_PARA_REVISAR.matchEntire(limpo)?.let { revisarReceita(it.groupValues[1].toLong()) }
+            ?: BULA_DO_REMEDIO.matchEntire(limpo)?.let { bula(it.groupValues[1].toLong()) }
+            ?: INICIO
     }
 }

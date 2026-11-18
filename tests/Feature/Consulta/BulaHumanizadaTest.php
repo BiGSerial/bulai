@@ -14,6 +14,7 @@ use App\Models\Knowledge\AnvisaMedicine;
 use App\Models\Knowledge\DrugInteraction;
 use App\Models\Knowledge\KnowledgeDocument;
 use App\Models\Knowledge\KnowledgeSource;
+use App\Models\MobileDevice;
 use App\Models\PatientAllergy;
 use App\Models\PatientMedication;
 use App\Models\PatientProfile;
@@ -21,9 +22,11 @@ use App\Models\User;
 use App\Services\Ai\AiProviderException;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\TextGenerationProvider;
+use App\Services\Leaflet\LeafletPage;
 use App\Services\Leaflet\LeafletSummaryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -316,5 +319,36 @@ final class BulaHumanizadaTest extends TestCase
         Livewire::actingAs(User::factory()->create())->test(Pesquisa::class)
             ->set('busca', 'omepra')->assertSee(route('consulta.bula', $medicine->id))->assertSee('Ver bula humanizada de OMEPRAZOL')
             ->call('adicionar', $medicine->id)->assertSee(route('consulta.bula', $medicine->id));
+    }
+
+    public function test_the_app_opens_the_leaflet_at_once_and_generates_it_on_request_with_the_same_rules(): void
+    {
+        $user = User::factory()->create();
+        PatientProfile::query()->create(['user_id' => $user->id, 'health_consent_at' => now()]);
+        PatientAllergy::query()->create(['user_id' => $user->id, 'substance' => 'Omeprazolsub', 'normalized_substance' => 'omeprazolsub']);
+        $headers = ['Authorization' => 'Bearer '.MobileDevice::issueFor($user, ['installation_id' => (string) Str::uuid(), 'device_name' => 'Pixel 8'])['token']];
+        $medicine = $this->omeprazol();
+        $this->script([
+            'para_que_serve' => [['text' => 'Indicado para o tratamento de úlcera gástrica e refluxo gastroesofágico.', 'evidence_ids' => ['E1']]],
+            'nao_use_se' => [['text' => 'A bula contraindica o uso em quem tem alergia ao omeprazol ou a qualquer componente da fórmula.', 'evidence_ids' => ['E4']]],
+        ]);
+
+        $this->getJson('/api/mobile/v1/bulas/'.$medicine->id, $headers)->assertOk()
+            ->assertJsonPath('leaflet.state', LeafletPage::LOADING)->assertJsonPath('leaflet.medicine.name', 'OMEPRAZOL')
+            ->assertJsonPath('leaflet.risk.tone', 'danger')->assertJsonPath('leaflet.treatment.allergy_alerts.0.allergy', 'Omeprazolsub');
+        $this->assertSame(0, $this->calls, 'abrir não gera: o aplicativo mostra o esqueleto e pede a geração');
+
+        $this->postJson('/api/mobile/v1/bulas/'.$medicine->id.'/gerar', [], $headers)->assertOk()
+            ->assertJsonPath('leaflet.state', LeafletPage::READY)
+            ->assertJsonPath('leaflet.cover.claims.0', 'Indicado para o tratamento de úlcera gástrica e refluxo gastroesofágico.')
+            ->assertJsonPath('leaflet.cover.sources.0', 'OMEPRAZOL — Bula · INDICAÇÕES · p. 1')
+            ->assertJsonPath('leaflet.sections', [])->assertJsonPath('leaflet.missing.0', 'Como usar')
+            ->assertJsonPath('leaflet.prepared', fn (string $nota): bool => str_starts_with($nota, 'Baseado na bula oficial'));
+
+        $this->getJson('/api/mobile/v1/bulas/'.$medicine->id, $headers)->assertOk()->assertJsonPath('leaflet.state', LeafletPage::READY);
+        $this->assertSame(1, $this->calls, 'a segunda abertura usa o resumo pronto');
+
+        $this->getJson('/api/mobile/v1/bulas/'.$this->medicine('XPTO', 'XPTOSUB', false)->id, $headers)->assertOk()->assertJsonPath('leaflet.state', LeafletPage::NOT_IDENTIFIED);
+        $this->getJson('/api/mobile/v1/bulas/999999', $headers)->assertNotFound();
     }
 }
