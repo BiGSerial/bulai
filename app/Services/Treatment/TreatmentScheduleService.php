@@ -9,6 +9,7 @@ use App\Models\UnmatchedMedicineReport;
 use App\Models\User;
 use App\Services\Knowledge\AnvisaCatalogNormalizer;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -339,5 +340,18 @@ final class TreatmentScheduleService
         $value = trim((string) $value);
 
         return $value === '' ? null : mb_substr($value, 0, $max);
+    }
+
+    /**
+     * Desde quando contar a espera pela próxima dose (a barra que enche até o horário, no Início do site e do aplicativo):
+     * o horário da dose anterior da agenda do dia, ou o começo do dia.
+     *
+     * @param  Collection<int, array<string, mixed>>  $agenda
+     */
+    public static function waitingSince(Collection $agenda, CarbonInterface $next, CarbonImmutable $today): CarbonImmutable
+    {
+        $previous = $agenda->filter(fn (array $dose): bool => $dose['scheduled_for']->lt($next))->max(fn (array $dose) => $dose['scheduled_for']);
+
+        return $previous !== null ? CarbonImmutable::instance($previous) : $today->startOfDay();
     }
 }

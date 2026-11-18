@@ -40,8 +40,7 @@ final class PatientDayService
             'next_dose' => $next === null ? null : $this->dose($nextRow ?? $next + ['ajustado' => null]) + [
                 'is_today' => $next['scheduled_for']->isSameDay($today),
                 // Desde quando contar a espera (barra que enche até o horário): a dose anterior do dia, ou o começo do dia.
-                'since' => ($agenda->filter(fn (array $dose): bool => $dose['scheduled_for']->lt($next['scheduled_for']))->max(fn (array $dose) => $dose['scheduled_for'])
-                    ?? $today->startOfDay())->toIso8601String(),
+                'since' => TreatmentScheduleService::waitingSince($agenda, $next['scheduled_for'], $today)->toIso8601String(),
             ],
             'progress' => [
                 'total' => $agenda->count(),

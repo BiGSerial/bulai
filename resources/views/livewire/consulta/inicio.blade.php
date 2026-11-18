@@ -25,11 +25,24 @@
                 <div class="min-w-0 flex-1">
                     <h2 id="dia-titulo" class="text-base font-semibold uppercase tracking-wide text-brand-100">Hoje</h2>
                     <p class="break-words text-2xl font-semibold leading-tight">{{ $tomadas === $total ? 'Tudo tomado por hoje!' : $tomadas.' de '.$total.' '.($total === 1 ? 'dose tomada' : 'doses tomadas') }}</p>
-                    @if ($proxima !== null)
-                        <p class="mt-1 break-words text-lg {{ $doseAtrasada ? 'font-semibold text-accent-200' : 'text-brand-100' }}">{{ $proximaDose }}</p>
-                    @endif
                 </div>
             </div>
+            {{-- Próximo remédio, como no aplicativo: o fundo enche até o horário e a ponta balança como líquido (resources/js/animacoes.js). --}}
+            @if ($proxima !== null)
+                <div wire:key="proxima-{{ $proxima['medication']->id }}-{{ $proximaHorario }}" x-data="proximaDose({ desde: @js($proximaDesde), horario: @js($proximaHorario), cheio: @js($podeMarcar) })" class="relative overflow-hidden rounded-2xl ring-1 {{ $doseAtrasada ? 'bg-accent-500/15 ring-accent-300/40' : 'bg-white/10 ring-white/15' }}">
+                    <svg x-ref="liquido" class="pointer-events-none absolute inset-0 size-full" aria-hidden="true"><path x-ref="caminho" class="{{ $doseAtrasada ? 'fill-accent-400/35' : 'fill-white/20' }}" d="" /></svg>
+                    <div class="relative flex min-w-0 items-center gap-3 px-4 py-3">
+                        <x-consulta.icone :name="$doseAtrasada ? 'alerta' : 'relogio'" tone="white" />
+                        <div class="min-w-0">
+                            <p class="break-words text-base font-semibold {{ $doseAtrasada ? 'text-accent-200' : 'text-brand-100' }}">{{ $doseAtrasada ? 'Atrasado' : ($proxima['scheduled_for']->isToday() ? 'Próximo' : 'Amanhã') }} · {{ $proxima['time'] }}</p>
+                            <p class="break-words text-xl font-semibold leading-tight">{{ $proxima['medication']->displayName() }}</p>
+                            @if (filled($proxima['medication']->dosage))<p class="break-words text-base text-brand-100">{{ $proxima['medication']->dosage }}</p>@endif
+                            <p x-cloak x-show="faltam !== ''" x-text="faltam" class="text-base font-semibold text-accent-200"></p>
+                            <p class="sr-only">{{ $proximaDose }}</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
             @if ($podeMarcar)
                 <x-consulta.botao variant="accent" wire:click="tomei({{ $proxima['medication']->id }}, '{{ $proxima['scheduled_for']->utc()->toIso8601String() }}')" loadingTarget="tomei" loading="Anotando…"><x-consulta.icone name="check" plain class="size-7" />Marcar como tomado</x-consulta.botao>
             @endif

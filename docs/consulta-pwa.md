@@ -356,3 +356,12 @@ Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões
 **Layout:** `resources/views/pdf/resumo-medico.blade.php`, gerado pelo dompdf (`barryvdh/laravel-dompdf`). Usa a identidade visual do app: faixa azul-marinho com filete laranja, cartões creme, caixa vermelha para alergias, caixa amarela para interações e selos de adesão em verde, âmbar ou vermelho.
 
 **Testes:** `tests/Feature/Consulta/ResumoMedicoTest.php`.
+
+## Efeitos iguais aos do aplicativo Android (18/11/2026)
+
+Dois efeitos do app nativo (`docs/app-android.md`) reproduzidos no PWA, em `resources/js/animacoes.js` (componentes Alpine `doseAnimada` e `proximaDose`, Web Animations API e `requestAnimationFrame`, sem biblioteca):
+
+- **"Tomei" em Remédios de hoje** (`livewire/consulta/tratamento/hoje.blade.php`): ao tocar, os botões do cartão somem e um véu verde opaco (`bg-emerald-50`) nasce em círculo a partir do botão (`clip-path`, ~520 ms) e cobre o cartão; um joinha salta com mola, dá um pulinho e balança; depois o véu clareia e os textos voltam já com "Tomei HH:MM" (fade-in só no cartão recém-marcado, `.bulai-aparece`). O cartão tomado fica verde (`bg-emerald-50 ring-emerald-200`). "Desfazer" recolhe o verde de volta para o botão. As camadas do efeito são as últimas do `<article>` (`isolate`) e, com o véu fechado, o conteúdo fica invisível (`.bulai-cobrindo`, `.bulai-celebrando`), porque o Chrome às vezes desenhava ícones trocados pelo Livewire por cima do véu.
+- **Próximo remédio no Início** (`livewire/consulta/inicio.blade.php`): o bloco "Próximo · HH:MM" dentro do cartão do dia tem o fundo enchendo da dose anterior do dia (ou do começo do dia) até o horário (`TreatmentScheduleService::waitingSince`, a mesma regra do `next_dose.since` da API), com a ponta balançando no lugar como líquido (soma de ondas estacionárias, desenhada num `<svg>`), e "Faltam X h Y min" atualizado a cada 20 s. Atrasado ou na hora: cheio, em tom de laranja.
+- `prefers-reduced-motion`: sem efeito do "Tomei" e sem ondulação (a barra fica parada no ponto certo).
+- Sem `style` inline (regra do `ConsultaDesignSystemTest`): o recorte inicial do véu é a classe `[clip-path:circle(0px_at_0_0)]`.
