@@ -67,6 +67,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DoNotDisturbOn
 import androidx.compose.material.icons.rounded.EventBusy
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.WbSunny
@@ -114,9 +115,13 @@ import kotlinx.coroutines.launch
 
 private val TITULOS = mapOf(-1 to "Ontem", 0 to "Hoje", 1 to "Amanhã")
 
+/**
+ * Remédios de ontem, hoje e amanhã. Com [vinculo], é o dia de quem a pessoa cuida (modo cuidador): uma faixa diz de quem
+ * são os remédios, e "Tomei"/"Pular" só aparecem com a permissão "marcar e editar".
+ */
 @Composable
-fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues) {
-    val vm = telaViewModel { DiaViewModel(it.tratamento) }
+fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues, vinculo: Long? = null, nome: String? = null) {
+    val vm = telaViewModel { if (vinculo != null) DiaViewModel(it.cuidado.fonte(vinculo, nome)) else DiaViewModel(it.tratamento) }
     val dias by vm.dias.collectAsStateWithLifecycle()
     val enviando by vm.enviando.collectAsStateWithLifecycle()
     val paginas = rememberPagerState(initialPage = 1) { DiaViewModel.DESLOCAMENTOS.size }
@@ -144,6 +149,7 @@ fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues)
             val deslocamento = DiaViewModel.DESLOCAMENTOS[pagina]
             PaginaDoDia(
                 carga = dias.getValue(deslocamento),
+                cuidando = vinculo != null,
                 enviando = enviando,
                 preenchimentoInferior = preenchimento.calculateBottomPadding(),
                 aoAtualizar = { vm.atualizar(deslocamento) },
@@ -158,6 +164,7 @@ fun DiaTela(recado: (DiaViewModel.Recado) -> Unit, preenchimento: PaddingValues)
 @Composable
 private fun PaginaDoDia(
     carga: Carga<Dia>,
+    cuidando: Boolean,
     enviando: Set<String>,
     preenchimentoInferior: androidx.compose.ui.unit.Dp,
     aoAtualizar: () -> Unit,
@@ -174,6 +181,9 @@ private fun PaginaDoDia(
         ) {
             item(key = "erro") { FaixaDeErro(carga.erro, Modifier.widthIn(max = 640.dp), aoAtualizar) }
             val dia = carga.dados
+            dia?.cuidandoDe?.let { quem ->
+                item(key = "cuidando") { FaixaDoCuidador(quem.primeiroNome, dia.podeMarcar, Modifier.widthIn(max = 640.dp)) }
+            }
             when {
                 dia == null -> if (carga.esqueleto) {
                     item(key = "esqueleto") {
@@ -185,13 +195,21 @@ private fun PaginaDoDia(
                     }
                 }
                 !dia.consentimento -> item(key = "consentimento") {
-                    EstadoVazio(Icons.Rounded.EventBusy, "Autorize no seu perfil", "Para ver os horários dos seus remédios, autorize o uso dos seus dados de saúde no perfil.", Modifier.widthIn(max = 640.dp))
+                    if (cuidando) {
+                        EstadoVazio(Icons.Rounded.EventBusy, "Remédios indisponíveis", "${dia.cuidandoDe?.primeiroNome ?: "A pessoa"} ainda não autorizou guardar os dados de saúde no BULA-IA.", Modifier.widthIn(max = 640.dp))
+                    } else {
+                        EstadoVazio(Icons.Rounded.EventBusy, "Autorize no seu perfil", "Para ver os horários dos seus remédios, autorize o uso dos seus dados de saúde no perfil.", Modifier.widthIn(max = 640.dp))
+                    }
                 }
                 dia.doses.isEmpty() && dia.seNecessario.isEmpty() -> item(key = "vazio") {
                     EstadoVazio(
                         Icons.Rounded.EventBusy,
                         if (dia.temRemedios) "Nenhum horário neste dia" else "Nenhum remédio cadastrado",
-                        if (dia.temRemedios) "Os seus remédios não têm horário programado para ${dia.data.lowercase()}." else "Cadastre seus remédios no perfil para ver os horários aqui.",
+                        when {
+                            dia.temRemedios -> "Os remédios não têm horário programado para ${dia.data.lowercase()}."
+                            cuidando -> "${dia.cuidandoDe?.primeiroNome ?: "A pessoa"} ainda não cadastrou remédios."
+                            else -> "Cadastre seus remédios no perfil para ver os horários aqui."
+                        },
                         Modifier.widthIn(max = 640.dp),
                     )
                 }
@@ -202,7 +220,7 @@ private fun PaginaDoDia(
                         if (doses.isNotEmpty()) {
                             item(key = "periodo-$chave") { CabecalhoDoPeriodo(titulo, icone, Modifier.widthIn(max = 640.dp)) }
                             itemsIndexed(doses, key = { _, dose -> dose.key }) { indice, dose ->
-                                LinhaDaDose(dose, dose.key in enviando, indice == 0, indice == doses.lastIndex, aoTomar, aoPular, aoDesfazer, Modifier.widthIn(max = 640.dp).animateItem())
+                                LinhaDaDose(dose, dose.key in enviando, indice == 0, indice == doses.lastIndex, dia.podeMarcar, dia.cuidandoDe != null, aoTomar, aoPular, aoDesfazer, Modifier.widthIn(max = 640.dp).animateItem())
                             }
                         }
                     }
@@ -220,6 +238,25 @@ private fun PaginaDoDia(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Faixa no topo do dia de quem a pessoa cuida. */
+@Composable
+private fun FaixaDoCuidador(nome: String, podeMarcar: Boolean, modifier: Modifier = Modifier) {
+    androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.large, modifier = modifier.fillMaxWidth()) {
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Favorite, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text("Remédios de $nome", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(
+                    if (podeMarcar) "Você pode anotar as doses por $nome." else "Você só acompanha: as doses são anotadas por $nome.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
             }
         }
     }
@@ -276,6 +313,8 @@ private fun LinhaDaDose(
     ocupada: Boolean,
     primeira: Boolean,
     ultima: Boolean,
+    podeMarcar: Boolean,
+    deOutraPessoa: Boolean,
     aoTomar: (Dose) -> Unit,
     aoPular: (Dose) -> Unit,
     aoDesfazer: (Dose) -> Unit,
@@ -357,8 +396,8 @@ private fun LinhaDaDose(
         }.getOrNull()
     }
     val descricao = when (dose.status) {
-        Dose.TOMADA -> if (tomadaAs != null) "Tomei $tomadaAs" else "Tomei"
-        Dose.PULADA -> "Pulei"
+        Dose.TOMADA -> (if (deOutraPessoa) "Tomou" else "Tomei") + (tomadaAs?.let { " $it" } ?: "")
+        Dose.PULADA -> if (deOutraPessoa) "Pulou" else "Pulei"
         Dose.ATRASADA -> "Atrasado"
         Dose.AGORA -> "Agora"
         else -> "A tomar"
@@ -455,7 +494,7 @@ private fun LinhaDaDose(
                     // O selo muda com fade (o "Tomei 08:47" entra depois que o verde já cobriu o cartão).
                     AnimatedContent(
                         descricao,
-                        transitionSpec = { fadeIn(tween(420, delayMillis = if (targetState.startsWith("Tomei")) 380 else 0)) togetherWith fadeOut(tween(160)) },
+                        transitionSpec = { fadeIn(tween(420, delayMillis = if (targetState.startsWith("Tom")) 380 else 0)) togetherWith fadeOut(tween(160)) },
                         label = "situacao",
                     ) { texto ->
                         Surface(shape = CircleShape, color = corDoEstado.copy(alpha = 0.12f), contentColor = corDoEstado, border = BorderStroke(1.dp, corDoEstado.copy(alpha = 0.35f))) {
@@ -470,7 +509,7 @@ private fun LinhaDaDose(
                 }
             }
             dose.ajustadaDe?.let { Text("Ajustado: contado a partir das $it, quando você tomou a anterior", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            AnimatedContent(dose.feita, transitionSpec = { fadeIn(tween(300, delayMillis = 250)) togetherWith fadeOut(tween(150)) }, label = "acoes") { feita ->
+            if (podeMarcar) AnimatedContent(dose.feita, transitionSpec = { fadeIn(tween(300, delayMillis = 250)) togetherWith fadeOut(tween(150)) }, label = "acoes") { feita ->
                 if (feita) {
                     TextButton(onClick = { aoDesfazer(dose) }, enabled = !ocupada, modifier = Modifier.heightIn(min = 48.dp)) {
                         Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = null)
@@ -494,7 +533,7 @@ private fun LinhaDaDose(
                         ) {
                             Icon(Icons.Rounded.Check, contentDescription = null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Tomei", style = MaterialTheme.typography.labelLarge)
+                            Text(if (deOutraPessoa) "Tomou" else "Tomei", style = MaterialTheme.typography.labelLarge)
                         }
                         androidx.compose.material3.OutlinedButton(
                             onClick = { aoPular(dose) },

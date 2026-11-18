@@ -130,6 +130,10 @@ data class Dia(
     val summary: ResumoDoDia = ResumoDoDia(),
     val doses: List<Dose> = emptyList(),
     @SerialName("as_needed") val seNecessario: List<RemedioSeNecessario> = emptyList(),
+    /** Preenchido quando é o dia de quem a pessoa cuida (modo cuidador). */
+    @SerialName("caring_for") val cuidandoDe: CuidandoDe? = null,
+    /** No modo cuidador, só marca doses quem recebeu a permissão "marcar e editar". */
+    @SerialName("can_mark") val podeMarcar: Boolean = true,
 )
 
 @Serializable

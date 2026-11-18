@@ -88,6 +88,10 @@ dependencies {
     implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
 
+    // QR Code do convite de cuidador: gerar (ZXing, Java puro) e ler (leitor do Google Play, sem permissão de câmera).
+    implementation(libs.zxing.core)
+    implementation(libs.play.services.code.scanner)
+
     // org.json real nos testes de JVM (o android.jar só traz stubs).
     testImplementation(libs.junit)
     testImplementation(libs.json)

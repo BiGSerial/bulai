@@ -3,9 +3,7 @@
 namespace App\Http\Controllers\Consulta;
 
 use App\Http\Controllers\Controller;
-use App\Models\UserAuditEvent;
 use App\Services\Patient\MedicalSummaryService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 
@@ -22,11 +20,6 @@ class ResumoMedicoController extends Controller
             return redirect()->route('consulta.perfil');
         }
 
-        $resumo = $summaries->build($user);
-        UserAuditEvent::query()->create(['user_id' => $user->id, 'actor_id' => $user->id, 'event' => 'medical_summary_downloaded', 'details' => ['medications' => count($resumo['em_uso'])], 'ip' => request()->ip()]);
-
-        return Pdf::loadView('pdf.resumo-medico', ['resumo' => $resumo])
-            ->setPaper('a4')
-            ->download('resumo-para-o-medico-'.$resumo['gerado_em']->format('Y-m-d').'.pdf');
+        return $summaries->download($user, request()->ip());
     }
 }

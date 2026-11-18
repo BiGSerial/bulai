@@ -2,7 +2,7 @@ package br.com.vixforge.bulai.ui.dia
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import br.com.vixforge.bulai.dados.TratamentoRepositorio
+import br.com.vixforge.bulai.dados.FonteDoDia
 import br.com.vixforge.bulai.dados.api.Dia
 import br.com.vixforge.bulai.dados.api.Dose
 import br.com.vixforge.bulai.ui.base.Carga
@@ -16,8 +16,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** Ontem (-1), hoje (0) e amanhã (1), cada um com a sua carga; marcações aparecem na hora e se confirmam depois. */
-class DiaViewModel(private val tratamento: TratamentoRepositorio) : ViewModel() {
+/**
+ * Ontem (-1), hoje (0) e amanhã (1), cada um com a sua carga; marcações aparecem na hora e se confirmam depois. A [fonte]
+ * é o tratamento da própria pessoa ou o de quem ela cuida (modo cuidador).
+ */
+class DiaViewModel(private val tratamento: FonteDoDia) : ViewModel() {
     private val _dias = MutableStateFlow(DESLOCAMENTOS.associateWith { Carga<Dia>() })
     val dias: StateFlow<Map<Int, Carga<Dia>>> = _dias.asStateFlow()
 
@@ -36,7 +39,7 @@ class DiaViewModel(private val tratamento: TratamentoRepositorio) : ViewModel() 
     init {
         viewModelScope.launch {
             DESLOCAMENTOS.forEach { deslocamento ->
-                tratamento.diaGuardado(deslocamento)?.let { guardado -> mudar(deslocamento) { if (it.dados == null) it.copy(dados = guardado) else it } }
+                tratamento.guardado(deslocamento)?.let { guardado -> mudar(deslocamento) { if (it.dados == null) it.copy(dados = guardado) else it } }
             }
             atualizar(0)
         }
@@ -66,7 +69,8 @@ class DiaViewModel(private val tratamento: TratamentoRepositorio) : ViewModel() 
 
     private fun marcar(deslocamento: Int, dose: Dose, situacao: String) {
         enviar(deslocamento, dose, situacao, { tratamento.marcar(dose, situacao, deslocamento) }) {
-            val texto = if (situacao == Dose.TOMADA) "Anotado: você tomou ${dose.name}." else "${dose.name} pulado neste horário."
+            val quem = tratamento.deQuem?.let { "$it tomou" } ?: "você tomou"
+            val texto = if (situacao == Dose.TOMADA) "Anotado: $quem ${dose.name}." else "${dose.name} pulado neste horário."
             Recado(texto) { desfazer(deslocamento, dose.copy(status = situacao)) }
         }
     }

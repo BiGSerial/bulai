@@ -39,6 +39,17 @@ class NavegacaoEDiaTest {
     }
 
     @Test
+    fun modoCuidadorTemRotaPropria() {
+        assertEquals(Rotas.CUIDADORES, Rotas.doDestino(Destino("consulta.cuidadores")))
+        val params = { json: String -> kotlinx.serialization.json.Json.parseToJsonElement(json) }
+        assertEquals("cuidando/12", Rotas.doDestino(Destino("consulta.cuidando.hoje", params("""{"vinculo":12}"""))))
+        assertEquals(Rotas.CUIDAR, Rotas.doDestino(Destino("consulta.cuidando.hoje")))
+        assertEquals("cuidando/7", Rotas.doCaminho("/cuidando/7/hoje"))
+        assertEquals(Rotas.CUIDAR, Rotas.doCaminho("/cuidar?codigo=12345678"))
+        assertEquals("cuidando/7?nome=Maria%20Jos%C3%A9", Rotas.cuidando(7, "Maria José"))
+    }
+
+    @Test
     fun marcarNaTelaAtualizaODiaAntesDoServidor() {
         val dose = { chave: String, situacao: String -> Dose(chave, 1, "Losartana", time = "08:00", agendadaPara = "x", status = situacao) }
         val dia = Dia(0, "2026-11-05", "Quinta", true, true, summary = ResumoDoDia(3, 1, 1, 1), doses = listOf(dose("a", Dose.TOMADA), dose("b", Dose.ATRASADA), dose("c", Dose.PENDENTE)))

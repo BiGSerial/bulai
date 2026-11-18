@@ -6,10 +6,13 @@ use App\Models\PatientAllergy;
 use App\Models\PatientMedication;
 use App\Models\PatientPrescription;
 use App\Models\User;
+use App\Models\UserAuditEvent;
 use App\Services\Interactions\InteractionLookup;
 use App\Services\Interactions\InteractionSeverity;
 use App\Services\Treatment\TreatmentScheduleService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 
 /**
@@ -181,5 +184,18 @@ final class MedicalSummaryService
             InteractionSeverity::Moderate->label() => 'media',
             default => 'baixa',
         };
+    }
+
+    /**
+     * O PDF "Resumo para o médico" pronto para baixar (site e aplicativo), com o download registrado na auditoria da conta.
+     */
+    public function download(User $user, ?string $ip = null): Response
+    {
+        $resumo = $this->build($user);
+        UserAuditEvent::query()->create(['user_id' => $user->id, 'actor_id' => $user->id, 'event' => 'medical_summary_downloaded', 'details' => ['medications' => count($resumo['em_uso'])], 'ip' => $ip]);
+
+        return Pdf::loadView('pdf.resumo-medico', ['resumo' => $resumo])
+            ->setPaper('a4')
+            ->download('resumo-para-o-medico-'.$resumo['gerado_em']->format('Y-m-d').'.pdf');
     }
 }

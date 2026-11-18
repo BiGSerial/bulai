@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Mobile\AccountController as MobileAccountController;
 use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
 use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
+use App\Http\Controllers\Api\Mobile\CaregiverController as MobileCaregiverController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
 use App\Http\Controllers\Api\Mobile\LeafletController as MobileLeafletController;
 use App\Http\Controllers\Api\Mobile\MedicineController as MobileMedicineController;
@@ -100,6 +101,25 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::delete('/avisos/{notice}', [MobileNoticeController::class, 'destroy'])->whereUuid('notice')->name('notices.destroy');
 
         Route::get('/remedios', [MobileMedicineController::class, 'search'])->name('medicines.search');
+
+        // Quem cuida de mim (paciente): convite com QR Code, aprovar/recusar com permissões, mudar, tirar acesso.
+        Route::get('/cuidadores', [MobileCaregiverController::class, 'index'])->name('caregivers');
+        Route::post('/cuidadores/convite', [MobileCaregiverController::class, 'invite'])->name('caregivers.invite');
+        Route::delete('/cuidadores/convite', [MobileCaregiverController::class, 'cancelInvite'])->name('caregivers.invite.cancel');
+        Route::post('/cuidadores/{link}/aprovar', [MobileCaregiverController::class, 'approve'])->whereNumber('link')->name('caregivers.approve');
+        Route::post('/cuidadores/{link}/recusar', [MobileCaregiverController::class, 'reject'])->whereNumber('link')->name('caregivers.reject');
+        Route::put('/cuidadores/{link}/permissoes', [MobileCaregiverController::class, 'updatePermissions'])->whereNumber('link')->name('caregivers.permissions');
+        Route::delete('/cuidadores/{link}', [MobileCaregiverController::class, 'revoke'])->whereNumber('link')->name('caregivers.revoke');
+
+        // Cuidar de alguém (quem cuida): ler o QR/código, escolher a pessoa, ver e marcar as doses dela, deixar de acompanhar.
+        Route::get('/cuidando', [MobileCaregiverController::class, 'caring'])->name('caring');
+        Route::post('/cuidando', [MobileCaregiverController::class, 'accept'])->middleware('throttle:mobile-password-change')->name('caring.accept');
+        Route::delete('/cuidando/{link}', [MobileCaregiverController::class, 'leave'])->whereNumber('link')->name('caring.leave');
+        Route::get('/cuidando/{link}/dia', [MobileCaregiverController::class, 'day'])->whereNumber('link')->name('caring.day');
+        Route::post('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'mark'])->whereNumber('link')->name('caring.mark');
+        Route::delete('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'unmark'])->whereNumber('link')->name('caring.unmark');
+
+        Route::get('/resumo.pdf', [MobileCaregiverController::class, 'summary'])->name('summary');
 
         // Minha conta: nome de chamada e troca de senha (este aparelho continua conectado).
         Route::get('/conta', [MobileAccountController::class, 'show'])->name('account');

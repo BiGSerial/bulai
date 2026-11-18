@@ -88,6 +88,8 @@ import br.com.vixforge.bulai.ui.conta.ContaAreaTela
 import br.com.vixforge.bulai.ui.conta.EntrarTela
 import br.com.vixforge.bulai.ui.conta.EsqueciSenhaTela
 import br.com.vixforge.bulai.ui.conta.PrimeiroAcessoTela
+import br.com.vixforge.bulai.ui.cuidado.CuidarDeAlguemTela
+import br.com.vixforge.bulai.ui.cuidado.QuemCuidaDeMimTela
 import br.com.vixforge.bulai.ui.dia.DiaTela
 import br.com.vixforge.bulai.ui.inicio.InicioTela
 import br.com.vixforge.bulai.ui.perguntar.HistoricoTela
@@ -189,7 +191,7 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
         modifier = Modifier.nestedScroll(rolagem.nestedScrollConnection),
         topBar = {
             val rota = atual?.destination?.route
-            val titulo = Rotas.titulo(rota)
+            val titulo = if (rota == Rotas.CUIDANDO) atual?.arguments?.getString("nome")?.let { "Remédios de $it" } ?: Rotas.titulo(rota) else Rotas.titulo(rota)
             TopAppBar(
                 title = {
                     if (titulo != null) {
@@ -255,6 +257,8 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                     aoAbrirPerguntar = { irPara(nav, Rotas.PERGUNTAR) },
                     aoFotografarReceita = { nav.navigate(Rotas.RECEITA) },
                     aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) },
+                    aoAbrirPessoa = { nav.navigate(Rotas.cuidando(it.id, it.primeiroNome)) },
+                    aoAbrirCuidar = { nav.navigate(Rotas.CUIDAR) },
                     preenchimento = preenchimento,
                     aoContarAvisos = { avisosNaoLidos.intValue = it },
                 )
@@ -271,7 +275,32 @@ private fun NavegacaoDoPaciente(rotaPedida: StateFlow<String?>, aoUsarRota: () -
                 )
             }
             composable(Rotas.CONTA) {
-                ContaAreaTela(preenchimento, recado = { mostrar(it) }, aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) })
+                ContaAreaTela(
+                    preenchimento,
+                    recado = { mostrar(it) },
+                    aoAbrirPerguntas = { nav.navigate(Rotas.PERGUNTAS) },
+                    aoAbrirCuidadores = { nav.navigate(Rotas.CUIDADORES) },
+                    aoAbrirCuidar = { nav.navigate(Rotas.CUIDAR) },
+                )
+            }
+            composable(Rotas.CUIDADORES, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
+                QuemCuidaDeMimTela(preenchimento, recado = { mostrar(it) })
+            }
+            composable(Rotas.CUIDAR, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
+                CuidarDeAlguemTela(preenchimento, recado = { mostrar(it) }, aoAbrirPessoa = { nav.navigate(Rotas.cuidando(it.id, it.primeiroNome)) })
+            }
+            composable(
+                Rotas.CUIDANDO,
+                arguments = listOf(navArgument("vinculo") { type = NavType.LongType }, navArgument("nome") { type = NavType.StringType; nullable = true; defaultValue = null }),
+                enterTransition = { entrarEmpilhada() },
+                popExitTransition = { sairEmpilhada() },
+            ) { entrada ->
+                DiaTela(
+                    recado = { mostrar(it.texto, it.desfazer) },
+                    preenchimento = preenchimento,
+                    vinculo = entrada.arguments?.getLong("vinculo"),
+                    nome = entrada.arguments?.getString("nome"),
+                )
             }
             composable(Rotas.PERGUNTAS, enterTransition = { entrarEmpilhada() }, popExitTransition = { sairEmpilhada() }) {
                 HistoricoTela(preenchimento, aoAbrir = { nav.navigate(Rotas.pergunta(it)) }, recado = { mostrar(it) })

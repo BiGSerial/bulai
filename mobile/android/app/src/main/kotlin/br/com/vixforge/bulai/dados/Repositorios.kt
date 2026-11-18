@@ -45,7 +45,7 @@ class ContaRepositorio(private val api: BulaiApi, private val sessao: Sessao) {
  * Início e Remédios do dia. Cada resposta boa fica no [CacheEmDisco] para a próxima abertura; cada marcação pede uma
  * sincronização para os alarmes do aparelho seguirem a tela (uma dose marcada não toca mais).
  */
-class TratamentoRepositorio(context: Context, private val api: BulaiApi, private val cache: CacheEmDisco) {
+class TratamentoRepositorio(context: Context, private val api: BulaiApi, private val cache: CacheEmDisco) : FonteDoDia {
     private val app = context.applicationContext
 
     suspend fun inicioGuardado(): Inicio? = cache.ler(INICIO, Inicio.serializer())
@@ -54,12 +54,14 @@ class TratamentoRepositorio(context: Context, private val api: BulaiApi, private
 
     suspend fun diaGuardado(deslocamento: Int): Dia? = cache.ler(chaveDoDia(deslocamento), Dia.serializer())
 
-    suspend fun dia(deslocamento: Int): Result<Dia> = chamar { api.dia(deslocamento) }.onSuccess { guardar(it) }
+    override suspend fun guardado(deslocamento: Int): Dia? = diaGuardado(deslocamento)
 
-    suspend fun marcar(dose: Dose, situacao: String, deslocamento: Int): Result<Dia> =
+    override suspend fun dia(deslocamento: Int): Result<Dia> = chamar { api.dia(deslocamento) }.onSuccess { guardar(it) }
+
+    override suspend fun marcar(dose: Dose, situacao: String, deslocamento: Int): Result<Dia> =
         chamar { api.marcar(PedidoDeMarcacao(dose.remedioId, dose.agendadaPara, situacao, deslocamento)) }.onSuccess { mudou(it) }
 
-    suspend fun desmarcar(dose: Dose, deslocamento: Int): Result<Dia> =
+    override suspend fun desmarcar(dose: Dose, deslocamento: Int): Result<Dia> =
         chamar { api.desmarcar(PedidoDeMarcacao(dose.remedioId, dose.agendadaPara, null, deslocamento)) }.onSuccess { mudou(it) }
 
     private suspend fun mudou(dia: Dia) {

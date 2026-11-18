@@ -90,6 +90,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.vixforge.bulai.dados.api.Dose
+import br.com.vixforge.bulai.dados.api.PessoaAcompanhada
+import br.com.vixforge.bulai.ui.cuidado.PessoasQueVoceCuida
 import br.com.vixforge.bulai.dados.api.Inicio
 import br.com.vixforge.bulai.ui.base.telaViewModel
 import br.com.vixforge.bulai.ui.componentes.Bloco
@@ -112,6 +114,8 @@ fun InicioTela(
     aoAbrirPerguntas: () -> Unit,
     preenchimento: PaddingValues,
     aoContarAvisos: (Int) -> Unit = {},
+    aoAbrirPessoa: (PessoaAcompanhada) -> Unit = {},
+    aoAbrirCuidar: () -> Unit = {},
 ) {
     val vm = telaViewModel { InicioViewModel(it.tratamento) }
     val estado by vm.estado.collectAsStateWithLifecycle()
@@ -139,6 +143,8 @@ fun InicioTela(
             } else {
                 item(key = "saudacao") { Saudacao(dados, aoAbrirAvisos) }
                 item(key = "cartao") { CartaoDoDia(dados, marcando, vm::tomei, Modifier.widthIn(max = 640.dp)) }
+                // Quem cuida de alguém escolhe aqui de quem ver os remédios (some para quem não acompanha ninguém).
+                item(key = "cuidando") { PessoasQueVoceCuida(aoAbrirPessoa, aoAbrirCuidar, Modifier.widthIn(max = 640.dp)) }
                 // Ações grandes, uma por linha (como no site): Perguntar em destaque laranja.
                 item(key = "acoes") {
                     val proxima = dados.proxima

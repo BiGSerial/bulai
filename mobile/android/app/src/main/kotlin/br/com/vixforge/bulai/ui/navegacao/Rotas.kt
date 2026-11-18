@@ -22,6 +22,11 @@ object Rotas {
     const val REVISAR_RECEITA = "receita/{id}"
     const val BULA = "bula/{id}"
     const val PERGUNTAR_SOBRE = "perguntar/{remedio}"
+    const val CUIDADORES = "cuidadores"
+    const val CUIDAR = "cuidar"
+    const val CUIDANDO = "cuidando/{vinculo}?nome={nome}"
+
+    fun cuidando(vinculo: Long, nome: String? = null) = "cuidando/$vinculo" + (nome?.let { "?nome=" + java.net.URLEncoder.encode(it, "UTF-8").replace("+", "%20") } ?: "")
 
     fun bula(remedio: Long) = "bula/$remedio"
 
@@ -29,6 +34,7 @@ object Rotas {
 
     private val RECEITA_PARA_REVISAR = Regex("""receitas/(\d+)/revisar""")
     private val BULA_DO_REMEDIO = Regex("""bula/(\d+)""")
+    private val CUIDANDO_DE = Regex("""cuidando/(\d+)(/hoje)?""")
 
     fun pergunta(uuid: String) = "pergunta/$uuid"
 
@@ -43,6 +49,9 @@ object Rotas {
         REVISAR_RECEITA -> "Conferir a receita"
         BULA -> "Bula simples"
         PERGUNTAR_SOBRE -> "Perguntar"
+        CUIDADORES -> "Quem cuida de mim"
+        CUIDAR -> "Cuidar de alguém"
+        CUIDANDO -> "Remédios de quem você cuida"
         else -> null
     }
 
@@ -58,6 +67,10 @@ object Rotas {
             "consulta.bula" -> parametro("medicine")?.toLongOrNull()?.let(::bula) ?: INICIO
             "consulta.receita.nova" -> RECEITA
             "consulta.receita.revisar" -> parametro("prescription")?.toLongOrNull()?.let(::revisarReceita) ?: RECEITA
+            "consulta.cuidadores" -> CUIDADORES
+            "consulta.cuidar" -> CUIDAR
+            "consulta.cuidando.hoje", "consulta.cuidando.remedios" -> parametro("vinculo")?.toLongOrNull()?.let { cuidando(it) } ?: CUIDAR
+            "consulta.conta" -> CONTA
             else -> INICIO
         }
     }
@@ -72,8 +85,11 @@ object Rotas {
         "receitas/nova", "receita" -> RECEITA
         "conta", "account" -> CONTA
         "inicio" -> INICIO
+        "cuidadores" -> CUIDADORES
+        "cuidar" -> CUIDAR
         else -> RECEITA_PARA_REVISAR.matchEntire(limpo)?.let { revisarReceita(it.groupValues[1].toLong()) }
             ?: BULA_DO_REMEDIO.matchEntire(limpo)?.let { bula(it.groupValues[1].toLong()) }
+            ?: CUIDANDO_DE.matchEntire(limpo)?.let { cuidando(it.groupValues[1].toLong()) }
             ?: INICIO
     }
 }

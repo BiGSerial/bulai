@@ -41,7 +41,9 @@ import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.PictureAsPdf
 import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
@@ -76,6 +78,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import br.com.vixforge.bulai.ui.cuidado.rememberResumoParaOMedico
 import br.com.vixforge.bulai.BuildConfig
 import br.com.vixforge.bulai.container
 import br.com.vixforge.bulai.dados.ContaRepositorio
@@ -175,7 +178,13 @@ class ContaViewModel(private val conta: ContaRepositorio) : ViewModel() {
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ContaAreaTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbrirPerguntas: () -> Unit) {
+fun ContaAreaTela(
+    preenchimento: PaddingValues,
+    recado: (String) -> Unit,
+    aoAbrirPerguntas: () -> Unit,
+    aoAbrirCuidadores: () -> Unit = {},
+    aoAbrirCuidar: () -> Unit = {},
+) {
     val context = LocalContext.current
     val container = context.container
     val vm = telaViewModel { ContaViewModel(it.conta) }
@@ -190,6 +199,7 @@ fun ContaAreaTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbri
     val pedirPermissao = rememberPedirPermissao(avisos::lerAlarmes)
     var confirmarSaida by rememberSaveable { mutableStateOf(false) }
     var apagarConta by rememberSaveable { mutableStateOf(false) }
+    val resumo = rememberResumoParaOMedico(recado)
     LaunchedEffect(Unit) { vm.recados.collect(recado) }
     LaunchedEffect(Unit) { avisos.recados.collect(recado) }
     LifecycleResumeEffect(Unit) {
@@ -228,6 +238,14 @@ fun ContaAreaTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbri
         item(key = "atalhos") {
             Cartao(largura) {
                 LinhaDeAtalho(Icons.Rounded.History, "Minhas perguntas", "O que você perguntou ao BULA-IA", aoAbrirPerguntas)
+                LinhaDeAtalho(
+                    Icons.Rounded.PictureAsPdf,
+                    "Resumo para o médico",
+                    if (resumo.baixando) "Preparando o PDF…" else "PDF com seus remédios e horários, para levar à consulta",
+                    resumo.abrir,
+                )
+                LinhaDeAtalho(Icons.Rounded.Group, "Quem cuida de mim", "Convide alguém pelo QR Code e escolha o que pode ver", aoAbrirCuidadores)
+                LinhaDeAtalho(Icons.Rounded.Favorite, "Cuidar de alguém", "Leia o QR Code e acompanhe os remédios da pessoa", aoAbrirCuidar)
                 LinhaDeAtalho(Icons.AutoMirrored.Rounded.Logout, "Sair da conta", "Os alarmes deixam de tocar neste celular", { confirmarSaida = true })
                 LinhaDeAtalho(Icons.Rounded.DeleteForever, "Apagar minha conta", "Remove seus dados pessoais e de saúde", { apagarConta = true }, perigo = true)
             }
