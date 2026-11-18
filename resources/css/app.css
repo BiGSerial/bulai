@@ -390,3 +390,33 @@ html.dark:has(.app-screen) {
         scrollbar-color: var(--color-brand-600) transparent;
     }
 }
+
+/* "Tomei 08:31" aparece com fade-in depois do efeito do cartão (resources/js/animacoes.js), como no aplicativo. */
+@keyframes bulai-aparece {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Só depois que o véu verde do efeito clareia (~1,2 s): antes disso fica escondido sob ele. */
+.bulai-aparece {
+    animation: bulai-aparece 0.42s ease-out 1.15s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bulai-aparece {
+        animation: none;
+    }
+}
+
+/* Durante o "Tomei", com o véu verde fechado, só as camadas do efeito ficam visíveis. */
+.bulai-cobrindo > :not([data-camada]) {
+    visibility: hidden;
+}
+
+.bulai-celebrando button {
+    visibility: hidden;
+}

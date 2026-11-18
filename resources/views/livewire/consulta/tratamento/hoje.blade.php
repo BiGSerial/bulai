@@ -56,26 +56,32 @@
                                 <span class="relative flex justify-center {{ $loop->last ? '' : 'before:absolute before:inset-y-0 before:w-0.5 before:bg-slate-200' }} {{ $loop->first ? '' : 'after:absolute after:top-0 after:h-5 after:w-0.5 after:bg-slate-200' }}" aria-hidden="true">
                                     <span class="relative z-10 mt-[1.2rem] size-3.5 rounded-full ring-4 {{ $bolinha }}"></span>
                                 </span>
-                                <article class="mb-3 grid min-w-0 gap-2 rounded-2xl bg-white px-3 py-3 ring-1 transition sm:px-4 {{ $dose['status'] === T::DOSE_LATE ? 'ring-rose-300' : ($dose['status'] === T::DOSE_DUE ? 'ring-2 ring-accent-400 shadow-md' : 'ring-slate-200') }}" aria-label="{{ $dose['time'] }}, {{ $dose['medication']->displayName() }}: {{ $texto }}">
+                                {{-- "Tomei" com o efeito do aplicativo (resources/js/animacoes.js): verde em círculo a partir do botão, joinha e o cartão verde. --}}
+                                <article x-data="doseAnimada" x-bind:class="{ 'bulai-cobrindo': cobrindo, 'bulai-celebrando': celebrando }" class="relative isolate mb-3 grid min-w-0 gap-2 overflow-hidden rounded-2xl px-3 py-3 ring-1 transition-colors duration-300 sm:px-4 {{ $dose['status'] === T::DOSE_TAKEN ? 'bg-emerald-50 ring-emerald-200' : 'bg-white' }} {{ $dose['status'] === T::DOSE_LATE ? 'ring-rose-300' : ($dose['status'] === T::DOSE_DUE ? 'ring-2 ring-accent-400 shadow-md' : ($dose['status'] === T::DOSE_TAKEN ? '' : 'ring-slate-200')) }}" aria-label="{{ $dose['time'] }}, {{ $dose['medication']->displayName() }}: {{ $texto }}">
                                     <div class="flex min-w-0 items-start justify-between gap-2">
                                         <div class="min-w-0">
                                             <p class="break-words text-lg font-semibold leading-7 text-slate-900 {{ $dose['status'] === T::DOSE_SKIPPED ? 'line-through decoration-2 opacity-70' : '' }}">{{ $dose['medication']->displayName() }}</p>
                                             <p class="break-words text-base leading-snug text-slate-700">{{ collect([$dose['medication']->dosage ?: 'Dose não informada', $dose['dynamic'] ? $dose['medication']->intervalLabel() : null])->filter()->join(' · ') }}</p>
                                         </div>
-                                        <x-consulta.selo :tone="$tom" class="shrink-0 !px-2.5 !text-sm">{{ $dose['status'] === T::DOSE_TAKEN && $tomouAs !== null ? 'Tomei '.$tomouAs : $texto }}</x-consulta.selo>
+                                        <x-consulta.selo :tone="$tom" class="shrink-0 !px-2.5 !text-sm" x-bind:class="recemTomada && 'bulai-aparece'">{{ $dose['status'] === T::DOSE_TAKEN && $tomouAs !== null ? 'Tomei '.$tomouAs : $texto }}</x-consulta.selo>
                                     </div>
                                     @if ($dose['ajustado'] ?? null)
                                         <p class="break-words text-sm text-slate-600"><span class="font-semibold">Ajustado:</span> contado a partir das {{ $dose['ajustado'] }}, quando você tomou a anterior</p>
                                     @endif
                                     @if (! $podeMarcar)
                                     @elseif ($marcado)
-                                        <button type="button" class="inline-flex min-h-10 items-center gap-1.5 justify-self-start rounded-lg px-2 text-base font-semibold text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="desfazer({{ $alvo }})" wire:loading.attr="disabled"><x-consulta.icone name="desfazer" plain class="size-5" />Desfazer</button>
+                                        <button type="button" class="inline-flex min-h-10 items-center gap-1.5 justify-self-start rounded-lg px-2 text-base font-semibold text-brand-800 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="desfazer({{ $alvo }})" x-on:click="recolher($event)" wire:loading.attr="disabled"><x-consulta.icone name="desfazer" plain class="size-5" />Desfazer</button>
                                     @else
                                         <div class="flex gap-2">
-                                            <x-consulta.botao variant="success" size="sm" class="min-w-0 flex-[2]" wire:click="tomei({{ $alvo }})" wire:loading.attr="disabled" wire:target="tomei({{ $alvo }})"><span wire:loading.remove wire:target="tomei({{ $alvo }})" class="inline-flex items-center gap-1.5"><x-consulta.icone name="check" plain class="size-6" />Tomei</span><span wire:loading wire:target="tomei({{ $alvo }})">Anotando…</span></x-consulta.botao>
+                                            <x-consulta.botao variant="success" size="sm" class="min-w-0 flex-[2]" x-on:click="celebrar($event)" wire:click="tomei({{ $alvo }})" wire:loading.attr="disabled" wire:target="tomei({{ $alvo }})"><span wire:loading.remove wire:target="tomei({{ $alvo }})" class="inline-flex items-center gap-1.5"><x-consulta.icone name="check" plain class="size-6" />Tomei</span><span wire:loading wire:target="tomei({{ $alvo }})">Anotando…</span></x-consulta.botao>
                                             <x-consulta.botao variant="quiet" size="sm" class="min-w-0 flex-1 ring-1 ring-slate-300" wire:click="pular({{ $alvo }})" wire:loading.attr="disabled">Pular</x-consulta.botao>
                                         </div>
                                     @endif
+                                    {{-- Camadas do efeito por último: ficam por cima de tudo o que o Livewire trocar no cartão. --}}
+                                    <div x-ref="veu" data-camada class="pointer-events-none absolute inset-0 z-10 bg-emerald-50 [clip-path:circle(0px_at_0_0)]" aria-hidden="true"></div>
+                                    <div x-ref="joinha" data-camada class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center opacity-0" aria-hidden="true">
+                                        <span class="inline-flex size-20 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg"><svg class="size-11" viewBox="0 0 24 24" fill="currentColor"><path d="M7.493 18.5c-.425 0-.82-.236-.975-.632A7.48 7.48 0 0 1 6 15.125c0-1.75.599-3.358 1.602-4.634.151-.192.373-.309.6-.397.473-.183.89-.514 1.212-.924a9.042 9.042 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V2.75A.75.75 0 0 1 15 2a2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H14.23c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23h-.777ZM2.331 10.727a11.969 11.969 0 0 0-.831 4.398 12 12 0 0 0 .52 3.507C2.28 19.482 3.105 20 3.994 20H4.9c.445 0 .72-.498.523-.898a8.963 8.963 0 0 1-.924-3.977c0-1.708.476-3.305 1.302-4.666.245-.403-.028-.959-.5-.959H4.25c-.832 0-1.612.453-1.918 1.227Z" /></svg></span>
+                                    </div>
                                 </article>
                             </li>
                         @endforeach

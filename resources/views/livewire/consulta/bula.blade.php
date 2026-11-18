@@ -2,15 +2,7 @@
     use App\Livewire\Consulta\Bula;
     use App\Models\Consultation\MedicineLeafletSummary;
     // Cada seção tem cor, ícone e tom próprios; "Para que serve" fica em destaque na capa.
-    $estilo = fn (string $key): array => match ($key) {
-        'para_que_serve' => ['brand', 'info'],
-        'beneficios' => ['success', 'check'],
-        'riscos', 'interacoes' => ['warning', 'alerta'],
-        'nao_use_se', 'procure_ajuda' => ['danger', 'alerta'],
-        'efeitos_colaterais' => ['warning', 'coracao'],
-        'como_usar' => ['brand', 'relogio'],
-        default => ['brand', 'bula'],
-    };
+    $estilo = fn (string $key): array => \App\Services\Leaflet\LeafletPage::style($key);
     $secoesCom = $secoes['com'] ?? [];
     $capa = collect($secoesCom)->firstWhere('key', 'para_que_serve');
     $restantes = array_values(array_filter($secoesCom, fn (array $s): bool => $s['key'] !== 'para_que_serve'));
@@ -87,7 +79,7 @@
             @if ($secoes['sem'] !== [])
                 <p class="px-1 text-base text-slate-700">A bula cadastrada não trouxe trechos suficientes para: {{ implode(', ', $secoes['sem']) }}. Consulte a bula completa ou um farmacêutico.</p>
             @endif
-            <p class="px-1 text-base text-slate-700">Baseado na bula oficial, conferido automaticamente. Preparado em {{ $summary->created_at->timezone(config('app.timezone'))->format('d/m/Y') }} a partir de {{ count($summary->pipeline['documents'] ?? []) }} bula(s) ({{ ($summary->pipeline['document_type'] ?? '') === 'bula_paciente' ? 'do paciente' : 'do profissional' }}).</p>
+            <p class="px-1 text-base text-slate-700">{{ \App\Services\Leaflet\LeafletPage::preparedNote($summary) }}</p>
         @endif
     @endif
 

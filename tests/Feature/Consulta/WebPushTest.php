@@ -130,13 +130,13 @@ final class WebPushTest extends TestCase
         $this->postJson(route('push.store'), ['endpoint' => self::ENDPOINT])->assertUnauthorized();
     }
 
-    public function test_the_avisos_page_offers_push_only_when_the_keys_exist_and_the_service_worker_handles_the_push(): void
+    public function test_the_account_page_offers_push_only_when_the_keys_exist_and_the_service_worker_handles_the_push(): void
     {
         $user = User::factory()->create();
-        $this->actingAs($user)->get(route('consulta.avisos'))->assertOk()->assertSee('Receber avisos também com o aplicativo fechado', false)->assertSee($this->keys['public_key'], false);
+        $this->actingAs($user)->get(route('consulta.conta'))->assertOk()->assertSee('Receber avisos também com o aplicativo fechado', false)->assertSee($this->keys['public_key'], false);
 
         config(['services.webpush.public_key' => null]);
-        $this->actingAs($user)->get(route('consulta.avisos'))->assertOk()->assertDontSee($this->keys['public_key'], false);
+        $this->actingAs($user)->get(route('consulta.conta'))->assertOk()->assertDontSee($this->keys['public_key'], false);
 
         $sw = file_get_contents(public_path('sw.js'));
         $this->assertStringContainsString("addEventListener('push'", $sw);

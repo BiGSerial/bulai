@@ -27,7 +27,7 @@ class ApiClient(context: Context) {
         chamar("POST", "/doses", JSONObject().put("medication_id", remedioId).put("scheduled_for", agendadaParaIso).put("status", situacao).put("recorded_at", marcadaEmIso))
 
     fun avisos(desde: String?): String =
-        chamar("GET", if (desde == null) "/avisos" else "/avisos?desde=" + Uri.encode(desde))
+        chamar("GET", if (desde == null) "/avisos/novos" else "/avisos/novos?desde=" + Uri.encode(desde))
 
     /** Recebe o token porque o aparelho já foi limpo localmente quando isto roda (Sincronizacao.desconectar). */
     fun desconectar(token: String) {

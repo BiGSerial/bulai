@@ -40,41 +40,59 @@ final class AnswerHighlighter
      */
     public function html(string $text, array $names = [], array $alertTerms = []): HtmlString
     {
+        return new HtmlString(implode('', array_map(
+            fn (array $segment): string => $segment['bold'] ? '<strong>'.e($segment['text']).'</strong>' : e($segment['text']),
+            $this->segments($text, $names, $alertTerms),
+        )));
+    }
+
+    /**
+     * O mesmo destaque em pedaços de texto puro (aplicativo nativo): cada pedaço diz se vai em negrito.
+     *
+     * @param  list<string>  $names
+     * @param  list<string>  $alertTerms
+     * @return list<array{text: string, bold: bool}>
+     */
+    public function segments(string $text, array $names = [], array $alertTerms = []): array
+    {
         $namesPattern = $this->pattern($this->terms($names));
         $alertPattern = $this->pattern($this->terms($alertTerms));
         $critical = '(?<![\p{L}\p{N}])(?:'.implode('|', self::CRITICAL).')(?![\p{L}\p{N}])';
+        $patterns = array_values(array_filter([$namesPattern, $critical]));
 
-        $html = '';
+        $segments = [];
         foreach (preg_split('/(?<=[.!?])(\s+)/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
             if (trim($piece) === '') {
-                $html .= e($piece);
+                $segments[] = ['text' => $piece, 'bold' => false];
 
                 continue;
             }
             if ($alertPattern !== null && preg_match('/'.$alertPattern.'/iu', $piece) === 1) {
-                $html .= '<strong>'.e($piece).'</strong>';
+                $segments[] = ['text' => $piece, 'bold' => true];
 
                 continue;
             }
-            $html .= $this->bold($piece, array_values(array_filter([$namesPattern, $critical])));
+            $parts = preg_split('/('.implode('|', $patterns).')/iu', $piece, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$piece];
+            foreach ($parts as $index => $part) {
+                $segments[] = ['text' => $part, 'bold' => $index % 2 === 1];
+            }
         }
 
-        return new HtmlString($html);
-    }
-
-    /** @param list<string> $patterns */
-    private function bold(string $sentence, array $patterns): string
-    {
-        if ($patterns === []) {
-            return e($sentence);
+        // Pedaços vizinhos com o mesmo estilo viram um só (o aplicativo monta menos trechos).
+        $merged = [];
+        foreach ($segments as $segment) {
+            if ($segment['text'] === '') {
+                continue;
+            }
+            $last = array_key_last($merged);
+            if ($last !== null && $merged[$last]['bold'] === $segment['bold']) {
+                $merged[$last]['text'] .= $segment['text'];
+            } else {
+                $merged[] = $segment;
+            }
         }
-        $parts = preg_split('/('.implode('|', $patterns).')/iu', $sentence, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$sentence];
-        $html = '';
-        foreach ($parts as $index => $part) {
-            $html .= $index % 2 === 1 ? '<strong>'.e($part).'</strong>' : e($part);
-        }
 
-        return $html;
+        return $merged;
     }
 
     /**

@@ -60,6 +60,12 @@ class UserAuditEvent extends Model
 
     public const EVENT_MOBILE_DEVICE_DISCONNECTED = 'mobile_device_disconnected';
 
+    /** Nome de chamada definido ou trocado pela própria pessoa (Minha conta no aplicativo). */
+    public const EVENT_PREFERRED_NAME_CHANGED = 'preferred_name_changed';
+
+    /** Conta apagada pela própria pessoa: dados pessoais e de saúde removidos, cadastro anonimizado e desativado. */
+    public const EVENT_ACCOUNT_DELETED = 'account_deleted';
+
     /** Valor de details.via em password_changed quando a senha provisória foi trocada na tela de primeiro acesso. */
     public const VIA_FIRST_ACCESS = 'first_access';
 
@@ -91,6 +97,8 @@ class UserAuditEvent extends Model
             self::EVENT_API_TOKEN_REVOKED => 'Token da API revogado',
             self::EVENT_MOBILE_DEVICE_CONNECTED => 'Aplicativo Android conectado',
             self::EVENT_MOBILE_DEVICE_DISCONNECTED => 'Aplicativo Android desconectado',
+            self::EVENT_PREFERRED_NAME_CHANGED => 'Nome de chamada alterado',
+            self::EVENT_ACCOUNT_DELETED => 'Conta apagada pela própria pessoa',
             'health_consent_given' => 'Consentimento de dados de saúde registrado',
             'health_data_deleted' => 'Dados de saúde apagados pela própria pessoa',
             'consultations_deleted' => 'Consultas apagadas pela própria pessoa',

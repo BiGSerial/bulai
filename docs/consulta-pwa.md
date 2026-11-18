@@ -356,3 +356,26 @@ Rotas novas: `/cuidadores` (Quem cuida de mim: convite, aprovação, permissões
 **Layout:** `resources/views/pdf/resumo-medico.blade.php`, gerado pelo dompdf (`barryvdh/laravel-dompdf`). Usa a identidade visual do app: faixa azul-marinho com filete laranja, cartões creme, caixa vermelha para alergias, caixa amarela para interações e selos de adesão em verde, âmbar ou vermelho.
 
 **Testes:** `tests/Feature/Consulta/ResumoMedicoTest.php`.
+
+## Efeitos iguais aos do aplicativo Android (18/11/2026)
+
+Dois efeitos do app nativo (`docs/app-android.md`) reproduzidos no PWA, em `resources/js/animacoes.js` (componentes Alpine `doseAnimada` e `proximaDose`, Web Animations API e `requestAnimationFrame`, sem biblioteca):
+
+- **"Tomei" em Remédios de hoje** (`livewire/consulta/tratamento/hoje.blade.php`): ao tocar, os botões do cartão somem e um véu verde opaco (`bg-emerald-50`) nasce em círculo a partir do botão (`clip-path`, ~520 ms) e cobre o cartão; um joinha salta com mola, dá um pulinho e balança; depois o véu clareia e os textos voltam já com "Tomei HH:MM" (fade-in só no cartão recém-marcado, `.bulai-aparece`). O cartão tomado fica verde (`bg-emerald-50 ring-emerald-200`). "Desfazer" recolhe o verde de volta para o botão. As camadas do efeito são as últimas do `<article>` (`isolate`) e, com o véu fechado, o conteúdo fica invisível (`.bulai-cobrindo`, `.bulai-celebrando`), porque o Chrome às vezes desenhava ícones trocados pelo Livewire por cima do véu.
+- **Próximo remédio no Início** (`livewire/consulta/inicio.blade.php`): o bloco "Próximo · HH:MM" dentro do cartão do dia tem o fundo enchendo da dose anterior do dia (ou do começo do dia) até o horário (`TreatmentScheduleService::waitingSince`, a mesma regra do `next_dose.since` da API), com a ponta balançando no lugar como líquido (soma de ondas estacionárias, desenhada num `<svg>`), e "Faltam X h Y min" atualizado a cada 20 s. Atrasado ou na hora: cheio, em tom de laranja.
+- `prefers-reduced-motion`: sem efeito do "Tomei" e sem ondulação (a barra fica parada no ponto certo).
+- Sem `style` inline (regra do `ConsultaDesignSystemTest`): o recorte inicial do véu é a classe `[clip-path:circle(0px_at_0_0)]`.
+
+## Menu e avisos iguais ao aplicativo Android (18/11/2026)
+
+- **Barra inferior com 4 destinos** (`components/consulta/shell.blade.php`): Início, Perguntar, Remédios e **Conta** (`GET /conta`, `consulta.conta`). A exceção de layout do `ConsultaDesignSystemTest` passou de `grid-cols-3` para `grid-cols-4`. O desktop (`nav hidden sm:flex`) mostra os mesmos 4 itens.
+- **Sininho** (`livewire:consulta.sino-de-avisos`) é o único acesso aos avisos, com a contagem de não lidos. O botão-avatar com o menu suspenso da conta saiu do cabeçalho.
+- **Tela Conta** (`App\Livewire\Consulta\Conta`, `livewire/consulta/conta.blade.php`), na ordem:
+  - identificação (inicial, "Olá, {nome de chamada}!", nome e e-mail);
+  - "Como quer ser chamado(a)?" (`UserAccountService::updatePreferredName`; mesmas regras e mensagem da API do app: até 40, só letras/espaço/apóstrofo/ponto/hífen; vazio volta ao primeiro nome; auditado);
+  - Aparência (`x-consulta.tema`);
+  - Lembretes: receber lembretes, também por e-mail, fuso e os avisos no aparelho (Web Push). **Saíram da tela de Avisos**, que agora só lista os avisos (marcar lidos, apagar) e tem o link "Lembretes e notificações: ajuste em Conta". O e-mail de lembrete aponta para "Também por e-mail" em Conta;
+  - Senha (recolhida): mesmas regras de "Minha conta" (`current_password`, diferente da atual, `Password::defaults()`), `UserAccountService::changePassword` com a sessão atual mantida. A página `/account` continua para a administração;
+  - atalhos do antigo menu: "Ver os remédios de" (modo cuidador), Minhas perguntas, Resumo para o médico (PDF), Quem cuida de mim, Cuidar de alguém, Instalar o aplicativo, Sobre, Área administrativa (admin) e Sair da conta;
+  - **Apagar minha conta**: o mesmo aviso do app ("O que será apagado", o que fica, "Não dá para desfazer.", "Confirme com sua senha", botão vermelho). Senha conferida com `Hash::check`; administrador não se apaga por aqui; `UserAccountService::deleteOwnAccount` (anonimiza e apaga dados pessoais e de saúde), logout, sessão invalidada e volta ao login com "Sua conta foi apagada…".
+- Testes: `tests/Feature/Consulta/ContaTest.php` (tela, nome de chamada no Início, troca de senha, apagar conta e bloqueio do admin); `AvisosTest` (preferências agora na Conta, Avisos sem elas), `WebPushTest` (push oferecido na Conta), `ConsultaPwaTest` (4 destinos), `ModoCuidadorTest` (troca de perfil na Conta), `PerfilEPerguntasTest` (atalho do admin na Conta), `PwaAssetTest` (instalar na Conta).

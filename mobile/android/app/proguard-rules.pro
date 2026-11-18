@@ -1,5 +1,3 @@
-# Métodos chamados pelo JavaScript da página (window.BulaiNative): o R8 não pode renomear nem remover.
--keepclassmembers class br.com.vixforge.bulai.web.PonteNativa {
-    @android.webkit.JavascriptInterface <methods>;
-}
--keepattributes JavascriptInterface
+# Retrofit, OkHttp e kotlinx.serialization trazem as próprias regras. Os modelos da API (@Serializable) são mantidos
+# pelo plugin de serialização; a interface do Retrofit precisa das assinaturas genéricas das funções suspensas.
+-keepattributes Signature, InnerClasses, EnclosingMethod, RuntimeVisibleAnnotations, RuntimeVisibleParameterAnnotations

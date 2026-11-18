@@ -70,9 +70,12 @@ class PwaAssetTest extends TestCase
         $this->assertStringContainsString('x-on:bulai-pode-instalar.window', $card);
         $this->assertStringContainsString('Agora não', $card);
 
+        // "Instalar o aplicativo" saiu do menu do cabeçalho e fica na tela Conta (o estado `instalar` continua no shell).
         $shell = file_get_contents(resource_path('views/components/consulta/shell.blade.php'));
-        $this->assertStringContainsString('Instalar o aplicativo', $shell);
-        $this->assertStringContainsString('window.bulaiInstalarAgora()', $shell);
+        $this->assertStringContainsString('bulai-pode-instalar.window', $shell);
+        $conta = file_get_contents(resource_path('views/livewire/consulta/conta.blade.php'));
+        $this->assertStringContainsString('Instalar o aplicativo', $conta);
+        $this->assertStringContainsString('window.bulaiInstalarAgora()', $conta);
     }
 
     public function test_service_worker_is_installable_and_does_not_cache_authenticated_navigation_paths(): void

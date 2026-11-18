@@ -3,8 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    {{-- Conta logada para o aplicativo Android (resources/js/nativo.js); vazio = visitante. --}}
-    <meta name="bulai-sessao" content="{{ auth()->id() ?? '' }}">
     <meta name="theme-color" content="#12344d" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#091d2c" media="(prefers-color-scheme: dark)">
     <meta name="color-scheme" content="light">

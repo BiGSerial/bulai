@@ -1,8 +1,16 @@
 <?php
 
+use App\Http\Controllers\Api\Mobile\AccountController as MobileAccountController;
 use App\Http\Controllers\Api\Mobile\AgendaController as MobileAgendaController;
+use App\Http\Controllers\Api\Mobile\AuthController as MobileAuthController;
+use App\Http\Controllers\Api\Mobile\CaregiverController as MobileCaregiverController;
 use App\Http\Controllers\Api\Mobile\DeviceController as MobileDeviceController;
+use App\Http\Controllers\Api\Mobile\LeafletController as MobileLeafletController;
+use App\Http\Controllers\Api\Mobile\MedicineController as MobileMedicineController;
 use App\Http\Controllers\Api\Mobile\NoticeController as MobileNoticeController;
+use App\Http\Controllers\Api\Mobile\PrescriptionController as MobilePrescriptionController;
+use App\Http\Controllers\Api\Mobile\QuestionController as MobileQuestionController;
+use App\Http\Controllers\Api\Mobile\TreatmentController as MobileTreatmentController;
 use App\Http\Controllers\Api\V1\AuditController;
 use App\Http\Controllers\Api\V1\EvaluationController;
 use App\Http\Controllers\Api\V1\QuestionController;
@@ -61,10 +69,80 @@ Route::prefix('v1')->name('api.v1.')->group(function (): void {
     });
 });
 
-// Aplicativo Android (docs/app-android.md): token do aparelho emitido em POST /aparelho (sessão do WebView).
-Route::prefix('mobile/v1')->name('api.mobile.')->middleware([AuthenticateMobileDevice::class, 'throttle:mobile-api'])->group(function (): void {
-    Route::get('/agenda', [MobileAgendaController::class, 'index'])->name('agenda');
-    Route::post('/doses', [MobileAgendaController::class, 'mark'])->name('doses.mark');
-    Route::get('/avisos', [MobileNoticeController::class, 'index'])->name('notices');
-    Route::delete('/aparelho', [MobileDeviceController::class, 'destroy'])->name('device.destroy');
+// Aplicativo Android nativo (docs/app-android.md). Conta: e-mail e senha geram o token do aparelho (Bearer bulai_app_…).
+Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
+    Route::post('/entrar', [MobileAuthController::class, 'login'])->middleware('throttle:mobile-login')->name('login');
+    Route::post('/cadastro', [MobileAuthController::class, 'register'])->middleware('throttle:mobile-register')->name('register');
+    Route::post('/esqueci-senha', [MobileAuthController::class, 'forgotPassword'])->middleware('throttle:mobile-password-reset')->name('password.forgot');
+
+    // Também com a senha provisória pendente: ver a conta, trocar a senha e sair.
+    Route::middleware([AuthenticateMobileDevice::class.':'.AuthenticateMobileDevice::FIRST_ACCESS, 'throttle:mobile-api'])->group(function (): void {
+        Route::get('/eu', [MobileAuthController::class, 'me'])->name('me');
+        Route::post('/primeiro-acesso', [MobileAuthController::class, 'firstAccess'])->name('first-access');
+        Route::delete('/aparelho', [MobileDeviceController::class, 'destroy'])->name('device.destroy');
+    });
+
+    Route::middleware([AuthenticateMobileDevice::class, 'throttle:mobile-api'])->group(function (): void {
+        // Alarmes do aparelho (sincronização em segundo plano) e marcação pela notificação/despertador/widget.
+        Route::get('/agenda', [MobileAgendaController::class, 'index'])->name('agenda');
+        Route::post('/doses', [MobileAgendaController::class, 'mark'])->name('doses.mark');
+
+        Route::get('/inicio', [MobileTreatmentController::class, 'home'])->name('home');
+        Route::get('/dia', [MobileTreatmentController::class, 'day'])->name('day');
+        Route::post('/dia/doses', [MobileTreatmentController::class, 'mark'])->name('day.mark');
+        Route::delete('/dia/doses', [MobileTreatmentController::class, 'unmark'])->name('day.unmark');
+
+        Route::get('/avisos', [MobileNoticeController::class, 'index'])->name('notices');
+        Route::get('/avisos/novos', [MobileNoticeController::class, 'fresh'])->name('notices.fresh');
+        Route::post('/avisos/lidos', [MobileNoticeController::class, 'markAllRead'])->name('notices.read-all');
+        Route::put('/avisos/preferencias', [MobileNoticeController::class, 'preferences'])->name('notices.preferences');
+        Route::delete('/avisos', [MobileNoticeController::class, 'destroyAll'])->name('notices.destroy-all');
+        Route::post('/avisos/{notice}/abrir', [MobileNoticeController::class, 'open'])->whereUuid('notice')->name('notices.open');
+        Route::delete('/avisos/{notice}', [MobileNoticeController::class, 'destroy'])->whereUuid('notice')->name('notices.destroy');
+
+        Route::get('/remedios', [MobileMedicineController::class, 'search'])->name('medicines.search');
+
+        // Quem cuida de mim (paciente): convite com QR Code, aprovar/recusar com permissões, mudar, tirar acesso.
+        Route::get('/cuidadores', [MobileCaregiverController::class, 'index'])->name('caregivers');
+        Route::post('/cuidadores/convite', [MobileCaregiverController::class, 'invite'])->name('caregivers.invite');
+        Route::delete('/cuidadores/convite', [MobileCaregiverController::class, 'cancelInvite'])->name('caregivers.invite.cancel');
+        Route::post('/cuidadores/{link}/aprovar', [MobileCaregiverController::class, 'approve'])->whereNumber('link')->name('caregivers.approve');
+        Route::post('/cuidadores/{link}/recusar', [MobileCaregiverController::class, 'reject'])->whereNumber('link')->name('caregivers.reject');
+        Route::put('/cuidadores/{link}/permissoes', [MobileCaregiverController::class, 'updatePermissions'])->whereNumber('link')->name('caregivers.permissions');
+        Route::delete('/cuidadores/{link}', [MobileCaregiverController::class, 'revoke'])->whereNumber('link')->name('caregivers.revoke');
+
+        // Cuidar de alguém (quem cuida): ler o QR/código, escolher a pessoa, ver e marcar as doses dela, deixar de acompanhar.
+        Route::get('/cuidando', [MobileCaregiverController::class, 'caring'])->name('caring');
+        Route::post('/cuidando', [MobileCaregiverController::class, 'accept'])->middleware('throttle:mobile-password-change')->name('caring.accept');
+        Route::delete('/cuidando/{link}', [MobileCaregiverController::class, 'leave'])->whereNumber('link')->name('caring.leave');
+        Route::get('/cuidando/{link}/dia', [MobileCaregiverController::class, 'day'])->whereNumber('link')->name('caring.day');
+        Route::post('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'mark'])->whereNumber('link')->name('caring.mark');
+        Route::delete('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'unmark'])->whereNumber('link')->name('caring.unmark');
+
+        Route::get('/resumo.pdf', [MobileCaregiverController::class, 'summary'])->name('summary');
+
+        // Minha conta: nome de chamada e troca de senha (este aparelho continua conectado).
+        Route::get('/conta', [MobileAccountController::class, 'show'])->name('account');
+        Route::put('/conta/nome', [MobileAccountController::class, 'updateName'])->name('account.name');
+        Route::put('/conta/senha', [MobileAccountController::class, 'updatePassword'])->middleware('throttle:mobile-password-change')->name('account.password');
+        Route::delete('/conta', [MobileAccountController::class, 'destroy'])->middleware('throttle:mobile-password-change')->name('account.destroy');
+
+        // Bula humanizada: GET responde na hora (pronta ou "carregando"); POST …/gerar prepara o resumo (limite por hora do site).
+        Route::get('/bulas/{medicine}', [MobileLeafletController::class, 'show'])->whereNumber('medicine')->name('leaflets.show');
+        Route::post('/bulas/{medicine}/gerar', [MobileLeafletController::class, 'generate'])->whereNumber('medicine')->name('leaflets.generate');
+
+        // Perguntar: a conversa vive no aparelho (só os uuid das trocas); o limite por hora é o mesmo do site.
+        Route::get('/perguntar', [MobileQuestionController::class, 'start'])->name('questions.start');
+        Route::post('/perguntar', [MobileQuestionController::class, 'ask'])->name('questions.ask');
+        Route::get('/perguntas', [MobileQuestionController::class, 'history'])->name('questions.history');
+        Route::get('/perguntas/{question}', [MobileQuestionController::class, 'show'])->whereUuid('question')->name('questions.show');
+        Route::delete('/perguntas/{question}', [MobileQuestionController::class, 'destroy'])->whereUuid('question')->name('questions.destroy');
+
+        // Receita por foto: envio, leitura (consulta periódica), horários sugeridos, confirmação e descarte.
+        Route::post('/receitas', [MobilePrescriptionController::class, 'store'])->name('prescriptions.store');
+        Route::post('/receitas/horarios', [MobilePrescriptionController::class, 'schedule'])->name('prescriptions.schedule');
+        Route::get('/receitas/{prescription}', [MobilePrescriptionController::class, 'show'])->whereNumber('prescription')->name('prescriptions.show');
+        Route::post('/receitas/{prescription}/confirmar', [MobilePrescriptionController::class, 'confirm'])->whereNumber('prescription')->name('prescriptions.confirm');
+        Route::delete('/receitas/{prescription}', [MobilePrescriptionController::class, 'destroy'])->whereNumber('prescription')->name('prescriptions.destroy');
+    });
 });
