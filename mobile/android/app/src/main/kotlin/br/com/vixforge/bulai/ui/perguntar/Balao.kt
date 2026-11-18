@@ -35,8 +35,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
@@ -81,7 +84,7 @@ import br.com.vixforge.bulai.R
 import br.com.vixforge.bulai.dados.api.Fonte
 import br.com.vixforge.bulai.dados.api.NoTratamento
 import br.com.vixforge.bulai.dados.api.Resposta
-import br.com.vixforge.bulai.dados.api.TelefoneDeAjuda
+import br.com.vixforge.bulai.dados.api.GrupoDeAjuda
 import br.com.vixforge.bulai.dados.api.Trecho
 import br.com.vixforge.bulai.ui.sistema.Leitor
 import br.com.vixforge.bulai.ui.tema.Marca
@@ -152,34 +155,55 @@ fun Digitando(modifier: Modifier = Modifier) {
 }
 
 /**
- * Telefones de ajuda da resposta (crise, superdose, sintoma grave) como botões de ligar grandes e em destaque: o primeiro
- * cheio em vermelho, os outros claros. Abre o discador com o número (a pessoa confirma a ligação).
+ * Blocos de ajuda da resposta (os mesmos do site), cada um identificável pela situação: título, texto curto e os telefones
+ * como botões de ligar grandes (abrem o discador). Tons: acolhimento (azul), urgência (vermelho), cuidado (neutro).
  */
 @Composable
-fun TelefonesDeAjuda(telefones: List<TelefoneDeAjuda>, modifier: Modifier = Modifier) {
-    if (telefones.isEmpty()) {
+fun BlocosDeAjuda(grupos: List<GrupoDeAjuda>, modifier: Modifier = Modifier) {
+    if (grupos.isEmpty()) {
         return
     }
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        grupos.forEach { grupo -> BlocoDeAjuda(grupo) }
+    }
+}
+
+@Composable
+private fun BlocoDeAjuda(grupo: GrupoDeAjuda) {
     val context = LocalContext.current
-    Surface(modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, border = BorderStroke(2.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))) {
+    val esquema = MaterialTheme.colorScheme
+    // Cor do título e da borda, fundo e ícone do bloco; depois as cores dos botões de ligar.
+    val (destaque, fundo, icone) = when (grupo.tone) {
+        "acolhimento" -> Triple(esquema.primary, esquema.primaryContainer.copy(alpha = 0.45f), Icons.Rounded.Favorite)
+        "cuidado" -> Triple(esquema.onSurfaceVariant, esquema.surface, Icons.Rounded.Groups)
+        else -> Triple(esquema.error, esquema.surface, Icons.Rounded.Call)
+    }
+    val (principal, textoPrincipal, outro, textoOutro) = when (grupo.tone) {
+        "acolhimento" -> listOf(esquema.primary, esquema.onPrimary, esquema.surface, esquema.primary)
+        "cuidado" -> listOf(esquema.inverseSurface, esquema.inverseOnSurface, esquema.surface, esquema.onSurface)
+        else -> listOf(esquema.error, esquema.onError, esquema.errorContainer, esquema.onErrorContainer)
+    }
+    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = fundo, border = BorderStroke(2.dp, destaque.copy(alpha = 0.4f))) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics { heading() }) {
-                Icon(Icons.Rounded.Call, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(20.dp))
+                Icon(icone, contentDescription = null, tint = destaque, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Precisa de ajuda agora? Toque para ligar.", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                Text(grupo.title ?: "Precisa de ajuda agora? Toque para ligar.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = destaque)
             }
-            telefones.forEachIndexed { indice, telefone ->
+            grupo.text?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = esquema.onSurface) }
+            grupo.telefones.forEachIndexed { indice, telefone ->
                 val primeiro = indice == 0
                 Surface(
                     onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:${telefone.tel}".toUri())) },
                     shape = MaterialTheme.shapes.medium,
-                    color = if (primeiro) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.errorContainer,
-                    contentColor = if (primeiro) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onErrorContainer,
+                    color = if (primeiro) principal else outro,
+                    contentColor = if (primeiro) textoPrincipal else textoOutro,
+                    border = if (primeiro) null else BorderStroke(1.dp, destaque.copy(alpha = 0.35f)),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).semantics(mergeDescendants = true) { contentDescription = "Ligar para ${telefone.name}, ${telefone.number}. ${telefone.detail}" },
                 ) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            Modifier.size(44.dp).clip(CircleShape).background(if (primeiro) Color.White.copy(alpha = 0.2f) else MaterialTheme.colorScheme.surface),
+                            Modifier.size(44.dp).clip(CircleShape).background(if (primeiro) Color.White.copy(alpha = 0.2f) else esquema.surface),
                             contentAlignment = Alignment.Center,
                         ) { Icon(Icons.Rounded.Call, contentDescription = null) }
                         Spacer(Modifier.width(12.dp))
@@ -245,6 +269,8 @@ private fun SeloDeGravidade(gravidade: String?, texto: String?) {
 /** Ações da resposta mais recente (as antigas mostram só o texto). */
 class AcoesDaResposta(
     val sugerir: (String) -> Unit,
+    /** Resposta rápida: já envia o texto como a próxima mensagem. */
+    val responder: (String) -> Unit,
     val corrigir: (Long) -> Unit,
     val remover: (Long) -> Unit,
     val trocarRemedio: () -> Unit,
@@ -272,10 +298,12 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
                 Text(urgencia, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.padding(12.dp).semantics { liveRegion = LiveRegionMode.Assertive })
             }
             // Com urgência, os telefones vêm logo abaixo do aviso, antes do resto da resposta.
-            TelefonesDeAjuda(resposta.telefones)
+            BlocosDeAjuda(resposta.ajuda)
         }
-        resposta.paragraphs.forEach { paragrafo ->
-            Text(textoComDestaques(paragrafo), style = MaterialTheme.typography.bodyLarge, fontWeight = if (resposta.status == Resposta.BLOQUEADA) FontWeight.SemiBold else null)
+        // Recusa em negrito; na crise só a primeira frase (a recusa), o acolhimento e os contatos em texto normal.
+        resposta.paragraphs.forEachIndexed { indice, paragrafo ->
+            val negrito = resposta.status == Resposta.BLOQUEADA && (!resposta.crisis || indice == 0)
+            Text(textoComDestaques(paragrafo), style = MaterialTheme.typography.bodyLarge, fontWeight = if (negrito) FontWeight.SemiBold else null)
         }
 
         alerta?.let {
@@ -295,7 +323,7 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
         }
 
         if (resposta.urgency == null) {
-            TelefonesDeAjuda(resposta.telefones)
+            BlocosDeAjuda(resposta.ajuda)
         }
 
         // "Baseado na bula…" fica dentro de "Fontes utilizadas"; no balão só a orientação de quando não houve resposta.
@@ -330,6 +358,25 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
 
 @Composable
 private fun ColumnScope.AcoesDoBalao(resposta: Resposta, acoes: AcoesDaResposta) {
+    if (resposta.respostasRapidas.isNotEmpty()) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            resposta.respostasRapidas.forEach { opcao ->
+                Surface(
+                    onClick = { acoes.responder(opcao) },
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                ) {
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(opcao, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+                    }
+                }
+            }
+        }
+    }
     if (resposta.guesses.isNotEmpty()) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             resposta.guesses.forEach { Pilula(it.name, { acoes.corrigir(it.id) }, destaque = true) }

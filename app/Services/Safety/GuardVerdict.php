@@ -2,6 +2,8 @@
 
 namespace App\Services\Safety;
 
+use Illuminate\Support\Str;
+
 /** Resultado da triagem de uma entrada livre do usuário antes de qualquer uso em prompt. */
 final readonly class GuardVerdict
 {
@@ -32,12 +34,30 @@ final readonly class GuardVerdict
     public const CONFIDENTIAL = 'confidential';
 
     /** Contatos públicos de ajuda, revisados em 17/11/2026. */
-    public const CRISIS_MESSAGE = "Sinto muito que você esteja passando por um momento tão difícil. Você não precisa enfrentar isso sem apoio. Não posso informar doses ou quantidades que causem dano, mas há pessoas prontas para ouvir você agora, de graça e em sigilo.\n\n"
-        ."• CVV (Centro de Valorização da Vida): ligue 188, 24 horas, ou converse pelo chat em cvv.org.br.\n\n"
-        ."• Se você já tomou remédio a mais ou está em perigo agora: ligue 192 (SAMU) ou vá ao pronto-socorro mais próximo.\n\n"
-        ."• Disque-Intoxicação: 0800 722 6001.\n\n"
-        ."• Para cuidado contínuo, procure o CAPS ou a Unidade Básica de Saúde.\n\n"
-        .'Se puder, chame alguém de confiança para ficar com você agora.';
+    /** Primeira frase da resposta de crise; na tela, o acolhimento e os contatos vêm em blocos (QuestionConversation::helpGroups). */
+    public const CRISIS_REFUSAL = 'Não posso informar doses ou quantidades de remédio que causem dano.';
+
+    /** Abertura da crise quando a pessoa não pediu dose nem quantidade (só contou que está mal). */
+    public const CRISIS_WELCOME = 'Obrigado por me contar. Você não precisa passar por isso sem apoio.';
+
+    /**
+     * Primeira frase da resposta de crise: a recusa só quando a mensagem fala de dose, quantidade ou remédio; senão, o
+     * acolhimento (a triagem também reconhece crise em mensagens como "não aguento mais").
+     */
+    public static function crisisOpening(string $question): string
+    {
+        $text = Str::lower(Str::ascii($question));
+
+        return preg_match('/\b(doses?|quantidade|quant[oa]s|comprimidos?|capsulas?|remedios?|medicamentos?|letal|matar|overdose|superdose|caixa|cartela)\b/', $text) === 1
+            ? self::CRISIS_REFUSAL
+            : self::CRISIS_WELCOME;
+    }
+
+    /** Texto corrido completo (histórico, "Ouvir" e quem não vê os blocos). */
+    public const CRISIS_MESSAGE = self::CRISIS_REFUSAL."\n\n"
+        ."Se você está passando por um momento difícil, não precisa enfrentar isso sem apoio. Ligue para o CVV, no 188: há pessoas prontas para ouvir você agora, de graça, em sigilo e a qualquer hora. Se preferir escrever, converse pelo chat em cvv.org.br.\n\n"
+        ."Se você já tomou remédio a mais ou está em perigo, ligue agora para o SAMU, no 192, ou vá ao pronto-socorro mais próximo. O Disque-Intoxicação, no 0800 722 6001, também orienta o que fazer.\n\n"
+        .'Se puder, chame alguém de confiança para ficar com você. Para continuar se cuidando, procure o CAPS ou a Unidade Básica de Saúde.';
 
     /** @param list<string> $flags identificadores dos padrões que dispararam (para análise, nunca o texto) */
     public function __construct(

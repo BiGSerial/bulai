@@ -61,11 +61,13 @@
                 @if ($fala['urgencia'])
                     <p role="alert" class="break-words rounded-xl border-2 border-rose-300 bg-rose-50 px-3 py-3 text-lg font-semibold text-rose-900" data-testid="urgencia">{{ $fala['urgencia'] }}</p>
                     {{-- Telefones de ajuda logo abaixo do aviso, em destaque, antes do resto da resposta. --}}
-                    <x-consulta.ajuda-telefones :linhas="$ajuda" />
+                    <x-consulta.ajuda :grupos="$ajuda" />
                 @endif
-                <div class="grid gap-3 break-words {{ $status === Q::BLOCKED ? 'font-semibold' : '' }}" x-ref="texto">
+                {{-- Recusa em negrito; na crise só a primeira frase (a recusa), o acolhimento e os contatos em texto normal. --}}
+                @php($crise = $status === Q::BLOCKED && ($resposta['guard']['category'] ?? null) === \App\Services\Safety\GuardVerdict::HARM_RISK)
+                <div class="grid gap-3 break-words {{ $status === Q::BLOCKED && ! $crise ? 'font-semibold' : '' }}" x-ref="texto">
                     @foreach ($paragrafos as $paragrafo)
-                        <p>{{ $paragrafo }}</p>
+                        <p @class(['font-semibold' => $crise && $loop->first])>{{ $paragrafo }}</p>
                     @endforeach
                 </div>
 
@@ -82,7 +84,7 @@
                 @endif
 
                 {{-- Sem aviso de urgência (crise, pedido recusado por risco), os telefones vêm depois da fala. --}}
-                @unless ($fala['urgencia'])<x-consulta.ajuda-telefones :linhas="$ajuda" />@endunless
+                @unless ($fala['urgencia'])<x-consulta.ajuda :grupos="$ajuda" />@endunless
 
                 {{-- 2. Partes da bula (só quando não deu para resumir). --}}
                 @if ($fala['trechos'] !== [])
@@ -128,6 +130,17 @@
                     <div class="flex flex-wrap gap-2" aria-label="Outros remédios seus">
                         @foreach ($fala['remedios'] as $nome)
                             <button type="button" wire:key="rm-{{ $loop->index }}" wire:click="sugerir(@js('Sobre '.$nome.':'))" class="min-h-12 max-w-full truncate rounded-full bg-white px-4 text-base font-semibold text-brand-900 ring-1 ring-brand-600/30 hover:bg-brand-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-600/40">{{ $nome }}</button>
+                        @endforeach
+                    </div>
+                @endif
+                {{-- Respostas rápidas (pedido vago de ajuda): cada uma já é enviada como a próxima mensagem. --}}
+                @if ($fala['opcoes'] !== [])
+                    <div class="grid gap-2" aria-label="Respostas rápidas" data-testid="respostas-rapidas">
+                        @foreach ($fala['opcoes'] as $opcao)
+                            <button type="button" wire:key="op-{{ $loop->index }}" wire:click="responderRapido(@js($opcao))" x-on:click="$dispatch('pergunta-enviada', { texto: @js($opcao) })" wire:loading.attr="disabled"
+                                class="flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl bg-white px-4 py-2 text-left text-lg font-semibold text-brand-900 ring-1 ring-inset ring-brand-600/30 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">
+                                <span class="min-w-0 break-words">{{ $opcao }}</span><x-consulta.icone name="seta" plain class="size-5 shrink-0" />
+                            </button>
                         @endforeach
                     </div>
                 @endif

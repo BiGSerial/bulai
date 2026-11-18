@@ -78,6 +78,12 @@ class PerguntarViewModel(private val repositorio: PerguntasRepositorio, private 
         _estado.update { it.copy(texto = "${it.texto.trim()} $texto".trim().take(it.maximo), aviso = null) }
     }
 
+    /** Resposta rápida ("Não estou me sentindo bem"): vira a próxima mensagem e já é enviada. */
+    fun responder(texto: String) {
+        _estado.update { it.copy(texto = texto.take(it.maximo), aviso = null) }
+        enviar()
+    }
+
     fun enviar() {
         val atual = _estado.value
         val pergunta = atual.texto.trim()

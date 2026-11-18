@@ -15,6 +15,12 @@
             <p class="break-words italic">“{{ $question->question }}”</p>
             <p class="whitespace-pre-line break-words text-xl leading-snug">{{ $question->answer }}</p>
         </x-consulta.cartao>
+    @elseif ($question->status === Q::SUPPORT)
+        <x-consulta.cartao tone="brand" class="border-2">
+            <p class="break-words italic">“{{ $question->question }}”</p>
+            <p class="whitespace-pre-line break-words text-xl leading-snug">{{ $question->answer }}</p>
+        </x-consulta.cartao>
+        <x-consulta.ajuda :grupos="\App\Services\Patient\QuestionConversation::helpGroups(['status' => $question->status, 'retrieval' => $question->retrieval])" />
     @elseif ($question->status === Q::NO_MEDICINE)
         <x-consulta.cartao tone="warning" class="border-2">
             <p class="break-words italic">“{{ $question->question }}”</p>

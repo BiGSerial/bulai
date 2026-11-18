@@ -57,7 +57,8 @@ final class AnswerHighlighter
     {
         $namesPattern = $this->pattern($this->terms($names));
         $alertPattern = $this->pattern($this->terms($alertTerms));
-        $critical = '(?<![\p{L}\p{N}])(?:'.implode('|', self::CRITICAL).')(?![\p{L}\p{N}])';
+        // Parte de um nome composto ("Disque-Intoxicação") não vira destaque sozinha.
+        $critical = '(?<![\p{L}\p{N}-])(?:'.implode('|', self::CRITICAL).')(?![\p{L}\p{N}-])';
         $patterns = array_values(array_filter([$namesPattern, $critical]));
 
         $segments = [];
