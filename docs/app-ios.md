@@ -160,6 +160,14 @@ Sem Mac por perto, o `codemagic.yaml` da raiz do repositório compila o app no C
 - **`ios-verificacao`** (sem assinatura, roda a cada push/PR que mexe em `mobile/ios/`): `swift test` no núcleo, build do app e do widget para o simulador (`CODE_SIGNING_ALLOWED=NO`), `xcodebuild test` do esquema num iPhone simulado e o `BulaIA-simulador.zip` como artefato. É o primeiro passo das pendências: mostra os erros de compilação das telas.
 - **`ios-testflight`** (manual): `xcode-project use-profiles`, número do build = último do App Store Connect + 1 (no `Config/Base.xcconfig`), `xcode-project build-ipa` e envio ao **TestFlight** (não envia à App Store). Exige Apple Developer Program, o app criado no App Store Connect (troque `APP_STORE_APPLE_ID`) e a integração App Store Connect com a chave de API no Codemagic (Teams › Integrations). Perfis e certificados ficam no Codemagic, nunca no Git.
 
+- **`ios-ipa-sem-assinatura`** (manual): IPA para iPhone **sem assinatura** (`bulai-<versão>-sem-assinatura.ipa`), compilado com os entitlements "-Simples" de conta gratuita. Serve para instalar sem Mac e sem Apple Developer Program:
+  1. Baixe o `.ipa` nos artefatos do build no Codemagic.
+  2. No Windows, instale o **iTunes** (versão do site da Apple, não a da Microsoft Store) e o **Sideloadly** (sideloadly.io).
+  3. Conecte o iPhone pelo cabo, abra o Sideloadly, arraste o `.ipa`, informe o seu Apple ID e clique em Start (o Apple ID vai para os servidores da Apple, não para o projeto).
+  4. No iPhone: Ajustes › Privacidade e Segurança › **Modo de Desenvolvedor** ligado; depois Ajustes › Geral › VPN e Gerenciamento de Dispositivo › confiar no seu Apple ID.
+  5. Vale **7 dias**: depois disso, repita o passo 3 (os dados do app continuam). Conta gratuita: até 3 apps instalados assim e 10 identificadores por semana (o widget conta como um). Se o Sideloadly reclamar do widget, use a opção de remover extensões; o app funciona igual.
+  Caminho fora da distribuição oficial da Apple; não testado com este projeto.
+
 Como ligar: em codemagic.io, adicione o repositório `BiGSerial/bulai`, escolha "codemagic.yaml" e rode `ios-verificacao` na branch.
 
 ## Testes

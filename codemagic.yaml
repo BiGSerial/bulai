@@ -4,6 +4,8 @@
 #   esquema no simulador. Roda a cada push/PR que mexe em mobile/ios/.
 # - ios-testflight: assinado, gera o IPA e envia ao TestFlight. Manual; exige Apple Developer Program e a integração
 #   App Store Connect configurada no Codemagic (Teams › Integrations). Nada de certificado ou chave no repositório.
+# - ios-ipa-sem-assinatura: IPA para iPhone SEM assinatura, para assinar e instalar no Windows com o Sideloadly e um
+#   Apple ID gratuito (vale 7 dias). Manual. Sem App Group/Keychain compartilhado (conta gratuita): o widget fica vazio.
 workflows:
   ios-verificacao:
     name: iOS · testes e build do simulador
@@ -51,6 +53,39 @@ workflows:
           zip -qr "$CM_BUILD_DIR/BulaIA-simulador.zip" BulaIA.app
     artifacts:
       - BulaIA-simulador.zip
+      - /tmp/xcodebuild_logs*.log
+
+  ios-ipa-sem-assinatura:
+    name: iOS · IPA sem assinatura (Sideloadly)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: mobile/ios/BulaIA.xcodeproj
+        XCODE_SCHEME: BulaIA
+    scripts:
+      - name: Núcleo (swift test)
+        script: |
+          cd mobile/ios/BulaiCore
+          swift test
+      - name: App para iPhone sem assinatura (entitlements de conta gratuita)
+        script: |
+          set -o pipefail
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            BULAI_ENTITLEMENTS_APP=Config/BulaIA-Simples.entitlements \
+            BULAI_ENTITLEMENTS_WIDGET=Config/Widget-Simples.entitlements \
+            build | tee /tmp/xcodebuild_logs_ipa.log
+      - name: Empacotar o IPA
+        script: |
+          VERSAO=$(grep -E '^MARKETING_VERSION' mobile/ios/Config/Base.xcconfig | awk '{print $3}')
+          rm -rf Payload && mkdir Payload
+          cp -R build/DerivedData/Build/Products/Release-iphoneos/BulaIA.app Payload/
+          zip -qry "$CM_BUILD_DIR/bulai-$VERSAO-sem-assinatura.ipa" Payload
+    artifacts:
+      - bulai-*-sem-assinatura.ipa
       - /tmp/xcodebuild_logs*.log
 
   ios-testflight:
