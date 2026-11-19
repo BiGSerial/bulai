@@ -1,5 +1,6 @@
 package br.com.vixforge.bulai.ui.perfil
 
+import br.com.vixforge.bulai.ui.componentes.nomeAmigavel
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.FilledTonalButton
@@ -68,6 +69,7 @@ import br.com.vixforge.bulai.ui.componentes.LinhaEsqueleto
 import br.com.vixforge.bulai.ui.componentes.TelaEsqueleto
 import br.com.vixforge.bulai.ui.perguntar.BuscaDeRemedio
 import br.com.vixforge.bulai.ui.tema.TemaBulai
+import androidx.compose.ui.text.style.TextOverflow
 
 private val LARGURA = Modifier.widthIn(max = 640.dp)
 private val ABAS = listOf("Remédios", "Receitas", "Alergias")
@@ -97,7 +99,11 @@ fun PerfilTela(preenchimento: PaddingValues, recado: (String) -> Unit, aoAbrirBu
                         1 -> dados.receitas.size
                         else -> dados.alergias.size
                     }
-                    Tab(selected = aba == indice, onClick = { aba = indice }, text = { Text(if (quantos > 0) "$titulo ($quantos)" else titulo, style = MaterialTheme.typography.titleSmall) }, modifier = Modifier.heightIn(min = 56.dp))
+                    // Em telas de 360 dp a contagem quebrava a aba em duas linhas: uma linha só, com folga lateral menor.
+                    Tab(selected = aba == indice, onClick = { aba = indice }, modifier = Modifier.heightIn(min = 56.dp)) {
+                        // Conteúdo próprio (sem a folga de 16 dp do "text"): a contagem cabe na mesma linha a 360 dp.
+                        Text(if (quantos > 0) "$titulo ($quantos)" else titulo, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 14.dp))
+                    }
                 }
             }
         }
@@ -216,7 +222,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.remedios(
             Cartao(LARGURA) {
                 Text("Tratamentos encerrados", style = MaterialTheme.typography.titleMedium)
                 dados.encerrados.forEach { remedio ->
-                    Text("${remedio.name}${remedio.fim?.let { " · terminou em $it" }.orEmpty()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${nomeAmigavel(remedio.name)}${remedio.fim?.let { " · terminou em $it" }.orEmpty()}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -235,7 +241,7 @@ fun CartaoDoRemedio(remedio: RemedioDoPerfil, aoEditar: (() -> Unit)?, aoAbrirBu
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(remedio.name, style = MaterialTheme.typography.titleMedium)
+                Text(nomeAmigavel(remedio.name), style = MaterialTheme.typography.titleMedium)
                 val apoio = listOfNotNull(
                     remedio.dosage?.takeIf { it.isNotBlank() },
                     remedio.principioAtivo?.takeIf { it.isNotBlank() && !it.equals(remedio.name, ignoreCase = true) }?.lowercase(),
@@ -258,8 +264,14 @@ fun CartaoDoRemedio(remedio: RemedioDoPerfil, aoEditar: (() -> Unit)?, aoAbrirBu
             remedio.horarios.chips.forEach { Pilula(it, destaque = !posologia.seNecessario) }
             remedio.horarios.note?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = if (remedio.horarios.missing) TemaBulai.extras.alerta else MaterialTheme.colorScheme.onSurfaceVariant) }
         }
+        // Prazo: "Uso contínuo", "Até 25/11/2026" ou o aviso de que falta dizer até quando (o editor pede).
+        if (remedio.faltaPrazo) {
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = CircleShape) {
+                Text("Falta dizer até quando", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+            }
+        }
         val detalhes = listOfNotNull(
-            remedio.fim?.let { "até $it" },
+            remedio.prazo ?: remedio.fim?.let { "até $it" },
             remedio.prescritor?.let { "receita de $it" },
             remedio.notes?.takeIf { it.isNotBlank() },
             if (!remedio.lembretes) "sem lembretes" else null,

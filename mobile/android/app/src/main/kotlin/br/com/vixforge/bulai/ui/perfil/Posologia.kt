@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Event
@@ -241,6 +242,25 @@ fun EditorDePosologia(
                 }
             }
 
+            // 4. Até quando: todo remédio tem prazo, uma data ou "Uso contínuo" (o servidor confere).
+            Passo(4, "Até quando?") {
+                LinhaComChave(Icons.Rounded.AllInclusive, "Uso contínuo", "Sem data para parar (pressão, diabetes, colesterol…)", posologia.continuo) {
+                    posologia = posologia.copy(continuo = it, fim = if (it) null else posologia.fim)
+                }
+                AnimatedVisibility(!posologia.continuo, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        val inicio = posologia.inicio?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            atalhos.duracoes.forEach { dias ->
+                                val ultimo = inicio.plusDays(dias - 1L).toString()
+                                ChipDeEscolha("$dias dias", posologia.fim == ultimo) { posologia = posologia.copy(fim = ultimo, continuo = false) }
+                            }
+                        }
+                        CampoDeData("Ou escolha o último dia", posologia.fim, { data = "fim" }, { posologia = posologia.copy(fim = null) }, Modifier.fillMaxWidth())
+                    }
+                }
+            }
+
             // Mais detalhes (recolhido)
             Surface(shape = MaterialTheme.shapes.large, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
                 Column {
@@ -252,17 +272,13 @@ fun EditorDePosologia(
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text("Mais detalhes", style = MaterialTheme.typography.titleMedium)
-                            Text(if (receitas.isNotEmpty()) "Datas, receita e observações" else "Datas e observações", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(if (receitas.isNotEmpty()) "Início, receita e observações" else "Início e observações", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Icon(if (detalhes) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
                     }
                     AnimatedVisibility(detalhes) {
                         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                CampoDeData("Começou em", posologia.inicio, { data = "inicio" }, { posologia = posologia.copy(inicio = null) }, Modifier.weight(1f))
-                                CampoDeData("Termina em", posologia.fim, { data = "fim" }, { posologia = posologia.copy(fim = null) }, Modifier.weight(1f))
-                            }
-                            Text("Sem data de término: uso contínuo.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            CampoDeData("Começou em", posologia.inicio, { data = "inicio" }, { posologia = posologia.copy(inicio = null) }, Modifier.fillMaxWidth())
                             if (receitas.isNotEmpty()) {
                                 EscolhaDeReceita(receitas, posologia.receita) { posologia = posologia.copy(receita = it) }
                             }
@@ -314,7 +330,7 @@ fun EditorDePosologia(
             confirmButton = {
                 TextButton(onClick = {
                     val escolhida = calendario.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() }
-                    posologia = if (qual == "inicio") posologia.copy(inicio = escolhida) else posologia.copy(fim = escolhida)
+                    posologia = if (qual == "inicio") posologia.copy(inicio = escolhida) else posologia.copy(fim = escolhida, continuo = false)
                     data = null
                 }) { Text("OK") }
             },

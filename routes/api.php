@@ -93,6 +93,7 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::get('/dia', [MobileTreatmentController::class, 'day'])->name('day');
         Route::post('/dia/doses', [MobileTreatmentController::class, 'mark'])->name('day.mark');
         Route::delete('/dia/doses', [MobileTreatmentController::class, 'unmark'])->name('day.unmark');
+        Route::post('/dia/se-necessario', [MobileTreatmentController::class, 'takeAsNeeded'])->name('day.as-needed');
 
         Route::get('/avisos', [MobileNoticeController::class, 'index'])->name('notices');
         Route::get('/avisos/novos', [MobileNoticeController::class, 'fresh'])->name('notices.fresh');
@@ -120,6 +121,7 @@ Route::prefix('mobile/v1')->name('api.mobile.')->group(function (): void {
         Route::get('/cuidando/{link}/dia', [MobileCaregiverController::class, 'day'])->whereNumber('link')->name('caring.day');
         Route::post('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'mark'])->whereNumber('link')->name('caring.mark');
         Route::delete('/cuidando/{link}/dia/doses', [MobileCaregiverController::class, 'unmark'])->whereNumber('link')->name('caring.unmark');
+        Route::post('/cuidando/{link}/dia/se-necessario', [MobileCaregiverController::class, 'takeAsNeeded'])->whereNumber('link')->name('caring.as-needed');
 
         Route::get('/cuidando/{link}/remedios', [MobileCaregiverController::class, 'medications'])->whereNumber('link')->name('caring.medications');
         Route::put('/cuidando/{link}/remedios/{medication}', [MobileCaregiverController::class, 'updateMedication'])->whereNumber(['link', 'medication'])->name('caring.medications.update');

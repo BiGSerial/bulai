@@ -68,6 +68,14 @@ final class AppAndroidPerfilTest extends TestCase
         $this->putJson(route('api.mobile.profile.medications.update', $id), ['posology' => ['dosage' => '1 comprimido', 'frequency' => '2x ao dia', 'times' => ['08:00', '20:00'], 'schedule_mode' => 'fixed', 'reminders_enabled' => true]], $headers)
             ->assertOk()->assertJsonPath('medications.0.dosage', '1 comprimido')->assertJsonPath('medications.0.when', '08:00 · 20:00')
             ->assertJsonPath('medications.0.schedule.chips', ['08:00', '20:00'])->assertJsonPath('message', 'Dose e horários de LOSARTANA salvos.');
+        // A versão anterior do app não manda `continuous`: sem data de término vale uso contínuo. A nova exige o prazo.
+        $this->assertTrue(PatientMedication::query()->findOrFail($id)->continuous_use);
+        $this->getJson(route('api.mobile.profile'), $headers)->assertJsonPath('medications.0.duration_label', 'Uso contínuo')->assertJsonPath('medications.0.needs_duration', false)
+            ->assertJsonPath('medications.1.needs_duration', true)->assertJsonPath('posology_presets.durations', [7, 10, 14, 30]);
+        $this->putJson(route('api.mobile.profile.medications.update', $id), ['posology' => ['schedule_mode' => 'fixed', 'continuous' => false, 'ends_at' => null]], $headers)
+            ->assertUnprocessable()->assertJsonPath('message', 'Diga até quando vai tomar, ou marque “Uso contínuo”.');
+        $this->putJson(route('api.mobile.profile.medications.update', $id), ['posology' => ['dosage' => '1 comprimido', 'times' => ['08:00', '20:00'], 'schedule_mode' => 'fixed', 'continuous' => false, 'started_at' => '2026-11-05', 'ends_at' => '2027-01-10']], $headers)
+            ->assertOk()->assertJsonPath('medications.0.duration_label', 'Até 10/01/2027')->assertJsonPath('medications.0.posology.continuous', false);
         $this->putJson(route('api.mobile.profile.medications.update', $id), ['posology' => ['started_at' => '2026-11-10', 'ends_at' => '2026-11-01', 'schedule_mode' => 'fixed']], $headers)
             ->assertUnprocessable()->assertJsonPath('message', 'A data de término deve ser igual ou posterior ao início.');
 

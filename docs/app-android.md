@@ -203,6 +203,8 @@ mobile/android/scripts/gerar-apk.sh release                         # versão de
 
 O APK vai para `mobile/android/dist/bulai-{versão}-{tipo}.apk` (fora do Git). A versão de depuração tem o pacote `br.com.vixforge.bulai.debug` e aceita HTTP. **A chave de publicação e as senhas ficam fora do repositório**: sem elas não dá para atualizar o app nos aparelhos.
 
+**Versão do app = última tag do Git.** O `app/build.gradle.kts` lê a maior tag `android-v*` (`git tag --sort=-v:refname`, com `versionsort.suffix=-` para `1.0.0` ficar acima de `1.0.0-preview.N`) e usa `1.0.0-preview.4` como `versionName` (a tela Conta mostra "BULA-IA 1.0.0-preview.4"; a depuração acrescenta `-debug`). O `versionCode` cresce com ela: `maior·1.000.000 + menor·10.000 + correção·100 + N` da prévia (99 na versão final), ex.: `1.0.0-preview.4` → 1000004. Para publicar uma nova versão, crie a tag (`git tag android-v1.0.0-preview.5`) **antes** de gerar o APK. `-PbulaiVersao=…` força outra; sem Git ou sem tags (clone raso) cai em `1.0.0`.
+
 ### Emulador (WSL + emulador do Windows/Orca)
 
 - Túnel do adb: `adb.exe reverse tcp:8000 tcp:8000`, servidor com `PHP_CLI_SERVER_WORKERS=6 php artisan serve --host=0.0.0.0 --port=8000` e APK com `gerar-apk.sh debug http://localhost:8000` (pelo `10.0.2.2` pedidos em paralelo falham ao acaso).
@@ -237,3 +239,13 @@ Migrações `mobile_devices` e `preferred_name` em `users` (nome de chamada) e a
 - Fabricantes com economia de bateria agressiva podem segurar alarmes; a tela Avisos pede para liberar. Na Play Store, `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` e `USE_FULL_SCREEN_INTENT` passam por análise de política.
 - Uma conta logada em mais de um celular recebe o alarme em todos.
 - O widget mostra "amanhã" pelo fuso do celular, não pelo fuso escolhido em Avisos.
+
+## Telas estreitas, cartões de dose, "só quando precisar" e prazo (19/11/2026)
+
+Revisão no emulador também com 360 dp de largura (`adb shell wm density 480`, como um Galaxy S22):
+
+- **Cartão da dose (Hoje)**: nome legível ("Sinvastatina", não "SINVASTATIN-A": `ui/componentes/Nomes.kt` `nomeAmigavel`), sem selo "A tomar" (só "Agora" e "Atrasado"); anotada, uma linha "✓ Tomei às 08:47" com "Desfazer" ao lado quando cabe ou embaixo em telas estreitas (decidido pela largura da tela: a linha do tempo mede a altura por intrínsecos, que não aceitam `BoxWithConstraints`/`FlowRow` — o primeiro travava o app e o segundo escondia o botão). Botão "Tomei" com folga menor para não virar "Tome". Doses antes das 5h em "Madrugada" (`periodoDaDose`).
+- **"Só quando precisar"**: cada remédio com "Tomei agora" (`POST /api/mobile/v1/dia/se-necessario`, e `/cuidando/{link}/dia/se-necessario` no modo cuidador), a lista "Tomei às 14:10" com "Desfazer" (`DELETE /dia/doses` com o instante devolvido em `as_needed[].taken_today[].scheduled_for`).
+- **Perguntar**: boas-vindas curtas (até cinco remédios em uso, com mais, quatro e "Ver todos"; dois exemplos), o símbolo do BULA-IA acima da fala (a fala usa a largura toda), dica da caixa numa linha ("Escreva sua dúvida"), "Ouvir" e "Não é esse remédio?" como ações discretas numa linha, "De onde veio esta resposta?" com o texto da bula em "Ler o texto da bula" (sem rolagem dentro da rolagem). Blocos de ajuda com as cores do site (vermelho, verde-água, azul) e "Ligar 136" / "Disque Saúde" / quando ligar em três linhas curtas.
+- **Dose e horários**: passo **4. Até quando?** ("Uso contínuo", 7/10/14/30 dias, "Ou escolha o último dia"); o servidor exige o prazo (`continuous` no corpo; sem o campo, como nas versões anteriores, sem data vale uso contínuo). O cartão mostra "Uso contínuo"/"Até dd/mm/aaaa" (`duration_label`) ou "Falta dizer até quando" (`needs_duration`).
+- Snackbar com a ação em laranja da marca (`inversePrimary`), abas de "Meus remédios" numa linha a 360 dp.

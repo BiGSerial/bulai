@@ -236,7 +236,7 @@ final class PerguntarConfiavelTest extends TestCase
         ];
         $component = Livewire::actingAs($user)->test(Perguntar::class)->set('pergunta', 'omeprazol dá dor de cabeça?')->call('perguntar')
             ->assertSee('Dor de cabeça é uma reação comum, junto com diarreia e náusea.')
-            ->assertSee('Baseado na bula do paciente de OMEPRAZOL.')->assertSee('Fontes utilizadas')->assertSee('REAÇÕES ADVERSAS')->assertSee('página 4');
+            ->assertSee('Baseado na bula do paciente de OMEPRAZOL.')->assertSee('De onde veio esta resposta?')->assertSee('Parte: Reações adversas')->assertSee('página 4');
         $this->assertSame(3, $this->providerCalls);
         $this->assertStringContainsString('<bula>', $this->requests[1]['prompt']);
         $this->assertStringContainsString('Assunto da pergunta (seção esperada): Efeitos colaterais mais comuns', $this->requests[1]['prompt']);

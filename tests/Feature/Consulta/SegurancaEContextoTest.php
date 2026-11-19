@@ -18,6 +18,7 @@ use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\TextGenerationProvider;
 use App\Services\Patient\MedicationQuestionService;
 use App\Services\Patient\QuestionGuidance;
+use App\Services\Patient\SupportChannels;
 use App\Services\Safety\GuardVerdict;
 use App\Services\Safety\InputGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -202,6 +203,17 @@ final class SegurancaEContextoTest extends TestCase
 
         $this->assertSame([MedicationQuestionService::SUPPORT, MedicationQuestionService::SUPPORT], MedicationQuestion::query()->orderBy('id')->pluck('status')->all());
         $this->actingAs($user)->get(route('consulta.pergunta', MedicationQuestion::query()->latest('id')->first()))->assertOk()->assertSee('Para ter acompanhamento');
+    }
+
+    public function test_saying_only_that_there_is_a_problem_offers_the_quick_replies(): void
+    {
+        $this->medicine('TENORMIN', 'ATENOLOL');
+
+        foreach (['tenho problema', 'Estou com um problema', 'oi, tenho uma dúvida'] as $vague) {
+            $answer = $this->ask($vague);
+            $this->assertSame(MedicationQuestionService::SUPPORT, $answer['status'], $vague);
+            $this->assertSame(SupportChannels::VAGUE, $answer['support'], $vague);
+        }
     }
 
     public function test_words_that_look_like_a_medicine_name_do_not_hide_a_request_for_support(): void

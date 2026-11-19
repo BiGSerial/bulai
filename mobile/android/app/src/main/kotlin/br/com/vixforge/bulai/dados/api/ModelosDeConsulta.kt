@@ -85,7 +85,7 @@ data class Resposta(
     @SerialName("releases_fixed") val liberaFixos: Boolean = true,
     @SerialName("asked_at") val perguntadaEm: String? = null,
 ) {
-    /** Respondida com base nas bulas (a procedência fica em "Fontes utilizadas"). */
+    /** Respondida com base nas bulas (a procedência fica em "De onde veio esta resposta?"). */
     val respondida: Boolean get() = status == RESPONDIDA || status == PRECISA_DE_INFORMACAO
 
     /** Texto corrido (para "Ouvir"). */

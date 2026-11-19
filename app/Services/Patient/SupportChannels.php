@@ -47,7 +47,7 @@ final class SupportChannels
         self::SYMPTOM => '/\b(dor|dores|doendo|doi|passando mal|passei mal|mal estar|febre|tontura|tont[ao]|enjoo|enjoad[ao]|vomit\w*|diarreia|falta de ar|nao (estou|to|me sinto|estou me sentindo) bem|me sinto mal|sentindo mal|sangra\w*|tosse|fraqueza|desmai\w*|coceira|machuquei)\b/',
         self::EMOTIONAL => '/\b(triste|tristeza|deprimid[ao]|depressao|ansios[ao]|ansiedade|angusti\w*|solidao|sozinh[ao]|desanimad[ao]|desanimo|nao aguento mais|chorando|choro muito|panico|estressad[ao]|estresse|momento dificil|sem esperanca|nervos[ao]|preocupad[ao])\b/',
         self::OTHER => '/\b(outra coisa|outro assunto)\b/',
-        self::VAGUE => '/^(oi |ola |por favor )*(eu )?((preciso|quero|queria|gostaria) (de )?(uma )?ajuda|me ajud[ae]|ajud[ae] me|ajuda|socorro|(pode|poderia|voce pode|voce poderia) me ajudar)( por favor)?$/',
+        self::VAGUE => '/^((oi|ola|ei|bom dia|boa tarde|boa noite|por favor|olha|entao) )*(eu )?(oi|ola|bom dia|boa tarde|boa noite|socorro|ajuda|me ajud[ae]|ajud[ae] me|(preciso|quero|queria|gostaria) (de )?(uma |um pouco de )?ajuda|(pode|poderia|consegue|voce pode|voce poderia|voce consegue) me ajudar|(tenho|tinha|tive|estou com|to com|tou com|ando com|estou tendo|to tendo|tem|deu) (um |uma |uns |umas )?(problema|problemas|probleminha|duvida|duvidas|pergunta|perguntas|questao|dificuldade|dificuldades|coisa)|(uma )?(duvida|pergunta)|nao sei (o que|oq) fazer|(preciso|quero|queria|gostaria de) (falar|conversar)( com alguem)?)( (por favor|aqui|agora|serio|ai|pra voce|para voce|com uma coisa|com algo))*$/',
     ];
 
     /** Situação reconhecida na mensagem (sem remédio citado), ou nula. */
@@ -106,7 +106,7 @@ final class SupportChannels
                 ['title' => 'Está em perigo agora?', 'tone' => 'urgencia', 'lines' => $lines('policia', 'samu'),
                     'text' => 'Se puder, vá para um lugar seguro e ligue para a Polícia. Se alguém estiver ferido, ligue para o SAMU.'],
                 ['title' => 'Para pedir ajuda ou denunciar', 'tone' => 'acolhimento', 'lines' => $lines('mulher', 'direitos'),
-                    'text' => 'O Ligue 180 atende mulheres em situação de violência. O Disque 100 recebe denúncias de violência contra crianças, adolescentes, pessoas idosas, pessoas com deficiência e outros grupos. Os dois funcionam 24 horas, e você não precisa se identificar.'],
+                    'text' => 'O 180 atende mulheres em situação de violência. O 100 recebe denúncias de violência contra crianças, pessoas idosas, pessoas com deficiência e outros grupos. Os dois funcionam 24 horas, sem precisar se identificar.'],
             ],
             self::SUBSTANCES => [
                 ['title' => 'Apoio para álcool e outras drogas', 'tone' => 'acolhimento', 'lines' => $lines('saude'),

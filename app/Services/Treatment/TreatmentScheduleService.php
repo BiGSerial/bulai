@@ -76,6 +76,8 @@ final class TreatmentScheduleService
             'as_needed' => (bool) ($schedule['as_needed'] ?? false),
             'started_at' => $start,
             'ends_at' => $ends,
+            // "uso contínuo" escrito na receita (ou pedido explicitamente) vale como prazo; sem nada, falta dizer até quando.
+            'continuous_use' => $ends === null && ((bool) ($data['continuous_use'] ?? false) || self::saysContinuous($data['duration'] ?? null)),
             'notes' => $this->text($data['notes'] ?? null, 255),
         ];
 
@@ -289,6 +291,43 @@ final class TreatmentScheduleService
         );
     }
 
+    /**
+     * Remédio "só quando precisar": anota que tomou agora (no minuto atual, no fuso do tratamento). Não há horário
+     * programado, então o próprio instante vira a chave da marcação; desfazer usa unmark com ele.
+     */
+    public function takeAsNeeded(User $user, PatientMedication $medication, ?CarbonImmutable $now = null): MedicationDoseEvent
+    {
+        abort_unless($medication->user_id === $user->id && $medication->as_needed, 404);
+        $now = ($now ?? CarbonImmutable::now())->setTimezone($user->treatmentTimezone())->startOfMinute();
+
+        return $this->mark($user, $medication, $now, MedicationDoseEvent::STATUS_TAKEN, $now);
+    }
+
+    /**
+     * Vezes que cada remédio "só quando precisar" foi tomado no dia, da mais antiga à mais recente.
+     *
+     * @param  Collection<int, PatientMedication>  $medications
+     * @return array<int, list<array{scheduled_for: string, time: string}>>
+     */
+    public function asNeededTaken(Collection $medications, CarbonImmutable $day): array
+    {
+        $ids = $medications->filter(fn (PatientMedication $item): bool => $item->as_needed)->pluck('id')->all();
+        if ($ids === []) {
+            return [];
+        }
+        $zone = $day->getTimezone();
+        $taken = [];
+        MedicationDoseEvent::query()->whereIn('patient_medication_id', $ids)->where('status', MedicationDoseEvent::STATUS_TAKEN)
+            ->whereBetween('scheduled_for', [$this->stored($day->startOfDay()), $this->stored($day->endOfDay())])
+            ->orderBy('scheduled_for')->get()
+            ->each(function (MedicationDoseEvent $event) use (&$taken, $zone): void {
+                $at = CarbonImmutable::parse($event->scheduled_for)->setTimezone($zone);
+                $taken[$event->patient_medication_id][] = ['scheduled_for' => $at->toIso8601String(), 'time' => $at->format('H:i')];
+            });
+
+        return $taken;
+    }
+
     /** Desfaz a marcação de um horário. */
     public function unmark(User $user, PatientMedication $medication, CarbonImmutable $scheduledFor): void
     {
@@ -302,6 +341,12 @@ final class TreatmentScheduleService
     private function stored(CarbonImmutable $time): CarbonImmutable
     {
         return $time->setTimezone((string) config('app.timezone', 'UTC'));
+    }
+
+    /** "uso contínuo", "contínuo", "sem prazo", "por tempo indeterminado", "sempre". */
+    public static function saysContinuous(?string $duration): bool
+    {
+        return $duration !== null && preg_match('/\b(cont[ií]nuo|continuamente|indeterminad[oa]|sem prazo|sem data|vital[ií]cio|sempre|uso cr[oô]nico)\b/iu', $duration) === 1;
     }
 
     /** Interpreta durações como "7 dias", "por 10 dias", "2 semanas", "1 mês"; null quando contínuo ou ilegível. */

@@ -49,6 +49,33 @@ final class RemediosDeHojeTest extends TestCase
         parent::tearDown();
     }
 
+    public function test_an_as_needed_medicine_has_a_take_now_button_that_lists_and_undoes_the_time(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-05 14:10', 'America/Sao_Paulo'));
+        Carbon::setTestNow(Carbon::parse('2026-11-05 14:10', 'America/Sao_Paulo'));
+        $user = $this->patient();
+        $sos = app(TreatmentScheduleService::class)->register($user, ['name_as_written' => 'Dipirona SOS', 'frequency' => 'se dor', 'started_at' => '2026-11-01']);
+        $this->assertTrue($sos->as_needed);
+
+        $component = Livewire::actingAs($user)->test(Hoje::class)->assertSee('Só quando precisar')->assertSee('Tomei agora')
+            ->call('tomeiAgora', $sos->id)->assertSee('Tomou às 14:10')->assertDispatched('notify', message: 'Anotado: você tomou Dipirona SOS às 14:10.');
+        $this->assertSame(MedicationDoseEvent::STATUS_TAKEN, MedicationDoseEvent::query()->sole()->status);
+
+        $component->call('desfazer', $sos->id, CarbonImmutable::parse('2026-11-05 14:10', 'America/Sao_Paulo')->toIso8601String())->assertDontSee('Tomou às 14:10');
+        $this->assertSame(0, MedicationDoseEvent::query()->count());
+        $component->call('irPara', 1)->assertDontSee('Tomei agora');
+    }
+
+    public function test_a_dose_after_midnight_is_listed_under_dawn_not_morning(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-05 14:10', 'America/Sao_Paulo'));
+        Carbon::setTestNow(Carbon::parse('2026-11-05 14:10', 'America/Sao_Paulo'));
+        $user = $this->patient();
+        app(TreatmentScheduleService::class)->register($user, ['name_as_written' => 'Vitamina D', 'dosage' => '1 cápsula', 'dose_times' => ['00:30'], 'started_at' => '2026-11-01', 'schedule_mode' => PatientMedication::MODE_FIXED]);
+
+        Livewire::actingAs($user)->test(Hoje::class)->assertSeeInOrder(['Madrugada', '00:30', 'Vitamina D'])->assertDontSee('Manhã');
+    }
+
     public function test_today_lists_each_scheduled_time_grouped_by_period_and_marks_taken_skipped_and_undo(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-05 14:10', 'America/Sao_Paulo'));
@@ -118,7 +145,7 @@ final class RemediosDeHojeTest extends TestCase
 
         $component->set('posologia.frequency', '12/12h')->assertSet('posologia.times', ['08:00', '20:00'])->assertSet('posologia.schedule_mode', PatientMedication::MODE_INTERVAL)->set('posologia.schedule_mode', PatientMedication::MODE_FIXED)
             ->call('tirarHorario', 1)->call('adicionarHorario')->set('posologia.times.1', '21:00')->set('posologia.reminders_enabled', false)
-            ->call('salvarPosologia')->assertSet('editandoId', null)->assertSee('às 08:00, 21:00');
+            ->set('posologia.continuous', true)->call('salvarPosologia')->assertSet('editandoId', null)->assertSee('às 08:00, 21:00');
         $this->assertSame([['08:00', '21:00'], false, false], [$medication->refresh()->dose_times, $medication->as_needed, $medication->reminders_enabled]);
 
         $component->call('editarPosologia', $medication->id)->set('posologia.as_needed', true)->call('salvarPosologia')->assertSee('Só quando precisar');
@@ -145,7 +172,7 @@ final class RemediosDeHojeTest extends TestCase
             ->call('escolherFrequencia', '3 vezes ao dia')->assertSet('posologia.times', ['06:00', '14:00', '22:00'])->assertSet('posologia.frequency', '3 vezes ao dia')->assertSee('Tarde')->assertSee('Noite')
             ->call('escolherFrequencia', 'Só se precisar')->assertSet('posologia.as_needed', true)->assertSet('posologia.times', [])->assertSee('Sem horário fixo')
             ->call('escolherFrequencia', '2 vezes ao dia')->assertSet('posologia.as_needed', false)->assertSet('posologia.times', ['08:00', '20:00'])
-            ->call('salvarPosologia')->assertSet('editandoId', null);
+            ->set('posologia.continuous', true)->call('salvarPosologia')->assertSet('editandoId', null);
         $this->assertSame([['08:00', '20:00'], '½ comprimido', '2 vezes ao dia'], [$medication->refresh()->dose_times, $medication->dosage, $medication->frequency]);
     }
 
@@ -171,7 +198,7 @@ final class RemediosDeHojeTest extends TestCase
         $perfil = Livewire::actingAs($user)->test(Perfil::class)->assertSee('a cada 8 h, a partir da última dose')
             ->call('editarPosologia', $amoxicilina->id)->assertSet('posologia.schedule_mode', PatientMedication::MODE_INTERVAL)->assertSet('posologia.interval_hours', 8)
             ->assertSee('Contar a partir de quando eu tomar')->assertSee('Primeira dose do dia')
-            ->set('posologia.schedule_mode', PatientMedication::MODE_FIXED)->assertSee('+ Adicionar horário')->call('salvarPosologia')->assertSet('editandoId', null);
+            ->set('posologia.schedule_mode', PatientMedication::MODE_FIXED)->assertSee('+ Adicionar horário')->set('posologia.continuous', true)->call('salvarPosologia')->assertSet('editandoId', null);
         $this->assertSame([PatientMedication::MODE_FIXED, 480, false], [$amoxicilina->refresh()->schedule_mode, $amoxicilina->interval_minutes, $amoxicilina->isDynamic()]);
         Livewire::actingAs($user)->test(Hoje::class)->assertSee('14:00')->assertDontSee('Ajustado');
 

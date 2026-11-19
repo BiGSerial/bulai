@@ -67,6 +67,9 @@ final class PatientDayService
         $agenda = $consent ? $this->schedule->annotateAdjustments($this->schedule->agenda($user, $date)) : collect();
         $medications = $consent ? PatientMedication::query()->with('medicine:id,product_name')->where('user_id', $user->id)->orderBy('id')->get() : collect();
 
+        $asNeeded = $medications->filter(fn (PatientMedication $item): bool => $item->as_needed && $item->isActive());
+        $takenAsNeeded = $this->schedule->asNeededTaken($asNeeded, $date);
+
         return [
             'offset' => $offset,
             'date' => $date->toDateString(),
@@ -81,8 +84,9 @@ final class PatientDayService
                 'late' => $agenda->where('status', TreatmentScheduleService::DOSE_LATE)->count(),
             ],
             'doses' => $agenda->map(fn (array $dose): array => $this->dose($dose))->values()->all(),
-            'as_needed' => $medications->filter(fn (PatientMedication $item): bool => $item->as_needed && $item->isActive())
-                ->map(fn (PatientMedication $item): array => ['medication_id' => $item->id, 'name' => $item->displayName(), 'dosage' => $item->dosage])
+            // "Só quando precisar": sem horário; "Tomei agora" anota o instante e `taken_today` lista as vezes do dia.
+            'as_needed' => $asNeeded
+                ->map(fn (PatientMedication $item): array => ['medication_id' => $item->id, 'name' => $item->displayName(), 'dosage' => $item->dosage, 'taken_today' => $takenAsNeeded[$item->id] ?? []])
                 ->values()->all(),
         ];
     }

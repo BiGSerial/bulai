@@ -78,6 +78,8 @@ private val Claro: ColorScheme = lightColorScheme(
     outlineVariant = Color(0xFFE2E8F0),
     error = Marca.Vermelho,
     errorContainer = Marca.VermelhoClaro,
+    // Ação dos avisos (snackbar "Desfazer"): laranja da marca, não o lilás padrão.
+    inversePrimary = Color(0xFFFDBA8C),
 )
 
 private val Escuro: ColorScheme = darkColorScheme(
@@ -104,6 +106,7 @@ private val Escuro: ColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF2C3B48),
     error = Color(0xFFFFB4AB),
     errorContainer = Color(0xFF5C1A14),
+    inversePrimary = Marca.Laranja700,
 )
 
 // Texto grande por padrão (público mais velho): corpo 18 sp, títulos fortes. Respeita a escala de fonte do sistema.

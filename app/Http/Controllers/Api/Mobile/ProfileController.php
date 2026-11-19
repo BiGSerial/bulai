@@ -193,6 +193,8 @@ final class ProfileController extends Controller
             'frequency' => $item->frequency,
             'started_label' => $item->started_at?->format('d/m/Y'),
             'ends_label' => $item->ends_at?->format('d/m/Y'),
+            'duration_label' => $item->durationLabel(),
+            'needs_duration' => $item->needsDuration(),
             'prescriber' => $item->prescription?->prescriber_name,
             'notes' => $item->notes,
             'reminders_enabled' => (bool) $item->reminders_enabled,

@@ -13,6 +13,7 @@ import br.com.vixforge.bulai.dados.api.PedidoDeCadastro
 import br.com.vixforge.bulai.dados.api.PedidoDeEmail
 import br.com.vixforge.bulai.dados.api.PedidoDeExclusao
 import br.com.vixforge.bulai.dados.api.PedidoDeMarcacao
+import br.com.vixforge.bulai.dados.api.PedidoSeNecessario
 import br.com.vixforge.bulai.dados.api.PedidoDeNomeDeChamada
 import br.com.vixforge.bulai.dados.api.PedidoDeTrocaDeSenha
 import br.com.vixforge.bulai.dados.api.Usuario
@@ -63,6 +64,12 @@ class TratamentoRepositorio(context: Context, private val api: BulaiApi, private
 
     override suspend fun desmarcar(dose: Dose, deslocamento: Int): Result<Dia> =
         chamar { api.desmarcar(PedidoDeMarcacao(dose.remedioId, dose.agendadaPara, null, deslocamento)) }.onSuccess { mudou(it) }
+
+    override suspend fun tomarSeNecessario(remedioId: Long): Result<Dia> =
+        chamar { api.tomarSeNecessario(PedidoSeNecessario(remedioId)) }.onSuccess { mudou(it) }
+
+    override suspend fun desfazerSeNecessario(remedioId: Long, agendadaPara: String): Result<Dia> =
+        chamar { api.desmarcar(PedidoDeMarcacao(remedioId, agendadaPara, null, 0)) }.onSuccess { mudou(it) }
 
     private suspend fun mudou(dia: Dia) {
         guardar(dia)

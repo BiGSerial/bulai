@@ -204,7 +204,7 @@ final class PerfilEPerguntasTest extends TestCase
             ->call('perguntar')->assertSee('Escreva sua pergunta')
             ->set('pergunta', 'omeprazol em jejum?')->call('perguntar')
             ->assertSee('Falando de:')->assertSee('OMEPRAZOL')
-            ->assertSee('O comprimido deve ser tomado em jejum.')->assertSee('Fontes utilizadas')->assertSee('Baseado na bula')
+            ->assertSee('O comprimido deve ser tomado em jejum.')->assertSee('De onde veio esta resposta?')->assertSee('Baseado na bula')
             ->assertDontSee('Limitações')
             ->assertSee('Guardei esta conversa no seu');
 
@@ -382,12 +382,17 @@ final class PerfilEPerguntasTest extends TestCase
 
         $component->call('adicionarMedicamento', $medicine->id)->assertSet('editandoId', PatientMedication::value('id'))
             ->set('posologia.dosage', '20 mg')->set('posologia.frequency', 'em jejum, 1x ao dia')->set('posologia.started_at', '2026-11-01')->set('posologia.ends_at', '2026-10-01')->call('salvarPosologia')->assertSee('posterior ao início')
-            ->set('posologia.ends_at', '')->set('posologia.prescription_id', (string) $prescription->id)->call('salvarPosologia')
+            ->set('posologia.ends_at', '')->call('salvarPosologia')->assertSee('Diga até quando vai tomar, ou marque “Uso contínuo”.')
+            ->assertSee('Até quando?')->assertSee('7 dias')->call('escolherDuracao', 10)->assertSet('posologia.ends_at', '2026-11-10')
+            ->set('posologia.continuous', true)->assertSet('posologia.ends_at', null)->assertDontSee('Ou escolha o último dia')
+            ->set('posologia.prescription_id', (string) $prescription->id)->call('salvarPosologia')
             ->assertSet('editandoId', null)->assertSee('20 mg · em jejum, 1x ao dia')->assertSee('receita de Dra. Ana Souza')->assertSee(route('consulta.bula', $medicine, false));
 
         $medication = PatientMedication::query()->sole();
         $this->assertSame(['20 mg', 'em jejum, 1x ao dia', $prescription->id, '2026-11-01'], [$medication->dosage, $medication->frequency, $medication->prescription_id, $medication->started_at->format('Y-m-d')]);
         $this->assertTrue($medication->isActive());
+        $this->assertTrue($medication->continuous_use);
+        $this->assertFalse($medication->needsDuration());
 
         $component->call('removerReceita', $prescription->id)->assertDontSee('CRM-SP 9988');
         $this->assertNull($medication->fresh()->prescription_id);

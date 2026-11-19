@@ -5,6 +5,7 @@ import br.com.vixforge.bulai.dados.api.Dia
 import br.com.vixforge.bulai.dados.api.Dose
 import br.com.vixforge.bulai.dados.api.ResumoDoDia
 import br.com.vixforge.bulai.ui.dia.comSituacao
+import br.com.vixforge.bulai.ui.dia.periodoDaDose
 import br.com.vixforge.bulai.ui.navegacao.Rotas
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -72,5 +73,14 @@ class NavegacaoEDiaTest {
 
         assertEquals(listOf(Dose.TOMADA, Dose.TOMADA, Dose.PENDENTE), depois.doses.map { it.status })
         assertEquals(ResumoDoDia(total = 3, done = 2, taken = 2, late = 0), depois.summary)
+    }
+
+    @Test
+    fun doseDeMadrugadaNaoFicaNaManha() {
+        val dose = { hora: String -> Dose(key = hora, remedioId = 1, name = "Vitamina D", time = hora, period = "manha", agendadaPara = "2026-11-19T$hora:00-03:00", status = Dose.PENDENTE) }
+        assertEquals("madrugada", periodoDaDose(dose("00:28")))
+        assertEquals("manha", periodoDaDose(dose("05:00")))
+        assertEquals("tarde", periodoDaDose(dose("12:00")))
+        assertEquals("noite", periodoDaDose(dose("18:00")))
     }
 }

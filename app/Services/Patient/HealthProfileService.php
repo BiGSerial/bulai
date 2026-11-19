@@ -24,7 +24,7 @@ use Illuminate\Validation\ValidationException;
 final class HealthProfileService
 {
     /** Formulário vazio de "Dose e horários". */
-    public const EMPTY_POSOLOGY = ['dosage' => '', 'frequency' => '', 'started_at' => null, 'ends_at' => null, 'prescription_id' => null, 'notes' => '', 'times' => [], 'as_needed' => false, 'reminders_enabled' => true, 'interval_hours' => null, 'schedule_mode' => PatientMedication::MODE_FIXED];
+    public const EMPTY_POSOLOGY = ['dosage' => '', 'frequency' => '', 'started_at' => null, 'ends_at' => null, 'continuous' => false, 'prescription_id' => null, 'notes' => '', 'times' => [], 'as_needed' => false, 'reminders_enabled' => true, 'interval_hours' => null, 'schedule_mode' => PatientMedication::MODE_FIXED];
 
     /** Atalhos de "quando tomar": o mesmo texto que a pessoa escreveria (o `DoseScheduleParser` sugere os horários). */
     public const FREQUENCY_PRESETS = ['1 vez ao dia', '2 vezes ao dia', '3 vezes ao dia', 'De 8 em 8 horas', 'De 12 em 12 horas', 'Só se precisar'];
@@ -32,10 +32,13 @@ final class HealthProfileService
     /** Atalhos de dose mais comuns; a pessoa pode escrever outra. */
     public const DOSE_PRESETS = ['1 comprimido', '2 comprimidos', '½ comprimido', '1 cápsula', '10 gotas', '5 ml'];
 
-    /** @return array{frequencies: list<string>, doses: list<string>} */
+    /** Atalhos de "Até quando?", em dias contados a partir do início (o último dia entra). */
+    public const DURATION_PRESETS = [7, 10, 14, 30];
+
+    /** @return array{frequencies: list<string>, doses: list<string>, durations: list<int>} */
     public static function presets(): array
     {
-        return ['frequencies' => self::FREQUENCY_PRESETS, 'doses' => self::DOSE_PRESETS];
+        return ['frequencies' => self::FREQUENCY_PRESETS, 'doses' => self::DOSE_PRESETS, 'durations' => self::DURATION_PRESETS];
     }
 
     public function __construct(
@@ -135,7 +138,7 @@ final class HealthProfileService
     /**
      * O formulário "Dose e horários" preenchido com o que está salvo.
      *
-     * @return array{dosage: string, frequency: string, started_at: string|null, ends_at: string|null, prescription_id: int|null, notes: string, times: list<string>, as_needed: bool, reminders_enabled: bool, interval_hours: int|null, schedule_mode: string}
+     * @return array{dosage: string, frequency: string, started_at: string|null, ends_at: string|null, continuous: bool, prescription_id: int|null, notes: string, times: list<string>, as_needed: bool, reminders_enabled: bool, interval_hours: int|null, schedule_mode: string}
      */
     public function posologyOf(PatientMedication $medication): array
     {
@@ -144,6 +147,7 @@ final class HealthProfileService
             'frequency' => (string) $medication->frequency,
             'started_at' => $medication->started_at?->format('Y-m-d'),
             'ends_at' => $medication->ends_at?->format('Y-m-d'),
+            'continuous' => (bool) $medication->continuous_use,
             'prescription_id' => $medication->prescription_id,
             'notes' => (string) $medication->notes,
             'times' => TreatmentScheduleService::cleanTimes((array) ($medication->dose_times ?? [])),
@@ -200,11 +204,17 @@ final class HealthProfileService
      */
     public function updatePosology(PatientMedication $medication, array $posology): array
     {
+        // Versões anteriores do aplicativo não mandam `continuous`: sem data de término, vale como uso contínuo.
+        if (! array_key_exists('continuous', $posology)) {
+            $posology['continuous'] = blank($posology['ends_at'] ?? null);
+        }
         $data = Validator::make(['posologia' => $posology], [
             'posologia.dosage' => ['nullable', 'string', 'max:120'],
             'posologia.frequency' => ['nullable', 'string', 'max:120'],
             'posologia.started_at' => ['nullable', 'date'],
-            'posologia.ends_at' => ['nullable', 'date', 'after_or_equal:posologia.started_at'],
+            'posologia.continuous' => ['boolean'],
+            // Todo remédio tem prazo: a data de término ou "Uso contínuo".
+            'posologia.ends_at' => ['nullable', 'required_unless:posologia.continuous,true', 'date', 'after_or_equal:posologia.started_at'],
             'posologia.prescription_id' => ['nullable', 'integer'],
             'posologia.notes' => ['nullable', 'string', 'max:255'],
             'posologia.times' => ['array', 'max:12'],
@@ -213,13 +223,17 @@ final class HealthProfileService
             'posologia.reminders_enabled' => ['boolean'],
             'posologia.interval_hours' => ['nullable', 'integer', 'min:1', 'max:24'],
             'posologia.schedule_mode' => ['required', 'in:'.PatientMedication::MODE_FIXED.','.PatientMedication::MODE_INTERVAL],
-        ], ['posologia.ends_at.after_or_equal' => 'A data de término deve ser igual ou posterior ao início.'])->validate()['posologia'];
+        ], [
+            'posologia.ends_at.after_or_equal' => 'A data de término deve ser igual ou posterior ao início.',
+            'posologia.ends_at.required_unless' => 'Diga até quando vai tomar, ou marque “Uso contínuo”.',
+        ])->validate()['posologia'];
 
         $prescriptionId = filled($data['prescription_id'] ?? null) ? (int) $data['prescription_id'] : null;
         if ($prescriptionId !== null && ! PatientPrescription::query()->where('user_id', $medication->user_id)->whereKey($prescriptionId)->exists()) {
             $prescriptionId = null;
         }
         $asNeeded = (bool) ($data['as_needed'] ?? false);
+        $continuous = (bool) ($data['continuous'] ?? false);
         $intervalMinutes = filled($data['interval_hours'] ?? null) && ! $asNeeded ? (int) $data['interval_hours'] * 60 : null;
         $dynamic = $intervalMinutes !== null && $data['schedule_mode'] === PatientMedication::MODE_INTERVAL;
         $times = $asNeeded ? [] : TreatmentScheduleService::cleanTimes((array) ($data['times'] ?? []));
@@ -230,7 +244,8 @@ final class HealthProfileService
             'dosage' => filled($data['dosage'] ?? null) ? trim($data['dosage']) : null,
             'frequency' => filled($data['frequency'] ?? null) ? trim($data['frequency']) : null,
             'started_at' => ($data['started_at'] ?? null) ?: null,
-            'ends_at' => ($data['ends_at'] ?? null) ?: null,
+            'ends_at' => $continuous ? null : (($data['ends_at'] ?? null) ?: null),
+            'continuous_use' => $continuous,
             'prescription_id' => $prescriptionId,
             'notes' => filled($data['notes'] ?? null) ? trim($data['notes']) : null,
             // No modo dinâmico só o primeiro horário importa: é onde a cadeia começa antes da primeira marcação.

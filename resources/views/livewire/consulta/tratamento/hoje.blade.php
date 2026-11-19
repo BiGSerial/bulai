@@ -107,9 +107,25 @@
                 <h2 id="sos-titulo" class="flex items-center gap-2 px-1 text-xl font-semibold text-brand-900"><x-consulta.icone name="pilula" tone="neutral" size="sm" />Só quando precisar</h2>
                 <ul class="grid gap-2">
                     @foreach ($quandoPrecisar as $item)
-                        <li wire:key="sos-{{ $item->id }}" class="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200">
-                            <span class="min-w-0"><span class="block break-words text-lg font-semibold text-slate-900">{{ $item->displayName() }}</span><span class="block break-words text-base text-slate-600">{{ $item->dosage ?: 'Sem horário fixo' }}</span></span>
-                            @if ($item->isMatched())<a href="{{ route('consulta.bula', $item->medicine_id) }}" wire:navigate class="inline-flex min-h-11 items-center text-base font-semibold text-brand-800 underline-offset-2 hover:underline">Ver a bula simples ›</a>@endif
+                        @php($vezes = $tomadasQuandoPrecisar[$item->id] ?? [])
+                        <li wire:key="sos-{{ $item->id }}" class="grid gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200">
+                            <div class="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                                <span class="min-w-0"><span class="block break-words text-lg font-semibold text-slate-900">{{ $item->displayName() }}</span><span class="block break-words text-base text-slate-600">{{ $item->dosage ?: 'Sem horário fixo' }}</span></span>
+                                @if ($item->isMatched())<a href="{{ route('consulta.bula', $item->medicine_id) }}" wire:navigate class="inline-flex min-h-11 items-center text-base font-semibold text-brand-800 underline-offset-2 hover:underline">Ver a bula simples ›</a>@endif
+                            </div>
+                            @if ($vezes !== [])
+                                <ul class="grid gap-1" aria-label="Vezes que tomou {{ $dia === 0 ? 'hoje' : 'neste dia' }}">
+                                    @foreach ($vezes as $vez)
+                                        <li wire:key="sos-{{ $item->id }}-{{ $vez['time'] }}" class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-emerald-50 px-3 py-1 text-base text-emerald-900">
+                                            <span class="inline-flex items-center gap-1.5"><x-consulta.icone name="check" plain class="size-5" />Tomou às {{ $vez['time'] }}</span>
+                                            @if ($podeMarcar)<button type="button" class="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 font-semibold text-brand-800 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600" wire:click="desfazer({{ $item->id }}, '{{ $vez['scheduled_for'] }}')" wire:loading.attr="disabled"><x-consulta.icone name="desfazer" plain class="size-5" />Desfazer</button>@endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                            @if ($podeMarcar && $dia === 0)
+                                <x-consulta.botao variant="success" size="sm" wire:click="tomeiAgora({{ $item->id }})" wire:loading.attr="disabled" wire:target="tomeiAgora({{ $item->id }})"><x-consulta.icone name="check" plain class="size-6" />Tomei agora</x-consulta.botao>
+                            @endif
                         </li>
                     @endforeach
                 </ul>

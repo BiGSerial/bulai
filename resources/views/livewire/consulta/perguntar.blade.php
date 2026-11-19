@@ -198,13 +198,18 @@
                         @endunless
                         @if ($fontes !== [] || $resposta['treatments'] !== [] || ! empty($resposta['uuid']))
                             <details class="rounded-xl bg-surface-100">
-                                <summary class="min-h-12 cursor-pointer select-none px-3 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true) ? 'Fontes utilizadas' : 'Mais detalhes' }}</summary>
+                                <summary class="min-h-12 cursor-pointer select-none px-3 py-2 font-semibold text-brand-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600">{{ in_array($status, [Q::ANSWERED, Q::NEEDS_INFO], true) ? 'De onde veio esta resposta?' : 'Mais detalhes' }}</summary>
                                 <div class="grid gap-3 px-3 pb-3">
                                     @foreach ($fontes as $fonte)
-                                        <blockquote wire:key="ft-{{ $loop->index }}" class="grid gap-1 border-l-4 border-brand-200 pl-3">
-                                            <p class="break-words text-sm font-semibold text-slate-600">{{ $fonte['document_title'] }}@if (! empty($fonte['section'])) · {{ $fonte['section'] }}@endif@if (! empty($fonte['page_start'])) · página {{ $fonte['page_start'] }}@endif@if (! empty($fonte['processed'])) · bula de {{ $fonte['processed'] }}@endif</p>
-                                            <p class="max-h-48 overflow-y-auto whitespace-pre-line break-words text-base leading-relaxed text-slate-800">{{ $fonte['excerpt'] }}</p>
-                                        </blockquote>
+                                        <div wire:key="ft-{{ $loop->index }}" class="grid gap-1 rounded-xl bg-white p-3">
+                                            <p class="break-words font-semibold text-slate-900">{{ $fonte['document_title'] }}</p>
+                                            @if (! empty($fonte['section']) || ! empty($fonte['page_start']))<p class="break-words text-base text-slate-600">{{ collect([! empty($fonte['section']) ? 'Parte: '.$fonte['section'] : null, ! empty($fonte['page_start']) ? 'página '.$fonte['page_start'] : null])->filter()->implode(', ') }}</p>@endif
+                                            @if (! empty($fonte['processed']))<p class="text-base text-slate-600">Bula de {{ $fonte['processed'] }}</p>@endif
+                                            <details class="group">
+                                                <summary class="min-h-11 cursor-pointer select-none py-2 font-semibold text-brand-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600"><span class="group-open:hidden">Ler o texto da bula</span><span class="hidden group-open:inline">Esconder o texto da bula</span></summary>
+                                                <blockquote class="break-words border-l-4 border-brand-200 pl-3 text-lg leading-relaxed text-slate-800">“{{ $fonte['excerpt'] }}”</blockquote>
+                                            </details>
+                                        </div>
                                     @endforeach
                                     @foreach ($resposta['treatments'] as $item)
                                         <x-consulta.tratamento wire:key="tr-{{ $loop->index }}" :contexto="$item['context']" :medicamento="$item['medicine']" :somente-relevante="true" />

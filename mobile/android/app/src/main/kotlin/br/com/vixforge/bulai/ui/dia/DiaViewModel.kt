@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import br.com.vixforge.bulai.dados.FonteDoDia
 import br.com.vixforge.bulai.dados.api.Dia
 import br.com.vixforge.bulai.dados.api.Dose
+import br.com.vixforge.bulai.dados.api.RemedioSeNecessario
+import br.com.vixforge.bulai.dados.api.VezQueTomou
 import br.com.vixforge.bulai.ui.base.Carga
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -64,6 +66,38 @@ class DiaViewModel(private val tratamento: FonteDoDia) : ViewModel() {
     fun desfazer(deslocamento: Int, dose: Dose) {
         enviar(deslocamento, dose, Dose.PENDENTE, { tratamento.desmarcar(dose, deslocamento) }) {
             Recado("Marcação de ${dose.name} desfeita.")
+        }
+    }
+
+    /** "Só quando precisar": anota agora; o recado oferece desfazer a vez que acabou de ser anotada. */
+    fun tomeiSeNecessario(remedio: RemedioSeNecessario) {
+        val chave = "sos-${remedio.remedioId}"
+        if (chave in _enviando.value) {
+            return
+        }
+        _enviando.update { it + chave }
+        viewModelScope.launch {
+            cargas[0]?.cancel()
+            tratamento.tomarSeNecessario(remedio.remedioId)
+                .onSuccess { novo ->
+                    mudar(0) { Carga(novo) }
+                    val vez = novo.seNecessario.firstOrNull { it.remedioId == remedio.remedioId }?.tomadasHoje?.lastOrNull()
+                    val quem = tratamento.deQuem?.let { "$it tomou" } ?: "você tomou"
+                    _recados.tryEmit(Recado("Anotado: $quem ${remedio.name}${vez?.let { " às ${it.time}" } ?: ""}.", vez?.let { { desfazerSeNecessario(remedio, it) } }))
+                }
+                .onFailure { falha -> _recados.tryEmit(Recado(falha.message ?: "Não deu para anotar agora. Tente de novo.")) }
+            _enviando.update { it - chave }
+        }
+    }
+
+    fun desfazerSeNecessario(remedio: RemedioSeNecessario, vez: VezQueTomou) {
+        viewModelScope.launch {
+            tratamento.desfazerSeNecessario(remedio.remedioId, vez.agendadaPara)
+                .onSuccess { novo ->
+                    mudar(0) { Carga(novo) }
+                    _recados.tryEmit(Recado("Desfeito: ${remedio.name} às ${vez.time}."))
+                }
+                .onFailure { falha -> _recados.tryEmit(Recado(falha.message ?: "Não deu para desfazer agora. Tente de novo.")) }
         }
     }
 

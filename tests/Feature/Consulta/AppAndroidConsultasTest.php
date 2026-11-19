@@ -119,7 +119,7 @@ final class AppAndroidConsultasTest extends TestCase
         $first = $this->postJson('/api/mobile/v1/perguntar', ['question' => 'omeprazol em jejum?'], $headers)->assertOk()
             ->assertJsonPath('answer.status', MedicationQuestionService::ANSWERED)->assertJsonPath('answer.medicines.0.name', 'OMEPRAZOL')
             ->assertJsonPath('answer.can_listen', true)->assertJsonPath('answer.releases_fixed', true)
-            ->assertJsonPath('answer.sources.0.section', 'COMO USAR')->assertJsonPath('answer.treatments.0.in_use', true)
+            ->assertJsonPath('answer.sources.0.section', 'Como usar')->assertJsonPath('answer.treatments.0.in_use', true)
             ->json('answer');
         $this->assertContains(['text' => 'omeprazol', 'bold' => true], $first['paragraphs'][0], 'o nome do remédio vai em negrito, em texto puro');
         $this->assertStringNotContainsString('<strong>', json_encode($first['paragraphs']));

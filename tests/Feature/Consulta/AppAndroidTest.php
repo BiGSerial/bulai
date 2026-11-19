@@ -290,6 +290,23 @@ final class AppAndroidTest extends TestCase
             ->assertJsonPath('health_consent', false)->assertJsonPath('next_dose', null)->assertJsonPath('progress.total', 0);
     }
 
+    public function test_an_as_needed_medicine_is_marked_as_taken_now_listed_for_the_day_and_undone(): void
+    {
+        $user = $this->patient();
+        $sos = $this->medication($user, 'Dipirona SOS', ['dose_times' => [], 'as_needed' => true]);
+        $losartana = $this->medication($user, 'Losartana');
+        $headers = $this->bearer($user);
+
+        $taken = $this->postJson(route('api.mobile.day.as-needed'), ['medication_id' => $sos->id], $headers)->assertOk()
+            ->assertJsonPath('as_needed.0.taken_today.0.time', CarbonImmutable::now('America/Sao_Paulo')->format('H:i'))
+            ->assertJsonPath('summary.total', 2)->assertJsonPath('summary.done', 0)->json('as_needed.0.taken_today.0.scheduled_for');
+        $this->postJson(route('api.mobile.day.as-needed'), ['medication_id' => $losartana->id], $headers)->assertNotFound();
+
+        $this->deleteJson(route('api.mobile.day.unmark'), ['medication_id' => $sos->id, 'scheduled_for' => $taken], $headers)->assertOk()
+            ->assertJsonPath('as_needed.0.taken_today', []);
+        $this->assertSame(0, MedicationDoseEvent::query()->count());
+    }
+
     public function test_the_day_screen_lists_yesterday_today_or_tomorrow_and_marks_and_unmarks_doses(): void
     {
         $user = $this->patient();

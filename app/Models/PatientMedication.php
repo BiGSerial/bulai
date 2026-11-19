@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * cadastra pelo nome como está na receita, o remédio aparece no tratamento e os administradores recebem a pendência
  * (`UnmatchedMedicineReport`) para ligá-lo ao catálogo depois.
  */
-#[Fillable(['user_id', 'medicine_id', 'name_as_written', 'catalog_status', 'prescription_id', 'dosage', 'frequency', 'dose_times', 'interval_minutes', 'schedule_mode', 'as_needed', 'reminders_enabled', 'started_at', 'ends_at', 'notes'])]
+#[Fillable(['user_id', 'medicine_id', 'name_as_written', 'catalog_status', 'prescription_id', 'dosage', 'frequency', 'dose_times', 'interval_minutes', 'schedule_mode', 'as_needed', 'reminders_enabled', 'started_at', 'ends_at', 'continuous_use', 'notes'])]
 class PatientMedication extends Model
 {
     public const CATALOG_MATCHED = 'matched';
@@ -32,7 +32,7 @@ class PatientMedication extends Model
 
     protected function casts(): array
     {
-        return ['started_at' => 'date', 'ends_at' => 'date', 'dose_times' => 'array', 'interval_minutes' => 'integer', 'as_needed' => 'boolean', 'reminders_enabled' => 'boolean'];
+        return ['started_at' => 'date', 'ends_at' => 'date', 'dose_times' => 'array', 'interval_minutes' => 'integer', 'as_needed' => 'boolean', 'reminders_enabled' => 'boolean', 'continuous_use' => 'boolean'];
     }
 
     /** Programação dinâmica: há intervalo definido, o modo é `interval` e não é "se precisar". */
@@ -92,6 +92,22 @@ class PatientMedication extends Model
     }
 
     /** Tratamento em curso: sem data de término ou com término no futuro. */
+    /** Sem data de término e sem "Uso contínuo": falta dizer até quando tomar. */
+    public function needsDuration(): bool
+    {
+        return ! $this->continuous_use && $this->ends_at === null;
+    }
+
+    /** "Uso contínuo", "Até 25/11/2026" ou null (falta dizer). */
+    public function durationLabel(): ?string
+    {
+        return match (true) {
+            (bool) $this->continuous_use => 'Uso contínuo',
+            $this->ends_at !== null => 'Até '.$this->ends_at->format('d/m/Y'),
+            default => null,
+        };
+    }
+
     public function isActive(): bool
     {
         return $this->ends_at === null || $this->ends_at->endOfDay()->isFuture();

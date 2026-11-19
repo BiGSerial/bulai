@@ -12,6 +12,11 @@ class SupportChannelsTest extends TestCase
     {
         $this->assertSame(SupportChannels::VAGUE, SupportChannels::detect('Preciso de ajuda'));
         $this->assertSame(SupportChannels::VAGUE, SupportChannels::detect('me ajuda, por favor'));
+        foreach (['tenho problema', 'Tenho um problema', 'estou com um problema aqui', 'tô com problema', 'oi, tenho uma dúvida', 'não sei o que fazer', 'preciso conversar com alguém', 'oi'] as $vague) {
+            $this->assertSame(SupportChannels::VAGUE, SupportChannels::detect($vague), $vague);
+        }
+        $this->assertNull(SupportChannels::detect('tenho problema de pressão'), 'problema com assunto não é pedido vago');
+        $this->assertNull(SupportChannels::detect('tenho uma pergunta sobre a losartana'));
         $this->assertSame(SupportChannels::EMOTIONAL, SupportChannels::detect('Estou passando por um momento difícil'));
         $this->assertSame(SupportChannels::EMOTIONAL, SupportChannels::detect('ando muito triste e ansiosa'));
         $this->assertSame(SupportChannels::SYMPTOM, SupportChannels::detect('Não estou me sentindo bem'));

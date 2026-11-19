@@ -137,6 +137,18 @@ final class CaregiverController extends Controller
         return response()->json($this->patientDay($link, $screens, (int) ($data['dia'] ?? 0)));
     }
 
+    /** "Só quando precisar" da pessoa cuidada: anota que tomou agora, com a mesma permissão de marcar doses. */
+    public function takeAsNeeded(Request $request, CaregiverLink $link, CaregiverLinkService $service, PatientDayService $screens): JsonResponse
+    {
+        Gate::forUser($request->user())->authorize('managePatient', $link);
+        $data = $request->validate(['medication_id' => ['required', 'integer']]);
+        $patient = $link->patient;
+        $medication = PatientMedication::query()->where('user_id', $patient->id)->where('as_needed', true)->findOrFail((int) $data['medication_id']);
+        $service->markDose($link, $request->user(), $medication, CarbonImmutable::now($patient->treatmentTimezone())->startOfMinute(), MedicationDoseEvent::STATUS_TAKEN);
+
+        return response()->json($this->patientDay($link, $screens, 0));
+    }
+
     public function unmark(Request $request, CaregiverLink $link, CaregiverLinkService $service, PatientDayService $screens): JsonResponse
     {
         Gate::forUser($request->user())->authorize('managePatient', $link);

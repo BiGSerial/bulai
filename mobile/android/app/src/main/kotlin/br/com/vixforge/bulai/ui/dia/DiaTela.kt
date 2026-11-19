@@ -1,5 +1,16 @@
 package br.com.vixforge.bulai.ui.dia
 
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+
+import br.com.vixforge.bulai.ui.componentes.nomeAmigavel
+import androidx.compose.material.icons.rounded.Medication
+import br.com.vixforge.bulai.dados.api.VezQueTomou
+import androidx.compose.foundation.layout.offset
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
@@ -165,6 +176,9 @@ fun DiaTela(
                 aoTomar = { vm.tomei(deslocamento, it) },
                 aoPular = { vm.pular(deslocamento, it) },
                 aoDesfazer = { vm.desfazer(deslocamento, it) },
+                // "Tomei agora" só faz sentido hoje.
+                aoTomarSeNecessario = if (deslocamento == 0) vm::tomeiSeNecessario else null,
+                aoDesfazerSeNecessario = vm::desfazerSeNecessario,
             )
         }
     }
@@ -182,6 +196,8 @@ private fun PaginaDoDia(
     aoTomar: (Dose) -> Unit,
     aoPular: (Dose) -> Unit,
     aoDesfazer: (Dose) -> Unit,
+    aoTomarSeNecessario: ((RemedioSeNecessario) -> Unit)? = null,
+    aoDesfazerSeNecessario: (RemedioSeNecessario, VezQueTomou) -> Unit = { _, _ -> },
 ) {
     PullToRefreshBox(isRefreshing = carga.atualizando && carga.dados != null, onRefresh = aoAtualizar, modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -229,7 +245,7 @@ private fun PaginaDoDia(
                 else -> {
                     item(key = "resumo") { Resumo(dia, Modifier.widthIn(max = 640.dp)) }
                     PERIODOS.forEach { (chave, titulo, icone) ->
-                        val doses = dia.doses.filter { it.period == chave }
+                        val doses = dia.doses.filter { periodoDaDose(it) == chave }
                         if (doses.isNotEmpty()) {
                             item(key = "periodo-$chave") { CabecalhoDoPeriodo(titulo, icone, Modifier.widthIn(max = 640.dp)) }
                             itemsIndexed(doses, key = { _, dose -> dose.key }) { indice, dose ->
@@ -238,7 +254,16 @@ private fun PaginaDoDia(
                         }
                     }
                     if (dia.seNecessario.isNotEmpty()) {
-                        item(key = "sos") { SeNecessario(dia.seNecessario, Modifier.widthIn(max = 640.dp)) }
+                        item(key = "sos") {
+                            SeNecessario(
+                                dia.seNecessario,
+                                enviando = enviando,
+                                aoTomar = aoTomarSeNecessario?.takeIf { dia.podeMarcar },
+                                aoDesfazer = aoDesfazerSeNecessario.takeIf { dia.podeMarcar && dia.offset == 0 },
+                                deOutraPessoa = dia.cuidandoDe != null,
+                                modifier = Modifier.widthIn(max = 640.dp),
+                            )
+                        }
                     }
                     if (dia.temDinamico) {
                         item(key = "dinamico") {
@@ -279,10 +304,25 @@ private fun FaixaDoCuidador(nome: String, faixa: String, podeMarcar: Boolean, ao
 }
 
 private val PERIODOS = listOf(
+    Triple("madrugada", "Madrugada", Icons.Rounded.Bedtime),
     Triple("manha", "Manhã", Icons.Rounded.WbSunny),
     Triple("tarde", "Tarde", Icons.Rounded.WbTwilight),
     Triple("noite", "Noite", Icons.Rounded.Bedtime),
 )
+
+/**
+ * Período da dose pela hora, como no site: antes das 5h é madrugada (uma dose às 00:30 não fica em "Manhã"). A API manda
+ * "period" só com manhã, tarde e noite; separar a madrugada aqui mantém as versões anteriores do app mostrando todas as doses.
+ */
+internal fun periodoDaDose(dose: Dose): String {
+    val hora = dose.time.take(2).toIntOrNull() ?: return dose.period
+    return when {
+        hora < 5 -> "madrugada"
+        hora < 12 -> "manha"
+        hora < 18 -> "tarde"
+        else -> "noite"
+    }
+}
 
 @Composable
 private fun Resumo(dia: Dia, modifier: Modifier = Modifier) {
@@ -440,10 +480,10 @@ private fun LinhaDaDose(
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.End,
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dose.feita) 0.6f else 1f),
-            modifier = Modifier.width(58.dp).padding(top = 14.dp),
+            modifier = Modifier.width(54.dp).padding(top = 14.dp),
         )
         Box(
-            Modifier.width(30.dp).fillMaxHeight().drawBehind {
+            Modifier.width(24.dp).fillMaxHeight().drawBehind {
                 val x = size.width / 2
                 val bolinha = 25.dp.toPx()
                 // O trilho passa por cima do espaço entre os cartões (6 dp para cada lado) para ficar contínuo.
@@ -492,47 +532,91 @@ private fun LinhaDaDose(
             },
         ) {
         Column(Modifier.animateContentSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
+            // Nome e selo na mesma linha; a dose fica embaixo, na largura toda, para não ser espremida pelo selo.
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
                     Text(
-                        dose.name,
+                        nomeAmigavel(dose.name),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (dose.status == Dose.PULADA) 0.7f else 1f),
                         textDecoration = if (dose.status == Dose.PULADA) TextDecoration.LineThrough else null,
+                        modifier = Modifier.weight(1f).padding(top = 2.dp),
                     )
-                    Text(dose.dosage?.takeIf { it.isNotBlank() } ?: "Dose não informada", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(8.dp))
+                    if (ocupada) {
+                        CircularProgressIndicator(Modifier.padding(top = 2.dp).size(22.dp), strokeWidth = 3.dp)
+                    } else if (dose.status == Dose.AGORA || dose.status == Dose.ATRASADA) {
+                        // Selo só para "Agora" e "Atrasado". "A tomar" é o normal, e "Tomei 08:47"/"Pulei" vão para a
+                        // linha de baixo: em telas de 360 dp o selo espremia o nome ("metformin-a").
+                        // O selo muda com fade (o "Tomei 08:47" entra depois que o verde já cobriu o cartão).
+                        AnimatedContent(
+                            descricao,
+                            transitionSpec = { fadeIn(tween(420, delayMillis = if (targetState.startsWith("Tom")) 380 else 0)) togetherWith fadeOut(tween(160)) },
+                            label = "situacao",
+                        ) { texto ->
+                            Surface(shape = CircleShape, color = corDoEstado.copy(alpha = 0.12f), contentColor = corDoEstado, border = BorderStroke(1.dp, corDoEstado.copy(alpha = 0.35f))) {
+                                Text(
+                                    texto,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp).semantics { stateDescription = texto; liveRegion = LiveRegionMode.Polite },
+                                )
+                            }
+                        }
+                    }
                 }
-                Spacer(Modifier.width(8.dp))
-                if (ocupada) {
-                    CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 3.dp)
-                } else {
-                    // O selo muda com fade (o "Tomei 08:47" entra depois que o verde já cobriu o cartão).
-                    AnimatedContent(
-                        descricao,
-                        transitionSpec = { fadeIn(tween(420, delayMillis = if (targetState.startsWith("Tom")) 380 else 0)) togetherWith fadeOut(tween(160)) },
-                        label = "situacao",
-                    ) { texto ->
-                        Surface(shape = CircleShape, color = corDoEstado.copy(alpha = 0.12f), contentColor = corDoEstado, border = BorderStroke(1.dp, corDoEstado.copy(alpha = 0.35f))) {
+                Text(dose.dosage?.takeIf { it.isNotBlank() } ?: "Dose não informada", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // Anotada: o que foi feito e quando, com "Desfazer" ao lado, numa linha só embaixo.
+            if (dose.feita && !ocupada) {
+                // Numa linha quando cabe; em telas estreitas (texto grande, 360 dp) o "Desfazer" desce para a linha de
+                // baixo, sem quebrar "Tomei às 08:47" no meio.
+                Box(Modifier.fillMaxWidth()) {
+                    val situacao: @Composable () -> Unit = {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = 40.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }) {
+                            Icon(if (tomada) Icons.Rounded.Check else Icons.Rounded.SkipNext, contentDescription = null, tint = corDoEstado, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(
-                                texto,
-                                style = MaterialTheme.typography.labelMedium,
+                                if (tomada) (if (deOutraPessoa) "Tomou" else "Tomei") + (tomadaAs?.let { " às $it" } ?: "") else (if (deOutraPessoa) "Pulou" else "Pulei"),
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold,
+                                color = corDoEstado,
                                 maxLines = 1,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp).semantics { stateDescription = texto; liveRegion = LiveRegionMode.Polite },
+                                softWrap = false,
                             )
+                        }
+                    }
+                    val desfazer: @Composable () -> Unit = {
+                        TextButton(onClick = { aoDesfazer(dose) }, modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                            Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Desfazer", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
+                        }
+                    }
+                    // Largura do cartão pela tela (a linha do tempo mede a altura por intrínsecos, que não aceitam
+                    // BoxWithConstraints/FlowRow): tela menos margens, horário e trilho. "Tomei às 08:47" + "Desfazer"
+                    // pedem ~270 dp com a fonte padrão e crescem com a fonte do sistema.
+                    val largura = minOf(LocalConfiguration.current.screenWidthDp, 640) - 32 - 78 - 30
+                    val cabeEmUmaLinha = largura >= 270 * LocalDensity.current.fontScale
+                    if (!podeMarcar) {
+                        situacao()
+                    } else if (cabeEmUmaLinha) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                            situacao()
+                            Box(Modifier.offset(x = 8.dp)) { desfazer() }
+                        }
+                    } else {
+                        Column {
+                            situacao()
+                            Box(Modifier.offset(x = (-8).dp)) { desfazer() }
                         }
                     }
                 }
             }
             dose.ajustadaDe?.let { Text("Ajustado: contado a partir das $it, quando você tomou a anterior", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            if (podeMarcar) AnimatedContent(dose.feita, transitionSpec = { fadeIn(tween(300, delayMillis = 250)) togetherWith fadeOut(tween(150)) }, label = "acoes") { feita ->
-                if (feita) {
-                    TextButton(onClick = { aoDesfazer(dose) }, enabled = !ocupada, modifier = Modifier.heightIn(min = 48.dp)) {
-                        Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Desfazer", style = MaterialTheme.typography.labelLarge)
-                    }
-                } else {
+            AnimatedVisibility(podeMarcar && !dose.feita, enter = fadeIn(tween(300, delayMillis = 250)) + expandVertically(), exit = fadeOut(tween(150)) + shrinkVertically()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         androidx.compose.material3.Button(
                             onClick = {
@@ -545,11 +629,12 @@ private fun LinhaDaDose(
                                 caixa?.takeIf { it.isAttached && botao.isAttached }?.let { origem = it.localPositionOf(botao, Offset(botao.size.width / 2f, botao.size.height / 2f)) }
                             },
                             shape = MaterialTheme.shapes.medium,
+                            contentPadding = PaddingValues(horizontal = 12.dp),
                             colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = extras.sucesso, contentColor = MaterialTheme.colorScheme.surface),
                         ) {
                             Icon(Icons.Rounded.Check, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (deOutraPessoa) "Tomou" else "Tomei", style = MaterialTheme.typography.labelLarge)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (deOutraPessoa) "Tomou" else "Tomei", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false)
                         }
                         androidx.compose.material3.OutlinedButton(
                             onClick = { aoPular(dose) },
@@ -559,7 +644,6 @@ private fun LinhaDaDose(
                             contentPadding = PaddingValues(horizontal = 6.dp),
                         ) { Text("Pular", style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false) }
                     }
-                }
             }
         }
         }
@@ -587,15 +671,68 @@ private fun LinhaDaDose(
     }
 }
 
+/**
+ * "Só quando precisar": sem horário programado, cada remédio tem "Tomei agora" (o servidor anota o instante) e a lista das
+ * vezes do dia, cada uma com "Desfazer". Assim a pessoa registra a dor de cabeça das 15h sem inventar um horário.
+ */
 @Composable
-private fun SeNecessario(remedios: List<RemedioSeNecessario>, modifier: Modifier = Modifier) {
-    Cartao(modifier) {
-        Text("Quando precisar", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.semantics { heading() })
+private fun SeNecessario(
+    remedios: List<RemedioSeNecessario>,
+    enviando: Set<String>,
+    aoTomar: ((RemedioSeNecessario) -> Unit)?,
+    aoDesfazer: ((RemedioSeNecessario, VezQueTomou) -> Unit)?,
+    deOutraPessoa: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val extras = TemaBulai.extras
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Medication, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+            Spacer(Modifier.width(8.dp))
+            Text("Só quando precisar", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.semantics { heading() })
+        }
         remedios.forEach { remedio ->
-            Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
-                Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                    Text(remedio.name, style = MaterialTheme.typography.titleSmall)
-                    remedio.dosage?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            val ocupado = "sos-${remedio.remedioId}" in enviando
+            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.animateContentSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column {
+                        Text(nomeAmigavel(remedio.name), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Text(remedio.dosage?.takeIf { it.isNotBlank() } ?: "Sem horário fixo", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    remedio.tomadasHoje.forEach { vez ->
+                        Row(
+                            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(extras.sucessoFundo).padding(start = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.Check, contentDescription = null, tint = extras.sucesso, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text((if (deOutraPessoa) "Tomou às " else "Tomei às ") + vez.time, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f).padding(vertical = 12.dp))
+                            if (aoDesfazer != null) {
+                                TextButton(onClick = { aoDesfazer(remedio, vez) }, modifier = Modifier.heightIn(min = 48.dp)) {
+                                    Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = null, modifier = Modifier.size(20.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Desfazer", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                    }
+                    if (aoTomar != null) {
+                        androidx.compose.material3.Button(
+                            onClick = { aoTomar(remedio) },
+                            enabled = !ocupado,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = extras.sucesso, contentColor = MaterialTheme.colorScheme.surface),
+                        ) {
+                            if (ocupado) {
+                                CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 3.dp, color = MaterialTheme.colorScheme.surface)
+                            } else {
+                                Icon(Icons.Rounded.Check, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (deOutraPessoa) "Tomou agora" else "Tomei agora", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
                 }
             }
         }
