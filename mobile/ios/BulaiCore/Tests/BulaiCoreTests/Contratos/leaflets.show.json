@@ -1,0 +1,55 @@
+{
+ "leaflet": {
+  "medicine": {
+   "id": 29,
+   "name": "OMEPRAZOL",
+   "ingredient": "OMEPRAZOLSUB",
+   "holder": "Gulgowski Inc"
+  },
+  "state": "pronto",
+  "failure": null,
+  "cover": {
+   "key": "para_que_serve",
+   "label": "Para que serve",
+   "tone": "brand",
+   "claims": [
+    "Indicado para o tratamento de úlcera gástrica e refluxo gastroesofágico."
+   ],
+   "sources": [
+    "OMEPRAZOL — Bula · INDICAÇÕES · p. 1"
+   ]
+  },
+  "sections": [],
+  "missing": [
+   "Como usar",
+   "Benefícios esperados (prós)",
+   "Riscos e cuidados (contras)",
+   "Efeitos colaterais mais comuns",
+   "Não use se",
+   "Interações com outros remédios, álcool e alimentos",
+   "Procure ajuda se"
+  ],
+  "prepared": "Baseado na bula oficial, conferido automaticamente. Preparado em 18/11/2026 a partir de 1 bula(s) (do paciente).",
+  "risk": {
+   "text": "Atenção: você registrou alergia a Omeprazolsub, e OMEPRAZOL tem relação com ela. Fale com seu médico antes de usar.",
+   "tone": "danger"
+  },
+  "treatment": {
+   "medicine": "OMEPRAZOL",
+   "consented": true,
+   "in_use": false,
+   "posology": null,
+   "medications_count": 0,
+   "highest_severity": null,
+   "allergy_alerts": [
+    {
+     "allergy": "Omeprazolsub",
+     "ingredient": "omeprazolsub",
+     "via": "ingrediente"
+    }
+   ],
+   "interactions": [],
+   "unresolved": []
+  }
+ }
+}

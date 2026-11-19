@@ -1,0 +1,65 @@
+{
+ "caring_for": {
+  "link_id": 1,
+  "first_name": "Dr."
+ },
+ "can_edit": false,
+ "posology_presets": {
+  "frequencies": [
+   "1 vez ao dia",
+   "2 vezes ao dia",
+   "3 vezes ao dia",
+   "De 8 em 8 horas",
+   "De 12 em 12 horas",
+   "Só se precisar"
+  ],
+  "doses": [
+   "1 comprimido",
+   "2 comprimidos",
+   "½ comprimido",
+   "1 cápsula",
+   "10 gotas",
+   "5 ml"
+  ]
+ },
+ "intro": "Você vê os remédios de Dr.. Para mudar dose e horários, Dr. precisa liberar a permissão.",
+ "medications": [
+  {
+   "id": 24,
+   "name": "Losartana",
+   "medicine_id": null,
+   "in_catalog": false,
+   "active_ingredient": null,
+   "dosage": null,
+   "when": "08:00",
+   "schedule": {
+    "chips": [
+     "08:00"
+    ],
+    "note": null,
+    "missing": false
+   },
+   "frequency": null,
+   "started_label": null,
+   "ends_label": null,
+   "prescriber": null,
+   "notes": null,
+   "reminders_enabled": true,
+   "posology": {
+    "dosage": "",
+    "frequency": "",
+    "started_at": null,
+    "ends_at": null,
+    "prescription_id": null,
+    "notes": "",
+    "times": [
+     "08:00"
+    ],
+    "as_needed": false,
+    "reminders_enabled": true,
+    "interval_hours": null,
+    "schedule_mode": "fixed"
+   }
+  }
+ ]
+}

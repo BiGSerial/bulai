@@ -1,0 +1,44 @@
+{
+ "uuid": "86632270-f7a0-429b-bcff-db368860195e",
+ "status": "COMPLETED",
+ "running": false,
+ "waiting": false,
+ "failed": false,
+ "failure": null,
+ "medicines": [
+  "ALFA",
+  "BETA"
+ ],
+ "total": 1,
+ "done": 1,
+ "allergy_alerts": [
+  {
+   "medicine": "ALFA",
+   "text": "Você registrou alergia a Dipirona; este remédio contém dipirona. Fale com seu médico ou farmacêutico antes de usar."
+  }
+ ],
+ "pairs": [
+  {
+   "level": "major",
+   "tone": "danger",
+   "phrase": "Pode ter interação forte. Fale com seu médico antes de usar os dois.",
+   "id": 2,
+   "label_a": "ALFA",
+   "label_b": "BETA",
+   "badge": "Gravidade: Maior",
+   "explanation": "A bula de Alfa informa que o uso com Beta aumenta o risco de sangramento.",
+   "evidences": [
+    {
+     "title": "Alfa — Bula",
+     "section": "INTERAÇÕES MEDICAMENTOSAS",
+     "page": 4,
+     "excerpt": null
+    }
+   ],
+   "limitations": [
+    "A gravidade segue a classificação da base DDInter; não é uma avaliação clínica individual."
+   ],
+   "sources": "DDInter"
+  }
+ ]
+}

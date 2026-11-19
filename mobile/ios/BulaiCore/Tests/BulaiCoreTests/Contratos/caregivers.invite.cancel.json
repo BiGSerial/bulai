@@ -1,0 +1,22 @@
+{
+ "health_consent": true,
+ "invite": null,
+ "invite_expired": false,
+ "pending": [],
+ "active": [],
+ "ended": [],
+ "permission_labels": [
+  {
+   "key": "can_receive_alerts",
+   "label": "Receber aviso quando eu atrasar um remédio"
+  },
+  {
+   "key": "can_view_medications",
+   "label": "Ver meus remédios e horários"
+  },
+  {
+   "key": "can_manage_medications",
+   "label": "Marcar doses e mudar dose e horários dos meus remédios"
+  }
+ ]
+}

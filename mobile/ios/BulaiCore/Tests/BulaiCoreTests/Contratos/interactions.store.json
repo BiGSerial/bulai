@@ -1,0 +1,37 @@
+{
+ "uuid": "86632270-f7a0-429b-bcff-db368860195e",
+ "status": "PENDING",
+ "running": true,
+ "waiting": true,
+ "failed": false,
+ "failure": null,
+ "medicines": [
+  "ALFA",
+  "BETA"
+ ],
+ "total": 1,
+ "done": 1,
+ "allergy_alerts": [
+  {
+   "medicine": "ALFA",
+   "text": "Você registrou alergia a Dipirona; este remédio contém dipirona. Fale com seu médico ou farmacêutico antes de usar."
+  }
+ ],
+ "pairs": [
+  {
+   "level": "inconclusive",
+   "tone": "neutral",
+   "phrase": "Não foi possível concluir se há interação. Na dúvida, fale com seu médico.",
+   "id": 1,
+   "label_a": "ALFA",
+   "label_b": "BETA",
+   "badge": "Evidência insuficiente",
+   "explanation": null,
+   "evidences": [],
+   "limitations": [
+    "DIPIRONA e SUBSTANCIA X não constam da base de interações (DDInter); não foi possível verificar a interação. Isso não indica que ela não exista."
+   ],
+   "sources": null
+  }
+ ]
+}

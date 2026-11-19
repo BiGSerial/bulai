@@ -1,0 +1,115 @@
+{
+ "message": "Alergia registrada. O BULA-IA vai avisar quando um remédio tiver essa substância.",
+ "health_consent": true,
+ "posology_presets": {
+  "frequencies": [
+   "1 vez ao dia",
+   "2 vezes ao dia",
+   "3 vezes ao dia",
+   "De 8 em 8 horas",
+   "De 12 em 12 horas",
+   "Só se precisar"
+  ],
+  "doses": [
+   "1 comprimido",
+   "2 comprimidos",
+   "½ comprimido",
+   "1 cápsula",
+   "10 gotas",
+   "5 ml"
+  ]
+ },
+ "medications": [
+  {
+   "id": 21,
+   "name": "LOSARTANA",
+   "medicine_id": 5,
+   "in_catalog": true,
+   "active_ingredient": "LOSARTANA",
+   "dosage": "1 comprimido",
+   "when": "08:00 · 20:00",
+   "schedule": {
+    "chips": [
+     "08:00",
+     "20:00"
+    ],
+    "note": null,
+    "missing": false
+   },
+   "frequency": "2x ao dia",
+   "started_label": null,
+   "ends_label": null,
+   "prescriber": null,
+   "notes": null,
+   "reminders_enabled": true,
+   "posology": {
+    "dosage": "1 comprimido",
+    "frequency": "2x ao dia",
+    "started_at": null,
+    "ends_at": null,
+    "prescription_id": null,
+    "notes": "",
+    "times": [
+     "08:00",
+     "20:00"
+    ],
+    "as_needed": false,
+    "reminders_enabled": true,
+    "interval_hours": null,
+    "schedule_mode": "fixed"
+   }
+  },
+  {
+   "id": 22,
+   "name": "Chá caseiro",
+   "medicine_id": null,
+   "in_catalog": false,
+   "active_ingredient": null,
+   "dosage": null,
+   "when": "Sem horário definido",
+   "schedule": {
+    "chips": [],
+    "note": "Sem horário definido",
+    "missing": true
+   },
+   "frequency": null,
+   "started_label": "18/11/2026",
+   "ends_label": null,
+   "prescriber": null,
+   "notes": null,
+   "reminders_enabled": true,
+   "posology": {
+    "dosage": "",
+    "frequency": "",
+    "started_at": "2026-11-18",
+    "ends_at": null,
+    "prescription_id": null,
+    "notes": "",
+    "times": [],
+    "as_needed": false,
+    "reminders_enabled": true,
+    "interval_hours": null,
+    "schedule_mode": "fixed"
+   }
+  }
+ ],
+ "ended": [],
+ "allergies": [
+  {
+   "id": 2,
+   "substance": "Dipirona",
+   "reaction": "urticária"
+  }
+ ],
+ "prescriptions": [
+  {
+   "id": 3,
+   "prescriber": "Dra. Ana",
+   "registration": null,
+   "issued_at": "2026-11-01",
+   "issued_label": "01/11/2026",
+   "notes": null,
+   "medications": []
+  }
+ ]
+}

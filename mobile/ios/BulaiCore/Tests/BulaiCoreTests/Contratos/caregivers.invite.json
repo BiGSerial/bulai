@@ -1,0 +1,26 @@
+{
+ "health_consent": true,
+ "invite": {
+  "code": "8675 5494",
+  "url": "http://localhost:8000/cuidar?codigo=86755494",
+  "expires_at": "2026-11-07T07:30:00-03:00"
+ },
+ "invite_expired": false,
+ "pending": [],
+ "active": [],
+ "ended": [],
+ "permission_labels": [
+  {
+   "key": "can_receive_alerts",
+   "label": "Receber aviso quando eu atrasar um remédio"
+  },
+  {
+   "key": "can_view_medications",
+   "label": "Ver meus remédios e horários"
+  },
+  {
+   "key": "can_manage_medications",
+   "label": "Marcar doses e mudar dose e horários dos meus remédios"
+  }
+ ]
+}

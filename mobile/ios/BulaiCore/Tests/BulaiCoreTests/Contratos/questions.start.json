@@ -1,0 +1,29 @@
+{
+ "examples": [
+  "Posso tomar ibuprofeno com losartana?",
+  "Omeprazol deve ser tomado em jejum?",
+  "Quais os efeitos colaterais mais comuns da sinvastatina?"
+ ],
+ "in_use": [
+  "OMEPRAZOL"
+ ],
+ "min_length": 5,
+ "max_length": 500,
+ "retention_days": 90,
+ "preview": {
+  "medicine_id": 1,
+  "medicine": "OMEPRAZOL",
+  "consented": true,
+  "in_use": true,
+  "posology": {
+   "dosage": null,
+   "frequency": null,
+   "prescriber": null
+  },
+  "medications_count": 1,
+  "highest_severity": null,
+  "allergy_alerts": [],
+  "interactions": [],
+  "unresolved": []
+ }
+}

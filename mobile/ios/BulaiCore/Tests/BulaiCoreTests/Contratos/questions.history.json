@@ -1,0 +1,13 @@
+{
+ "retention_days": 90,
+ "items": [
+  {
+   "uuid": "8197dd19-8f09-48e7-8e8c-123d3f53bc7d",
+   "question": "omeprazol em jejum?",
+   "medicines": "OMEPRAZOL",
+   "status": "answered",
+   "asked_at": "2026-11-18T21:56:15-03:00"
+  }
+ ],
+ "next_page": null
+}

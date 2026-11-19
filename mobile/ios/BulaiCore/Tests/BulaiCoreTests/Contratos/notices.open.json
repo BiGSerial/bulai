@@ -1,0 +1,6 @@
+{
+ "destination": {
+  "route": "consulta.perfil",
+  "params": {}
+ }
+}

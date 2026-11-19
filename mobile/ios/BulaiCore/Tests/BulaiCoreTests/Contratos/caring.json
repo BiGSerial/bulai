@@ -1,0 +1,20 @@
+{
+ "pending": [],
+ "active": [
+  {
+   "id": 2,
+   "name": "Maria Souza",
+   "first_name": "Maria",
+   "can_view": true,
+   "can_mark": false,
+   "health_consent": true,
+   "access_label": "Ver os remédios e horários",
+   "banner": "Você só acompanha: as doses são anotadas por Maria.",
+   "phrases": [
+    "Sem avisos de atraso",
+    "Você vê os remédios e horários",
+    "Sem marcar doses nem mudar horários"
+   ]
+  }
+ ]
+}

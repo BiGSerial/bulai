@@ -1,0 +1,14 @@
+{
+ "token": "bulai_app_TOKEN_DE_TESTE",
+ "user": {
+  "id": 2,
+  "name": "Wilhelmine Kuhlman",
+  "first_name": "Wilhelmine",
+  "preferred_name": null,
+  "email": "ojenkins@example.net",
+  "must_change_password": false,
+  "health_consent": true,
+  "timezone": "America/Sao_Paulo",
+  "is_admin": false
+ }
+}

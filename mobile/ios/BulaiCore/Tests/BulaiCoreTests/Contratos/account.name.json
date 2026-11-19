@@ -1,0 +1,13 @@
+{
+ "user": {
+  "id": 24,
+  "name": "Maria Aparecida da Silva",
+  "first_name": "Cida",
+  "preferred_name": "Cida",
+  "email": "alockman@example.com",
+  "must_change_password": false,
+  "health_consent": true,
+  "timezone": "America/Sao_Paulo",
+  "is_admin": false
+ }
+}

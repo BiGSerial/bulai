@@ -1,0 +1,20 @@
+# Xcode e SwiftPM
+.build/
+.swiftpm/
+DerivedData/
+build/
+dist/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+Package.resolved
+
+# Assinatura e configuração local (equipe, identificador): nunca no Git
+Config/Local.xcconfig
+*.mobileprovision
+*.p12
+*.cer
+*.certSigningRequest
+ExportOptions.local.plist
+*.ipa
+*.xcarchive

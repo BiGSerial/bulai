@@ -1,0 +1,29 @@
+{
+ "first_name": "Sheldon",
+ "date_label": "Quinta-feira, 5 de novembro",
+ "health_consent": true,
+ "has_medications": true,
+ "next_dose": {
+  "key": "10|2026-11-05T11:00:00+00:00",
+  "medication_id": 10,
+  "name": "Losartana",
+  "dosage": "1 comprimido",
+  "notes": null,
+  "time": "08:00",
+  "period": "manha",
+  "scheduled_for": "2026-11-05T08:00:00-03:00",
+  "status": "pending",
+  "dynamic": false,
+  "adjusted_from": null,
+  "taken_at": null,
+  "is_today": true,
+  "since": "2026-11-05T00:00:00-03:00"
+ },
+ "progress": {
+  "total": 3,
+  "taken": 0,
+  "done": 0
+ },
+ "unread_notices": 1,
+ "caring_for": []
+}

@@ -1,0 +1,37 @@
+{
+ "offset": 0,
+ "date": "2026-11-05",
+ "date_label": "Quinta-feira, 5 de novembro",
+ "health_consent": true,
+ "has_medications": true,
+ "has_dynamic": false,
+ "summary": {
+  "total": 1,
+  "done": 1,
+  "taken": 1,
+  "late": 0
+ },
+ "doses": [
+  {
+   "key": "25|2026-11-05T11:00:00+00:00",
+   "medication_id": 25,
+   "name": "Losartana",
+   "dosage": null,
+   "notes": null,
+   "time": "08:00",
+   "period": "manha",
+   "scheduled_for": "2026-11-05T08:00:00-03:00",
+   "status": "taken",
+   "dynamic": false,
+   "adjusted_from": null,
+   "taken_at": "2026-11-05T07:30:00-03:00"
+  }
+ ],
+ "as_needed": [],
+ "caring_for": {
+  "link_id": 2,
+  "first_name": "Maria",
+  "banner": "Você pode anotar as doses por Maria."
+ },
+ "can_mark": true
+}

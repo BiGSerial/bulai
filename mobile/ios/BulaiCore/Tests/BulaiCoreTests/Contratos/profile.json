@@ -1,0 +1,25 @@
+{
+ "health_consent": false,
+ "medications": [],
+ "ended": [],
+ "allergies": [],
+ "prescriptions": [],
+ "posology_presets": {
+  "frequencies": [
+   "1 vez ao dia",
+   "2 vezes ao dia",
+   "3 vezes ao dia",
+   "De 8 em 8 horas",
+   "De 12 em 12 horas",
+   "Só se precisar"
+  ],
+  "doses": [
+   "1 comprimido",
+   "2 comprimidos",
+   "½ comprimido",
+   "1 cápsula",
+   "10 gotas",
+   "5 ml"
+  ]
+ }
+}

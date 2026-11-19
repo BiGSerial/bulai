@@ -1,0 +1,60 @@
+{
+ "prescription": {
+  "id": 1,
+  "status": "REVIEW",
+  "reading": false,
+  "error_code": null,
+  "error_message": null,
+  "legibility": "good",
+  "ignored_text": false,
+  "header": {
+   "prescriber": "Dra. Ana Souza",
+   "registration": "CRM-SP 12345",
+   "date": "2026-11-01"
+  },
+  "items": [
+   {
+    "candidates": [
+     {
+      "id": 3,
+      "name": "AMOXIL",
+      "ingredients": "AMOXICILINA"
+     }
+    ],
+    "name_as_written": "Amoxil 500mg",
+    "medicine_id": 3,
+    "medicine_name": "AMOXIL",
+    "dosage": "1 cápsula",
+    "frequency": "de 8 em 8 horas",
+    "duration": "por 7 dias",
+    "notes": "",
+    "confidence": 0.9,
+    "skip": false,
+    "times": [
+     "06:00",
+     "14:00",
+     "22:00"
+    ],
+    "as_needed": false,
+    "interval_hours": 8,
+    "schedule_mode": "interval"
+   },
+   {
+    "candidates": [],
+    "name_as_written": "Xarope ilegível",
+    "medicine_id": null,
+    "medicine_name": null,
+    "dosage": "",
+    "frequency": "",
+    "duration": "",
+    "notes": "",
+    "confidence": 0.1,
+    "skip": false,
+    "times": [],
+    "as_needed": false,
+    "interval_hours": null,
+    "schedule_mode": "fixed"
+   }
+  ]
+ }
+}

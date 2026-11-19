@@ -1,0 +1,39 @@
+{
+ "answer": {
+  "uuid": "8197dd19-8f09-48e7-8e8c-123d3f53bc7d",
+  "question": "omeprazol em jejum?",
+  "status": "answered",
+  "tone": "neutral",
+  "urgency": null,
+  "paragraphs": [
+   [
+    {
+     "text": "Deve ser tomado em jejum.",
+     "bold": false
+    }
+   ]
+  ],
+  "alert": null,
+  "source": "Baseado na bula de OMEPRAZOL.",
+  "can_listen": true,
+  "crisis": false,
+  "help_groups": [],
+  "suggestions": [],
+  "quick_replies": [],
+  "other_medicines": [],
+  "guesses": [],
+  "my_medicines": [],
+  "corrections": [],
+  "medicines": [
+   {
+    "id": 1,
+    "name": "OMEPRAZOL",
+    "has_leaflet": true
+   }
+  ],
+  "sources": [],
+  "treatments": [],
+  "releases_fixed": true,
+  "asked_at": "2026-11-18T21:56:15-03:00"
+ }
+}

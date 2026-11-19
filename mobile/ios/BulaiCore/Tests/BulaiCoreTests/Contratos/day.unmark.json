@@ -1,0 +1,51 @@
+{
+ "offset": 0,
+ "date": "2026-11-05",
+ "date_label": "Quinta-feira, 5 de novembro",
+ "health_consent": true,
+ "has_medications": true,
+ "has_dynamic": false,
+ "summary": {
+  "total": 2,
+  "done": 0,
+  "taken": 0,
+  "late": 0
+ },
+ "doses": [
+  {
+   "key": "12|2026-11-05T11:00:00+00:00",
+   "medication_id": 12,
+   "name": "Losartana",
+   "dosage": "1 comprimido",
+   "notes": null,
+   "time": "08:00",
+   "period": "manha",
+   "scheduled_for": "2026-11-05T08:00:00-03:00",
+   "status": "pending",
+   "dynamic": false,
+   "adjusted_from": null,
+   "taken_at": null
+  },
+  {
+   "key": "12|2026-11-05T23:00:00+00:00",
+   "medication_id": 12,
+   "name": "Losartana",
+   "dosage": "1 comprimido",
+   "notes": null,
+   "time": "20:00",
+   "period": "noite",
+   "scheduled_for": "2026-11-05T20:00:00-03:00",
+   "status": "pending",
+   "dynamic": false,
+   "adjusted_from": null,
+   "taken_at": null
+  }
+ ],
+ "as_needed": [
+  {
+   "medication_id": 13,
+   "name": "Dipirona SOS",
+   "dosage": "1 comprimido"
+  }
+ ]
+}
