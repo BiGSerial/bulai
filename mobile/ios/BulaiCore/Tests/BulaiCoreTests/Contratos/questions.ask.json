@@ -1,0 +1,59 @@
+{
+ "answer": {
+  "uuid": "5783cdea-2901-497b-af6d-9cd579ecc7c7",
+  "question": "Não estou me sentindo bem",
+  "status": "support",
+  "tone": "neutral",
+  "urgency": null,
+  "paragraphs": [
+   [
+    {
+     "text": "Não consigo avaliar sintomas, mas posso indicar onde buscar atendimento. Se o mal-estar começou depois de algum remédio, me diga o nome dele.",
+     "bold": false
+    }
+   ]
+  ],
+  "alert": null,
+  "source": null,
+  "can_listen": false,
+  "crisis": false,
+  "help_groups": [
+   {
+    "title": "Sinais de alerta: ligue já",
+    "tone": "urgencia",
+    "lines": [
+     {
+      "tel": "192",
+      "number": "192",
+      "name": "SAMU",
+      "detail": "Emergência: perigo agora ou passando mal"
+     }
+    ],
+    "text": "Falta de ar, dor forte no peito, desmaio, confusão, fraqueza ou boca torta de um lado, sangramento forte ou inchaço no rosto ou na garganta: ligue para o SAMU ou vá ao pronto-socorro."
+   },
+   {
+    "title": "Sem sinais de alerta",
+    "tone": "acolhimento",
+    "lines": [
+     {
+      "tel": "136",
+      "number": "136",
+      "name": "Disque Saúde",
+      "detail": "Dúvidas de saúde e onde ser atendido, de graça"
+     }
+    ],
+    "text": "Procure a Unidade Básica de Saúde (o posto de saúde). O Disque Saúde tira dúvidas e informa onde ser atendido."
+   }
+  ],
+  "suggestions": [],
+  "quick_replies": [],
+  "other_medicines": [],
+  "guesses": [],
+  "my_medicines": [],
+  "corrections": [],
+  "medicines": [],
+  "sources": [],
+  "treatments": [],
+  "releases_fixed": false
+ }
+}

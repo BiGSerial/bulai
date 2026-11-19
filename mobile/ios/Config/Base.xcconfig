@@ -1,0 +1,29 @@
+// BULA-IA iOS: configuração comum, sem segredo nenhum. Ajustes da sua máquina (equipe de assinatura, identificador,
+// servidor de desenvolvimento) vão em Config/Local.xcconfig, que fica fora do Git (veja Local.xcconfig.example).
+
+// Identificador do app (o widget usa "<identificador>.widget"). Precisa ser único na sua conta Apple.
+BULAI_BUNDLE_ID = br.com.vixforge.bulai
+
+// Servidor Laravel (a mesma API /api/mobile/v1 do Android). "//" começa comentário em xcconfig: daí o "$()".
+BULAI_API_URL = https:/$()/bulai.vixforge.com.br
+
+// Versão mostrada na loja e número do build (suba o build a cada envio).
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 1
+
+// Equipe de assinatura: defina em Local.xcconfig (nunca aqui).
+DEVELOPMENT_TEAM =
+
+// Compartilhado com o widget: agenda (App Group) e token (grupo de Keychain).
+BULAI_APP_GROUP = group.$(BULAI_BUNDLE_ID)
+BULAI_KEYCHAIN_GROUP = $(AppIdentifierPrefix)$(BULAI_BUNDLE_ID).compartilhado
+
+// Conta Apple gratuita (Personal Team) sem App Groups: use os "-Simples" em Local.xcconfig.
+BULAI_ENTITLEMENTS_APP = Config/BulaIA.entitlements
+BULAI_ENTITLEMENTS_WIDGET = Config/Widget.entitlements
+
+IPHONEOS_DEPLOYMENT_TARGET = 17.0
+SWIFT_VERSION = 5.0
+CODE_SIGN_STYLE = Automatic
+
+#include? "Local.xcconfig"

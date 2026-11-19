@@ -1,0 +1,11 @@
+{
+ "schedule": {
+  "times": [
+   "08:00",
+   "20:00"
+  ],
+  "as_needed": false,
+  "interval_hours": null,
+  "schedule_mode": "fixed"
+ }
+}

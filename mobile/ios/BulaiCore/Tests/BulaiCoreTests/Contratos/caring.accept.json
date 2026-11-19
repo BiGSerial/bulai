@@ -1,0 +1,11 @@
+{
+ "message": "Pronto! Agora falta Prof. aprovar. Avisamos no aplicativo de quem convidou.",
+ "pending": [
+  {
+   "id": 4,
+   "name": "Prof. Alverta Ortiz",
+   "first_name": "Prof."
+  }
+ ],
+ "active": []
+}

@@ -1,0 +1,19 @@
+// Copie para Config/Local.xcconfig (fora do Git) e ajuste. Nada daqui vai para o repositório.
+
+// Sua equipe (Xcode › Settings › Accounts › Team ID). Conta gratuita também serve.
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Identificador único na sua conta (com conta gratuita, troque o prefixo).
+BULAI_BUNDLE_ID = br.com.seunome.bulai
+
+// Servidor de desenvolvimento. Simulador: localhost. iPhone na mesma rede: o nome .local do Mac
+// (Ajustes do Sistema › Geral › Compartilhamento), ex.: http:/$()/meu-mac.local:8000
+// BULAI_API_URL = http:/$()/localhost:8000
+
+// Conta Apple gratuita sem App Groups/Keychain compartilhado: o app funciona igual; o widget mostra
+// "Abra o BULA-IA" e o "Tomei" do widget fica para o app enviar.
+// BULAI_ENTITLEMENTS_APP = Config/BulaIA-Simples.entitlements
+// BULAI_ENTITLEMENTS_WIDGET = Config/Widget-Simples.entitlements
+
+// Versão/build locais (para gerar um IPA de teste com outro número).
+// CURRENT_PROJECT_VERSION = 2

@@ -1,0 +1,13 @@
+{
+ "user": {
+  "id": 25,
+  "name": "Cassie Hickle",
+  "first_name": "Cassie",
+  "preferred_name": null,
+  "email": "runolfsdottir.johnson@example.net",
+  "must_change_password": false,
+  "health_consent": true,
+  "timezone": "America/Sao_Paulo",
+  "is_admin": false
+ }
+}

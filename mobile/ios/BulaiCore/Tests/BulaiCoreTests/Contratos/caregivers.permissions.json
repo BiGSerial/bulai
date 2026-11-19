@@ -1,0 +1,35 @@
+{
+ "health_consent": true,
+ "invite": null,
+ "invite_expired": false,
+ "pending": [],
+ "active": [
+  {
+   "id": 2,
+   "name": "Prof. Noble Gusikowski",
+   "first_name": "Prof.",
+   "email": "fschmitt@example.com",
+   "permissions": {
+    "can_receive_alerts": false,
+    "can_view_medications": true,
+    "can_manage_medications": true
+   },
+   "since": "2026-11-05T07:30:00-03:00"
+  }
+ ],
+ "ended": [],
+ "permission_labels": [
+  {
+   "key": "can_receive_alerts",
+   "label": "Receber aviso quando eu atrasar um remédio"
+  },
+  {
+   "key": "can_view_medications",
+   "label": "Ver meus remédios e horários"
+  },
+  {
+   "key": "can_manage_medications",
+   "label": "Marcar doses e mudar dose e horários dos meus remédios"
+  }
+ ]
+}

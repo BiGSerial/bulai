@@ -1,0 +1,26 @@
+{
+ "mine": [
+  {
+   "id": 6,
+   "name": "ALFA",
+   "ingredients": "DIPIRONA",
+   "identified": true,
+   "alerts": [
+    "Você registrou alergia a Dipirona (contém dipirona)"
+   ]
+  }
+ ],
+ "max": 6,
+ "history": [
+  {
+   "uuid": "86632270-f7a0-429b-bcff-db368860195e",
+   "status": "COMPLETED",
+   "medicines": [
+    "ALFA",
+    "BETA"
+   ],
+   "pair_count": 1,
+   "created_at": "2026-11-18T21:56:16-03:00"
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+{
+ "items": [
+  {
+   "id": 4,
+   "name": "LOSARTANA POTASSICA",
+   "ingredients": "LOSARTANA",
+   "holder": "Feest, Stamm and Huels",
+   "identified": true,
+   "inactive": false,
+   "fuzzy": false,
+   "matched": null
+  }
+ ]
+}

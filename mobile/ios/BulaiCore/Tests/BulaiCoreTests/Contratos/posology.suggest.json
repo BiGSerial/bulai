@@ -1,0 +1,19 @@
+{
+ "posology": {
+  "as_needed": false,
+  "times": [
+   "06:00",
+   "14:00",
+   "22:00"
+  ],
+  "interval_hours": null,
+  "schedule_mode": "fixed",
+  "frequency": "3 vezes ao dia",
+  "dosage": "",
+  "started_at": null,
+  "ends_at": null,
+  "prescription_id": null,
+  "notes": "",
+  "reminders_enabled": true
+ }
+}

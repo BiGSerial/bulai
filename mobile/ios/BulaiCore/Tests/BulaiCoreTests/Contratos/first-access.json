@@ -1,0 +1,13 @@
+{
+ "user": {
+  "id": 6,
+  "name": "Dr. Berenice Waelchi II",
+  "first_name": "Dr.",
+  "preferred_name": null,
+  "email": "collins.delfina@example.net",
+  "must_change_password": false,
+  "health_consent": false,
+  "timezone": "America/Sao_Paulo",
+  "is_admin": false
+ }
+}

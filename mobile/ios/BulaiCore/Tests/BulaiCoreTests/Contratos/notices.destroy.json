@@ -1,0 +1,68 @@
+{
+ "unread": 0,
+ "health_consent": true,
+ "preferences": {
+  "reminders": true,
+  "email": false,
+  "timezone": "America/Sao_Paulo"
+ },
+ "timezones": [
+  {
+   "id": "America/Sao_Paulo",
+   "label": "Brasília (São Paulo, Rio, Minas, Sul)"
+  },
+  {
+   "id": "America/Manaus",
+   "label": "Manaus (Amazonas, Roraima, Rondônia)"
+  },
+  {
+   "id": "America/Belem",
+   "label": "Belém (Pará, Amapá)"
+  },
+  {
+   "id": "America/Fortaleza",
+   "label": "Fortaleza (Ceará, Maranhão, Piauí)"
+  },
+  {
+   "id": "America/Recife",
+   "label": "Recife (Pernambuco, Paraíba)"
+  },
+  {
+   "id": "America/Bahia",
+   "label": "Salvador (Bahia, Sergipe, Alagoas)"
+  },
+  {
+   "id": "America/Cuiaba",
+   "label": "Cuiabá (Mato Grosso)"
+  },
+  {
+   "id": "America/Campo_Grande",
+   "label": "Campo Grande (Mato Grosso do Sul)"
+  },
+  {
+   "id": "America/Rio_Branco",
+   "label": "Rio Branco (Acre)"
+  },
+  {
+   "id": "America/Noronha",
+   "label": "Fernando de Noronha"
+  }
+ ],
+ "notices": [
+  {
+   "id": "83614237-2f4a-45aa-8ea8-3eaaa16c121a",
+   "kind": "dose",
+   "title": "Hora do remédio: Losartana",
+   "body": "Às 08:00, 1 comprimido. Depois de tomar, marque \"Tomei\" em Remédios de hoje.",
+   "url": "/hoje",
+   "destination": {
+    "route": "consulta.hoje",
+    "params": {}
+   },
+   "created_at": "2026-11-05T07:30:00-03:00",
+   "read": true,
+   "when": "Hoje, 07:30",
+   "action": "Ver remédios de hoje"
+  }
+ ]
+}

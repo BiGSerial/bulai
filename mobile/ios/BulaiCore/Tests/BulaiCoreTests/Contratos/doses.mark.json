@@ -1,0 +1,55 @@
+{
+ "generated_at": "2026-11-05T07:30:00-03:00",
+ "timezone": "America/Sao_Paulo",
+ "reminders_enabled": true,
+ "reminders_blocked_reason": null,
+ "lead_minutes": 10,
+ "late_after_minutes": 60,
+ "unread_notices": 0,
+ "doses": [
+  {
+   "key": "6|2026-11-05T11:00:00+00:00",
+   "medication_id": 6,
+   "name": "Losartana",
+   "dosage": "1 comprimido",
+   "time": "08:00",
+   "scheduled_for": "2026-11-05T08:00:00-03:00",
+   "status": "skipped",
+   "dynamic": false,
+   "remind": true
+  },
+  {
+   "key": "6|2026-11-05T23:00:00+00:00",
+   "medication_id": 6,
+   "name": "Losartana",
+   "dosage": "1 comprimido",
+   "time": "20:00",
+   "scheduled_for": "2026-11-05T20:00:00-03:00",
+   "status": "pending",
+   "dynamic": false,
+   "remind": true
+  },
+  {
+   "key": "6|2026-11-06T11:00:00+00:00",
+   "medication_id": 6,
+   "name": "Losartana",
+   "dosage": "1 comprimido",
+   "time": "08:00",
+   "scheduled_for": "2026-11-06T08:00:00-03:00",
+   "status": "pending",
+   "dynamic": false,
+   "remind": true
+  },
+  {
+   "key": "6|2026-11-06T23:00:00+00:00",
+   "medication_id": 6,
+   "name": "Losartana",
+   "dosage": "1 comprimido",
+   "time": "20:00",
+   "scheduled_for": "2026-11-06T20:00:00-03:00",
+   "status": "pending",
+   "dynamic": false,
+   "remind": true
+  }
+ ]
+}

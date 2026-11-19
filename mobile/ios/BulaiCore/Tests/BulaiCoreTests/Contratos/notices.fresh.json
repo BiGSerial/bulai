@@ -1,0 +1,29 @@
+{
+ "checked_at": "2026-11-05T07:30:00-03:00",
+ "notices": [
+  {
+   "id": "d4804ad6-bb8c-4a3c-a9bf-c73c9b9d47aa",
+   "kind": "dose",
+   "title": "Hora do remédio: Losartana",
+   "body": "Às 08:00, 1 comprimido. Depois de tomar, marque \"Tomei\" em Remédios de hoje.",
+   "url": "/hoje",
+   "destination": {
+    "route": "consulta.hoje",
+    "params": {}
+   },
+   "created_at": "2026-11-05T07:30:00-03:00"
+  },
+  {
+   "id": "93d48fcb-0d10-45f5-bbef-179eba90f76c",
+   "kind": "medicine_resolved",
+   "title": "Seu remédio foi reconhecido",
+   "body": "Losartana agora está ligado à bula oficial de Losartana. Você já pode ver a bula simples e as interações.",
+   "url": "/perfil",
+   "destination": {
+    "route": "consulta.perfil",
+    "params": {}
+   },
+   "created_at": "2026-11-05T07:30:00-03:00"
+  }
+ ]
+}

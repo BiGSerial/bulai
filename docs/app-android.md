@@ -6,6 +6,8 @@ O BULA-IA instalado no celular como **aplicativo nativo**: telas em Kotlin + Jet
 
 Não há WebView: as regras de negócio continuam no Laravel (os mesmos services que as telas Livewire usam) e o app só desenha o JSON.
 
+O app iOS nativo usa a mesma API e as mesmas regras: [`app-ios.md`](app-ios.md).
+
 ## Etapas
 
 | Etapa | Conteúdo | Situação |
@@ -53,7 +55,7 @@ Respostas em JSON com `Cache-Control: no-store`; erros no formato do Laravel (`m
 
 | Método e caminho | Uso | Observação |
 | --- | --- | --- |
-| `POST /entrar` | `{email, password, installation_id, device_name?, app_version?}` → `{token, user}` | throttle `mobile-login` (5/min e 20/15 min por e-mail + IP, resposta 429 em JSON). Mesmas mensagens do site: a de cadastro pendente/recusado/desativado só aparece para quem acertou a senha. Entrar de novo na mesma instalação troca o token |
+| `POST /entrar` | `{email, password, installation_id, platform?, device_name?, app_version?}` → `{token, user}` (`platform`: `android` ou `ios`; sem o campo vale `android`) | throttle `mobile-login` (5/min e 20/15 min por e-mail + IP, resposta 429 em JSON). Mesmas mensagens do site: a de cadastro pendente/recusado/desativado só aparece para quem acertou a senha. Entrar de novo na mesma instalação troca o token |
 | `POST /cadastro` | `{name, email, password, password_confirmation, terms}` → 201 `{message}` | throttle `mobile-register`; conta nasce aguardando aprovação, sem token |
 | `POST /esqueci-senha` | `{email}` → `{message}` | throttle `mobile-password-reset`; mesma resposta exista ou não o e-mail |
 | `GET /eu` | `{user}` | também com senha provisória pendente |
@@ -104,7 +106,7 @@ Respostas em JSON com `Cache-Control: no-store`; erros no formato do Laravel (`m
 | `DELETE /conta` | `{password}` → `{message}` | apagar a conta (LGPD): `UserAccountService::deleteOwnAccount` apaga remédios, doses, receitas, alergias, perfil, perguntas, consultas, avisos, cuidadores, aparelhos, sessões e push; anonimiza nome, e-mail, senha e IP e desativa o cadastro; a trilha guarda `account_deleted` com as contagens. O e-mail fica livre para novo cadastro. Administrador → 403 `admin_account` |
 | `GET /agenda`, `POST /doses` | agenda dos alarmes e marcação pela notificação/despertador/widget (`recorded_at` = hora real do toque, janela de 48 h) | `DeviceAgendaService` |
 
-Autenticação: `App\Http\Middleware\AuthenticateMobileDevice` (Bearer; conta desativada ou não aprovada → 401; senha provisória → 403 fora das rotas `:primeiro-acesso`). Limite geral `mobile-api`: 120/min por aparelho e 300/min por IP. Auditoria: `mobile_device_connected` / `mobile_device_disconnected`. `UserAccountService::revokeAccess()` apaga os aparelhos (encerrar sessões, desativação, redefinição de senha); na troca de senha feita pelo app, o aparelho que trocou continua (`$currentMobileDeviceId`).
+Autenticação: `App\Http\Middleware\AuthenticateMobileDevice` (Bearer; conta desativada ou não aprovada → 401; senha provisória → 403 fora das rotas `:primeiro-acesso`). Limite geral `mobile-api`: 120/min por aparelho e 300/min por IP. Auditoria: `mobile_device_connected` / `mobile_device_disconnected` (com a plataforma do aparelho). `UserAccountService::revokeAccess()` apaga os aparelhos (encerrar sessões, desativação, redefinição de senha); na troca de senha feita pelo app, o aparelho que trocou continua (`$currentMobileDeviceId`).
 
 Mudanças de apoio no backend: `TreatmentScheduleService::annotateAdjustments()` (antes `Hoje::anotarAjustes`, que agora delega) e `PatientProfile::TIMEZONES` (antes só em `Avisos`).
 
