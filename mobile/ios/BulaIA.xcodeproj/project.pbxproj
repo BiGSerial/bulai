@@ -1,0 +1,422 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		5DEA383921CCA224E3E473AD /* BulaiCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3E2543D862927FC2506A47EE /* BulaiCore */; };
+		4606E123F9A0BFA5E3C6DCFF /* BulaiCore in Frameworks */ = {isa = PBXBuildFile; productRef = 20BF402D3A9A8C7868F7AEF8 /* BulaiCore */; };
+		E1769B2970D2154E89A3A02E /* BulaiWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 71FD602CE21367EF59B1E668 /* BulaiWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B619E95408E65E42F494173D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3D27946326DBFF560F15FE8E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2956D9DCBDBBC96FDF6FF94F;
+			remoteInfo = BulaiWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		72D5EFF34A9C73142ED902F7 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E1769B2970D2154E89A3A02E /* BulaiWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		6030B733E6047065E3AD4025 /* BulaIA.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BulaIA.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		71FD602CE21367EF59B1E668 /* BulaiWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BulaiWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		6FD90DCFB3588A73B7E1A77B /* BulaiCore */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = BulaiCore; sourceTree = "<group>"; };
+		A495D5555695634C7EB436A9 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		0240001CA4C40F470C4826E9 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		36AFB4DE369996F90E4340E0 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		08E41ACF2DCB5BE76E1007C3 /* Local.xcconfig.example */ = {isa = PBXFileReference; lastKnownFileType = text; path = Local.xcconfig.example; sourceTree = "<group>"; };
+		0D1A94D3492150CB85830C83 /* BulaIA-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = BulaIA-Info.plist; sourceTree = "<group>"; };
+		97EC54DAC6EC7878176EF6F3 /* Widget-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Widget-Info.plist; sourceTree = "<group>"; };
+		0D7FD90E5420DFB13DA8FF60 /* BulaIA.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BulaIA.entitlements; sourceTree = "<group>"; };
+		AA38AAD4D37E4777B9DEBD53 /* Widget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Widget.entitlements; sourceTree = "<group>"; };
+		9CD153EAE4D4258698D82AC2 /* BulaIA-Simples.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BulaIA-Simples.entitlements; sourceTree = "<group>"; };
+		37454A72B061D3E6AEC10EC9 /* Widget-Simples.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Widget-Simples.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		FD589B18A0D5AF4EEADC100F /* BulaIA */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = BulaIA;
+			sourceTree = "<group>";
+		};
+		43DBD2F0E71F6936790C6F8F /* Widget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Widget;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		C1EFC0239066F163B563C115 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5DEA383921CCA224E3E473AD /* BulaiCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4FB560C5AE345D4B12AD5872 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4606E123F9A0BFA5E3C6DCFF /* BulaiCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		47F9AD1EE507F50D994ADC1A = {
+			isa = PBXGroup;
+			children = (
+				FD589B18A0D5AF4EEADC100F /* BulaIA */,
+				43DBD2F0E71F6936790C6F8F /* Widget */,
+				6FD90DCFB3588A73B7E1A77B /* BulaiCore */,
+				0D2049AB076C4582EF84C6E7 /* Config */,
+				33B16EEF24C4A4DBC203EEDC /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		0D2049AB076C4582EF84C6E7 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				A495D5555695634C7EB436A9 /* Base.xcconfig */,
+				0240001CA4C40F470C4826E9 /* Debug.xcconfig */,
+				36AFB4DE369996F90E4340E0 /* Release.xcconfig */,
+				08E41ACF2DCB5BE76E1007C3 /* Local.xcconfig.example */,
+				0D1A94D3492150CB85830C83 /* BulaIA-Info.plist */,
+				97EC54DAC6EC7878176EF6F3 /* Widget-Info.plist */,
+				0D7FD90E5420DFB13DA8FF60 /* BulaIA.entitlements */,
+				AA38AAD4D37E4777B9DEBD53 /* Widget.entitlements */,
+				9CD153EAE4D4258698D82AC2 /* BulaIA-Simples.entitlements */,
+				37454A72B061D3E6AEC10EC9 /* Widget-Simples.entitlements */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+		33B16EEF24C4A4DBC203EEDC /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				6030B733E6047065E3AD4025 /* BulaIA.app */,
+				71FD602CE21367EF59B1E668 /* BulaiWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		DE9DA4511C043558C8EF7048 /* BulaIA */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D091C60FDA3071D60220D2B7 /* Build configuration list for PBXNativeTarget "BulaIA" */;
+			buildPhases = (
+				A1B90269725E29E357B3D1BB /* Sources */,
+				C1EFC0239066F163B563C115 /* Frameworks */,
+				8D8FB9961652226621C79AE1 /* Resources */,
+				72D5EFF34A9C73142ED902F7 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1BCB2E190B7D4B165F35C9C8 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FD589B18A0D5AF4EEADC100F /* BulaIA */,
+			);
+			name = BulaIA;
+			packageProductDependencies = (
+				3E2543D862927FC2506A47EE /* BulaiCore */,
+			);
+			productName = BulaIA;
+			productReference = 6030B733E6047065E3AD4025 /* BulaIA.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2956D9DCBDBBC96FDF6FF94F /* BulaiWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 982517FB8ED4D1E63726038F /* Build configuration list for PBXNativeTarget "BulaiWidget" */;
+			buildPhases = (
+				A105A63AF4AA7CA4C23E8D89 /* Sources */,
+				4FB560C5AE345D4B12AD5872 /* Frameworks */,
+				9151FAAAF1C29F9BA3BEE891 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				43DBD2F0E71F6936790C6F8F /* Widget */,
+			);
+			name = BulaiWidget;
+			packageProductDependencies = (
+				20BF402D3A9A8C7868F7AEF8 /* BulaiCore */,
+			);
+			productName = BulaiWidget;
+			productReference = 71FD602CE21367EF59B1E668 /* BulaiWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3D27946326DBFF560F15FE8E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					DE9DA4511C043558C8EF7048 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					2956D9DCBDBBC96FDF6FF94F = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 5787E862A9561CD0F9975160 /* Build configuration list for PBXProject "BulaIA" */;
+			developmentRegion = "pt-BR";
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				"pt-BR",
+			);
+			mainGroup = 47F9AD1EE507F50D994ADC1A;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5F4D300BA73A6E8D7AA2BD8A /* XCLocalSwiftPackageReference "BulaiCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 33B16EEF24C4A4DBC203EEDC /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				DE9DA4511C043558C8EF7048 /* BulaIA */,
+				2956D9DCBDBBC96FDF6FF94F /* BulaiWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		8D8FB9961652226621C79AE1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9151FAAAF1C29F9BA3BEE891 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1B90269725E29E357B3D1BB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A105A63AF4AA7CA4C23E8D89 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1BCB2E190B7D4B165F35C9C8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2956D9DCBDBBC96FDF6FF94F /* BulaiWidget */;
+			targetProxy = B619E95408E65E42F494173D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5E9D3562C8201F149D3F00BE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 0240001CA4C40F470C4826E9 /* Debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		B82EAE1A4DF3FAE59C826AD7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 36AFB4DE369996F90E4340E0 /* Release.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		E548DA60232C423F158464E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "$(BULAI_ENTITLEMENTS_APP)";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/BulaIA-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BULAI_BUNDLE_ID)";
+				PRODUCT_NAME = BulaIA;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		3DF160E449BA50DDE8230365 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "$(BULAI_ENTITLEMENTS_APP)";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/BulaIA-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BULAI_BUNDLE_ID)";
+				PRODUCT_NAME = BulaIA;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		74EAAAB122A3AF5A60E57F67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = FundoDoWidget;
+				CODE_SIGN_ENTITLEMENTS = "$(BULAI_ENTITLEMENTS_WIDGET)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Widget-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BULAI_BUNDLE_ID).widget";
+				PRODUCT_NAME = BulaiWidget;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		F449C1AEDDA75A0587363941 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = FundoDoWidget;
+				CODE_SIGN_ENTITLEMENTS = "$(BULAI_ENTITLEMENTS_WIDGET)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Config/Widget-Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(BULAI_BUNDLE_ID).widget";
+				PRODUCT_NAME = BulaiWidget;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5787E862A9561CD0F9975160 /* Build configuration list for PBXProject "BulaIA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5E9D3562C8201F149D3F00BE /* Debug */,
+				B82EAE1A4DF3FAE59C826AD7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D091C60FDA3071D60220D2B7 /* Build configuration list for PBXNativeTarget "BulaIA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E548DA60232C423F158464E6 /* Debug */,
+				3DF160E449BA50DDE8230365 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		982517FB8ED4D1E63726038F /* Build configuration list for PBXNativeTarget "BulaiWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				74EAAAB122A3AF5A60E57F67 /* Debug */,
+				F449C1AEDDA75A0587363941 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		5F4D300BA73A6E8D7AA2BD8A /* XCLocalSwiftPackageReference "BulaiCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = BulaiCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		3E2543D862927FC2506A47EE /* BulaiCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F4D300BA73A6E8D7AA2BD8A /* XCLocalSwiftPackageReference "BulaiCore" */;
+			productName = BulaiCore;
+		};
+		20BF402D3A9A8C7868F7AEF8 /* BulaiCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F4D300BA73A6E8D7AA2BD8A /* XCLocalSwiftPackageReference "BulaiCore" */;
+			productName = BulaiCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3D27946326DBFF560F15FE8E /* Project object */;
+}
