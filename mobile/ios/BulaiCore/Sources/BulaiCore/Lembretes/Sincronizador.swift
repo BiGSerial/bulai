@@ -135,7 +135,8 @@ public final class Sincronizador {
     /// Remonta todas as notificações de dose a partir da última agenda (funciona sem internet).
     public func reagendar() async {
         let agora = relogio()
-        guard conectado else {
+        // Planejar não precisa do token (o widget pode não ter acesso a ele): só a conta desconectada limpa tudo.
+        guard preferencias.conectado else {
             await notificacoes.substituirLembretes([], adiarMinutos: preferencias.adiarMinutos)
             return
         }

@@ -85,6 +85,11 @@ struct SessaoTests {
         #expect(conectado.sessao.conectado)
         #expect(conectado.api.caixa.token == "bulai_app_guardado")
 
+        let preferencias = PreferenciasLocais(UserDefaults(suiteName: "bulai-widget-\(UUID().uuidString)")!)
+        let cofreDoWidget = CofreEmMemoria("bulai_app_do_app")
+        _ = Sessao(cofre: cofreDoWidget, preferencias: preferencias, cache: CacheEmDisco(pasta: FileManager.default.temporaryDirectory), processoPrincipal: false)
+        #expect(cofreDoWidget.ler() == "bulai_app_do_app", "o widget nunca apaga o token do app")
+
         let reinstalado = AppDeTeste(token: "bulai_app_de_outra_instalacao", conta: nil)
         #expect(reinstalado.sessao.estado == .visitante)
         #expect(reinstalado.cofre.ler() == nil)

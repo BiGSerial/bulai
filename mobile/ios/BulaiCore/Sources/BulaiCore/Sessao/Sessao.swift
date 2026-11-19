@@ -24,7 +24,8 @@ public final class Sessao {
     /// Chamado ao sair ou perder o acesso (cancela as notificações, recarrega o widget).
     @ObservationIgnored public var aoDesconectar: (@MainActor () async -> Void)?
 
-    public init(cofre: Cofre, preferencias: PreferenciasLocais, cache: CacheEmDisco, caixa: CaixaDoToken = CaixaDoToken()) {
+    /// - Parameter processoPrincipal: `false` no widget e nas extensões: elas nunca apagam o token (só o app decide).
+    public init(cofre: Cofre, preferencias: PreferenciasLocais, cache: CacheEmDisco, caixa: CaixaDoToken = CaixaDoToken(), processoPrincipal: Bool = true) {
         self.cofre = cofre
         self.preferencias = preferencias
         self.cache = cache
@@ -37,7 +38,7 @@ public final class Sessao {
         } else {
             // O Keychain sobrevive à reinstalação do app, os UserDefaults não: um token sem conta guardada é de uma
             // instalação anterior e não deve valer (o servidor o derruba quando a pessoa entrar de novo).
-            if token != nil {
+            if token != nil, processoPrincipal {
                 cofre.apagar()
             }
             caixa.token = nil

@@ -173,6 +173,17 @@ struct SincronizadorTests {
         #expect(app.notificacoes.lembretes.first?.quando == data("2026-11-05T08:15:30-03:00"))
     }
 
+    @Test("Tomei pelo widget sem acesso ao token: marca na hora, mantém os outros lembretes e deixa na fila para o app")
+    func widgetSemToken() async {
+        let app = AppDeTeste(token: nil, conta: AppDeTeste.maria)
+        app.preferencias.conectado = true
+        app.preferencias.agenda = agenda([doseDaAgenda("a", "2026-11-05T08:00:00-03:00"), doseDaAgenda("b", "2026-11-05T20:00:00-03:00")])
+        await app.sincronizador.executar(.tomei, chave: "a", remedioId: 1, agendadaPara: "2026-11-05T08:00:00-03:00")
+        #expect(app.notificacoes.lembretes.map(\.chave) == ["b"])
+        #expect(app.preferencias.filaDeMarcacoes.map(\.chave) == ["a"])
+        #expect(app.transporte.feitos.isEmpty)
+    }
+
     @Test("Sem conta conectada nada é sincronizado nem lembrado")
     func desconectado() async {
         let app = AppDeTeste()
