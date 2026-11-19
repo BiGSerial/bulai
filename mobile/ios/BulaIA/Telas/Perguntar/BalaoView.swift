@@ -347,7 +347,7 @@ struct BlocosDeAjuda: View {
 
 /// "Fontes utilizadas" (recolhido): cada fonte num cartão com a bula, seção · página e a data; o trecho abre ao tocar.
 struct FontesUtilizadas: View {
-    let fontes: [Fonte]
+    let fontes: [BulaiCore.Fonte]
     @State private var aberto = false
     @State private var trechoAberto: Int?
 

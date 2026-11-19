@@ -68,7 +68,7 @@ struct PesquisaView: View {
                                 } label: {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(consulta.medicines.joined(separator: " + ")).font(Fonte.corpoForte).foregroundStyle(Cores.texto).multilineTextAlignment(.leading)
-                                        Text("\(Datas.curta(consulta.criadaEm)) · \(consulta.status == "FAILED" ? "não concluída" : consulta.pares == 1 ? "1 combinação" : "\(consulta.pares) combinações")").font(.caption).foregroundStyle(Cores.textoSuave)
+                                        Text(Self.resumo(consulta)).font(.caption).foregroundStyle(Cores.textoSuave)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -96,6 +96,20 @@ struct PesquisaView: View {
                 Task { await tela.adicionar(remedio.id) }
             }
         }
+    }
+}
+
+extension PesquisaView {
+    static func resumo(_ consulta: ConsultaAnterior) -> String {
+        let situacao: String
+        if consulta.status == "FAILED" {
+            situacao = "não concluída"
+        } else if consulta.pares == 1 {
+            situacao = "1 combinação"
+        } else {
+            situacao = "\(consulta.pares) combinações"
+        }
+        return "\(Datas.curta(consulta.criadaEm)) · \(situacao)"
     }
 }
 

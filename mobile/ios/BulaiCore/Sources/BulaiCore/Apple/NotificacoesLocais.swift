@@ -35,8 +35,13 @@ public final class NotificacoesLocais: ServicoDeNotificacoes, @unchecked Sendabl
     }
 
     public func permitidas() async -> Bool {
-        let ajustes = await central.notificationSettings()
-        return ajustes.authorizationStatus == .authorized || ajustes.authorizationStatus == .provisional || ajustes.authorizationStatus == .ephemeral
+        let situacao = await central.notificationSettings().authorizationStatus
+        #if os(iOS)
+        if situacao == .ephemeral {
+            return true
+        }
+        #endif
+        return situacao == .authorized || situacao == .provisional
     }
 
     public func negadas() async -> Bool {
