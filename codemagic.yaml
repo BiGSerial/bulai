@@ -1,0 +1,94 @@
+# Codemagic (https://codemagic.io): build do app iOS em Mac na nuvem (docs/app-ios.md › Codemagic).
+#
+# - ios-verificacao: sem assinatura. Testa o núcleo, compila o app e o widget para o simulador e roda os testes do
+#   esquema no simulador. Roda a cada push/PR que mexe em mobile/ios/.
+# - ios-testflight: assinado, gera o IPA e envia ao TestFlight. Manual; exige Apple Developer Program e a integração
+#   App Store Connect configurada no Codemagic (Teams › Integrations). Nada de certificado ou chave no repositório.
+workflows:
+  ios-verificacao:
+    name: iOS · testes e build do simulador
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+      vars:
+        XCODE_PROJECT: mobile/ios/BulaIA.xcodeproj
+        XCODE_SCHEME: BulaIA
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: '*'
+          include: true
+          source: true
+      cancel_previous_builds: true
+    when:
+      changeset:
+        includes:
+          - 'mobile/ios/'
+          - 'codemagic.yaml'
+    scripts:
+      - name: Núcleo (swift test)
+        script: |
+          cd mobile/ios/BulaiCore
+          swift test
+      - name: App e widget para o simulador (sem assinatura)
+        script: |
+          set -o pipefail
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO build | tee /tmp/xcodebuild_logs_build.log
+      - name: Testes do esquema no simulador
+        script: |
+          set -o pipefail
+          SIMULADOR=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in sorted(d.items(), reverse=True) if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
+          xcodebuild -project "$XCODE_PROJECT" -scheme "$XCODE_SCHEME" -destination "id=$SIMULADOR" \
+            -derivedDataPath build/DerivedData CODE_SIGNING_ALLOWED=NO test | tee /tmp/xcodebuild_logs_test.log
+      - name: Empacotar o app do simulador
+        script: |
+          cd build/DerivedData/Build/Products/Debug-iphonesimulator
+          zip -qr "$CM_BUILD_DIR/BulaIA-simulador.zip" BulaIA.app
+    artifacts:
+      - BulaIA-simulador.zip
+      - /tmp/xcodebuild_logs*.log
+
+  ios-testflight:
+    name: iOS · IPA assinado para o TestFlight
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: br.com.vixforge.bulai
+      vars:
+        XCODE_PROJECT: mobile/ios/BulaIA.xcodeproj
+        XCODE_SCHEME: BulaIA
+        # ID do app no App Store Connect (App Information › Apple ID). Troque depois de criar o app na loja.
+        APP_STORE_APPLE_ID: 0
+    scripts:
+      - name: Núcleo (swift test)
+        script: |
+          cd mobile/ios/BulaiCore
+          swift test
+      - name: Perfis de provisionamento no projeto
+        script: xcode-project use-profiles --project "$XCODE_PROJECT"
+      - name: Número do build (último do App Store Connect + 1)
+        script: |
+          ULTIMO=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APPLE_ID" || echo 0)
+          sed -i '' -E "s/^CURRENT_PROJECT_VERSION = .*/CURRENT_PROJECT_VERSION = $((ULTIMO + 1))/" mobile/ios/Config/Base.xcconfig
+      - name: IPA
+        script: |
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

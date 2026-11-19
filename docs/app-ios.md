@@ -153,6 +153,15 @@ open BulaIA.xcodeproj        # ou abra no Xcode e use ⌘R
 
 **IPA** (com assinatura e Xcode): `BULAI_TEAM=<Team ID> scripts/gerar-ipa.sh` gera `dist/bulai-<versão>-debugging.ipa` (aparelhos registrados); `release-testing` (Ad Hoc) e `app-store-connect` exigem o Apple Developer Program (pago). O script só arquiva e exporta: **não envia nada para a App Store**.
 
+### Codemagic (build em Mac na nuvem)
+
+Sem Mac por perto, o `codemagic.yaml` da raiz do repositório compila o app no Codemagic:
+
+- **`ios-verificacao`** (sem assinatura, roda a cada push/PR que mexe em `mobile/ios/`): `swift test` no núcleo, build do app e do widget para o simulador (`CODE_SIGNING_ALLOWED=NO`), `xcodebuild test` do esquema num iPhone simulado e o `BulaIA-simulador.zip` como artefato. É o primeiro passo das pendências: mostra os erros de compilação das telas.
+- **`ios-testflight`** (manual): `xcode-project use-profiles`, número do build = último do App Store Connect + 1 (no `Config/Base.xcconfig`), `xcode-project build-ipa` e envio ao **TestFlight** (não envia à App Store). Exige Apple Developer Program, o app criado no App Store Connect (troque `APP_STORE_APPLE_ID`) e a integração App Store Connect com a chave de API no Codemagic (Teams › Integrations). Perfis e certificados ficam no Codemagic, nunca no Git.
+
+Como ligar: em codemagic.io, adicione o repositório `BiGSerial/bulai`, escolha "codemagic.yaml" e rode `ios-verificacao` na branch.
+
 ## Testes
 
 `BulaiCore/Tests/BulaiCoreTests` — **75 testes, todos passando** com `swift test` (Swift 6.4.2, Linux/WSL; o mesmo comando roda no macOS e pelo esquema `BulaIA` do Xcode):
@@ -171,7 +180,7 @@ Backend: `php artisan test --compact tests/Feature/Consulta/` — 296 testes pas
 
 ## Pendências que dependem de macOS, Xcode, assinatura ou aparelho
 
-- **Compilar o app e o widget** (`scripts/compilar.sh`) e corrigir o que o compilador apontar: as telas SwiftUI, o widget e `BulaiCore/Apple/*` nunca passaram por um compilador. O `project.pbxproj` foi validado por um leitor de OpenStep plist (alvos, fases, pastas sincronizadas e configurações), não pelo Xcode.
+- **Compilar o app e o widget** (`scripts/compilar.sh` num Mac ou o workflow `ios-verificacao` do Codemagic) e corrigir o que o compilador apontar: as telas SwiftUI, o widget e `BulaiCore/Apple/*` nunca passaram por um compilador. O `project.pbxproj` foi validado por um leitor de OpenStep plist (alvos, fases, pastas sincronizadas e configurações), não pelo Xcode.
 - Rodar `xcodebuild test` (o mesmo núcleo já testado) e testes de interface (XCUITest) — não escritos.
 - Executar no simulador e num iPhone: entrar, Hoje, Tomei pela notificação com a tela bloqueada, Adiar, widget com Tomei, câmera, galeria, QR Code (VisionKit precisa de aparelho), ditado e Ouvir, Quick Look do PDF, tema escuro, Dynamic Type grande e VoiceOver.
 - Confirmar com a assinatura real: App Group, Keychain compartilhado e "Sensível ao tempo" (com conta gratuita, usar os entitlements "-Simples").
