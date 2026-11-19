@@ -15,6 +15,22 @@ val keystoreProperties = Properties().apply {
 }
 val baseUrl = (findProperty("bulaiBaseUrl") as String?)?.trimEnd('/') ?: "https://bulai.vixforge.com.br"
 
+// Versão = a última tag android-v* do Git (ex.: android-v1.0.0-preview.4 → 1.0.0-preview.4). -PbulaiVersao=… força outra;
+// sem Git ou sem tags (clone raso), cai em 1.0.0. O versionCode cresce com a versão: 1.0.0-preview.4 → 1000004, 1.0.0 → 1000099.
+val versaoDoApp: String = (findProperty("bulaiVersao") as String?)?.removePrefix("android-v") ?: runCatching {
+    providers.exec {
+        commandLine("git", "-c", "versionsort.suffix=-", "tag", "--list", "android-v*", "--sort=-v:refname")
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }?.removePrefix("android-v")
+}.getOrNull() ?: "1.0.0"
+
+fun codigoDaVersao(versao: String): Int {
+    val partes = Regex("""^(\d+)\.(\d+)\.(\d+)(?:-[a-z]+\.(\d+))?""").find(versao)?.groupValues ?: return 1
+    val (maior, menor, correcao) = partes.drop(1).take(3).map { it.toInt() }
+    val previa = partes[4].toIntOrNull()?.coerceAtMost(98) ?: 99
+    return maior * 1_000_000 + menor * 10_000 + correcao * 100 + previa
+}
+
 android {
     namespace = "br.com.vixforge.bulai"
     compileSdk = 37
@@ -23,8 +39,8 @@ android {
         applicationId = "br.com.vixforge.bulai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = codigoDaVersao(versaoDoApp)
+        versionName = versaoDoApp
 
         buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

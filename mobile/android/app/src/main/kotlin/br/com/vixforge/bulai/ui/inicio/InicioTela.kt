@@ -1,5 +1,6 @@
 package br.com.vixforge.bulai.ui.inicio
 
+import br.com.vixforge.bulai.ui.componentes.nomeAmigavel
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -156,9 +157,9 @@ fun InicioTela(
                     val proxima = dados.proxima
                     val textoDoDia = when {
                         proxima == null -> "Veja os horários e marque o que já tomou"
-                        proxima.status == Dose.ATRASADA -> "Atrasado: ${proxima.time} · ${proxima.name}"
-                        proxima.ehHoje -> "Próximo: ${proxima.time} · ${proxima.name}"
-                        else -> "Amanhã: ${proxima.time} · ${proxima.name}"
+                        proxima.status == Dose.ATRASADA -> "Atrasado: ${proxima.time} · ${nomeAmigavel(proxima.name)}"
+                        proxima.ehHoje -> "Próximo: ${proxima.time} · ${nomeAmigavel(proxima.name)}"
+                        else -> "Amanhã: ${proxima.time} · ${nomeAmigavel(proxima.name)}"
                     }
                     Column(Modifier.widthIn(max = 640.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Acao(Icons.AutoMirrored.Rounded.HelpOutline, "Perguntar sobre um remédio", "Escreva ou fale sua dúvida", aoAbrirPerguntar, destaque = true)
@@ -386,7 +387,7 @@ private fun ProximaDose(dose: Dose, marcando: Boolean, aoTomar: (Dose) -> Unit, 
                         style = MaterialTheme.typography.labelLarge,
                         color = if (atrasada) cores.destaque else cores.apoio,
                     )
-                    Text(dose.name, style = MaterialTheme.typography.titleLarge, color = cores.texto)
+                    Text(nomeAmigavel(dose.name), style = MaterialTheme.typography.titleLarge, color = cores.texto)
                     dose.dosage?.takeIf { it.isNotBlank() }?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = cores.apoio) }
                     dose.ajustadaDe?.let { Text("Ajustado pela dose das $it", style = MaterialTheme.typography.bodySmall, color = cores.apoio) }
                     if (!podeMarcar && faltam != null && faltam > 0) {

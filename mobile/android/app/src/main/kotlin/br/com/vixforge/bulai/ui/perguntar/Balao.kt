@@ -1,5 +1,6 @@
 package br.com.vixforge.bulai.ui.perguntar
 
+import br.com.vixforge.bulai.ui.componentes.nomeAmigavel
 import android.content.Intent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
@@ -49,6 +50,7 @@ import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -66,6 +68,11 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -90,13 +97,13 @@ import br.com.vixforge.bulai.ui.sistema.Leitor
 import br.com.vixforge.bulai.ui.tema.Marca
 import br.com.vixforge.bulai.ui.tema.TemaBulai
 
-private val FormaDoBulai = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 22.dp, bottomStart = 6.dp)
+private val FormaDoBulai = RoundedCornerShape(topStart = 6.dp, topEnd = 22.dp, bottomEnd = 22.dp, bottomStart = 22.dp)
 internal val FormaDaPessoa = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomEnd = 6.dp, bottomStart = 22.dp)
 
 /** O que a pessoa perguntou, à direita. */
 @Composable
 fun BalaoDaPessoa(texto: String, modifier: Modifier = Modifier, modificadorDoBalao: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().padding(start = 48.dp), horizontalArrangement = Arrangement.End) {
+    Row(modifier.fillMaxWidth().padding(start = 40.dp), horizontalArrangement = Arrangement.End) {
         Surface(shape = FormaDaPessoa, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, modifier = modificadorDoBalao) {
             Text(texto, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp).semantics { contentDescription = "Você perguntou: $texto" })
         }
@@ -110,7 +117,7 @@ fun AvatarDoBulai(modifier: Modifier = Modifier) {
         modifier.size(38.dp).clip(CircleShape).background(Color.White).border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Image(painterResource(R.drawable.ic_launcher_frente), contentDescription = null, modifier = Modifier.requiredSize(62.dp))
+        Image(painterResource(R.drawable.ic_launcher_frente), contentDescription = null, modifier = Modifier.fillMaxSize().scale(1.6f))
     }
 }
 
@@ -122,16 +129,21 @@ fun BalaoDoBulai(
     borda: Color? = null,
     conteudo: @Composable ColumnScope.() -> Unit,
 ) {
-    Row(modifier.fillMaxWidth().padding(end = 12.dp), verticalAlignment = Alignment.Bottom) {
-        AvatarDoBulai()
-        Spacer(Modifier.width(8.dp))
+    // O símbolo e o nome ficam numa linha acima da fala, não ao lado: em telas estreitas (360 dp, como o Galaxy S22) a
+    // coluna do avatar tirava quase 50 dp do texto e dos botões de ligar.
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clearAndSetSemantics { }) {
+            AvatarDoBulai(Modifier.size(28.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("BULA-IA", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Surface(
             shape = FormaDoBulai,
             color = fundo,
             border = borda?.let { BorderStroke(2.dp, it) } ?: BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = conteudo)
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = conteudo)
         }
     }
 }
@@ -140,9 +152,12 @@ fun BalaoDoBulai(
 @Composable
 fun Digitando(modifier: Modifier = Modifier) {
     val transicao = rememberInfiniteTransition(label = "digitando")
-    Row(modifier.fillMaxWidth().semantics { contentDescription = "O BULA-IA está procurando na bula"; liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.Bottom) {
-        AvatarDoBulai()
-        Spacer(Modifier.width(8.dp))
+    Column(modifier.fillMaxWidth().semantics { contentDescription = "O BULA-IA está procurando na bula"; liveRegion = LiveRegionMode.Polite }, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            AvatarDoBulai(Modifier.size(28.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("BULA-IA", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Surface(shape = FormaDoBulai, color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))) {
             Row(Modifier.padding(horizontal = 18.dp, vertical = 18.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 repeat(3) { indice ->
@@ -168,49 +183,78 @@ fun BlocosDeAjuda(grupos: List<GrupoDeAjuda>, modifier: Modifier = Modifier) {
     }
 }
 
+/** Cores de um bloco de ajuda: fundo e borda do bloco, cor do tom (título, selo, botão cheio) e texto sobre ela. */
+private data class CoresDaAjuda(val fundo: Color, val borda: Color, val tom: Color, val titulo: Color, val sobreOTom: Color, val botaoClaro: Color)
+
+/**
+ * As mesmas cores do site (x-consulta.ajuda): vermelho é perigo agora, verde-água é acolhimento e azul da marca é
+ * acompanhamento. No tema escuro, fundos escuros tingidos e o tom mais claro.
+ */
+@Composable
+private fun coresDaAjuda(tom: String?): CoresDaAjuda {
+    val escuro = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    return when (tom) {
+        "acolhimento" -> if (escuro) {
+            CoresDaAjuda(Color(0xFF0F2A2A), Color(0xFF1F5B57), Color(0xFF5EEAD4), Color(0xFF99F6E4), Color(0xFF042F2E), Color(0xFF132F31))
+        } else {
+            CoresDaAjuda(Color(0xFFF0FDFA), Color(0xFF99F6E4), Color(0xFF0F766E), Color(0xFF134E4A), Color.White, Color.White)
+        }
+        "cuidado" -> if (escuro) {
+            CoresDaAjuda(Color(0xFF16283A), Color(0xFF2E4A63), Color(0xFF9DBCD4), Color(0xFFDDE8F1), Color(0xFF0E2A3F), Color(0xFF1C2B38))
+        } else {
+            CoresDaAjuda(Color(0xFFEEF3F7), Color(0xFFB3C7D7), Color(0xFF12344D), Color(0xFF0E2A3F), Color.White, Color.White)
+        }
+        else -> if (escuro) {
+            CoresDaAjuda(Color(0xFF3A1714), Color(0xFF7A2A22), Color(0xFFFCA5A5), Color(0xFFFECACA), Color(0xFF450A0A), Color(0xFF2A1513))
+        } else {
+            CoresDaAjuda(Color(0xFFFEF2F2), Color(0xFFFECACA), Color(0xFFB91C1C), Color(0xFF991B1B), Color.White, Color.White)
+        }
+    }
+}
+
 @Composable
 private fun BlocoDeAjuda(grupo: GrupoDeAjuda) {
     val context = LocalContext.current
-    val esquema = MaterialTheme.colorScheme
-    // Cor do título e da borda, fundo e ícone do bloco; depois as cores dos botões de ligar.
-    val (destaque, fundo, icone) = when (grupo.tone) {
-        "acolhimento" -> Triple(esquema.primary, esquema.primaryContainer.copy(alpha = 0.45f), Icons.Rounded.Favorite)
-        "cuidado" -> Triple(esquema.onSurfaceVariant, esquema.surface, Icons.Rounded.Groups)
-        else -> Triple(esquema.error, esquema.surface, Icons.Rounded.Call)
+    val cores = coresDaAjuda(grupo.tone)
+    val icone = when (grupo.tone) {
+        "acolhimento" -> Icons.Rounded.Favorite
+        "cuidado" -> Icons.Rounded.Groups
+        else -> Icons.Rounded.Call
     }
-    val (principal, textoPrincipal, outro, textoOutro) = when (grupo.tone) {
-        "acolhimento" -> listOf(esquema.primary, esquema.onPrimary, esquema.surface, esquema.primary)
-        "cuidado" -> listOf(esquema.inverseSurface, esquema.inverseOnSurface, esquema.surface, esquema.onSurface)
-        else -> listOf(esquema.error, esquema.onError, esquema.errorContainer, esquema.onErrorContainer)
-    }
-    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = fundo, border = BorderStroke(2.dp, destaque.copy(alpha = 0.4f))) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics { heading() }) {
-                Icon(icone, contentDescription = null, tint = destaque, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(grupo.title ?: "Precisa de ajuda agora? Toque para ligar.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = destaque)
+    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, color = cores.fundo, border = BorderStroke(1.dp, cores.borda)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.semantics { heading() }) {
+                Box(Modifier.size(32.dp).clip(CircleShape).background(cores.tom), contentAlignment = Alignment.Center) {
+                    Icon(icone, contentDescription = null, tint = cores.sobreOTom, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(grupo.title ?: "Precisa de ajuda agora? Toque para ligar.", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = cores.titulo, modifier = Modifier.padding(top = 2.dp))
             }
-            grupo.text?.let { Text(it, style = MaterialTheme.typography.bodyLarge, color = esquema.onSurface) }
+            grupo.text?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface) }
             grupo.telefones.forEachIndexed { indice, telefone ->
                 val primeiro = indice == 0
                 Surface(
                     onClick = { context.startActivity(Intent(Intent.ACTION_DIAL, "tel:${telefone.tel}".toUri())) },
                     shape = MaterialTheme.shapes.medium,
-                    color = if (primeiro) principal else outro,
-                    contentColor = if (primeiro) textoPrincipal else textoOutro,
-                    border = if (primeiro) null else BorderStroke(1.dp, destaque.copy(alpha = 0.35f)),
+                    color = if (primeiro) cores.tom else cores.botaoClaro,
+                    contentColor = if (primeiro) cores.sobreOTom else cores.titulo,
+                    border = if (primeiro) null else BorderStroke(1.dp, cores.borda),
+                    shadowElevation = 1.dp,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).semantics(mergeDescendants = true) { contentDescription = "Ligar para ${telefone.name}, ${telefone.number}. ${telefone.detail}" },
                 ) {
+                    // Número em destaque numa linha só, e embaixo quem atende e quando ligar: dentro do balão o espaço é
+                    // estreito, e "Ligar 136 · Disque Saúde" numa linha só quebrava no meio do nome.
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(
-                            Modifier.size(44.dp).clip(CircleShape).background(if (primeiro) Color.White.copy(alpha = 0.2f) else esquema.surface),
+                            Modifier.size(38.dp).clip(CircleShape).background(if (primeiro) Color.White.copy(alpha = 0.2f) else cores.tom),
                             contentAlignment = Alignment.Center,
-                        ) { Icon(Icons.Rounded.Call, contentDescription = null) }
-                        Spacer(Modifier.width(12.dp))
+                        ) { Icon(Icons.Rounded.Call, contentDescription = null, tint = cores.sobreOTom, modifier = Modifier.size(20.dp)) }
+                        Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Ligar ${telefone.number} · ${telefone.name}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Ligar ${telefone.number}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                            Text(telefone.name, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                             if (telefone.detail.isNotBlank()) {
-                                Text(telefone.detail, style = MaterialTheme.typography.bodyMedium)
+                                Text(telefone.detail, style = MaterialTheme.typography.bodySmall, color = LocalContentColor.current.copy(alpha = 0.85f))
                             }
                         }
                     }
@@ -326,7 +370,7 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
             BlocosDeAjuda(resposta.ajuda)
         }
 
-        // "Baseado na bula…" fica dentro de "Fontes utilizadas"; no balão só a orientação de quando não houve resposta.
+        // "Baseado na bula…" fica dentro de "De onde veio esta resposta?"; no balão só a orientação de quando não houve resposta.
         resposta.source?.takeUnless { resposta.respondida }?.let { fonte ->
             Row(verticalAlignment = Alignment.Top) {
                 Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp).padding(top = 2.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -335,19 +379,31 @@ fun BalaoDaResposta(resposta: Resposta, leitor: Leitor?, acoes: AcoesDaResposta?
             }
         }
 
-        if (resposta.podeOuvir && leitor != null) {
-            val falando by leitor.falando
-            OutlinedButton(onClick = { leitor.alternar(resposta.textoCorrido) }, modifier = Modifier.heightIn(min = 52.dp)) {
-                Icon(if (falando) Icons.Rounded.StopCircle else Icons.AutoMirrored.Rounded.VolumeUp, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text(if (falando) "Parar de ouvir" else "Ouvir", style = MaterialTheme.typography.labelLarge)
-            }
-        }
-
         if (acoes != null) {
             AcoesDoBalao(resposta, acoes)
         } else if (resposta.status != Resposta.BLOQUEADA && resposta.status != Resposta.SEM_REMEDIO) {
             RemediosDaResposta(resposta, aoAbrirBula, null)
+        }
+
+        // Ações discretas numa linha só (ouvir e corrigir o remédio), para a resposta não virar uma pilha de botões.
+        val podeOuvir = resposta.podeOuvir && leitor != null
+        val podeCorrigir = acoes != null && resposta.medicines.isNotEmpty()
+        if (podeOuvir || podeCorrigir) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.offset(x = (-8).dp)) {
+                if (podeOuvir) {
+                    val falando by leitor!!.falando
+                    TextButton(onClick = { leitor.alternar(resposta.textoCorrido) }, modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Icon(if (falando) Icons.Rounded.StopCircle else Icons.AutoMirrored.Rounded.VolumeUp, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(if (falando) "Parar" else "Ouvir", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+                if (podeCorrigir) {
+                    TextButton(onClick = acoes!!.trocarRemedio, modifier = Modifier.heightIn(min = 48.dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                        Text("Não é esse remédio?", style = MaterialTheme.typography.labelLarge)
+                    }
+                }
+            }
         }
 
         if (resposta.sources.isNotEmpty()) {
@@ -379,18 +435,18 @@ private fun ColumnScope.AcoesDoBalao(resposta: Resposta, acoes: AcoesDaResposta)
     }
     if (resposta.guesses.isNotEmpty()) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            resposta.guesses.forEach { Pilula(it.name, { acoes.corrigir(it.id) }, destaque = true) }
+            resposta.guesses.forEach { Pilula(nomeAmigavel(it.name), { acoes.corrigir(it.id) }, destaque = true) }
         }
     }
     if (resposta.meusRemedios.isNotEmpty()) {
         Text("Ou toque em um dos seus remédios:", style = MaterialTheme.typography.bodyMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            resposta.meusRemedios.forEach { Pilula(it.name, { acoes.corrigir(it.id) }) }
+            resposta.meusRemedios.forEach { Pilula(nomeAmigavel(it.name), { acoes.corrigir(it.id) }) }
         }
     }
     if (resposta.outrosRemedios.isNotEmpty()) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            resposta.outrosRemedios.forEach { nome -> Pilula(nome, { acoes.sugerir("Sobre $nome:") }) }
+            resposta.outrosRemedios.forEach { nome -> Pilula(nomeAmigavel(nome), { acoes.sugerir("Sobre $nome:") }) }
         }
     }
     if (resposta.suggestions.isNotEmpty()) {
@@ -422,8 +478,6 @@ private fun RemediosDaResposta(resposta: Resposta, aoAbrirBula: ((Long) -> Unit)
     if (resposta.medicines.isEmpty()) {
         return
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
-    Text("Falando de:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         resposta.medicines.forEach { remedio ->
             val podeTirar = acoes != null && resposta.medicines.size > 1
@@ -439,7 +493,7 @@ private fun RemediosDaResposta(resposta: Resposta, aoAbrirBula: ((Long) -> Unit)
                             Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
                             Spacer(Modifier.width(8.dp))
                         }
-                        Text(remedio.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                        Text(nomeAmigavel(remedio.name), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
                     }
                     if (podeTirar) {
                         IconButton(onClick = { acoes.remover(remedio.id) }) { Icon(Icons.Rounded.Close, contentDescription = "Tirar ${remedio.name} da pergunta") }
@@ -448,68 +502,59 @@ private fun RemediosDaResposta(resposta: Resposta, aoAbrirBula: ((Long) -> Unit)
             }
         }
     }
-    if (acoes != null) {
-        TextButton(onClick = acoes.trocarRemedio, modifier = Modifier.heightIn(min = 48.dp)) { Text("Não é esse remédio?", style = MaterialTheme.typography.labelLarge) }
-    }
 }
 
 /**
- * "Fontes utilizadas", recolhido: só de onde veio a resposta (a bula, a seção, a página e quando foi processada). Posologia,
- * modo de usar e o resto ficam na bula humanizada ou numa pergunta própria, não aqui.
+ * "De onde veio esta resposta?", recolhido: a bula, a parte e a página, em frases simples. O trecho original da bula fica
+ * mais um toque abaixo, em letra legível e sem rolagem dentro da rolagem (o servidor já junta palavras quebradas do PDF).
  */
 @Composable
 private fun Fontes(resposta: Resposta) {
     var aberto by rememberSaveable(resposta.uuid) { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-        TextButton(onClick = { aberto = !aberto }, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
-            Text("Fontes utilizadas", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = if (aberto) "Recolher" else "Abrir")
+        Row(
+            Modifier.fillMaxWidth().clickable(onClickLabel = if (aberto) "Recolher" else "Abrir") { aberto = !aberto }.heightIn(min = 52.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.width(10.dp))
+            Text("De onde veio esta resposta?", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.weight(1f))
+            Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         }
         AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-            Column(Modifier.padding(start = 10.dp, end = 10.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Como no PWA: cada fonte com a origem em destaque; o trecho da página usado fica recolhido sob ela.
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 resposta.sources.forEachIndexed { indice, fonte -> ItemDaFonte(fonte, resposta.uuid, indice) }
             }
         }
     }
 }
 
-/** Uma fonte: título (bula, seção, página, data) separado, e o trecho que fundamentou a resposta ao tocar. */
+/** Uma fonte em linguagem simples ("Da bula do Cozaar, parte Reações adversas, página 8") e o trecho ao tocar. */
 @Composable
 private fun ItemDaFonte(fonte: Fonte, chave: String?, indice: Int) {
     var aberto by rememberSaveable(chave, indice) { mutableStateOf(false) }
-    val local = listOfNotNull(fonte.section, fonte.pagina?.let { "página $it" }).joinToString(" · ")
-    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), modifier = Modifier.fillMaxWidth()) {
-        Column {
-            Row(
-                Modifier.fillMaxWidth().clickable(enabled = fonte.excerpt.isNotBlank(), onClickLabel = if (aberto) "Esconder o trecho" else "Ver o trecho") { aberto = !aberto }
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.AutoMirrored.Rounded.MenuBook, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(fonte.titulo, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                    if (local.isNotEmpty()) {
-                        Text(local, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    fonte.processed?.let { Text("Bula de $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-                if (fonte.excerpt.isNotBlank()) {
-                    Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+    val onde = listOfNotNull(fonte.section?.let { "Parte: $it" }, fonte.pagina?.let { "página $it" }).joinToString(", ")
+    Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(fonte.titulo, style = MaterialTheme.typography.titleSmall)
+            if (onde.isNotEmpty()) {
+                Text(onde, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                val barra = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
-                Text(
-                    fonte.excerpt,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
-                        .drawBehind { drawRect(barra, size = Size(3.dp.toPx(), size.height)) }
-                        .padding(start = 12.dp)
-                        .heightIn(max = 220.dp)
-                        .verticalScroll(rememberScrollState()),
-                )
+            fonte.processed?.let { Text("Bula de $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            if (fonte.excerpt.isNotBlank()) {
+                TextButton(onClick = { aberto = !aberto }, modifier = Modifier.heightIn(min = 48.dp).offset(x = (-8).dp), contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Text(if (aberto) "Esconder o texto da bula" else "Ler o texto da bula", style = MaterialTheme.typography.labelLarge)
+                    Icon(if (aberto) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null)
+                }
+                AnimatedVisibility(aberto, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    val barra = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)
+                    Text(
+                        "“${fonte.excerpt}”",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.drawBehind { drawRect(barra, size = Size(3.dp.toPx(), size.height)) }.padding(start = 14.dp),
+                    )
+                }
             }
         }
     }

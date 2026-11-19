@@ -68,6 +68,26 @@ class Hoje extends Component
         $this->dispatch('notify', message: 'Marcação desfeita.');
     }
 
+    /** "Só quando precisar": anota que tomou agora (só hoje; o horário é o do momento). */
+    public function tomeiAgora(TreatmentScheduleService $schedule, int $medicationId): void
+    {
+        $medication = $this->remedio($medicationId);
+        if ($medication === null || ! $medication->as_needed || $this->dia !== 0) {
+            return;
+        }
+        $vinculo = $this->vinculo();
+        $agora = CarbonImmutable::now($this->paciente()->treatmentTimezone())->startOfMinute();
+        if ($vinculo !== null) {
+            $this->authorize('markDose', $medication);
+            app(CaregiverLinkService::class)->markDose($vinculo, auth()->user(), $medication, $agora, MedicationDoseEvent::STATUS_TAKEN);
+            $quem = CaregiverLink::firstName($vinculo->patient).' tomou ';
+        } else {
+            $schedule->takeAsNeeded(auth()->user(), $medication, $agora);
+            $quem = 'você tomou ';
+        }
+        $this->dispatch('notify', message: 'Anotado: '.$quem.$medication->displayName().' às '.$agora->format('H:i').'.');
+    }
+
     private function marcar(TreatmentScheduleService $schedule, int $medicationId, string $horario, string $status): void
     {
         $medication = $this->remedio($medicationId);
@@ -100,11 +120,11 @@ class Hoje extends Component
         $data = $hoje->addDays($this->dia);
         $agenda = $consentido ? self::anotarAjustes($schedule->agenda($user, $data)) : collect();
 
-        $periodos = ['manha' => ['Manhã', 'sol', []], 'tarde' => ['Tarde', 'relogio', []], 'noite' => ['Noite', 'lua', []]];
+        $periodos = ['madrugada' => ['Madrugada', 'lua', []], 'manha' => ['Manhã', 'sol', []], 'tarde' => ['Tarde', 'relogio', []], 'noite' => ['Noite', 'lua', []]];
         foreach ($agenda as $dose) {
             $hora = (int) substr($dose['time'], 0, 2);
             $chave = match (true) {
-                $hora < 12 => 'manha', $hora < 18 => 'tarde', default => 'noite'
+                $hora < 5 => 'madrugada', $hora < 12 => 'manha', $hora < 18 => 'tarde', default => 'noite'
             };
             $periodos[$chave][2][] = $dose;
         }
@@ -126,7 +146,8 @@ class Hoje extends Component
             'atrasadas' => $agenda->where('status', TreatmentScheduleService::DOSE_LATE)->count(),
             'temRemedios' => $remedios->isNotEmpty(),
             'temDinamico' => $agenda->contains(fn (array $dose): bool => $dose['dynamic']),
-            'quandoPrecisar' => $remedios->filter(fn (PatientMedication $item): bool => $item->as_needed && $item->isActive())->values(),
+            'quandoPrecisar' => $quandoPrecisar = $remedios->filter(fn (PatientMedication $item): bool => $item->as_needed && $item->isActive())->values(),
+            'tomadasQuandoPrecisar' => $schedule->asNeededTaken($quandoPrecisar, $data),
         ]);
     }
 

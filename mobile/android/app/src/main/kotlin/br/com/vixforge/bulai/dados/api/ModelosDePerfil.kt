@@ -21,6 +21,8 @@ data class Perfil(
 data class AtalhosDePosologia(
     @SerialName("frequencies") val frequencias: List<String> = emptyList(),
     @SerialName("doses") val doses: List<String> = emptyList(),
+    /** "Até quando?": dias contados a partir do início (o primeiro dia conta). */
+    @SerialName("durations") val duracoes: List<Int> = listOf(7, 10, 14, 30),
 )
 
 @Serializable
@@ -37,6 +39,9 @@ data class RemedioDoPerfil(
     val frequency: String? = null,
     @SerialName("started_label") val inicio: String? = null,
     @SerialName("ends_label") val fim: String? = null,
+    /** "Uso contínuo" ou "Até 25/11/2026"; null quando falta dizer até quando. */
+    @SerialName("duration_label") val prazo: String? = null,
+    @SerialName("needs_duration") val faltaPrazo: Boolean = false,
     @SerialName("prescriber") val prescritor: String? = null,
     val notes: String? = null,
     @SerialName("reminders_enabled") val lembretes: Boolean = true,
@@ -53,6 +58,8 @@ data class DoseEHorarios(
     val frequency: String = "",
     @SerialName("started_at") val inicio: String? = null,
     @SerialName("ends_at") val fim: String? = null,
+    /** Todo remédio tem prazo: [fim] ou uso contínuo. */
+    @SerialName("continuous") val continuo: Boolean = false,
     @SerialName("prescription_id") val receita: Long? = null,
     val notes: String = "",
     val times: List<String> = emptyList(),

@@ -1,7 +1,7 @@
 {{--
     Formulário "Dose e horários" de um remédio (Meus remédios e modo cuidador), pensado para o celular e igual ao do
     aplicativo: 1. Quanto tomar (atalhos de dose), 2. Quando tomar (atalhos grandes que sugerem os horários),
-    3. Horários do dia (cada um com Manhã/Tarde/Noite) e, recolhido, "Mais detalhes". Os campos são do componente
+    3. Horários do dia (cada um com Manhã/Tarde/Noite), 4. Até quando (dias, data ou "Uso contínuo") e, recolhido, "Mais detalhes". Os campos são do componente
     Livewire que usa o trait EditaPosologia. Sem `receitas`, o vínculo com a receita fica como está.
 --}}
 @props(['item', 'posologia', 'receitas' => null, 'resumo' => 'Datas, receita e observações'])
@@ -122,9 +122,30 @@
         @endif
     </section>
 
+    {{-- 4. Até quando: todo remédio tem prazo (uma data ou "Uso contínuo"). --}}
+    @php($inicioDoPrazo = \Carbon\CarbonImmutable::parse($posologia['started_at'] ?: now()->toDateString()))
+    @php($continuo = (bool) ($posologia['continuous'] ?? false))
+    <section class="grid gap-2" aria-labelledby="pf-{{ $item->id }}">
+        <p id="pf-{{ $item->id }}" class="flex items-center gap-2 text-lg font-semibold text-slate-900"><span class="{{ $passo }}" aria-hidden="true">4</span>Até quando?</p>
+        <label class="flex min-h-14 cursor-pointer items-center gap-3 rounded-xl bg-white px-4 py-2 ring-1 ring-slate-200">
+            <input type="checkbox" class="size-6 shrink-0 rounded border-slate-400 text-brand-700 focus:ring-brand-600" wire:model.live="posologia.continuous">
+            <span class="min-w-0 flex-1"><span class="block text-lg font-semibold text-slate-900">Uso contínuo</span><span class="block text-base text-slate-600">Sem data para parar (pressão, diabetes, colesterol…)</span></span>
+        </label>
+        @unless ($continuo)
+            <div class="flex flex-wrap gap-2" aria-label="Por quantos dias">
+                @foreach (HealthProfileService::DURATION_PRESETS as $dias)
+                    @php($escolhida = ($posologia['ends_at'] ?? null) === $inicioDoPrazo->addDays($dias - 1)->toDateString())
+                    <button type="button" wire:key="du-{{ $item->id }}-{{ $dias }}" wire:click="escolherDuracao({{ $dias }})" aria-pressed="{{ $escolhida ? 'true' : 'false' }}"
+                        class="{{ $chip }} {{ $escolhida ? 'bg-brand-700 text-white' : 'bg-white text-brand-900 ring-1 ring-inset ring-brand-600/30 hover:bg-brand-50' }}">{{ $dias }} dias</button>
+                @endforeach
+            </div>
+            <div><label class="font-medium text-slate-800" for="fim-{{ $item->id }}">Ou escolha o último dia</label><input id="fim-{{ $item->id }}" class="ui-control min-h-14 text-lg" type="date" wire:model.live="posologia.ends_at"></div>
+        @endunless
+        @error('posologia.ends_at')<p class="text-base font-semibold text-rose-800" role="alert">{{ $message }}</p>@enderror
+    </section>
+
     <x-consulta.secao titulo="Mais detalhes" :resumo="$resumo" icon="calendario" tone="neutral">
         <div><label class="font-medium text-slate-800" for="ini-{{ $item->id }}">Começou em</label><input id="ini-{{ $item->id }}" class="ui-control min-h-14 text-lg" type="date" wire:model="posologia.started_at"></div>
-        <div><label class="font-medium text-slate-800" for="fim-{{ $item->id }}">Termina em (vazio = uso contínuo)</label><input id="fim-{{ $item->id }}" class="ui-control min-h-14 text-lg" type="date" wire:model="posologia.ends_at"></div>
         @if ($receitas !== null)
             <div><label class="font-medium text-slate-800" for="rec-{{ $item->id }}">Receita</label>
                 <select id="rec-{{ $item->id }}" class="ui-control min-h-14 text-lg" wire:model="posologia.prescription_id">

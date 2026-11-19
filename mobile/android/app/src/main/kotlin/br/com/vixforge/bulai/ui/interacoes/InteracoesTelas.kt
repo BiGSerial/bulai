@@ -1,5 +1,6 @@
 package br.com.vixforge.bulai.ui.interacoes
 
+import br.com.vixforge.bulai.ui.componentes.nomeAmigavel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -154,7 +155,7 @@ private fun LinhaDoEscolhido(remedio: RemedioDaConsulta, aoTirar: () -> Unit, mo
     Cartao(modifier, cor = if (remedio.alerts.isNotEmpty()) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surface) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(remedio.name, style = MaterialTheme.typography.titleMedium)
+                Text(nomeAmigavel(remedio.name), style = MaterialTheme.typography.titleMedium)
                 Text(remedio.ingredients.lowercase(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!remedio.identified) {
                     Text("Princípio ativo não identificado: o resultado pode ficar incompleto.", style = MaterialTheme.typography.bodyMedium, color = TemaBulai.extras.alerta)

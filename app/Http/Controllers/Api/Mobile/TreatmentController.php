@@ -40,6 +40,17 @@ final class TreatmentController extends Controller
         return response()->json($screens->day($user, (int) ($data['dia'] ?? 0)))->header('Cache-Control', 'no-store');
     }
 
+    /** "Só quando precisar": anota que tomou agora; desfazer usa o DELETE de /dia/doses com o horário devolvido. */
+    public function takeAsNeeded(Request $request, TreatmentScheduleService $schedule, PatientDayService $screens): JsonResponse
+    {
+        $data = $request->validate(['medication_id' => ['required', 'integer']]);
+        $user = $request->user();
+        $medication = PatientMedication::query()->where('user_id', $user->id)->where('as_needed', true)->findOrFail((int) $data['medication_id']);
+        $schedule->takeAsNeeded($user, $medication);
+
+        return response()->json($screens->day($user))->header('Cache-Control', 'no-store');
+    }
+
     public function unmark(Request $request, TreatmentScheduleService $schedule, PatientDayService $screens): JsonResponse
     {
         $data = $this->validateDose($request);

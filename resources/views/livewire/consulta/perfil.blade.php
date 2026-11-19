@@ -76,7 +76,11 @@
                                         @foreach ($item->scheduledTimes() as $hora)<x-consulta.selo tone="brand" class="!px-2.5 !py-0.5 !text-sm tabular-nums">{{ $hora }}</x-consulta.selo>@endforeach
                                         @if ($item->scheduledTimes() === [])<x-consulta.selo tone="neutral" class="!px-2.5 !py-0.5 !text-sm">Sem horários</x-consulta.selo>@endif
                                     @endif
-                                    @if ($item->ends_at)<span class="ml-auto shrink-0 text-sm text-slate-600">até {{ $item->ends_at->format('d/m/Y') }}</span>@endif
+                                    @if ($item->needsDuration())
+                                        <x-consulta.selo tone="warning" class="ml-auto !px-2.5 !py-0.5 !text-sm">Falta dizer até quando</x-consulta.selo>
+                                    @else
+                                        <span class="ml-auto shrink-0 text-sm text-slate-600">{{ $item->durationLabel() }}</span>
+                                    @endif
                                 </div>
                                 @if ($item->prescription || ! $item->isMatched())
                                     <p class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-t border-slate-100 pt-2 text-sm text-slate-600">

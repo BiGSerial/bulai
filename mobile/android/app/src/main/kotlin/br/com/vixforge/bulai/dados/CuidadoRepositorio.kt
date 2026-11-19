@@ -7,6 +7,7 @@ import br.com.vixforge.bulai.dados.api.Dose
 import br.com.vixforge.bulai.dados.api.MeusCuidadores
 import br.com.vixforge.bulai.dados.api.PedidoDeCodigo
 import br.com.vixforge.bulai.dados.api.PedidoDeMarcacao
+import br.com.vixforge.bulai.dados.api.PedidoSeNecessario
 import br.com.vixforge.bulai.dados.api.PedidoDePermissoes
 import br.com.vixforge.bulai.dados.api.QuemEuCuido
 import br.com.vixforge.bulai.dados.api.chamar
@@ -26,6 +27,11 @@ interface FonteDoDia {
     suspend fun marcar(dose: Dose, situacao: String, deslocamento: Int): Result<Dia>
 
     suspend fun desmarcar(dose: Dose, deslocamento: Int): Result<Dia>
+
+    /** "Só quando precisar": o servidor anota o instante atual. */
+    suspend fun tomarSeNecessario(remedioId: Long): Result<Dia>
+
+    suspend fun desfazerSeNecessario(remedioId: Long, agendadaPara: String): Result<Dia>
 }
 
 /**
@@ -71,6 +77,12 @@ class CuidadoRepositorio(context: Context, private val api: BulaiApi, private va
 
         override suspend fun desmarcar(dose: Dose, deslocamento: Int): Result<Dia> =
             chamar { api.desmarcarParaQuemCuido(vinculo, PedidoDeMarcacao(dose.remedioId, dose.agendadaPara, null, deslocamento)) }.onSuccess { guardar(it) }
+
+        override suspend fun tomarSeNecessario(remedioId: Long): Result<Dia> =
+            chamar { api.tomarSeNecessarioParaQuemCuido(vinculo, PedidoSeNecessario(remedioId)) }.onSuccess { guardar(it) }
+
+        override suspend fun desfazerSeNecessario(remedioId: Long, agendadaPara: String): Result<Dia> =
+            chamar { api.desmarcarParaQuemCuido(vinculo, PedidoDeMarcacao(remedioId, agendadaPara, null, 0)) }.onSuccess { guardar(it) }
 
         private suspend fun guardar(dia: Dia) = cache.gravar(chave(dia.offset), Dia.serializer(), dia)
 

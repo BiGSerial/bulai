@@ -4,6 +4,7 @@ namespace App\Livewire\Consulta\Concerns;
 
 use App\Models\PatientMedication;
 use App\Services\Patient\HealthProfileService;
+use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -22,7 +23,7 @@ trait EditaPosologia
      * `interval_hours` vem da frequência ("de 8 em 8 horas"); com ele, `schedule_mode` escolhe entre contar a partir do
      * horário real em que o paciente toma (`interval`, padrão) ou horários fixos todos os dias (`fixed`).
      *
-     * @var array{dosage: string, frequency: string, started_at: string|null, ends_at: string|null, prescription_id: int|string|null, notes: string, times: list<string>, as_needed: bool, reminders_enabled: bool, interval_hours: int|null, schedule_mode: string}
+     * @var array{dosage: string, frequency: string, started_at: string|null, ends_at: string|null, continuous: bool, prescription_id: int|string|null, notes: string, times: list<string>, as_needed: bool, reminders_enabled: bool, interval_hours: int|null, schedule_mode: string}
      */
     public array $posologia = self::POSOLOGIA_VAZIA;
 
@@ -54,6 +55,22 @@ trait EditaPosologia
     public function escolherFrequencia(string $frequencia): void
     {
         $this->posologia = app(HealthProfileService::class)->choosePreset($this->posologia, mb_substr($frequencia, 0, 120));
+    }
+
+    /** "7 dias": o último dia é o início + 6 (o primeiro dia conta). */
+    public function escolherDuracao(int $dias): void
+    {
+        $dias = max(1, min(365, $dias));
+        $inicio = CarbonImmutable::parse(($this->posologia['started_at'] ?? null) ?: now()->toDateString());
+        $this->posologia['continuous'] = false;
+        $this->posologia['ends_at'] = $inicio->addDays($dias - 1)->toDateString();
+    }
+
+    public function updatedPosologiaContinuous(bool $continuo): void
+    {
+        if ($continuo) {
+            $this->posologia['ends_at'] = null;
+        }
     }
 
     public function escolherDose(string $dose): void

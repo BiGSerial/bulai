@@ -468,10 +468,38 @@ final class QuestionConversation
             ->unique(fn ($e) => ($e['document_id'] ?? '').'|'.trim((string) ($e['section'] ?? '')).'|'.($e['page_start'] ?? ''))
             ->map(fn ($e): array => [
                 'document_title' => (string) ($e['document_title'] ?? 'Bula'),
-                'section' => filled($e['section'] ?? null) ? trim((string) $e['section']) : null,
+                'section' => filled($e['section'] ?? null) ? self::readableSection((string) $e['section']) : null,
                 'page_start' => $e['page_start'] ?? null,
-                'excerpt' => Str::limit(trim(preg_replace('/\s+/u', ' ', (string) $e['excerpt']) ?? ''), 420, '…'),
+                'excerpt' => self::readableExcerpt((string) $e['excerpt']),
                 'processed' => ($processados[$e['document_id'] ?? 0] ?? null)?->timezone(config('app.timezone'))->format('d/m/Y'),
             ])->values()->all();
+    }
+
+    /** Prefixos que levam hífen de verdade ("pós-comercialização"); nos outros, o hífen é só a quebra de linha do PDF. */
+    private const HYPHENATED_PREFIXES = ['pos', 'pre', 'pro', 'anti', 'auto', 'semi', 'sub', 'super', 'ex', 'vice', 'recem', 'bem', 'mal', 'nao', 'co', 'micro', 'macro', 'hiper', 'hipo', 'pseudo', 'infra', 'ultra', 'intra', 'extra'];
+
+    /** "REAÇÕES ADVERSAS" → "Reações adversas": título de seção em maiúsculas é mais difícil de ler. */
+    public static function readableSection(string $section): string
+    {
+        $section = trim((string) preg_replace('/\s+/u', ' ', $section));
+        if ($section !== '' && mb_strtoupper($section) === $section && preg_match('/\p{Lu}{3}/u', $section) === 1) {
+            $section = Str::ucfirst(mb_strtolower($section));
+        }
+
+        return $section;
+    }
+
+    /**
+     * Trecho da bula para ler na tela: junta palavras que o PDF quebrou com hífen ("medica- mento" → "medicamento",
+     * mas "pós- comercialização" → "pós-comercialização"), tira espaços repetidos e corta no fim de uma palavra.
+     */
+    public static function readableExcerpt(string $excerpt, int $limit = 420): string
+    {
+        $text = trim((string) preg_replace('/\s+/u', ' ', $excerpt));
+        $text = (string) preg_replace_callback('/(\p{L}+)- (\p{Ll})/u', function (array $m): string {
+            return in_array(Str::lower(Str::ascii($m[1])), self::HYPHENATED_PREFIXES, true) ? $m[1].'-'.$m[2] : $m[1].$m[2];
+        }, $text);
+
+        return Str::limit($text, $limit, '…', preserveWords: true);
     }
 }

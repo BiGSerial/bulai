@@ -249,6 +249,7 @@ final class ModoCuidadorTest extends TestCase
             ->call('editarPosologia', $losartana->id)
             ->set('posologia.dosage', '2 comprimidos')
             ->set('posologia.times', ['09:00'])
+            ->set('posologia.continuous', true)
             ->call('salvarPosologia')
             ->assertSee('Dose e horários de Losartana salvos');
         $this->assertSame(['2 comprimidos', ['09:00']], [$losartana->refresh()->dosage, $losartana->dose_times]);

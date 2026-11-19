@@ -24,7 +24,7 @@ final class DoseScheduleParser
         if ($text === '') {
             return null;
         }
-        if (preg_match('/\b(se necessario|se precisar|quando (tiver|sentir|houver)|sos|em caso de|caso (tenha|sinta))\b/', $text) === 1) {
+        if (preg_match('/\b(se necessario|se precisar|quando precisar|so quando|so se|quando (tiver|sentir|houver|doer)|sos|em caso de|caso (tenha|sinta)|se (tiver |sentir |houver )?(dor|dores|febre|enjoo|nausea|colica|colicas|crise|azia|tosse|insonia)|se doer)\b/', $text) === 1) {
             return ['times' => [], 'as_needed' => true, 'rule' => 'as_needed', 'interval_hours' => null];
         }
         if (preg_match('/\b(semana|semanal|semanalmente|mes|mensal|mensalmente|quinzen)/', $text) === 1) {

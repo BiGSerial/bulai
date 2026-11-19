@@ -379,11 +379,11 @@ final class ConversaHumanizadaTest extends TestCase
         ]);
 
         $component = Livewire::actingAs(User::factory()->create())->test(Perguntar::class)->set('pergunta', 'Posso tomar dipirona?')->call('perguntar');
-        $component->assertSee('Se você pode tomar depende da sua saúde')->assertSee('Você já teve alergia a algum analgésico?')->assertSee('Baseado na bula do paciente de DIPIRONA.')->assertSee('Fontes utilizadas')
-            ->assertSeeHtml('whitespace-pre-line');
+        $component->assertSee('Se você pode tomar depende da sua saúde')->assertSee('Você já teve alergia a algum analgésico?')->assertSee('Baseado na bula do paciente de DIPIRONA.')->assertSee('De onde veio esta resposta?')
+            ->assertSee('Ler o texto da bula');
         $this->assertSame(['DIPIRONA'], array_column($component->get('resposta')['medicines'], 'name'), 'o mesmo remédio uma só vez');
         $html = $component->html();
-        $this->assertSame(1, substr_count(preg_replace('/<!--.*?-->/s', '', $html), 'CONTRAINDICAÇÕES · página 3'), 'a mesma seção e página aparece uma vez nas fontes');
+        $this->assertSame(1, substr_count(preg_replace('/<!--.*?-->/s', '', $html), 'Parte: Contraindicações, página 3'), 'a mesma seção e página aparece uma vez nas fontes');
         $this->assertStringContainsString('<details', $html);
         $this->assertNotNull($dipirona->id);
         $this->assertNotNull($dipirona2->id);

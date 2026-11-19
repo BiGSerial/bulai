@@ -117,7 +117,20 @@ data class Inicio(
 data class ResumoDoDia(val total: Int = 0, val done: Int = 0, val taken: Int = 0, val late: Int = 0)
 
 @Serializable
-data class RemedioSeNecessario(@SerialName("medication_id") val remedioId: Long, val name: String, val dosage: String? = null)
+data class RemedioSeNecessario(
+    @SerialName("medication_id") val remedioId: Long,
+    val name: String,
+    val dosage: String? = null,
+    /** Vezes que tomou no dia ("Tomei agora"), da mais antiga à mais recente. */
+    @SerialName("taken_today") val tomadasHoje: List<VezQueTomou> = emptyList(),
+)
+
+/** Uma vez que o remédio "só quando precisar" foi tomado: o instante (chave para desfazer) e a hora para mostrar. */
+@Serializable
+data class VezQueTomou(@SerialName("scheduled_for") val agendadaPara: String, val time: String)
+
+@Serializable
+data class PedidoSeNecessario(@SerialName("medication_id") val remedioId: Long)
 
 @Serializable
 data class Dia(

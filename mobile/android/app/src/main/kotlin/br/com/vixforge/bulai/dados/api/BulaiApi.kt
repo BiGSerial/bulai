@@ -45,6 +45,9 @@ interface BulaiApi {
     @HTTP(method = "DELETE", path = "dia/doses", hasBody = true)
     suspend fun desmarcar(@Body pedido: PedidoDeMarcacao): Dia
 
+    @POST("dia/se-necessario")
+    suspend fun tomarSeNecessario(@Body pedido: PedidoSeNecessario): Dia
+
     @GET("avisos")
     suspend fun avisos(): CentralDeAvisos
 
@@ -155,6 +158,9 @@ interface BulaiApi {
 
     @HTTP(method = "DELETE", path = "cuidando/{id}/dia/doses", hasBody = true)
     suspend fun desmarcarParaQuemCuido(@Path("id") vinculo: Long, @Body pedido: PedidoDeMarcacao): Dia
+
+    @POST("cuidando/{id}/dia/se-necessario")
+    suspend fun tomarSeNecessarioParaQuemCuido(@Path("id") vinculo: Long, @Body pedido: PedidoSeNecessario): Dia
 
     // Resumo para o médico
     @Streaming

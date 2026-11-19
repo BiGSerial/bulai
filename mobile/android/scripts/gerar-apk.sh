@@ -41,7 +41,8 @@ case "$TIPO" in
         ;;
 esac
 
-VERSAO="$(grep -m1 'versionName' app/build.gradle.kts | sed -E 's/.*"(.*)".*/\1/')"
+VERSAO="$(git -c versionsort.suffix=- tag --list 'android-v*' --sort=-v:refname | head -1 | sed 's/^android-v//')"
+VERSAO="${VERSAO:-1.0.0}"
 mkdir -p dist
 DESTINO="dist/bulai-${VERSAO}-${TIPO}.apk"
 cp "$ORIGEM" "$DESTINO"

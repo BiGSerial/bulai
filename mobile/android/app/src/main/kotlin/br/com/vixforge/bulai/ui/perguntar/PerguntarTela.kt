@@ -1,5 +1,6 @@
 package br.com.vixforge.bulai.ui.perguntar
 
+import br.com.vixforge.bulai.ui.componentes.nomeAmigavel
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.text.BasicTextField
@@ -98,6 +99,8 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.com.vixforge.bulai.dados.api.Resposta
@@ -232,18 +235,33 @@ fun PerguntarTela(preenchimento: PaddingValues, remedioInicial: Long? = null, ao
     }
 }
 
+/**
+ * Boas-vindas curtas: uma pergunta, uma dica de como enviar e, até cinco remédios em uso (com mais, quatro e o resto num toque) e dois
+ * exemplos. Antes eram todos os remédios e três exemplos de uma vez, o que enchia a tela de botões.
+ */
 @Composable
 private fun BoasVindas(estado: EstadoDaConversa, aoSugerir: (String) -> Unit, modifier: Modifier = Modifier) {
     BalaoDoBulai(modifier) {
-        Text("Oi! Sou o BULA-IA. Qual é a sua dúvida sobre um remédio?", style = MaterialTheme.typography.bodyLarge)
-        Text("Escreva ou fale, citando o nome do remédio. Depois você pode continuar: “e com café?”, “e à noite?”.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        val inicio = estado.inicio
-        if (inicio != null && (inicio.emUso.isNotEmpty() || inicio.examples.isNotEmpty())) {
+        Text("Oi! Qual é a sua dúvida sobre um remédio?", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        Text("Escreva aqui embaixo ou toque no microfone para falar.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val inicio = estado.inicio ?: return@BalaoDoBulai
+        if (inicio.emUso.isNotEmpty()) {
+            var todos by rememberSaveable { mutableStateOf(false) }
+            val mostrados = if (todos || inicio.emUso.size <= 5) inicio.emUso else inicio.emUso.take(4)
+            Text("Sobre um dos seus remédios:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                inicio.emUso.forEach { nome -> Pilula(nome, { aoSugerir(nome) }, destaque = true) }
-                if (estado.texto.isBlank()) {
-                    inicio.examples.forEach { exemplo -> Pilula(exemplo, { aoSugerir(exemplo) }) }
+                mostrados.forEach { nome -> Pilula(nomeAmigavel(nome), { aoSugerir(nome) }, destaque = true) }
+                if (inicio.emUso.size > mostrados.size) {
+                    TextButton(onClick = { todos = true }, modifier = Modifier.heightIn(min = 48.dp)) {
+                        Text("Ver todos (${inicio.emUso.size})", style = MaterialTheme.typography.labelLarge)
+                    }
                 }
+            }
+        }
+        if (estado.texto.isBlank() && inicio.examples.isNotEmpty()) {
+            Text("Ou toque em um exemplo:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                inicio.examples.take(2).forEach { exemplo -> Pilula(exemplo, { aoSugerir(exemplo) }, Modifier.fillMaxWidth()) }
             }
         }
     }
@@ -380,7 +398,7 @@ private fun CaixaDaPergunta(
                         decorationBox = { campo ->
                             Box {
                                 if (texto.isEmpty()) {
-                                    Text("Sua dúvida sobre um remédio", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Text("Escreva sua dúvida", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 campo()
                             }
