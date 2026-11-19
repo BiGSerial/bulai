@@ -94,6 +94,19 @@ final class AppAndroidTest extends TestCase
         $this->getJson(route('api.mobile.me'), ['Authorization' => 'Bearer '.$second])->assertOk()->assertJsonPath('user.first_name', explode(' ', $user->name)[0]);
     }
 
+    public function test_login_records_the_platform_of_the_installation_defaulting_to_android(): void
+    {
+        $user = $this->patient();
+        $credentials = ['email' => $user->email, 'password' => 'password', 'device_name' => 'iPhone 16'];
+
+        $this->postJson(route('api.mobile.login'), $credentials + ['installation_id' => (string) Str::uuid(), 'platform' => 'ios'])->assertOk();
+        $this->postJson(route('api.mobile.login'), $credentials + ['installation_id' => (string) Str::uuid()])->assertOk();
+        $this->postJson(route('api.mobile.login'), $credentials + ['installation_id' => (string) Str::uuid(), 'platform' => 'windows'])
+            ->assertUnprocessable()->assertJsonValidationErrors('platform');
+
+        $this->assertSame([MobileDevice::PLATFORM_ANDROID, MobileDevice::PLATFORM_IOS], MobileDevice::query()->orderBy('platform')->pluck('platform')->all());
+    }
+
     public function test_login_refuses_wrong_passwords_and_only_reveals_blocked_accounts_to_who_knows_the_password(): void
     {
         $installation = (string) Str::uuid();

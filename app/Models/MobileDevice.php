@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 /**
- * Instalação do aplicativo Android ligada à conta (docs/app-android.md). O token em texto só existe na resposta do
+ * Instalação do aplicativo nativo (Android ou iOS) ligada à conta (docs/app-android.md, docs/app-ios.md). O token em texto só existe na resposta do
  * registro; o banco guarda o sha256. Registrar de novo a mesma instalação troca o token (o antigo deixa de valer).
  */
 #[Fillable(['user_id', 'installation_id', 'token_hash', 'platform', 'device_name', 'app_version', 'last_seen_at'])]
@@ -17,6 +17,13 @@ use Illuminate\Support\Str;
 class MobileDevice extends Model
 {
     public const TOKEN_PREFIX = 'bulai_app_';
+
+    public const PLATFORM_ANDROID = 'android';
+
+    public const PLATFORM_IOS = 'ios';
+
+    /** Plataformas aceitas no login; sem o campo, vale Android (as versões do APK anteriores ao iOS não o enviam). */
+    public const PLATFORMS = [self::PLATFORM_ANDROID, self::PLATFORM_IOS];
 
     protected function casts(): array
     {
@@ -36,7 +43,7 @@ class MobileDevice extends Model
     /**
      * Cria (ou renova) o aparelho da instalação e devolve o token em texto, mostrado uma única vez.
      *
-     * @param  array{installation_id: string, device_name?: string|null, app_version?: string|null}  $data
+     * @param  array{installation_id: string, platform?: string|null, device_name?: string|null, app_version?: string|null}  $data
      * @return array{device: self, token: string}
      */
     public static function issueFor(User $user, array $data): array
@@ -46,7 +53,7 @@ class MobileDevice extends Model
             ['user_id' => $user->id, 'installation_id' => $data['installation_id']],
             [
                 'token_hash' => self::hashFor($token),
-                'platform' => 'android',
+                'platform' => in_array($data['platform'] ?? null, self::PLATFORMS, true) ? $data['platform'] : self::PLATFORM_ANDROID,
                 'device_name' => isset($data['device_name']) ? mb_substr($data['device_name'], 0, 120) : null,
                 'app_version' => isset($data['app_version']) ? mb_substr($data['app_version'], 0, 40) : null,
                 'last_seen_at' => now(),

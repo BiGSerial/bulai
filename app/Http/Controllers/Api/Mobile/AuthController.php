@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 
@@ -28,6 +29,7 @@ final class AuthController extends Controller
             'email' => ['required', 'email'],
             'password' => ['required', 'string'],
             'installation_id' => ['required', 'uuid'],
+            'platform' => ['nullable', Rule::in(MobileDevice::PLATFORMS)],
             'device_name' => ['nullable', 'string', 'max:120'],
             'app_version' => ['nullable', 'string', 'max:40'],
         ]);
@@ -44,7 +46,7 @@ final class AuthController extends Controller
         ['device' => $device, 'token' => $token] = MobileDevice::issueFor($user, $data);
         $user->forceFill(['last_login_at' => now(), 'last_login_ip' => $request->ip()])->save();
         if ($device->wasRecentlyCreated) {
-            UserAuditEvent::query()->create(['user_id' => $user->id, 'actor_id' => $user->id, 'event' => UserAuditEvent::EVENT_MOBILE_DEVICE_CONNECTED, 'details' => ['device_id' => $device->id, 'device_name' => $device->device_name], 'ip' => $request->ip()]);
+            UserAuditEvent::query()->create(['user_id' => $user->id, 'actor_id' => $user->id, 'event' => UserAuditEvent::EVENT_MOBILE_DEVICE_CONNECTED, 'details' => ['device_id' => $device->id, 'device_name' => $device->device_name, 'platform' => $device->platform], 'ip' => $request->ip()]);
         }
 
         return response()->json(['token' => $token, 'user' => self::user($user)])->header('Cache-Control', 'no-store');

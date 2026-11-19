@@ -16,7 +16,7 @@ final class DeviceController extends Controller
         /** @var MobileDevice $device */
         $device = $request->attributes->get('mobile_device');
         $device->delete();
-        UserAuditEvent::query()->create(['user_id' => $device->user_id, 'actor_id' => $device->user_id, 'event' => UserAuditEvent::EVENT_MOBILE_DEVICE_DISCONNECTED, 'details' => ['device_id' => $device->id, 'device_name' => $device->device_name], 'ip' => $request->ip()]);
+        UserAuditEvent::query()->create(['user_id' => $device->user_id, 'actor_id' => $device->user_id, 'event' => UserAuditEvent::EVENT_MOBILE_DEVICE_DISCONNECTED, 'details' => ['device_id' => $device->id, 'device_name' => $device->device_name, 'platform' => $device->platform], 'ip' => $request->ip()]);
 
         return response()->json(['ok' => true]);
     }

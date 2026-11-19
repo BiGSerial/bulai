@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Token do aparelho Android (`Authorization: Bearer bulai_app_…`). O dono precisa continuar com acesso ativo: conta
+ * Token do aparelho do aplicativo nativo, Android ou iOS (`Authorization: Bearer bulai_app_…`). O dono precisa continuar com acesso ativo: conta
  * desativada ou cadastro não aprovado recebe 401 e o aplicativo desliga os alarmes.
  *
  * Senha provisória pendente: só as rotas marcadas com `:primeiro-acesso` atendem; as demais respondem 403 com
